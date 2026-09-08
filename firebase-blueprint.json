@@ -1,0 +1,324 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Registered user profile with role and status",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string", "description": "Unique identifier of the user (Firebase Auth UID)" },
+        "email": { "type": "string", "description": "User email address" },
+        "display_name": { "type": "string", "description": "User display name" },
+        "avatar_url": { "type": "string", "description": "User avatar image URL" },
+        "role": { "type": "string", "enum": ["USER", "ADMIN"], "description": "Access control role" },
+        "status": { "type": "string", "enum": ["ACTIVE", "SUSPENDED"], "description": "Account operational status" },
+        "created_at": { "type": "string", "description": "ISO timestamp of account creation" },
+        "updated_at": { "type": "string", "description": "ISO timestamp of last profile update" },
+        "last_login_at": { "type": "string", "description": "ISO timestamp of last sign-in" }
+      },
+      "required": ["user_id", "email", "role", "status", "created_at", "updated_at"]
+    },
+    "WalletAccount": {
+      "title": "WalletAccount",
+      "description": "User wallet account holding balance snapshots derived from ledger",
+      "type": "object",
+      "properties": {
+        "account_id": { "type": "string", "description": "Wallet account ID (matches user_id)" },
+        "user_id": { "type": "string", "description": "Owner user ID" },
+        "currency": { "type": "string", "description": "Base currency code (e.g., BRL)" },
+        "available_balance_cents": { "type": "integer", "description": "Current balance available to spend in integer cents" },
+        "reserved_balance_cents": { "type": "integer", "description": "Balance reserved for queued/processing jobs in integer cents" },
+        "total_balance_cents": { "type": "integer", "description": "Total balance (available + reserved) in integer cents" },
+        "total_deposited_cents": { "type": "integer", "description": "Cumulative deposits in integer cents" },
+        "total_used_cents": { "type": "integer", "description": "Cumulative consumed funds in integer cents" },
+        "updated_at": { "type": "string", "description": "ISO timestamp of last balance update" }
+      },
+      "required": ["account_id", "user_id", "currency", "available_balance_cents", "reserved_balance_cents", "total_balance_cents", "updated_at"]
+    },
+    "WalletTransaction": {
+      "title": "WalletTransaction",
+      "description": "Immutable ledger transaction entry",
+      "type": "object",
+      "properties": {
+        "transaction_id": { "type": "string", "description": "Unique transaction ID" },
+        "user_id": { "type": "string", "description": "Target user ID" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "DEPOSIT",
+            "GENERATION_RESERVE",
+            "GENERATION_CAPTURE",
+            "GENERATION_RELEASE",
+            "REFUND",
+            "ADMIN_CREDIT",
+            "ADMIN_DEBIT",
+            "PROMOTIONAL_CREDIT"
+          ],
+          "description": "Transaction classification"
+        },
+        "amount_cents": { "type": "integer", "description": "Transaction value in integer cents" },
+        "status": {
+          "type": "string",
+          "enum": ["PENDING", "COMPLETED", "CANCELLED", "FAILED"],
+          "description": "Transaction state"
+        },
+        "description": { "type": "string", "description": "Human-readable transaction description" },
+        "reference_type": { "type": "string", "description": "Reference category (e.g. MANUAL_ADMIN, GENERATION, PAYMENT)" },
+        "reference_id": { "type": "string", "description": "ID of associated entity" },
+        "idempotency_key": { "type": "string", "description": "Idempotency key to avoid duplicate financial entries" },
+        "created_at": { "type": "string", "description": "ISO timestamp of transaction" },
+        "created_by": { "type": "string", "description": "UID of entity/admin creating the entry" }
+      },
+      "required": ["transaction_id", "user_id", "type", "amount_cents", "status", "description", "idempotency_key", "created_at", "created_by"]
+    },
+    "Generation": {
+      "title": "Generation",
+      "description": "Record of AI generation request (prepared for Stage 2 & 3)",
+      "type": "object",
+      "properties": {
+        "generation_id": { "type": "string", "description": "Unique generation ID" },
+        "user_id": { "type": "string", "description": "Owner user ID" },
+        "status": {
+          "type": "string",
+          "enum": [
+            "DRAFT",
+            "QUEUED",
+            "RESERVING_FUNDS",
+            "SUBMITTED",
+            "PROCESSING",
+            "SUCCEEDED",
+            "FAILED",
+            "CANCELLED",
+            "REFUNDED"
+          ],
+          "description": "Lifecycle state of the generation"
+        },
+        "model_id": { "type": "string", "description": "Target model identifier" },
+        "provider_id": { "type": "string", "description": "Routed provider identifier" },
+        "original_prompt": { "type": "string", "description": "Original prompt input by user" },
+        "compiled_prompt": { "type": "string", "description": "Compiler prompt ready for model execution" },
+        "prompt_compiler_version": { "type": "string", "description": "Compiler version used" },
+        "duration_seconds": { "type": "number", "description": "Duration in seconds" },
+        "resolution": { "type": "string", "description": "Target output resolution (e.g. 720p, 1080p)" },
+        "estimated_cost_cents": { "type": "integer", "description": "Pre-execution estimated cost in integer cents" },
+        "maximum_authorized_cost_cents": { "type": "integer", "description": "User-authorized ceiling cost in integer cents" },
+        "final_cost_cents": { "type": "integer", "description": "Actual deducted cost in integer cents" },
+        "currency": { "type": "string", "description": "Currency code (BRL)" },
+        "provider_job_id": { "type": "string", "description": "Remote provider execution job ID" },
+        "client_request_id": { "type": "string", "description": "Client unique request ID" },
+        "created_at": { "type": "string", "description": "ISO timestamp" },
+        "submitted_at": { "type": "string", "description": "ISO timestamp" },
+        "completed_at": { "type": "string", "description": "ISO timestamp" },
+        "failed_at": { "type": "string", "description": "ISO timestamp" },
+        "result_asset_id": { "type": "string", "description": "Reference to generated Asset ID" },
+        "error_code": { "type": "string", "description": "Standardized error code on failure" }
+      },
+      "required": ["generation_id", "user_id", "status", "created_at"]
+    },
+    "Asset": {
+      "title": "Asset",
+      "description": "User uploaded or generated media asset metadata",
+      "type": "object",
+      "properties": {
+        "asset_id": { "type": "string", "description": "Unique asset identifier" },
+        "owner_user_id": { "type": "string", "description": "Owner user ID" },
+        "type": { "type": "string", "enum": ["IMAGE", "VIDEO", "AUDIO", "OTHER"], "description": "Asset category" },
+        "storage_path": { "type": "string", "description": "Firebase Storage path" },
+        "mime_type": { "type": "string", "description": "MIME type" },
+        "size_bytes": { "type": "integer", "description": "File size in bytes" },
+        "width": { "type": "integer", "description": "Pixel width" },
+        "height": { "type": "integer", "description": "Pixel height" },
+        "duration_seconds": { "type": "number", "description": "Duration in seconds" },
+        "created_at": { "type": "string", "description": "ISO timestamp" },
+        "status": { "type": "string", "enum": ["READY", "PROCESSING", "FAILED"], "description": "Asset availability" }
+      },
+      "required": ["asset_id", "owner_user_id", "type", "storage_path", "mime_type", "size_bytes", "created_at", "status"]
+    },
+    "Model": {
+      "title": "Model",
+      "description": "AI model registry definition",
+      "type": "object",
+      "properties": {
+        "model_id": { "type": "string", "description": "Unique model ID" },
+        "name": { "type": "string", "description": "Display name of the model" },
+        "slug": { "type": "string", "description": "URL-safe slug" },
+        "category": { "type": "string", "enum": ["VIDEO", "IMAGE", "AUDIO", "OTHER"], "description": "Model output domain" },
+        "description": { "type": "string", "description": "Description of model capabilities" },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE", "EXPERIMENTAL"], "description": "Registry status" },
+        "created_at": { "type": "string", "description": "ISO timestamp" },
+        "updated_at": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["model_id", "name", "slug", "category", "description", "status", "created_at", "updated_at"]
+    },
+    "Provider": {
+      "title": "Provider",
+      "description": "External AI compute provider registry entry",
+      "type": "object",
+      "properties": {
+        "provider_id": { "type": "string", "description": "Unique provider ID" },
+        "name": { "type": "string", "description": "Provider display name" },
+        "slug": { "type": "string", "description": "URL-safe slug" },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE", "DEGRADED"], "description": "Operational health state" },
+        "priority": { "type": "integer", "description": "Routing priority weight (higher = preferred)" },
+        "is_configured": { "type": "boolean", "description": "Indicates server credentials exist without exposing keys" },
+        "created_at": { "type": "string", "description": "ISO timestamp" },
+        "updated_at": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["provider_id", "name", "slug", "status", "priority", "is_configured", "created_at", "updated_at"]
+    },
+    "ProviderModel": {
+      "title": "ProviderModel",
+      "description": "Mapping joining Models with execution Providers",
+      "type": "object",
+      "properties": {
+        "mapping_id": { "type": "string", "description": "Unique mapping ID" },
+        "model_id": { "type": "string", "description": "Associated model ID" },
+        "provider_id": { "type": "string", "description": "Associated provider ID" },
+        "provider_model_identifier": { "type": "string", "description": "Model ID used by the provider API" },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"], "description": "Route active state" },
+        "updated_at": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["mapping_id", "model_id", "provider_id", "provider_model_identifier", "status", "updated_at"]
+    },
+    "Pricing": {
+      "title": "Pricing",
+      "description": "Granular pricing rate separating provider cost from customer price in integer cents",
+      "type": "object",
+      "properties": {
+        "pricing_id": { "type": "string", "description": "Unique pricing entry ID" },
+        "provider_id": { "type": "string", "description": "Provider ID" },
+        "model_id": { "type": "string", "description": "Model ID" },
+        "resolution": { "type": "string", "description": "Resolution specification (e.g., 720p, 1080p, ANY)" },
+        "duration_seconds": { "type": "number", "description": "Applicable duration" },
+        "unit": { "type": "string", "description": "Unit of metric (PER_SECOND, PER_GENERATION)" },
+        "provider_cost_cents": { "type": "integer", "description": "Raw provider cost in integer cents" },
+        "customer_price_cents": { "type": "integer", "description": "Price charged to user in integer cents" },
+        "currency": { "type": "string", "description": "Currency ISO (BRL)" },
+        "effective_from": { "type": "string", "description": "ISO timestamp when rate takes effect" },
+        "effective_until": { "type": "string", "description": "ISO timestamp when rate expires (optional)" },
+        "active": { "type": "boolean", "description": "Whether rate is currently active" },
+        "updated_at": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["pricing_id", "provider_id", "model_id", "provider_cost_cents", "customer_price_cents", "currency", "active", "updated_at"]
+    },
+    "Promotion": {
+      "title": "Promotion",
+      "description": "Promotional discounts from providers or marketing campaigns",
+      "type": "object",
+      "properties": {
+        "promotion_id": { "type": "string", "description": "Unique promotion ID" },
+        "provider_id": { "type": "string", "description": "Associated provider ID" },
+        "model_id": { "type": "string", "description": "Associated model ID" },
+        "name": { "type": "string", "description": "Promotion title/campaign name" },
+        "discount_type": { "type": "string", "enum": ["PERCENTAGE", "FIXED_AMOUNT"], "description": "Discount formula" },
+        "discount_value": { "type": "integer", "description": "Percentage points (0-100) or amount in cents" },
+        "starts_at": { "type": "string", "description": "ISO start timestamp" },
+        "expires_at": { "type": "string", "description": "ISO expiration timestamp" },
+        "verified_at": { "type": "string", "description": "ISO timestamp when verified by team" },
+        "source_note": { "type": "string", "description": "Documentation source or link" },
+        "active": { "type": "boolean", "description": "Operational active flag" }
+      },
+      "required": ["promotion_id", "provider_id", "model_id", "name", "discount_type", "discount_value", "starts_at", "expires_at", "active"]
+    },
+    "FeatureFlag": {
+      "title": "FeatureFlag",
+      "description": "System-wide and private feature flags",
+      "type": "object",
+      "properties": {
+        "flag_key": { "type": "string", "description": "Key code of flag" },
+        "name": { "type": "string", "description": "Human-readable label" },
+        "description": { "type": "string", "description": "Purpose of the flag" },
+        "is_enabled": { "type": "boolean", "description": "Whether the feature is enabled" },
+        "is_private": { "type": "boolean", "description": "If true, only server evaluates or returns to admins" },
+        "updated_at": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["flag_key", "name", "is_enabled", "is_private", "updated_at"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable security and governance audit trail for administrative operations",
+      "type": "object",
+      "properties": {
+        "log_id": { "type": "string", "description": "Unique audit log ID" },
+        "admin_id": { "type": "string", "description": "UID of admin executing action" },
+        "admin_email": { "type": "string", "description": "Email of admin executing action" },
+        "action": { "type": "string", "description": "Standard action name (e.g. BALANCE_ADJUSTMENT, USER_SUSPENDED)" },
+        "entity_type": { "type": "string", "description": "Target entity category (USER, PRICING, PROVIDER, MODEL, PROMOTION, FEATURE_FLAG)" },
+        "entity_id": { "type": "string", "description": "ID of affected entity" },
+        "before": { "type": "object", "description": "Snapshot of state before modification" },
+        "after": { "type": "object", "description": "Snapshot of state after modification" },
+        "reason": { "type": "string", "description": "Mandatory justification for sensitive action" },
+        "created_at": { "type": "string", "description": "ISO timestamp of the event" }
+      },
+      "required": ["log_id", "admin_id", "admin_email", "action", "entity_type", "entity_id", "reason", "created_at"]
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Global application defaults and system limits",
+      "type": "object",
+      "properties": {
+        "config_id": { "type": "string", "description": "Unique config document key" },
+        "base_currency": { "type": "string", "description": "Primary currency (BRL)" },
+        "supported_locales": { "type": "string", "description": "JSON array string of supported locales" },
+        "min_deposit_cents": { "type": "integer", "description": "Minimum allowed deposit in cents" },
+        "max_price_change_percent_warning": { "type": "integer", "description": "Warning threshold percentage for pricing updates" },
+        "pagination_default_limit": { "type": "integer", "description": "Default list limit" },
+        "updated_at": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["config_id", "base_currency", "min_deposit_cents", "max_price_change_percent_warning", "updated_at"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles. Owned by userId or managed by Admin."
+    },
+    "/wallet_accounts/{userId}": {
+      "schema": "WalletAccount",
+      "description": "User wallet account. Read-only for owner, mutated solely via ledger & server."
+    },
+    "/wallet_transactions/{transactionId}": {
+      "schema": "WalletTransaction",
+      "description": "Immutable financial ledger entries. User can read own, mutated server-side only."
+    },
+    "/generations/{generationId}": {
+      "schema": "Generation",
+      "description": "Generation records. Read by owner, created/updated under strict state constraints."
+    },
+    "/assets/{assetId}": {
+      "schema": "Asset",
+      "description": "User asset metadata. Owned by owner_user_id."
+    },
+    "/models/{modelId}": {
+      "schema": "Model",
+      "description": "AI model registry. Read by authenticated users, written solely by Admin."
+    },
+    "/providers/{providerId}": {
+      "schema": "Provider",
+      "description": "AI compute provider registry. Read by authenticated users, written solely by Admin."
+    },
+    "/provider_models/{mappingId}": {
+      "schema": "ProviderModel",
+      "description": "Provider-to-model mapping registry. Read by authenticated users, written solely by Admin."
+    },
+    "/pricing/{pricingId}": {
+      "schema": "Pricing",
+      "description": "Granular pricing registry. Read by authenticated users, written solely by Admin."
+    },
+    "/promotions/{promotionId}": {
+      "schema": "Promotion",
+      "description": "Promotional campaigns. Read by authenticated users, written solely by Admin."
+    },
+    "/feature_flags/{flagKey}": {
+      "schema": "FeatureFlag",
+      "description": "Feature flags. Public flags readable, written solely by Admin."
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Immutable governance audit log. Read solely by Admin, append-only server-side."
+    },
+    "/app_config/{configId}": {
+      "schema": "AppConfig",
+      "description": "Global application configuration. Read by authenticated users, written solely by Admin."
+    }
+  }
+}

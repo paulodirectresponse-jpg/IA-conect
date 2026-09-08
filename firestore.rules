@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token != null && request.auth.token.admin == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN')
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() &&
+                    request.auth.uid == userId &&
+                    request.resource.data.user_id == userId &&
+                    request.resource.data.role == 'USER' &&
+                    request.resource.data.status == 'ACTIVE';
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        request.auth.uid == userId &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'user_id', 'created_at'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Wallet Accounts Collection
+    // Read-only for account owner; mutation strictly through server / Admin ledger adjustments
+    match /wallet_accounts/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Wallet Transactions Collection (Immutable Ledger)
+    match /wallet_transactions/{transactionId} {
+      allow get: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isAdmin();
+      allow update, delete: if false; // Immutable ledger guarantee
+    }
+
+    // Generations Collection
+    match /generations/{generationId} {
+      allow get: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Assets Collection
+    match /assets/{assetId} {
+      allow get: if isSignedIn() && (resource.data.owner_user_id == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.owner_user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.owner_user_id == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.owner_user_id == request.auth.uid || isAdmin());
+    }
+
+    // Model Registry
+    match /models/{modelId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Provider Registry
+    match /providers/{providerId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Provider Model Mappings
+    match /provider_models/{mappingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Pricing Matrix
+    match /pricing/{pricingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Promotions Registry
+    match /promotions/{promotionId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Feature Flags
+    match /feature_flags/{flagKey} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Audit Logs (Immutable)
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false; // Immutable audit log
+    }
+
+    // Global App Configuration
+    match /app_config/{configId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

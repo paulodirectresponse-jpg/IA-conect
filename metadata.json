@@ -1,0 +1,6 @@
+{
+  "name": "Plataforma de Geração de Conteúdo com IA",
+  "description": "Fundação comercial de geração com IA, ledger financeiro, autenticação, controle de acesso e painel administrativo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
