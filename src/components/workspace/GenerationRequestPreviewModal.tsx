@@ -1,167 +1,29 @@
-import React from 'react';
-import { GenerationRequestDraft } from '../../types/index.js';
-import { CheckCircle, AlertTriangle, Shield, Wallet, Film, Clock, Eye, X, ArrowRight } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { GenerationRequestDraft, Generation } from '../../types/index.js';
+import { CheckCircle, AlertTriangle, Shield, Wallet, X, Loader2, Play, ExternalLink } from 'lucide-react';
+import { generationClient } from '../../services/generationClient.js';
 
-interface GenerationRequestPreviewModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  draftData: (GenerationRequestDraft & { has_sufficient_funds: boolean; balance_after_generation_cents: number }) | null;
-  notice: string;
-  onNavigateToWallet?: () => void;
-}
-
-export const GenerationRequestPreviewModal: React.FC<GenerationRequestPreviewModalProps> = ({
-  isOpen,
-  onClose,
-  draftData,
-  notice,
-  onNavigateToWallet,
-}) => {
-  if (!isOpen || !draftData) return null;
-
-  const formatCurrency = (cents: number | null | undefined) => {
-    if (cents === null || cents === undefined) {
-      return 'Preço ainda não disponível';
-    }
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
-  };
-
-  const hasPricing = draftData.estimated_cost_cents !== null && draftData.estimated_cost_cents !== undefined;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
-      <div
-        id="modal-generation-request-preview"
-        className="w-full max-w-2xl bg-white border border-zinc-200 rounded-2xl shadow-xl overflow-hidden text-zinc-900 flex flex-col max-h-[90vh]"
-      >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
-              <CheckCircle className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-zinc-900">Validação & Compilação de Produção</h2>
-              <p className="text-xs text-zinc-500">Parâmetros técnicos e referências estruturadas</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 overflow-y-auto space-y-4 text-xs">
-          {/* Status Banner */}
-          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-start gap-3">
-            <Shield className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-xs text-emerald-950">Parâmetros Validados com Sucesso</p>
-              <p className="text-[11px] text-emerald-800/90 mt-0.5 leading-relaxed">{notice}</p>
-            </div>
-          </div>
-
-          {/* Model & Technical Specs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
-              <span className="text-[10px] text-zinc-500 block">Modelo</span>
-              <span className="font-semibold text-zinc-900 mt-0.5 block truncate">{draftData.model_name}</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
-              <span className="text-[10px] text-zinc-500 block">Modo</span>
-              <span className="font-semibold text-zinc-900 mt-0.5 block truncate">{draftData.mode}</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
-              <span className="text-[10px] text-zinc-500 block">Duração & Resolução</span>
-              <span className="font-semibold text-zinc-900 mt-0.5 block truncate">
-                {draftData.settings.duration_seconds}s • {draftData.settings.resolution} ({draftData.settings.aspect_ratio})
-              </span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
-              <span className="text-[10px] text-zinc-500 block">Variações</span>
-              <span className="font-semibold text-zinc-900 mt-0.5 block">
-                {draftData.settings.number_of_outputs} saída(s)
-              </span>
-            </div>
-          </div>
-
-          {/* Financial Summary */}
-          <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600">
-                <Wallet className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-zinc-500 text-[11px]">Custo Estimado da Produção</p>
-                <p className={`text-sm font-bold ${hasPricing ? 'text-zinc-900' : 'text-amber-600'}`}>
-                  {formatCurrency(draftData.estimated_cost_cents)}
-                </p>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <p className="text-zinc-500 text-[11px]">Seu Saldo Disponível</p>
-              <p className="text-xs font-semibold text-zinc-900">
-                {formatCurrency(draftData.customer_balance_available_cents)}
-              </p>
-            </div>
-          </div>
-
-          {!hasPricing && (
-            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-              <span>Configuração de preço pendente no catálogo para esta resolução.</span>
-            </div>
-          )}
-
-          {hasPricing && !draftData.has_sufficient_funds && (
-            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <span>Saldo insuficiente na carteira para cobrir a estimativa.</span>
-              </div>
-              {onNavigateToWallet && (
-                <button
-                  type="button"
-                  onClick={onNavigateToWallet}
-                  className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-[11px]"
-                >
-                  Recarregar
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Compiled Prompt View */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-zinc-700 font-medium">Prompt Compilado (com referências @ estruturadas)</label>
-              <span className="text-[10px] text-zinc-400 font-mono">
-                {draftData.references.length} referências injetadas
-              </span>
-            </div>
-            <div className="p-3 rounded-xl bg-zinc-900 text-zinc-100 whitespace-pre-wrap font-mono text-[11px] leading-relaxed max-h-40 overflow-y-auto border border-zinc-800">
-              {draftData.compiled_prompt}
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-zinc-100 flex items-center justify-between bg-zinc-50/60">
-          <span className="text-[11px] text-zinc-400 font-mono">ID: {draftData.request_id}</span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-xs transition-colors"
-          >
-            Entendido
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+interface Props{isOpen:boolean;onClose:()=>void;draftData:(GenerationRequestDraft&{has_sufficient_funds:boolean;balance_after_generation_cents:number})|null;notice:string;onNavigateToWallet?:()=>void;}
+const money=(c?:number|null)=>c==null?'Preço indisponível':new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(c/100);
+export const GenerationRequestPreviewModal:React.FC<Props>=({isOpen,onClose,draftData,notice,onNavigateToWallet})=>{
+ const [generation,setGeneration]=useState<Generation|null>(null);const [error,setError]=useState('');const [submitting,setSubmitting]=useState(false);const timer=useRef<any>(null);
+ useEffect(()=>()=>{if(timer.current)clearTimeout(timer.current);},[]);
+ if(!isOpen||!draftData)return null;const priced=draftData.estimated_cost_cents!=null;const canGenerate=priced&&draftData.has_sufficient_funds&&!submitting&&!generation;
+ const broadcast=(g:Generation)=>{setGeneration(g);window.dispatchEvent(new CustomEvent('generation:updated',{detail:g}));};
+ const poll=(id:string)=>{timer.current=setTimeout(async()=>{try{const g=await generationClient.get(id);broadcast(g);if(!['SUCCEEDED','FAILED','CANCELLED','REFUNDED'].includes(g.status))poll(id);}catch(e:any){setError(e?.message||'Falha ao consultar geração.');}},4000);};
+ const generate=async()=>{setError('');setSubmitting(true);try{const g=await generationClient.create(draftData);broadcast(g);if(!['SUCCEEDED','FAILED','CANCELLED'].includes(g.status))poll(g.generation_id);}catch(e:any){setError(e?.message||'Não foi possível iniciar a geração.');}finally{setSubmitting(false);}};
+ return <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/35 backdrop-blur-[2px]">
+  <div className="w-full max-w-xl bg-white border border-zinc-200 rounded-2xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
+   <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between"><div><h2 className="font-semibold text-zinc-900">Confirmar geração</h2><p className="text-xs text-zinc-500 mt-0.5">Revise o custo e envie para a rota mais econômica disponível.</p></div><button onClick={onClose} className="p-2 text-zinc-400 hover:text-zinc-800"><X className="w-4 h-4"/></button></div>
+   <div className="p-5 overflow-y-auto space-y-4 text-sm">
+    {!generation&&<><div className="grid grid-cols-2 gap-2"><div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200"><span className="text-[11px] text-zinc-500">Modelo</span><p className="font-semibold">{draftData.model_name}</p></div><div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200"><span className="text-[11px] text-zinc-500">Configuração</span><p className="font-semibold">{draftData.settings.duration_seconds}s · {draftData.settings.resolution} · {draftData.settings.aspect_ratio}</p></div></div>
+    <div className="flex items-center justify-between p-4 border border-zinc-200 rounded-xl"><div className="flex items-center gap-2"><Wallet className="w-4 h-4 text-zinc-500"/><div><p className="text-xs text-zinc-500">Custo estimado</p><p className="font-bold text-lg">{money(draftData.estimated_cost_cents)}</p></div></div><div className="text-right"><p className="text-xs text-zinc-500">Saldo</p><p className="font-semibold">{money(draftData.customer_balance_available_cents)}</p></div></div>
+    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex gap-2"><Shield className="w-4 h-4 shrink-0"/><span>{notice}</span></div>
+    {!priced&&<div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex gap-2"><AlertTriangle className="w-4 h-4"/>Preço não configurado para essa combinação.</div>}
+    {priced&&!draftData.has_sufficient_funds&&<div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex justify-between items-center"><span>Saldo insuficiente.</span>{onNavigateToWallet&&<button className="font-semibold" onClick={onNavigateToWallet}>Ir à carteira</button>}</div>}</>}
+    {generation&&<div className="space-y-3"><div className="p-4 rounded-xl border border-zinc-200 flex items-center gap-3">{generation.status==='SUCCEEDED'?<CheckCircle className="w-5 h-5 text-emerald-600"/>:<Loader2 className={`w-5 h-5 text-zinc-500 ${generation.status==='FAILED'?'':'animate-spin'}`}/>}<div><p className="font-semibold">{generation.status==='SUCCEEDED'?'Geração concluída':generation.status==='FAILED'?'Geração falhou':'Gerando vídeo...'}</p><p className="text-xs text-zinc-500">{generation.status}{generation.progress_percent!=null?` · ${generation.progress_percent}%`:''}</p></div></div>{generation.error_message&&<p className="text-xs text-red-600">{generation.error_message}</p>}{generation.result_url&&<><video controls className="w-full rounded-xl border border-zinc-200 bg-black" src={generation.result_url}/><a className="text-xs font-semibold inline-flex gap-1 items-center" href={generation.result_url} target="_blank" rel="noreferrer">Abrir resultado <ExternalLink className="w-3 h-3"/></a></>}</div>}
+    {error&&<div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">{error}</div>}
+   </div>
+   <div className="px-5 py-3 border-t border-zinc-100 flex justify-end gap-2 bg-zinc-50"><button className="px-4 py-2 text-sm" onClick={onClose}>Fechar</button>{!generation&&<button disabled={!canGenerate} onClick={generate} className="px-4 py-2 rounded-xl bg-zinc-900 text-white text-sm font-semibold disabled:opacity-40 flex items-center gap-2">{submitting?<Loader2 className="w-4 h-4 animate-spin"/>:<Play className="w-4 h-4"/>} Gerar agora</button>}</div>
+  </div></div>;
 };
