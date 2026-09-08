@@ -2,201 +2,21 @@ import crypto from 'crypto';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { getAdminDb } from '../repositories/firebaseAdminClient.js';
-import { RoutingLogEntry, ProviderStatus } from '../../src/types/index.js';
+import { GenerationMode, RoutingLogEntry, ProviderStatus } from '../../src/types/index.js';
 
-export interface RouteSelectionParams {
-  userId: string;
-  modelId: string;
-  resolution: string;
-  durationSeconds: number;
-  requestedProviderId?: string;
-  strategy?: 'CHEAPEST_RELIABLE' | 'FASTEST';
-  generationId?: string;
-}
-
-export interface CandidateRoute {
-  provider_id: string;
-  provider_name: string;
-  provider_cost_cents: number;
-  customer_price_cents: number;
-  status: ProviderStatus;
-  priority: number;
-  is_healthy: boolean;
-  pricing_id: string;
-}
-
-export interface RouteDecision {
-  selected_provider_id: string;
-  provider_name: string;
-  customer_price_cents: number;
-  provider_cost_cents: number;
-  fallback_provider_ids: string[];
-  all_candidates: CandidateRoute[];
-  routing_log_id: string;
-  strategy: string;
-}
-
-const routingLogsCache: RoutingLogEntry[] = [];
-
-export const smartRouterService = {
-  async selectBestRoute(params: RouteSelectionParams): Promise<RouteDecision> {
-    const {
-      userId,
-      modelId,
-      resolution,
-      durationSeconds,
-      requestedProviderId,
-      strategy = 'CHEAPEST_RELIABLE',
-      generationId,
-    } = params;
-
-    const [allProviders, allMappings, allPricing] = await Promise.all([
-      catalogRepository.listProviders(),
-      catalogRepository.listMappings(),
-      catalogRepository.listPricing(),
-    ]);
-
-    // 1. Find all active mappings for this model
-    const relevantMappings = allMappings.filter(
-      (m) => m.model_id === modelId && m.status === 'ACTIVE'
-    );
-
-    if (relevantMappings.length === 0) {
-      throw new Error(`Nenhum provedor mapeado e ativo para o modelo '${modelId}'.`);
-    }
-
-    // 2. Build candidates list with health, pricing, and adapter availability
-    const candidateRoutes: CandidateRoute[] = [];
-
-    for (const mapping of relevantMappings) {
-      const provider = allProviders.find((p) => p.provider_id === mapping.provider_id);
-      if (!provider || provider.status === 'INACTIVE') {
-        continue;
-      }
-
-      // Check adapter availability
-      const adapter = providerRegistry.getAdapter(provider.provider_id);
-      if (!adapter) {
-        continue;
-      }
-
-      // Find matching active pricing
-      const matchingPricing = allPricing.find(
-        (pr) =>
-          pr.active &&
-          pr.model_id === modelId &&
-          pr.provider_id === provider.provider_id &&
-          pr.resolution === resolution
-      ) || allPricing.find(
-        (pr) =>
-          pr.active &&
-          pr.model_id === modelId &&
-          pr.provider_id === provider.provider_id
-      );
-
-      if (!matchingPricing) {
-        continue;
-      }
-
-      const durationMultiplier = durationSeconds > 5 ? durationSeconds / 5 : 1;
-      const calculatedCustomerPrice = Math.round(matchingPricing.customer_price_cents * durationMultiplier);
-      const calculatedProviderCost = Math.round(matchingPricing.provider_cost_cents * durationMultiplier);
-
-      candidateRoutes.push({
-        provider_id: provider.provider_id,
-        provider_name: provider.name,
-        provider_cost_cents: calculatedProviderCost,
-        customer_price_cents: calculatedCustomerPrice,
-        status: provider.status,
-        priority: mapping.priority || provider.priority || 50,
-        is_healthy: provider.status === 'ACTIVE',
-        pricing_id: matchingPricing.pricing_id,
-      });
-    }
-
-    if (candidateRoutes.length === 0) {
-      throw new Error(`Nenhuma rota viável encontrada para o modelo '${modelId}' e resolução '${resolution}'.`);
-    }
-
-    // 3. If explicit provider requested and candidate is present, prioritize it
-    let sortedCandidates = [...candidateRoutes];
-
-    if (requestedProviderId) {
-      const explicit = sortedCandidates.find((c) => c.provider_id === requestedProviderId);
-      if (explicit) {
-        sortedCandidates = [
-          explicit,
-          ...sortedCandidates.filter((c) => c.provider_id !== requestedProviderId),
-        ];
-      }
-    } else {
-      // Apply CHEAPEST_RELIABLE strategy:
-      // Sort by healthy first, then lowest customer price, then highest priority
-      sortedCandidates.sort((a, b) => {
-        if (a.is_healthy !== b.is_healthy) {
-          return a.is_healthy ? -1 : 1;
-        }
-        if (a.customer_price_cents !== b.customer_price_cents) {
-          return a.customer_price_cents - b.customer_price_cents;
-        }
-        return b.priority - a.priority;
-      });
-    }
-
-    const selected = sortedCandidates[0];
-    const fallbacks = sortedCandidates.slice(1).map((c) => c.provider_id);
-
-    // 4. Record routing decision log
-    const logId = `route_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
-    const logEntry: RoutingLogEntry = {
-      log_id: logId,
-      generation_id: generationId,
-      user_id: userId,
-      model_id: modelId,
-      selected_provider_id: selected.provider_id,
-      strategy,
-      candidate_providers: sortedCandidates.map((c) => ({
-        provider_id: c.provider_id,
-        provider_cost_cents: c.provider_cost_cents,
-        customer_price_cents: c.customer_price_cents,
-        status: c.status,
-        priority: c.priority,
-        is_healthy: c.is_healthy,
-      })),
-      reason: requestedProviderId
-        ? `Provedor explicitamente solicitado (${selected.provider_name})`
-        : `Menor custo disponível (R$ ${(selected.customer_price_cents / 100).toFixed(2)}) com provedor saudável`,
-      created_at: new Date().toISOString(),
-    };
-
-    routingLogsCache.unshift(logEntry);
-    if (routingLogsCache.length > 500) {
-      routingLogsCache.pop();
-    }
-
-    // Fire-and-forget persist to Firestore
-    try {
-      const db = getAdminDb();
-      if (db) {
-        db.collection('routing_logs').doc(logId).set(logEntry).catch(() => {});
-      }
-    } catch {
-      // Non-blocking
-    }
-
-    return {
-      selected_provider_id: selected.provider_id,
-      provider_name: selected.provider_name,
-      customer_price_cents: selected.customer_price_cents,
-      provider_cost_cents: selected.provider_cost_cents,
-      fallback_provider_ids: fallbacks,
-      all_candidates: sortedCandidates,
-      routing_log_id: logId,
-      strategy,
-    };
-  },
-
-  async listRoutingLogs(limit = 50): Promise<RoutingLogEntry[]> {
-    return routingLogsCache.slice(0, limit);
-  },
+export interface RoutingCandidate{provider_id:string;provider_name:string;provider_cost_cents:number;customer_price_cents:number;priority:number;status:ProviderStatus;is_healthy:boolean;}
+export interface RoutingDecision{selected:RoutingCandidate;candidates:RoutingCandidate[];reason:string;strategy:'CHEAPEST_RELIABLE';}
+export const smartRouterService={
+ async selectProvider(params:{userId:string;model_id:string;mode:GenerationMode;duration_seconds:number;resolution:string;number_of_outputs:number;generation_id?:string}):Promise<RoutingDecision>{
+  const [providers,mappings,pricing]=await Promise.all([catalogRepository.listProviders(),catalogRepository.listMappings(),catalogRepository.listPricing()]);
+  const mapProviders=new Set(mappings.filter(m=>m.model_id===params.model_id&&m.status==='ACTIVE').map(m=>m.provider_id));const candidates:RoutingCandidate[]=[];const now=Date.now();
+  for(const p of providers){if(p.status==='INACTIVE'||!mapProviders.has(p.provider_id))continue;const adapter=providerRegistry.getAdapter(p.provider_id);if(!adapter||!adapter.isConfigured()||!adapter.supports(params.model_id,params.mode))continue;
+    const entries=pricing.filter(x=>x.active&&x.provider_id===p.provider_id&&x.model_id===params.model_id&&x.resolution.toLowerCase()===params.resolution.toLowerCase()&&Date.parse(x.effective_from)<=now&&(!x.effective_until||Date.parse(x.effective_until)>now));if(!entries.length)continue;const e=entries.sort((a,b)=>b.updated_at.localeCompare(a.updated_at))[0];const base=Math.max(1,e.duration_seconds||1);const multiplier=(params.duration_seconds/base)*Math.max(1,params.number_of_outputs);candidates.push({provider_id:p.provider_id,provider_name:p.name,provider_cost_cents:Math.ceil(e.provider_cost_cents*multiplier),customer_price_cents:Math.ceil(e.customer_price_cents*multiplier),priority:p.priority,status:p.status,is_healthy:p.status==='ACTIVE'});
+  }
+  if(!candidates.length){const err:any=new Error('Nenhum provider configurado possui rota e preço válidos para esta geração.');err.code='NO_PROVIDER_AVAILABLE';throw err;}
+  candidates.sort((a,b)=>(a.is_healthy===b.is_healthy?a.provider_cost_cents-b.provider_cost_cents:a.is_healthy?-1:1)||b.priority-a.priority);const selected=candidates[0];const reason=`${selected.provider_name} selecionado por menor custo entre rotas compatíveis e configuradas.`;
+  const log:RoutingLogEntry={log_id:`route_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,generation_id:params.generation_id,user_id:params.userId,model_id:params.model_id,selected_provider_id:selected.provider_id,strategy:'CHEAPEST_RELIABLE',candidate_providers:candidates.map(c=>({provider_id:c.provider_id,provider_cost_cents:c.provider_cost_cents,customer_price_cents:c.customer_price_cents,status:c.status,priority:c.priority,is_healthy:c.is_healthy})),reason,created_at:new Date().toISOString()};const db=getAdminDb();if(db)await db.collection('routing_logs').doc(log.log_id).set(log);
+  return {selected,candidates,reason,strategy:'CHEAPEST_RELIABLE'};
+ },
+ async listRoutingLogs(limit=50){const db=getAdminDb();if(!db)return[];const snap=await db.collection('routing_logs').orderBy('created_at','desc').limit(limit).get();return snap.docs.map(d=>d.data() as RoutingLogEntry);}
 };

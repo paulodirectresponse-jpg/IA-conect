@@ -1,344 +1,43 @@
-import {
-  ModelRegistryItem,
-  ProviderRegistryItem,
-  ProviderModelMapping,
-  PricingEntry,
-  PromotionEntry,
-  FeatureFlag,
-} from '../../src/types/index.js';
-import {
-  INITIAL_MODELS,
-  INITIAL_PROVIDERS,
-  INITIAL_FEATURE_FLAGS,
-} from '../../src/config/constants.js';
+import { ModelRegistryItem, ProviderRegistryItem, ProviderModelMapping, PricingEntry, PromotionEntry, FeatureFlag } from '../../src/types/index.js';
+import { getAdminDb } from './firebaseAdminClient.js';
+import { INITIAL_FEATURE_FLAGS } from '../../src/config/constants.js';
 
-const modelsMap = new Map<string, ModelRegistryItem>();
-const providersMap = new Map<string, ProviderRegistryItem>();
-const mappingsMap = new Map<string, ProviderModelMapping>();
-const pricingMap = new Map<string, PricingEntry>();
-const promotionsMap = new Map<string, PromotionEntry>();
-const flagsMap = new Map<string, FeatureFlag>();
+function db(){const d=getAdminDb();if(!d)throw new Error('Firestore Admin indisponível.');return d;}
+const now=()=>new Date().toISOString();
+const durations=(from:number,to:number)=>Array.from({length:to-from+1},(_,i)=>i+from);
 
-// Seed initial system data if empty
-function initSeeds() {
-  if (modelsMap.size === 0) {
-    for (const m of INITIAL_MODELS) {
-      modelsMap.set(m.model_id, {
-        ...m,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-    }
-  }
+const MODELS:ModelRegistryItem[]=[
+ {model_id:'wan-3-0-prime',name:'WAN 3.0 Prime',slug:'wan-3-0-prime',category:'VIDEO',description:'WAN 3.0 acelerado para produção premium, com texto, imagem e referências multimodais.',status:'ACTIVE',best_for:'Alta qualidade e velocidade',recommended_aspect_ratio:'16:9',supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],supported_resolutions:['480p','720p','1080p'],supported_durations:durations(2,30),supported_aspect_ratios:['16:9','9:16','1:1','4:3','3:4'],supports_image_reference:true,supports_multiple_images:true,supports_video_reference:true,supports_audio_reference:true,supports_negative_prompt:false,supports_seed:true,max_reference_images:10,max_reference_videos:5,max_reference_audio:5,max_prompt_length:20000,supports_start_end_image:true,created_at:now(),updated_at:now()},
+ {model_id:'wan-3-0',name:'WAN 3.0',slug:'wan-3-0',category:'VIDEO',description:'Modelo versátil com excelente custo-benefício, 480p a 1080p e até 30 segundos.',status:'ACTIVE',best_for:'Melhor custo-benefício',recommended_aspect_ratio:'16:9',supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],supported_resolutions:['480p','720p','1080p'],supported_durations:durations(2,30),supported_aspect_ratios:['16:9','9:16','1:1','4:3','3:4'],supports_image_reference:true,supports_multiple_images:true,supports_video_reference:true,supports_audio_reference:true,supports_negative_prompt:false,supports_seed:true,max_reference_images:10,max_reference_videos:5,max_reference_audio:5,max_prompt_length:20000,supports_start_end_image:true,created_at:now(),updated_at:now()},
+ {model_id:'seedance-2-5',name:'Seedance 2.5',slug:'seedance-2-5',category:'VIDEO',description:'Geração cinematográfica multimodal com áudio sincronizado e forte aderência ao prompt.',status:'ACTIVE',best_for:'Movimento e cinematografia',recommended_aspect_ratio:'16:9',supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],supported_resolutions:['480p','720p','1080p'],supported_durations:durations(4,30),supported_aspect_ratios:['16:9','9:16','1:1','4:3','3:4','21:9'],supports_image_reference:true,supports_multiple_images:true,supports_video_reference:true,supports_audio_reference:true,supports_negative_prompt:false,supports_seed:true,max_reference_images:30,max_reference_videos:10,max_reference_audio:10,max_prompt_length:20000,supports_start_end_image:true,created_at:now(),updated_at:now()},
+ {model_id:'minimax-h3',name:'MiniMax H3',slug:'minimax-h3',category:'VIDEO',description:'Modelo multimodal rápido para referências de imagem, vídeo e áudio.',status:'ACTIVE',best_for:'Referências multimodais',recommended_aspect_ratio:'16:9',supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],supported_resolutions:['480p','540p','768p','1080p'],supported_durations:durations(3,15),supported_aspect_ratios:['16:9','9:16','1:1','4:3','3:4','21:9'],supports_image_reference:true,supports_multiple_images:true,supports_video_reference:true,supports_audio_reference:true,supports_negative_prompt:false,supports_seed:true,max_reference_images:9,max_reference_videos:3,max_reference_audio:3,max_prompt_length:10000,created_at:now(),updated_at:now()}
+];
+const PROVIDERS:ProviderRegistryItem[]=[
+ {provider_id:'provider-atlas',name:'Atlas Cloud',slug:'atlas',status:'ACTIVE',priority:100,is_configured:false,created_at:now(),updated_at:now()},
+ {provider_id:'provider-wavespeed',name:'WaveSpeed AI',slug:'wavespeed',status:'ACTIVE',priority:90,is_configured:false,created_at:now(),updated_at:now()}
+];
+const MAPPINGS:ProviderModelMapping[]=[
+ ['wan-3-0-prime','provider-atlas'],['wan-3-0-prime','provider-wavespeed'],['wan-3-0','provider-atlas'],['wan-3-0','provider-wavespeed'],['seedance-2-5','provider-atlas'],['seedance-2-5','provider-wavespeed'],['minimax-h3','provider-atlas'],['minimax-h3','provider-wavespeed']
+].map(([model_id,provider_id],i)=>({mapping_id:`map-${i+1}`,model_id,provider_id,provider_model_identifier:model_id,status:'ACTIVE',updated_at:now()} as ProviderModelMapping));
 
-  if (providersMap.size === 0) {
-    for (const p of INITIAL_PROVIDERS) {
-      const isActive = p.provider_id === 'provider-atlas' || p.provider_id === 'provider-wavespeed';
-      providersMap.set(p.provider_id, {
-        ...p,
-        status: isActive ? 'ACTIVE' : p.status,
-        is_configured: isActive ? true : p.is_configured,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-    }
-  }
-
-  if (mappingsMap.size === 0) {
-    const defaultMappings: ProviderModelMapping[] = [
-      {
-        mapping_id: 'map-wan-atlas',
-        provider_id: 'provider-atlas',
-        model_id: 'wan-2-1-video',
-        status: 'ACTIVE',
-        provider_model_code: 'wan-2.1-v',
-        priority: 100,
-        supports_stream: false,
-        supports_async: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        mapping_id: 'map-wan-wavespeed',
-        provider_id: 'provider-wavespeed',
-        model_id: 'wan-2-1-video',
-        status: 'ACTIVE',
-        provider_model_code: 'wan-2-1',
-        priority: 90,
-        supports_stream: false,
-        supports_async: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        mapping_id: 'map-kling-wavespeed',
-        provider_id: 'provider-wavespeed',
-        model_id: 'kling-v1-5',
-        status: 'ACTIVE',
-        provider_model_code: 'kling-1.5-pro',
-        priority: 100,
-        supports_stream: false,
-        supports_async: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        mapping_id: 'map-kling-atlas',
-        provider_id: 'provider-atlas',
-        model_id: 'kling-v1-5',
-        status: 'ACTIVE',
-        provider_model_code: 'kling-1.5',
-        priority: 90,
-        supports_stream: false,
-        supports_async: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        mapping_id: 'map-hunyuan-atlas',
-        provider_id: 'provider-atlas',
-        model_id: 'hunyuan-video',
-        status: 'ACTIVE',
-        provider_model_code: 'hunyuan-fast',
-        priority: 100,
-        supports_stream: false,
-        supports_async: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ];
-    for (const m of defaultMappings) {
-      mappingsMap.set(m.mapping_id, m);
-    }
-  }
-
-  if (flagsMap.size === 0) {
-    for (const f of INITIAL_FEATURE_FLAGS) {
-      // Enable auto router and providers in Stage 3
-      const isRouterOrProvider = f.flag_key === 'enable_auto_router' || f.flag_key === 'enable_atlas' || f.flag_key === 'enable_wavespeed' || f.flag_key === 'enable_payments';
-      flagsMap.set(f.flag_key, {
-        ...f,
-        is_enabled: isRouterOrProvider ? true : f.is_enabled,
-        updated_at: new Date().toISOString(),
-      });
-    }
-  }
-
-  if (pricingMap.size === 0) {
-    // Standard pricing rates for all model and resolution combinations
-    const initialPricing: PricingEntry[] = [
-      // WAN 2.1 Video
-      {
-        pricing_id: 'price-wan-720p',
-        provider_id: 'provider-atlas',
-        model_id: 'wan-2-1-video',
-        resolution: '720p',
-        duration_seconds: 5,
-        unit: 'PER_GENERATION',
-        provider_cost_cents: 35,
-        customer_price_cents: 75,
-        currency: 'BRL',
-        effective_from: new Date().toISOString(),
-        active: true,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        pricing_id: 'price-wan-1080p',
-        provider_id: 'provider-atlas',
-        model_id: 'wan-2-1-video',
-        resolution: '1080p',
-        duration_seconds: 5,
-        unit: 'PER_GENERATION',
-        provider_cost_cents: 65,
-        customer_price_cents: 140,
-        currency: 'BRL',
-        effective_from: new Date().toISOString(),
-        active: true,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        pricing_id: 'price-wan-wavespeed-720p',
-        provider_id: 'provider-wavespeed',
-        model_id: 'wan-2-1-video',
-        resolution: '720p',
-        duration_seconds: 5,
-        unit: 'PER_GENERATION',
-        provider_cost_cents: 40,
-        customer_price_cents: 80,
-        currency: 'BRL',
-        effective_from: new Date().toISOString(),
-        active: true,
-        updated_at: new Date().toISOString(),
-      },
-      // Kling 1.5
-      {
-        pricing_id: 'price-kling-720p',
-        provider_id: 'provider-wavespeed',
-        model_id: 'kling-v1-5',
-        resolution: '720p',
-        duration_seconds: 5,
-        unit: 'PER_GENERATION',
-        provider_cost_cents: 45,
-        customer_price_cents: 95,
-        currency: 'BRL',
-        effective_from: new Date().toISOString(),
-        active: true,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        pricing_id: 'price-kling-1080p',
-        provider_id: 'provider-wavespeed',
-        model_id: 'kling-v1-5',
-        resolution: '1080p',
-        duration_seconds: 5,
-        unit: 'PER_GENERATION',
-        provider_cost_cents: 80,
-        customer_price_cents: 160,
-        currency: 'BRL',
-        effective_from: new Date().toISOString(),
-        active: true,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        pricing_id: 'price-kling-atlas-1080p',
-        provider_id: 'provider-atlas',
-        model_id: 'kling-v1-5',
-        resolution: '1080p',
-        duration_seconds: 5,
-        unit: 'PER_GENERATION',
-        provider_cost_cents: 85,
-        customer_price_cents: 170,
-        currency: 'BRL',
-        effective_from: new Date().toISOString(),
-        active: true,
-        updated_at: new Date().toISOString(),
-      },
-      // Hunyuan Video Fast
-      {
-        pricing_id: 'price-hunyuan-540p',
-        provider_id: 'provider-atlas',
-        model_id: 'hunyuan-video',
-        resolution: '540p',
-        duration_seconds: 5,
-        unit: 'PER_GENERATION',
-        provider_cost_cents: 20,
-        customer_price_cents: 45,
-        currency: 'BRL',
-        effective_from: new Date().toISOString(),
-        active: true,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        pricing_id: 'price-hunyuan-720p',
-        provider_id: 'provider-atlas',
-        model_id: 'hunyuan-video',
-        resolution: '720p',
-        duration_seconds: 5,
-        unit: 'PER_GENERATION',
-        provider_cost_cents: 25,
-        customer_price_cents: 55,
-        currency: 'BRL',
-        effective_from: new Date().toISOString(),
-        active: true,
-        updated_at: new Date().toISOString(),
-      },
-    ];
-    for (const pr of initialPricing) {
-      pricingMap.set(pr.pricing_id, pr);
-    }
-  }
-}
-
-initSeeds();
-
-export const catalogRepository = {
-  // --- Models ---
-  async listModels(): Promise<ModelRegistryItem[]> {
-    return Array.from(modelsMap.values());
-  },
-
-  async getModel(modelId: string): Promise<ModelRegistryItem | null> {
-    return modelsMap.get(modelId) || null;
-  },
-
-  async saveModel(model: ModelRegistryItem): Promise<ModelRegistryItem> {
-    modelsMap.set(model.model_id, { ...model });
-    return { ...model };
-  },
-
-  // --- Providers ---
-  async listProviders(): Promise<ProviderRegistryItem[]> {
-    return Array.from(providersMap.values()).sort((a, b) => b.priority - a.priority);
-  },
-
-  async getProvider(providerId: string): Promise<ProviderRegistryItem | null> {
-    return providersMap.get(providerId) || null;
-  },
-
-  async saveProvider(provider: ProviderRegistryItem): Promise<ProviderRegistryItem> {
-    providersMap.set(provider.provider_id, { ...provider });
-    return { ...provider };
-  },
-
-  // --- Provider Model Mappings ---
-  async listMappings(): Promise<ProviderModelMapping[]> {
-    return Array.from(mappingsMap.values());
-  },
-
-  async saveMapping(mapping: ProviderModelMapping): Promise<ProviderModelMapping> {
-    mappingsMap.set(mapping.mapping_id, { ...mapping });
-    return { ...mapping };
-  },
-
-  // --- Pricing ---
-  async listPricing(): Promise<PricingEntry[]> {
-    return Array.from(pricingMap.values());
-  },
-
-  async getPricing(pricingId: string): Promise<PricingEntry | null> {
-    return pricingMap.get(pricingId) || null;
-  },
-
-  async savePricing(pricing: PricingEntry): Promise<PricingEntry> {
-    pricingMap.set(pricing.pricing_id, { ...pricing });
-    return { ...pricing };
-  },
-
-  // --- Promotions ---
-  async listPromotions(): Promise<PromotionEntry[]> {
-    return Array.from(promotionsMap.values());
-  },
-
-  async getPromotion(promotionId: string): Promise<PromotionEntry | null> {
-    return promotionsMap.get(promotionId) || null;
-  },
-
-  async savePromotion(promotion: PromotionEntry): Promise<PromotionEntry> {
-    promotionsMap.set(promotion.promotion_id, { ...promotion });
-    return { ...promotion };
-  },
-
-  // --- Feature Flags ---
-  async listFeatureFlags(): Promise<FeatureFlag[]> {
-    return Array.from(flagsMap.values());
-  },
-
-  async getFeatureFlag(flagKey: string): Promise<FeatureFlag | null> {
-    return flagsMap.get(flagKey) || null;
-  },
-
-  async saveFeatureFlag(flag: FeatureFlag): Promise<FeatureFlag> {
-    flagsMap.set(flag.flag_key, { ...flag });
-    return { ...flag };
-  },
-
-  clearForTesting() {
-    modelsMap.clear();
-    providersMap.clear();
-    mappingsMap.clear();
-    pricingMap.clear();
-    promotionsMap.clear();
-    flagsMap.clear();
-    initSeeds();
-  }
+// Provider costs in BRL cents per output second. Snapshot 2026-09-08; editable in Admin.
+const COSTS:Array<[string,string,string,number]>=[
+ ['wan-3-0','provider-atlas','480p',20],['wan-3-0','provider-atlas','720p',41],['wan-3-0','provider-atlas','1080p',82],
+ ['wan-3-0','provider-wavespeed','480p',24],['wan-3-0','provider-wavespeed','720p',48],['wan-3-0','provider-wavespeed','1080p',97],
+ ['wan-3-0-prime','provider-atlas','480p',31],['wan-3-0-prime','provider-atlas','720p',64],['wan-3-0-prime','provider-atlas','1080p',129],
+ ['wan-3-0-prime','provider-wavespeed','480p',36],['wan-3-0-prime','provider-wavespeed','720p',73],['wan-3-0-prime','provider-wavespeed','1080p',145],
+ ['seedance-2-5','provider-atlas','480p',71],['seedance-2-5','provider-atlas','720p',153],['seedance-2-5','provider-atlas','1080p',302],
+ ['minimax-h3','provider-atlas','768p',41],['minimax-h3','provider-wavespeed','768p',51]
+];
+const PRICING:PricingEntry[]=COSTS.map(([model,provider,res,cost],i)=>({pricing_id:`seed-price-${i+1}`,provider_id:provider,model_id:model,resolution:res,duration_seconds:1,unit:'PER_SECOND',provider_cost_cents:cost,customer_price_cents:Math.ceil(cost*1.12),currency:'BRL',effective_from:'2026-09-08T00:00:00.000Z',active:true,updated_at:now()}));
+let initialized:Promise<void>|null=null;
+async function ensure(){if(initialized)return initialized;initialized=(async()=>{const d=db();const seed=async(name:string,items:any[],idKey:string)=>{const snap=await d.collection(name).limit(1).get();if(snap.empty){const batch=d.batch();items.forEach(x=>batch.set(d.collection(name).doc(String(x[idKey])),x));await batch.commit();}};await seed('models',MODELS,'model_id');await seed('providers',PROVIDERS,'provider_id');await seed('provider_models',MAPPINGS,'mapping_id');await seed('pricing',PRICING,'pricing_id');await seed('feature_flags',INITIAL_FEATURE_FLAGS.map(f=>({...f,updated_at:now()})),'flag_key');})();return initialized;}
+async function list<T>(name:string){await ensure();const snap=await db().collection(name).get();return snap.docs.map(d=>d.data() as T);}
+export const catalogRepository={
+ async listModels(){return (await list<ModelRegistryItem>('models')).filter(x=>x.status!=='INACTIVE');},async getModel(id:string){await ensure();const d=await db().collection('models').doc(id).get();return d.exists?d.data() as ModelRegistryItem:null;},async saveModel(x:ModelRegistryItem){await ensure();x.updated_at=now();await db().collection('models').doc(x.model_id).set(x,{merge:true});return x;},
+ async listProviders(){return (await list<ProviderRegistryItem>('providers')).sort((a,b)=>b.priority-a.priority);},async getProvider(id:string){await ensure();const d=await db().collection('providers').doc(id).get();return d.exists?d.data() as ProviderRegistryItem:null;},async saveProvider(x:ProviderRegistryItem){await ensure();x.updated_at=now();await db().collection('providers').doc(x.provider_id).set(x,{merge:true});return x;},
+ async listMappings(){return list<ProviderModelMapping>('provider_models');},async saveMapping(x:ProviderModelMapping){await ensure();x.updated_at=now();await db().collection('provider_models').doc(x.mapping_id).set(x,{merge:true});return x;},
+ async listPricing(){return list<PricingEntry>('pricing');},async getPricing(id:string){await ensure();const d=await db().collection('pricing').doc(id).get();return d.exists?d.data() as PricingEntry:null;},async savePricing(x:PricingEntry){await ensure();x.updated_at=now();await db().collection('pricing').doc(x.pricing_id).set(x,{merge:true});return x;},
+ async listPromotions(){return list<PromotionEntry>('promotions');},async getPromotion(id:string){await ensure();const d=await db().collection('promotions').doc(id).get();return d.exists?d.data() as PromotionEntry:null;},async savePromotion(x:PromotionEntry){await ensure();await db().collection('promotions').doc(x.promotion_id).set(x,{merge:true});return x;},
+ async listFeatureFlags(){return list<FeatureFlag>('feature_flags');},async getFeatureFlag(id:string){await ensure();const d=await db().collection('feature_flags').doc(id).get();return d.exists?d.data() as FeatureFlag:null;},async saveFeatureFlag(x:FeatureFlag){await ensure();x.updated_at=now();await db().collection('feature_flags').doc(x.flag_key).set(x,{merge:true});return x;},clearForTesting(){}
 };
