@@ -1,489 +1,66 @@
 import crypto from 'crypto';
-import { catalogRepository } from '../repositories/catalogRepository.js';
+import { Generation, GenerationMode, GenerationAttemptLog } from '../../src/types/index.js';
 import { generationRepository } from '../repositories/generationRepository.js';
+import { smartRouterService } from './smartRouterService.js';
 import { walletService } from './walletService.js';
 import { assetReferenceResolver } from './assetReferenceResolver.js';
-import { smartRouterService } from './smartRouterService.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
-import {
-  Generation,
-  GenerationMode,
-  GenerationAttemptLog,
-  ReferenceSlot,
-  ReferenceRules,
-} from '../../src/types/index.js';
+import { assetRepository } from '../repositories/assetRepository.js';
+import { getAdminStorage } from '../repositories/firebaseAdminClient.js';
+import { getFirebaseConfig } from '../repositories/firestoreClient.js';
 
-export interface CreateGenerationParams {
-  userId: string;
-  model_id: string;
-  prompt: string;
-  negative_prompt?: string;
-  duration_seconds: number;
-  resolution: string;
-  aspect_ratio?: string;
-  number_of_outputs?: number;
-  seed?: number | null;
-  motion_strength?: number | null;
-  references?: Array<{
-    asset_id: string;
-    alias?: string;
-    slot_type?: ReferenceSlot;
-    rules?: ReferenceRules;
-  }>;
-  requested_provider_id?: string;
-  client_request_id?: string;
-  reqHost?: string;
+interface GenerationReferenceInput{asset_id:string;slot_type?:'INITIAL'|'END'|'GENERAL';}
+interface StartParams{userId:string;model_id:string;prompt:string;negative_prompt?:string;duration_seconds:number;resolution:string;aspect_ratio:string;number_of_outputs:number;seed?:number|null;motion_strength?:number|null;references?:GenerationReferenceInput[];requested_provider_id?:string;client_request_id?:string;reqHost?:string;}
+function inferMode(refs:GenerationReferenceInput[]):GenerationMode{if(!refs.length)return'TEXT_TO_VIDEO';if(refs.some(r=>r.slot_type==='INITIAL'))return'IMAGE_TO_VIDEO';return'REFERENCE_TO_VIDEO';}
+function terminal(status:string){return ['SUCCEEDED','FAILED','CANCELLED','REFUNDED'].includes(status);}
+
+async function archiveResult(userId:string,generationId:string,url:string){
+ try{
+  const response=await fetch(url);if(!response.ok)throw new Error(`Result download HTTP ${response.status}`);const length=Number(response.headers.get('content-length')||0);if(length>300*1024*1024)throw new Error('Resultado excede limite de 300MB.');const buffer=Buffer.from(await response.arrayBuffer());
+  const storage=getAdminStorage(),cfg=getFirebaseConfig();if(!storage||!cfg.storageBucket)throw new Error('Storage indisponível.');const contentType=response.headers.get('content-type')||'video/mp4';const storagePath=`users/${userId}/generations/${generationId}/result.mp4`;await storage.bucket(cfg.storageBucket).file(storagePath).save(buffer,{resumable:false,contentType,metadata:{cacheControl:'private,max-age=3600'}});
+  const asset=await assetRepository.createAsset({owner_user_id:userId,type:'VIDEO',category:'GENERIC',name:`Generation ${generationId.slice(-6)}`,alias:`generation_${generationId.slice(-6)}`,storage_path:storagePath,mime_type:contentType,size_bytes:buffer.length,status:'READY'});return asset;
+ }catch(err:any){console.warn('[GenerationArchive]',err?.message);return null;}
 }
 
-export const generationService = {
-  /**
-   * Deterministically resolves generation mode from input references.
-   */
-  resolveMode(references: CreateGenerationParams['references']): GenerationMode {
-    if (!references || references.length === 0) {
-      return 'TEXT_TO_VIDEO';
-    }
-    const hasInitial = references.some((r) => r.slot_type === 'INITIAL');
-    const hasEnd = references.some((r) => r.slot_type === 'END');
-    if (hasInitial && hasEnd) {
-      return 'START_END_TO_VIDEO';
-    }
-    if (hasInitial && references.length === 1) {
-      return 'IMAGE_TO_VIDEO';
-    }
-    return 'REFERENCE_TO_VIDEO';
-  },
+export const generationService={
+ async createAndStartGeneration(params:StartParams):Promise<Generation>{
+  if(!params.model_id||!params.prompt?.trim())throw Object.assign(new Error('Modelo e prompt são obrigatórios.'),{code:'VALIDATION_ERROR'});if(!Number.isInteger(params.duration_seconds)||params.duration_seconds<=0)throw new Error('Duração inválida.');if(!Number.isInteger(params.number_of_outputs)||params.number_of_outputs<1||params.number_of_outputs>4)throw new Error('Quantidade de saídas inválida.');
+  const clientId=params.client_request_id||crypto.randomUUID();const existing=await generationRepository.findByClientRequest(params.userId,clientId);if(existing)return existing;
+  const refs=params.references||[];const mode=inferMode(refs);const generationId=`gen_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
+  const decision=await smartRouterService.selectProvider({userId:params.userId,model_id:params.model_id,mode,duration_seconds:params.duration_seconds,resolution:params.resolution,number_of_outputs:params.number_of_outputs,generation_id:generationId});
+  const reserveAmount=decision.selected.customer_price_cents;const now=new Date().toISOString();let generation:Generation={generation_id:generationId,user_id:params.userId,status:'QUEUED',model_id:params.model_id,provider_id:decision.selected.provider_id,mode,original_prompt:params.prompt.trim(),compiled_prompt:params.prompt.trim(),prompt_compiler_version:'stage3-router-1.0',duration_seconds:params.duration_seconds,resolution:params.resolution,aspect_ratio:params.aspect_ratio,estimated_cost_cents:reserveAmount,maximum_authorized_cost_cents:reserveAmount,final_cost_cents:0,currency:'BRL',client_request_id:clientId,progress_percent:0,result_asset_id:null,result_url:null,thumbnail_url:null,error_code:null,error_message:null,attempt_count:0,references_count:refs.length,created_at:now,submitted_at:null,completed_at:null,failed_at:null};
+  await generationRepository.saveGeneration(generation);generation.status='RESERVING_FUNDS';await generationRepository.saveGeneration(generation);
+  await walletService.reserveForGeneration({userId:params.userId,amount_cents:reserveAmount,generation_id:generationId,idempotency_key:`reserve:${generationId}`,description:`Reserva geração ${params.model_id}`});
+  try{
+   const resolved=await assetReferenceResolver.resolveReferenceAssetUrls(params.userId,refs.map(r=>r.asset_id),params.reqHost);const enriched=resolved.map(r=>({...r,slot_type:refs.find(x=>x.asset_id===r.asset_id)?.slot_type||'GENERAL' as const}));
+   const compatible=[decision.selected,...decision.candidates.filter(c=>c.provider_id!==decision.selected.provider_id&&c.customer_price_cents<=reserveAmount)];let lastError:any=null;
+   for(let i=0;i<compatible.length;i++){
+    const candidate=compatible[i],adapter=providerRegistry.getAdapter(candidate.provider_id);if(!adapter||!adapter.isConfigured())continue;const attemptId=`att_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;const attempt:GenerationAttemptLog={attempt_id:attemptId,generation_id:generationId,attempt_number:i+1,provider_id:candidate.provider_id,status:'SUBMITTED',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+    try{
+     generation.provider_id=candidate.provider_id;generation.attempt_count=i+1;await generationRepository.saveGeneration(generation);
+     const job=await adapter.submitGeneration({generation_id:generationId,user_id:params.userId,model_id:params.model_id,mode,prompt:params.prompt.trim(),negative_prompt:params.negative_prompt,duration_seconds:params.duration_seconds,resolution:params.resolution,aspect_ratio:params.aspect_ratio,number_of_outputs:params.number_of_outputs,seed:params.seed,motion_strength:params.motion_strength,references:enriched});attempt.provider_job_id=job.provider_job_id;attempt.updated_at=new Date().toISOString();await generationRepository.recordAttemptLog(attempt);
+     generation.provider_job_id=job.provider_job_id;generation.status='SUBMITTED';generation.submitted_at=new Date().toISOString();await generationRepository.saveGeneration(generation);return generation;
+    }catch(err:any){lastError=err;attempt.status='FAILED';attempt.error_message=err?.message||'Falha ao enviar';attempt.updated_at=new Date().toISOString();await generationRepository.recordAttemptLog(attempt);}
+   }
+   throw lastError||Object.assign(new Error('Todos os providers compatíveis falharam antes de aceitar o job.'),{code:'PROVIDER_SUBMISSION_FAILED'});
+  }catch(err:any){await walletService.releaseForGeneration({userId:params.userId,amount_cents:reserveAmount,generation_id:generationId,idempotency_key:`release:${generationId}:submit-failure`,reason:'Liberação por falha antes do processamento'}).catch(()=>{});generation.status='FAILED';generation.error_code=err?.code||'GENERATION_SUBMIT_FAILED';generation.error_message=err?.message||'Falha ao iniciar geração';generation.failed_at=new Date().toISOString();await generationRepository.saveGeneration(generation);throw err;}
+ },
 
-  /**
-   * Server-side prompt compilation to ensure deterministic provider input.
-   */
-  compilePrompt(params: {
-    prompt: string;
-    negative_prompt?: string;
-    mode: GenerationMode;
-    references?: CreateGenerationParams['references'];
-    aspect_ratio?: string;
-    duration_seconds: number;
-  }): string {
-    const parts: string[] = [params.prompt.trim()];
+ async refreshGenerationState(generation:Generation):Promise<Generation>{
+  if(terminal(generation.status)||!generation.provider_job_id)return generation;const adapter=providerRegistry.getAdapter(generation.provider_id);if(!adapter||!adapter.isConfigured())return generation;
+  let status;try{status=await adapter.checkStatus(generation.provider_job_id);}catch(err:any){console.warn('[GenerationPoll]',generation.generation_id,err?.message);return generation;}
+  if(status.status==='QUEUED'||status.status==='PROCESSING'){generation.status=status.status;generation.progress_percent=status.progress_percent??generation.progress_percent;return generationRepository.saveGeneration(generation);}
+  if(status.status==='FAILED'){
+   const reserved=generation.maximum_authorized_cost_cents||generation.estimated_cost_cents||0;if(reserved>0)await walletService.releaseForGeneration({userId:generation.user_id,amount_cents:reserved,generation_id:generation.generation_id,idempotency_key:`release:${generation.generation_id}:provider-failure`,reason:'Provider finalizou com falha'}).catch(()=>{});generation.status='FAILED';generation.progress_percent=0;generation.error_code=status.error_code||'PROVIDER_GENERATION_FAILED';generation.error_message=status.error_message||'A geração falhou no provider.';generation.failed_at=new Date().toISOString();return generationRepository.saveGeneration(generation);
+  }
+  const finalCost=generation.estimated_cost_cents||0;if(finalCost>0)await walletService.captureForGeneration({userId:generation.user_id,amount_cents:finalCost,generation_id:generation.generation_id,idempotency_key:`capture:${generation.generation_id}`});
+  generation.status='SUCCEEDED';generation.progress_percent=100;generation.final_cost_cents=finalCost;generation.completed_at=new Date().toISOString();generation.result_url=status.result_video_url||null;generation.thumbnail_url=status.thumbnail_url||null;
+  if(status.result_video_url){const asset=await archiveResult(generation.user_id,generation.generation_id,status.result_video_url);if(asset)generation.result_asset_id=asset.asset_id;}
+  return generationRepository.saveGeneration(generation);
+ },
 
-    if (params.references && params.references.length > 0) {
-      const refNotes: string[] = [];
-      for (const ref of params.references) {
-        if (ref.rules?.preservation_rules && ref.rules.preservation_rules.length > 0) {
-          refNotes.push(
-            `Preserve features for @${ref.alias || 'ref'}: ${ref.rules.preservation_rules.join(', ')}`
-          );
-        }
-      }
-      if (refNotes.length > 0) {
-        parts.push(`[Technical Constraints: ${refNotes.join('; ')}]`);
-      }
-    }
-
-    if (params.aspect_ratio) {
-      parts.push(`[Aspect: ${params.aspect_ratio}]`);
-    }
-
-    return parts.join(' ');
-  },
-
-  /**
-   * Primary entrypoint: validates, reserves funds, routes, submits, and monitors generation.
-   */
-  async createAndStartGeneration(params: CreateGenerationParams): Promise<Generation> {
-    const {
-      userId,
-      model_id,
-      prompt,
-      negative_prompt,
-      duration_seconds = 5,
-      resolution = '720p',
-      aspect_ratio = '16:9',
-      number_of_outputs = 1,
-      seed,
-      motion_strength,
-      references = [],
-      requested_provider_id,
-      client_request_id,
-      reqHost,
-    } = params;
-
-    // 1. Validate prompt
-    if (!prompt || prompt.trim().length === 0) {
-      const err: any = new Error('O prompt de geração é obrigatório.');
-      err.code = 'VALIDATION_ERROR';
-      throw err;
-    }
-
-    // 2. Validate model existence
-    const model = await catalogRepository.getModel(model_id);
-    if (!model) {
-      const err: any = new Error(`Modelo de IA '${model_id}' não encontrado no catálogo.`);
-      err.code = 'RESOURCE_NOT_FOUND';
-      throw err;
-    }
-
-    // 3. Resolve Mode & Compile Prompt
-    const mode = this.resolveMode(references);
-    const compiled_prompt = this.compilePrompt({
-      prompt,
-      negative_prompt,
-      mode,
-      references,
-      aspect_ratio,
-      duration_seconds,
-    });
-
-    const generationId = `gen_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
-    const idempotencyKey = client_request_id || `req_${generationId}`;
-
-    // 4. Select Optimal Route via Smart Router
-    const route = await smartRouterService.selectBestRoute({
-      userId,
-      modelId: model_id,
-      resolution,
-      durationSeconds: duration_seconds,
-      requestedProviderId: requested_provider_id,
-      strategy: 'CHEAPEST_RELIABLE',
-      generationId,
-    });
-
-    const estimatedCostCents = route.customer_price_cents * number_of_outputs;
-
-    // 5. Create Initial Generation Document in QUEUED state
-    const now = new Date().toISOString();
-    let generation: Generation = {
-      generation_id: generationId,
-      user_id: userId,
-      status: 'QUEUED',
-      model_id,
-      provider_id: route.selected_provider_id,
-      mode,
-      original_prompt: prompt,
-      compiled_prompt,
-      prompt_compiler_version: 'v3.0.0-prod',
-      duration_seconds,
-      resolution,
-      aspect_ratio,
-      estimated_cost_cents: estimatedCostCents,
-      maximum_authorized_cost_cents: estimatedCostCents,
-      final_cost_cents: 0,
-      currency: 'BRL',
-      client_request_id: idempotencyKey,
-      progress_percent: 0,
-      references_count: references.length,
-      attempt_count: 1,
-      created_at: now,
-    };
-
-    await generationRepository.saveGeneration(generation);
-
-    // 6. Step: RESERVING_FUNDS (Zero-Trust wallet reservation before provider call)
-    generation.status = 'RESERVING_FUNDS';
-    await generationRepository.saveGeneration(generation);
-
-    try {
-      await walletService.reserveForGeneration({
-        userId,
-        amount_cents: estimatedCostCents,
-        generation_id: generationId,
-        idempotency_key: `res_${generationId}`,
-        description: `Reserva para geração ${model.name} (${resolution}, ${duration_seconds}s)`,
-      });
-    } catch (reserveErr: any) {
-      generation.status = 'FAILED';
-      generation.error_code = reserveErr.code || 'WALLET_INSUFFICIENT_FUNDS';
-      generation.error_message = reserveErr.message;
-      generation.failed_at = new Date().toISOString();
-      await generationRepository.saveGeneration(generation);
-      throw reserveErr;
-    }
-
-    // 7. Resolve Reference Asset URLs (Generates temporary secure signed URLs for providers)
-    const assetIds = references.map((r) => r.asset_id).filter(Boolean);
-    const resolvedAssetRefs = await assetReferenceResolver.resolveReferenceAssetUrls(
-      userId,
-      assetIds,
-      reqHost
-    );
-
-    // 8. Submit to Provider Adapter
-    let activeProviderId = route.selected_provider_id;
-    let adapter = providerRegistry.getAdapter(activeProviderId);
-
-    if (!adapter) {
-      // Release reserved funds if adapter missing
-      await walletService.releaseForGeneration({
-        userId,
-        amount_cents: estimatedCostCents,
-        generation_id: generationId,
-        idempotency_key: `rel_${generationId}`,
-        reason: 'Provedor indisponível',
-      });
-      generation.status = 'FAILED';
-      generation.error_code = 'PROVIDER_UNAVAILABLE';
-      generation.error_message = `Provedor '${activeProviderId}' não possui adaptador configurado.`;
-      generation.failed_at = new Date().toISOString();
-      await generationRepository.saveGeneration(generation);
-      throw new Error(generation.error_message);
-    }
-
-    // Attempt Submission
-    const attemptStartTime = Date.now();
-    let submitResult;
-
-    try {
-      submitResult = await adapter.submitGeneration({
-        generation_id: generationId,
-        user_id: userId,
-        model_id,
-        mode,
-        prompt: compiled_prompt,
-        negative_prompt,
-        duration_seconds,
-        resolution,
-        aspect_ratio,
-        number_of_outputs,
-        seed,
-        motion_strength,
-        references: resolvedAssetRefs,
-      });
-    } catch (submitErr: any) {
-      console.warn(`[GenerationService] Primary provider '${activeProviderId}' failed submission, trying fallback:`, submitErr.message);
-
-      // Attempt fallback route if available
-      let fallbackSuccess = false;
-      for (const fallbackId of route.fallback_provider_ids) {
-        const fallbackAdapter = providerRegistry.getAdapter(fallbackId);
-        if (fallbackAdapter) {
-          try {
-            activeProviderId = fallbackId;
-            adapter = fallbackAdapter;
-            submitResult = await fallbackAdapter.submitGeneration({
-              generation_id: generationId,
-              user_id: userId,
-              model_id,
-              mode,
-              prompt: compiled_prompt,
-              negative_prompt,
-              duration_seconds,
-              resolution,
-              aspect_ratio,
-              number_of_outputs,
-              seed,
-              motion_strength,
-              references: resolvedAssetRefs,
-            });
-            fallbackSuccess = true;
-            break;
-          } catch (fbErr: any) {
-            console.warn(`[GenerationService] Fallback provider '${fallbackId}' also failed:`, fbErr.message);
-          }
-        }
-      }
-
-      if (!fallbackSuccess) {
-        // Release reserved funds immediately upon total submission failure
-        await walletService.releaseForGeneration({
-          userId,
-          amount_cents: estimatedCostCents,
-          generation_id: generationId,
-          idempotency_key: `rel_${generationId}`,
-          reason: 'Falha no envio para provedores de IA',
-        });
-        generation.status = 'FAILED';
-        generation.error_code = 'PROVIDER_SUBMIT_FAILED';
-        generation.error_message = `Falha ao despachar para provedores de IA: ${submitErr.message}`;
-        generation.failed_at = new Date().toISOString();
-        await generationRepository.saveGeneration(generation);
-        throw submitErr;
-      }
-    }
-
-    // 9. Transition to SUBMITTED / PROCESSING
-    generation.provider_id = activeProviderId;
-    generation.provider_job_id = submitResult!.provider_job_id;
-    generation.status = 'PROCESSING';
-    generation.submitted_at = new Date().toISOString();
-    generation.progress_percent = 15;
-    await generationRepository.saveGeneration(generation);
-
-    // Record attempt log
-    const attemptLog: GenerationAttemptLog = {
-      attempt_id: `att_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
-      generation_id: generationId,
-      attempt_number: 1,
-      provider_id: activeProviderId,
-      provider_job_id: submitResult!.provider_job_id,
-      status: 'PROCESSING',
-      latency_ms: Date.now() - attemptStartTime,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    await generationRepository.recordAttemptLog(attemptLog);
-
-    // 10. Start Background Lifecycle Poller
-    this.startBackgroundPoller(generationId, userId, activeProviderId, submitResult!.provider_job_id, estimatedCostCents);
-
-    return generation;
-  },
-
-  /**
-   * Background monitoring loop that polls provider status until SUCCEEDED or FAILED.
-   * On SUCCEEDED -> captures funds.
-   * On FAILED -> releases reserved funds.
-   */
-  startBackgroundPoller(
-    generationId: string,
-    userId: string,
-    providerId: string,
-    providerJobId: string,
-    authorizedCostCents: number
-  ) {
-    const adapter = providerRegistry.getAdapter(providerId);
-    if (!adapter) return;
-
-    let pollCount = 0;
-    const maxPolls = 180; // Up to ~9 minutes (every 3 seconds)
-
-    const interval = setInterval(async () => {
-      pollCount++;
-
-      try {
-        const generation = await generationRepository.getGeneration(generationId);
-        if (!generation || generation.status === 'CANCELLED' || generation.status === 'SUCCEEDED' || generation.status === 'FAILED') {
-          clearInterval(interval);
-          return;
-        }
-
-        const statusRes = await adapter.checkStatus(providerJobId);
-
-        if (statusRes.status === 'PROCESSING') {
-          generation.progress_percent = Math.min(95, Math.max(generation.progress_percent || 15, statusRes.progress_percent));
-          await generationRepository.saveGeneration(generation);
-        } else if (statusRes.status === 'SUCCEEDED') {
-          clearInterval(interval);
-
-          // 1. Capture reserved funds
-          const finalCost = authorizedCostCents;
-          try {
-            await walletService.captureForGeneration({
-              userId,
-              amount_cents: finalCost,
-              generation_id: generationId,
-              idempotency_key: `cap_${generationId}`,
-              description: `Cobrança de geração concluída #${generationId.slice(-6)}`,
-            });
-          } catch (capErr) {
-            console.error('[GenerationService] Error capturing funds on success:', capErr);
-          }
-
-          // 2. Finalize generation record
-          generation.status = 'SUCCEEDED';
-          generation.progress_percent = 100;
-          generation.result_url = statusRes.result_video_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
-          generation.thumbnail_url = statusRes.thumbnail_url || '';
-          generation.final_cost_cents = finalCost;
-          generation.completed_at = new Date().toISOString();
-          await generationRepository.saveGeneration(generation);
-        } else if (statusRes.status === 'FAILED') {
-          clearInterval(interval);
-
-          // Release reserved funds back to available
-          try {
-            await walletService.releaseForGeneration({
-              userId,
-              amount_cents: authorizedCostCents,
-              generation_id: generationId,
-              idempotency_key: `rel_${generationId}`,
-              reason: statusRes.error_message || 'Provedor reportou erro de execução',
-            });
-          } catch (relErr) {
-            console.error('[GenerationService] Error releasing funds on failure:', relErr);
-          }
-
-          generation.status = 'FAILED';
-          generation.error_code = statusRes.error_code || 'PROVIDER_EXECUTION_ERROR';
-          generation.error_message = statusRes.error_message || 'Falha durante o processamento do vídeo no provedor.';
-          generation.failed_at = new Date().toISOString();
-          await generationRepository.saveGeneration(generation);
-        }
-
-        if (pollCount >= maxPolls) {
-          clearInterval(interval);
-          // Timeout: Release funds
-          await walletService.releaseForGeneration({
-            userId,
-            amount_cents: authorizedCostCents,
-            generation_id: generationId,
-            idempotency_key: `rel_${generationId}`,
-            reason: 'Tempo limite de geração excedido (timeout)',
-          });
-          generation.status = 'FAILED';
-          generation.error_code = 'GENERATION_TIMEOUT';
-          generation.error_message = 'A geração excedeu o tempo máximo permitido de processamento.';
-          generation.failed_at = new Date().toISOString();
-          await generationRepository.saveGeneration(generation);
-        }
-      } catch (err: any) {
-        console.warn(`[GenerationService] Polling error for ${generationId}:`, err.message);
-      }
-    }, 2500);
-  },
-
-  /**
-   * Cancels a generation that is currently in progress.
-   */
-  async cancelGeneration(generationId: string, userId: string): Promise<Generation> {
-    const generation = await generationRepository.getGeneration(generationId);
-    if (!generation) {
-      throw new Error('Geração não encontrada.');
-    }
-
-    if (generation.user_id !== userId) {
-      throw new Error('Sem permissão para cancelar esta geração.');
-    }
-
-    if (generation.status === 'SUCCEEDED' || generation.status === 'FAILED' || generation.status === 'CANCELLED') {
-      return generation;
-    }
-
-    // Cancel at provider adapter if applicable
-    if (generation.provider_job_id && generation.provider_id) {
-      const adapter = providerRegistry.getAdapter(generation.provider_id);
-      if (adapter?.cancelJob) {
-        await adapter.cancelJob(generation.provider_job_id).catch(() => {});
-      }
-    }
-
-    // Release reserved funds
-    if (generation.estimated_cost_cents) {
-      await walletService.releaseForGeneration({
-        userId,
-        amount_cents: generation.estimated_cost_cents,
-        generation_id: generationId,
-        idempotency_key: `rel_${generationId}`,
-        reason: 'Cancelado pelo usuário',
-      });
-    }
-
-    generation.status = 'CANCELLED';
-    generation.failed_at = new Date().toISOString();
-    await generationRepository.saveGeneration(generation);
-
-    return generation;
-  },
-
-  async listUserGenerations(userId: string, limit = 50): Promise<Generation[]> {
-    return generationRepository.listUserGenerations(userId, limit);
-  },
-
-  async getGeneration(generationId: string, userId: string): Promise<Generation | null> {
-    const gen = await generationRepository.getGeneration(generationId);
-    if (!gen || gen.user_id !== userId) {
-      return null;
-    }
-    return gen;
-  },
+ async getGeneration(id:string,userId:string){const g=await generationRepository.getGeneration(id);if(!g||g.user_id!==userId)return null;return this.refreshGenerationState(g);},
+ async listUserGenerations(userId:string,limit=50){const list=await generationRepository.listUserGenerations(userId,limit);return Promise.all(list.map(g=>terminal(g.status)?g:this.refreshGenerationState(g)));},
+ async cancelGeneration(id:string,userId:string){const g=await generationRepository.getGeneration(id);if(!g||g.user_id!==userId)throw new Error('Geração não encontrada.');if(terminal(g.status))return g;if(g.provider_job_id){const adapter=providerRegistry.getAdapter(g.provider_id);const cancelled=adapter?.cancelJob?await adapter.cancelJob(g.provider_job_id):false;if(!cancelled)throw new Error('Este provider não permite cancelar depois que o job foi enviado.');}
+  const reserved=g.maximum_authorized_cost_cents||g.estimated_cost_cents||0;if(reserved>0)await walletService.releaseForGeneration({userId,amount_cents:reserved,generation_id:id,idempotency_key:`release:${id}:cancel`,reason:'Cancelamento do usuário'});g.status='CANCELLED';g.failed_at=new Date().toISOString();return generationRepository.saveGeneration(g);}
 };
