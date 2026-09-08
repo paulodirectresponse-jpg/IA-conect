@@ -4,19 +4,14 @@ import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Authentication Instance
 export const auth = getAuth(app);
-
-// Firestore Instance bound to the specific provisioned database
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
+// Use the bucket already declared in the Firebase app config. Passing the bucket as a
+// second argument caused inconsistent behaviour inside AI Studio previews.
+export const storage = getStorage(app);
 
-// Firebase Storage Instance
-export const storage = getStorage(app, firebaseConfig.storageBucket || undefined);
-
-// Validate connection on boot as recommended in Firebase guidelines
 export async function testFirebaseConnection(): Promise<boolean> {
   try {
     await getDocFromServer(doc(db, 'app_config', 'health_check'));
