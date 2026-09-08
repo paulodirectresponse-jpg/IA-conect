@@ -1,4 +1,4 @@
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import {
   collection,
   doc,
@@ -9,9 +9,18 @@ import {
   where,
 } from 'firebase/firestore';
 import { storage, auth, db } from '../config/firebase.js';
+import firebaseConfig from '../../firebase-applet-config.json';
 import { apiRequest } from './apiClient.js';
 import { Asset, AssetType, AssetCategory } from '../types/index.js';
 import { ASSET_UPLOAD_LIMITS } from '../config/constants.js';
+
+// Reduce maximum retry time so client does not hang for 10 minutes on network or CORS issues
+try {
+  storage.maxUploadRetryTime = 30000;
+  storage.maxOperationRetryTime = 30000;
+} catch (e) {
+  // Safe ignore if environment does not allow mutation
+}
 
 export interface UploadAssetParams {
   file: File;
@@ -19,6 +28,8 @@ export interface UploadAssetParams {
   alias?: string;
   category?: AssetCategory;
   onProgress?: (percent: number) => void;
+  onTaskReady?: (task: { cancel: () => void }) => void;
+  timeoutMs?: number;
 }
 
 export function sanitizeAlias(nameOrAlias: string): string {
@@ -29,6 +40,34 @@ export function sanitizeAlias(nameOrAlias: string): string {
     .replace(/[^a-z0-9_]/g, '_')
     .replace(/^_+|_+$/g, '')
     .replace(/_+/g, '_');
+}
+
+export function mapStorageError(error: any): string {
+  const code = error?.code || '';
+  const message = error?.message || '';
+
+  if (code === 'storage/unauthorized') {
+    return 'Permissão negada no Firebase Storage. Verifique se sua sessão está ativa e as regras de acesso.';
+  }
+  if (code === 'storage/canceled') {
+    return 'Upload cancelado pelo usuário.';
+  }
+  if (code === 'storage/bucket-not-found') {
+    return 'Bucket de armazenamento não encontrado. Verifique a configuração do Firebase Storage.';
+  }
+  if (code === 'storage/quota-exceeded') {
+    return 'Cota de armazenamento do Firebase Storage excedida.';
+  }
+  if (code === 'storage/retry-limit-exceeded') {
+    return 'Tempo limite esgotado ao conectar ao Firebase Storage. Verifique sua conexão e configurações de CORS.';
+  }
+  if (code === 'storage/object-not-found') {
+    return 'Arquivo não encontrado no Storage.';
+  }
+  if (code === 'storage/unknown' || message.includes('CORS') || message.includes('Network') || message.includes('Failed to fetch')) {
+    return `Falha ao conectar com o Firebase Storage (${code || 'Network/CORS'}). Verifique se o bucket está ativo e com CORS configurado.`;
+  }
+  return message || 'Erro inesperado durante o upload para o Firebase Storage.';
 }
 
 export const assetService = {
@@ -81,10 +120,29 @@ export const assetService = {
   },
 
   async uploadAsset(params: UploadAssetParams): Promise<Asset> {
-    const { file, name, alias, category = 'PRODUCT', onProgress } = params;
+    const { file, name, alias, category = 'PRODUCT', onProgress, onTaskReady, timeoutMs = 90000 } = params;
+
+    // PRE-UPLOAD DIAGNOSTICS & CHECKS
     const user = auth.currentUser;
     if (!user) {
+      console.error('[Storage Diagnostic] Upload rejeitado: Usuário não autenticado.');
       throw new Error('Usuário não autenticado para fazer upload.');
+    }
+
+    if (!storage) {
+      console.error('[Storage Diagnostic] Upload rejeitado: Firebase Storage não inicializado.');
+      throw new Error('Serviço Firebase Storage indisponível no cliente.');
+    }
+
+    const configuredBucket = firebaseConfig.storageBucket?.trim();
+    if (!configuredBucket) {
+      console.error('[Storage Diagnostic] Upload rejeitado: firebaseConfig.storageBucket está vazio.');
+      throw new Error('Configuração ausente: storageBucket não está preenchido no firebase-applet-config.json.');
+    }
+
+    if (!file || file.size === 0) {
+      console.error('[Storage Diagnostic] Upload rejeitado: Arquivo inválido ou com 0 bytes.');
+      throw new Error('Arquivo vazio ou inválido selecionado para upload.');
     }
 
     // 1. Client-Side Size & Mime Validation
@@ -109,45 +167,106 @@ export const assetService = {
 
     const assetId = `ast_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const storagePath = `users/${user.uid}/assets/${assetId}/original.${extension}`;
+    const storageRef = ref(storage, storagePath);
+
+    console.log('[Storage Diagnostic] Iniciando upload direto para Firebase Storage:', {
+      userId: user.uid,
+      bucket: configuredBucket,
+      storagePath,
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type,
+    });
 
     let publicUrl = '';
 
-    // 2. Real Firebase Storage Upload
+    // 2. Real Firebase Storage Upload with Resumable Task and Generous Safety Watchdog
     try {
-      const storageRef = ref(storage, storagePath);
       const uploadTask = uploadBytesResumable(storageRef, file, {
         contentType: file.type || 'application/octet-stream',
       });
 
+      if (onTaskReady) {
+        onTaskReady({
+          cancel: () => {
+            try {
+              console.log('[Storage Diagnostic] Cancelamento manual solicitado pelo usuário.');
+              uploadTask.cancel();
+            } catch (e) {
+              console.warn('[AssetService] Error cancelling upload task:', e);
+            }
+          },
+        });
+      }
+
       await new Promise<void>((resolve, reject) => {
+        let isSettled = false;
+
+        // Watchdog failsafe timeout (default 90s) - ONLY for frozen network socket protection
+        const safetyWatchdog = setTimeout(() => {
+          if (!isSettled) {
+            isSettled = true;
+            try {
+              uploadTask.cancel();
+            } catch (e) {}
+            console.error('[Storage Diagnostic] Timeout de segurança atingido (90s sem finalização):', {
+              bucket: configuredBucket,
+              path: storagePath,
+            });
+            reject(
+              new Error('Tempo limite de rede esgotado durante o envio. Verifique sua conexão e tente novamente.')
+            );
+          }
+        }, timeoutMs);
+
         uploadTask.on(
           'state_changed',
           (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            if (onProgress) onProgress(Math.round(progress));
+            const total = snapshot.totalBytes || file.size;
+            const progress = total > 0 ? Math.round((snapshot.bytesTransferred / total) * 100) : 0;
+            if (onProgress) {
+              onProgress(Math.min(100, Math.max(0, progress)));
+            }
           },
           (error) => {
-            console.warn('[AssetService] Storage uploadTask warning:', error);
-            reject(error);
+            if (isSettled) return;
+            isSettled = true;
+            clearTimeout(safetyWatchdog);
+
+            // Technical Diagnostic Logging (without exposing credentials)
+            console.error('[Storage Diagnostic] Falha reportada pelo Firebase Storage:', {
+              errorCode: error?.code,
+              errorMessage: error?.message,
+              errorServerResponse: (error as any)?.serverResponse,
+              bucket: configuredBucket,
+              storagePath,
+            });
+
+            const userMsg = mapStorageError(error);
+            reject(new Error(userMsg));
           },
           async () => {
+            if (isSettled) return;
+            isSettled = true;
+            clearTimeout(safetyWatchdog);
             try {
               publicUrl = await getDownloadURL(uploadTask.snapshot.ref);
+              console.log('[Storage Diagnostic] Upload concluído com sucesso. Download URL obtida.');
+              if (onProgress) onProgress(100);
               resolve();
-            } catch (err) {
-              reject(err);
+            } catch (err: any) {
+              console.error('[Storage Diagnostic] Falha ao obter Download URL do arquivo enviado:', {
+                errorCode: err?.code,
+                errorMessage: err?.message,
+                storagePath,
+              });
+              reject(new Error(`Falha ao obter URL pública do asset: ${err?.message || 'Storage error'}`));
             }
           }
         );
       });
     } catch (storageErr: any) {
-      console.warn('[AssetService] Firebase Storage upload fallback triggered:', storageErr?.message);
-      publicUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      if (onProgress) onProgress(100);
+      throw new Error(storageErr?.message || 'Falha no upload para o Firebase Storage.');
     }
 
     // 3. Compute unique alias
@@ -184,15 +303,18 @@ export const assetService = {
       deleted_at: null,
     };
 
-    // 4. Save to Firestore directly
+    // 4. Save metadata to Firestore (with orphan cleanup if save fails)
     try {
       await setDoc(doc(db, 'assets', assetId), newAsset);
-    } catch (fsErr) {
-      console.warn('[AssetService] Firestore setDoc fallback to API:', fsErr);
-      await apiRequest<Asset>('/api/assets', {
-        method: 'POST',
-        body: JSON.stringify(newAsset),
-      });
+    } catch (fsErr: any) {
+      console.error('[AssetService] Firestore setDoc failed:', fsErr);
+      // Attempt orphan cleanup of storage object to prevent zombie storage
+      try {
+        await deleteObject(storageRef);
+      } catch (delErr) {
+        console.warn('[AssetService] Orphan cleanup failed:', delErr);
+      }
+      throw new Error(`Falha ao salvar metadados do asset no Firestore: ${fsErr?.message || 'Erro de persistência'}`);
     }
 
     return newAsset;

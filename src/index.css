@@ -1,1 +1,24 @@
 @import "tailwindcss";
+
+@layer base {
+  :root {
+    --app-bg: #F7F7F8;
+    --surface: #FFFFFF;
+    --surface-secondary: #FAFAFB;
+    --border: #E5E7EB;
+    --border-hover: #D1D5DB;
+    --text-primary: #18181B;
+    --text-secondary: #71717A;
+    --text-muted: #A1A1AA;
+    --accent: #059669;
+    --accent-hover: #047857;
+  }
+
+  body {
+    background-color: #F7F7F8;
+    color: #18181B;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

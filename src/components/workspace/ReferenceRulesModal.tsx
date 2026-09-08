@@ -79,26 +79,26 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in">
       <div
         id="modal-reference-rules"
-        className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden text-zinc-100 flex flex-col max-h-[90vh]"
+        className="w-full max-w-lg bg-white border border-zinc-200 rounded-2xl shadow-xl overflow-hidden text-zinc-900 flex flex-col max-h-[90vh]"
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-white">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
               <Shield className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Regras de Preservação de Referência</h2>
-              <p className="text-xs text-emerald-400 font-mono">@{reference.alias_snapshot}</p>
+              <h2 className="text-sm font-semibold text-zinc-900">Regras de Preservação de Referência</h2>
+              <p className="text-xs text-emerald-700 font-mono">@{reference.alias_snapshot}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -108,7 +108,7 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
         <div className="px-6 py-5 overflow-y-auto space-y-5 text-xs">
           {/* Priority Level */}
           <div>
-            <label className="block text-zinc-300 font-medium mb-2 flex items-center gap-1.5">
+            <label className="block text-zinc-700 font-medium mb-2 flex items-center gap-1.5">
               <Sliders className="w-3.5 h-3.5 text-zinc-400" />
               <span>Prioridade de Fidelidade</span>
             </label>
@@ -126,10 +126,10 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
                     key={p}
                     type="button"
                     onClick={() => setPriority(p)}
-                    className={`py-2 px-2 text-center rounded-lg border font-medium transition-all ${
+                    className={`py-2 px-2 text-center rounded-xl border font-medium transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                        : 'bg-zinc-800/60 border-zinc-700/60 text-zinc-400 hover:bg-zinc-800'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs'
+                        : 'bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100'
                     }`}
                   >
                     {labels[p]}
@@ -142,13 +142,13 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
           {/* Preservation Rules (Must keep identical) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-emerald-400 font-medium flex items-center gap-1">
+              <label className="text-emerald-700 font-medium flex items-center gap-1">
                 <Check className="w-3.5 h-3.5" />
                 <span>O que DEVE ser preservado rigorosamente</span>
               </label>
-              <span className="text-[10px] text-zinc-500">{preservationRules.length} regras ativas</span>
+              <span className="text-[10px] text-zinc-400">{preservationRules.length} regras ativas</span>
             </div>
-            <div className="flex flex-wrap gap-1.5 p-2 rounded-xl bg-zinc-950/60 border border-zinc-800/80 min-h-[48px]">
+            <div className="flex flex-wrap gap-1.5 p-2 rounded-xl bg-zinc-50 border border-zinc-200 min-h-[48px]">
               {defaults.preserve.map((rule) => {
                 const active = preservationRules.includes(rule);
                 return (
@@ -156,10 +156,10 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
                     key={rule}
                     type="button"
                     onClick={() => toggleRule(rule, 'PRESERVE')}
-                    className={`px-2.5 py-1 rounded-lg border text-[11px] transition-colors ${
+                    className={`px-2.5 py-1 rounded-lg border text-[11px] transition-colors cursor-pointer ${
                       active
-                        ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-medium'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-500 line-through'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-medium'
+                        : 'bg-white border-zinc-200 text-zinc-400 line-through'
                     }`}
                   >
                     {rule}
@@ -171,13 +171,13 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
                 .map((rule) => (
                   <span
                     key={rule}
-                    className="px-2.5 py-1 rounded-lg border bg-emerald-500/20 border-emerald-500/40 text-emerald-300 text-[11px] flex items-center gap-1"
+                    className="px-2.5 py-1 rounded-lg border bg-emerald-50 border-emerald-300 text-emerald-800 text-[11px] flex items-center gap-1"
                   >
                     {rule}
                     <button
                       type="button"
                       onClick={() => toggleRule(rule, 'PRESERVE')}
-                      className="text-emerald-400 hover:text-white"
+                      className="text-emerald-600 hover:text-emerald-900 cursor-pointer ml-1"
                     >
                       ×
                     </button>
@@ -189,13 +189,13 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
           {/* Flexible Rules (Can vary / creative freedom) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-sky-400 font-medium flex items-center gap-1">
+              <label className="text-sky-700 font-medium flex items-center gap-1">
                 <Sliders className="w-3.5 h-3.5" />
                 <span>O que PODE variar criativamente</span>
               </label>
-              <span className="text-[10px] text-zinc-500">{flexibleRules.length} variações</span>
+              <span className="text-[10px] text-zinc-400">{flexibleRules.length} variações</span>
             </div>
-            <div className="flex flex-wrap gap-1.5 p-2 rounded-xl bg-zinc-950/60 border border-zinc-800/80 min-h-[48px]">
+            <div className="flex flex-wrap gap-1.5 p-2 rounded-xl bg-zinc-50 border border-zinc-200 min-h-[48px]">
               {defaults.flexible.map((rule) => {
                 const active = flexibleRules.includes(rule);
                 return (
@@ -203,10 +203,10 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
                     key={rule}
                     type="button"
                     onClick={() => toggleRule(rule, 'FLEXIBLE')}
-                    className={`px-2.5 py-1 rounded-lg border text-[11px] transition-colors ${
+                    className={`px-2.5 py-1 rounded-lg border text-[11px] transition-colors cursor-pointer ${
                       active
-                        ? 'bg-sky-500/20 border-sky-500/40 text-sky-300 font-medium'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-500 line-through'
+                        ? 'bg-sky-50 border-sky-300 text-sky-800 font-medium'
+                        : 'bg-white border-zinc-200 text-zinc-400 line-through'
                     }`}
                   >
                     {rule}
@@ -218,13 +218,13 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
                 .map((rule) => (
                   <span
                     key={rule}
-                    className="px-2.5 py-1 rounded-lg border bg-sky-500/20 border-sky-500/40 text-sky-300 text-[11px] flex items-center gap-1"
+                    className="px-2.5 py-1 rounded-lg border bg-sky-50 border-sky-300 text-sky-800 text-[11px] flex items-center gap-1"
                   >
                     {rule}
                     <button
                       type="button"
                       onClick={() => toggleRule(rule, 'FLEXIBLE')}
-                      className="text-sky-400 hover:text-white"
+                      className="text-sky-600 hover:text-sky-900 cursor-pointer ml-1"
                     >
                       ×
                     </button>
@@ -238,7 +238,7 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
             <select
               value={customRuleType}
               onChange={(e) => setCustomRuleType(e.target.value as any)}
-              className="bg-zinc-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-zinc-200 text-xs focus:outline-none"
+              className="bg-white border border-zinc-200 rounded-xl px-2.5 py-1.5 text-zinc-800 text-xs focus:outline-none"
             >
               <option value="PRESERVE">Preservar</option>
               <option value="FLEXIBLE">Pode Variar</option>
@@ -247,12 +247,12 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
               type="text"
               value={customRuleInput}
               onChange={(e) => setCustomRuleInput(e.target.value)}
-              placeholder="Adicionar regra personalizada (ex: textura do couro)..."
-              className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-zinc-200 text-xs placeholder:text-zinc-500 focus:outline-none focus:border-emerald-500"
+              placeholder="Adicionar regra (ex: textura do tecido)..."
+              className="flex-1 bg-white border border-zinc-200 rounded-xl px-3 py-1.5 text-zinc-900 text-xs placeholder:text-zinc-400 focus:outline-none focus:border-emerald-600"
             />
             <button
               type="submit"
-              className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg font-medium border border-zinc-700"
+              className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl font-medium border border-zinc-200 cursor-pointer"
             >
               Adicionar
             </button>
@@ -260,7 +260,7 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
 
           {/* Additional Notes */}
           <div>
-            <label className="block text-zinc-300 font-medium mb-1">
+            <label className="block text-zinc-700 font-medium mb-1">
               Notas Adicionais para a Compilação
             </label>
             <textarea
@@ -268,12 +268,12 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Instruções específicas para o modelo a respeito desta referência..."
               rows={2}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 resize-none text-xs"
+              className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-emerald-600 resize-none text-xs"
             />
           </div>
 
-          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-800/40 border border-zinc-700/40 text-[11px] text-zinc-400">
-            <AlertCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-[11px] text-zinc-500">
+            <AlertCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
             <span>
               Essas regras serão compiladas no cabeçalho do prompt para instruir o modelo sem comprometer a integridade da referência.
             </span>
@@ -281,11 +281,11 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-zinc-800 flex items-center justify-end gap-2 bg-zinc-950/40">
+        <div className="px-6 py-3 border-t border-zinc-100 flex items-center justify-end gap-2 bg-zinc-50/50">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors font-medium text-xs"
+            className="px-4 py-2 rounded-xl text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors font-medium text-xs cursor-pointer"
           >
             Cancelar
           </button>
@@ -293,7 +293,7 @@ export const ReferenceRulesModal: React.FC<ReferenceRulesModalProps> = ({
             type="button"
             id="btn-save-reference-rules"
             onClick={handleSave}
-            className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold transition-colors text-xs flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <Check className="w-3.5 h-3.5" />
             <span>Salvar Regras</span>

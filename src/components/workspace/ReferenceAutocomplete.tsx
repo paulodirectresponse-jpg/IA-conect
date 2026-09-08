@@ -20,16 +20,16 @@ export const ReferenceAutocomplete: React.FC<ReferenceAutocompleteProps> = ({
   return (
     <div
       id="reference-autocomplete-dropdown"
-      className="absolute z-50 w-80 max-h-72 overflow-y-auto bg-white border border-zinc-200 rounded-xl shadow-xl p-1.5 text-xs text-zinc-900"
+      className="absolute z-50 w-80 max-h-72 overflow-y-auto bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-1.5 text-xs text-zinc-100"
     >
-      <div className="px-2.5 py-1.5 text-[11px] font-medium text-zinc-500 border-b border-zinc-100 flex items-center justify-between">
+      <div className="px-2.5 py-1.5 text-[11px] font-medium text-zinc-400 border-b border-zinc-800 flex items-center justify-between">
         <span>Referências visuais (@)</span>
-        {query && <span className="text-zinc-400 font-mono">filtro: @{query}</span>}
+        {query && <span className="text-emerald-400 font-mono">@{query}</span>}
       </div>
 
       <div className="py-1">
         {assets.length === 0 ? (
-          <div className="px-3 py-3 text-center text-zinc-400 text-xs">
+          <div className="px-3 py-3 text-center text-zinc-500 text-xs">
             Nenhum asset encontrado com &quot;@{query}&quot;
           </div>
         ) : (
@@ -42,11 +42,11 @@ export const ReferenceAutocomplete: React.FC<ReferenceAutocompleteProps> = ({
                 id={`autocomplete-item-${asset.asset_id}`}
                 onClick={() => onSelect(asset)}
                 className={`w-full text-left px-2.5 py-2 rounded-lg flex items-center gap-3 transition-colors ${
-                  isSelected ? 'bg-zinc-100 text-zinc-900 font-medium' : 'text-zinc-700 hover:bg-zinc-50'
+                  isSelected ? 'bg-zinc-800 text-white font-medium' : 'text-zinc-300 hover:bg-zinc-800/60'
                 }`}
               >
                 {/* Preview / Thumbnail */}
-                <div className="w-8 h-8 rounded-md bg-zinc-100 flex-shrink-0 flex items-center justify-center overflow-hidden border border-zinc-200">
+                <div className="w-8 h-8 rounded-md bg-zinc-950 flex-shrink-0 flex items-center justify-center overflow-hidden border border-zinc-800">
                   {asset.thumbnail_url || asset.public_url ? (
                     <img
                       src={asset.thumbnail_url || asset.public_url}
@@ -55,23 +55,23 @@ export const ReferenceAutocomplete: React.FC<ReferenceAutocompleteProps> = ({
                       referrerPolicy="no-referrer"
                     />
                   ) : asset.type === 'VIDEO' ? (
-                    <Video className="w-4 h-4 text-blue-500" />
+                    <Video className="w-4 h-4 text-blue-400" />
                   ) : asset.type === 'AUDIO' ? (
-                    <Music className="w-4 h-4 text-purple-500" />
+                    <Music className="w-4 h-4 text-purple-400" />
                   ) : (
-                    <ImageIcon className="w-4 h-4 text-amber-500" />
+                    <ImageIcon className="w-4 h-4 text-amber-400" />
                   )}
                 </div>
 
                 {/* Details */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-zinc-900 font-mono">@{asset.alias}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200">
+                    <span className="font-semibold text-emerald-400 font-mono">@{asset.alias}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/50">
                       {asset.category}
                     </span>
                   </div>
-                  <p className="text-zinc-500 text-[11px] truncate mt-0.5">{asset.name}</p>
+                  <p className="text-zinc-400 text-[11px] truncate mt-0.5">{asset.name}</p>
                 </div>
               </button>
             );
@@ -79,14 +79,14 @@ export const ReferenceAutocomplete: React.FC<ReferenceAutocompleteProps> = ({
         )}
       </div>
 
-      <div className="border-t border-zinc-100 pt-1 mt-1">
+      <div className="border-t border-zinc-800 pt-1 mt-1">
         <button
           type="button"
           id="btn-quick-upload-from-autocomplete"
           onClick={onQuickUpload}
-          className="w-full text-left px-2.5 py-2 rounded-lg text-zinc-700 hover:bg-zinc-50 flex items-center gap-2 font-medium transition-colors"
+          className="w-full text-left px-2.5 py-2 rounded-lg text-zinc-300 hover:bg-zinc-800 flex items-center gap-2 font-medium transition-colors"
         >
-          <div className="w-6 h-6 rounded bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-500">
+          <div className="w-6 h-6 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400">
             <Plus className="w-3.5 h-3.5" />
           </div>
           <span>Fazer upload de novo asset...</span>

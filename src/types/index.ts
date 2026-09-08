@@ -150,6 +150,7 @@ export interface ModelCapabilities {
   supports_camera_control?: boolean;
   supports_motion_strength?: boolean;
   supports_loop?: boolean;
+  supports_start_end_image?: boolean;
 }
 
 export type ModelCategory = 'VIDEO' | 'IMAGE' | 'AUDIO' | 'OTHER';
