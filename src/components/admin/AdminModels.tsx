@@ -122,6 +122,14 @@ export const AdminModels: React.FC = () => {
         </Button>
       </div>
 
+      <div className="flex items-start gap-2.5 p-3.5 rounded-lg bg-zinc-100 border border-zinc-200/80 text-xs text-zinc-700 leading-relaxed">
+        <Layers className="w-4 h-4 text-zinc-600 shrink-0 mt-0.5" />
+        <div>
+          <strong className="text-zinc-900 block mb-0.5">Semântica da Etapa 1 — Metadados de Catálogo:</strong>
+          Os modelos cadastrados abaixo (ex: WAN 2.1, Kling 1.5, Hunyuan) representam <strong>definições de catálogo e matriz de tarifação</strong>. Nenhuma capacidade real de geração ou disparo de inferência está conectada nesta fase (integração prevista para a Etapa 3).
+        </div>
+      </div>
+
       <Card id="admin-models-card">
         {loading ? (
           <div className="py-8 text-center text-xs text-zinc-400">Carregando catálogo de modelos...</div>

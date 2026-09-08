@@ -14,24 +14,45 @@ export const authService = {
   async register(email: string, pass: string, displayName: string): Promise<{ user: UserProfile; wallet: WalletAccount }> {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
     if (displayName) {
-      await updateProfile(cred.user, { displayName });
+      try {
+        await updateProfile(cred.user, { displayName });
+      } catch (e) {
+        console.warn('Profile name update skipped:', e);
+      }
     }
 
-    // Call server to establish user profile and zero-balance wallet
-    const res = await apiRequest<{ user: UserProfile; wallet: WalletAccount }>('/api/auth/register-profile', {
-      method: 'POST',
-      body: JSON.stringify({
-        display_name: displayName,
-      }),
-    });
-
-    return res;
+    try {
+      const token = await cred.user.getIdToken();
+      const res = await apiRequest<{ user: UserProfile; wallet: WalletAccount }>('/api/auth/register-profile', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          display_name: displayName,
+        }),
+      });
+      return res;
+    } catch (err) {
+      await signOut(auth);
+      throw err;
+    }
   },
 
   async login(email: string, pass: string): Promise<{ user: UserProfile; wallet: WalletAccount }> {
-    await signInWithEmailAndPassword(auth, email, pass);
-    const res = await apiRequest<{ user: UserProfile; wallet: WalletAccount }>('/api/auth/me');
-    return res;
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    try {
+      const token = await cred.user.getIdToken();
+      const res = await apiRequest<{ user: UserProfile; wallet: WalletAccount }>('/api/auth/me', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return res;
+    } catch (err) {
+      await signOut(auth);
+      throw err;
+    }
   },
 
   async logout(): Promise<void> {
@@ -46,9 +67,10 @@ export const authService = {
     return apiRequest<{ user: UserProfile; wallet: WalletAccount }>('/api/auth/me');
   },
 
-  async claimBootstrapAdmin(): Promise<{ user: UserProfile; message: string }> {
+  async claimBootstrapAdmin(bootstrapSecret?: string): Promise<{ user: UserProfile; message: string }> {
     return apiRequest<{ user: UserProfile; message: string }>('/api/admin/bootstrap', {
       method: 'POST',
+      body: bootstrapSecret ? JSON.stringify({ bootstrap_secret: bootstrapSecret }) : undefined,
     });
   },
 };

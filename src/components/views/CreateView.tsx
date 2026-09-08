@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Video, Info, Check, AlertCircle } from 'lucide-react';
+import { Sparkles, Video, Info, Check, AlertCircle, Lock } from 'lucide-react';
 import { apiRequest } from '../../services/apiClient.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { ModelRegistryItem, PricingEntry } from '../../types/index.js';
@@ -221,19 +221,21 @@ export const CreateView: React.FC = () => {
                 )}
               </div>
 
-              <Button
-                id="create-action-btn"
-                variant="primary"
-                size="md"
-                disabled={!hasEnoughFunds || !prompt.trim()}
-                className="w-full"
-                icon={<Sparkles className="w-4 h-4 text-amber-300" />}
-                onClick={() => {
-                  alert('Validação bem-sucedida! O disparo de IA será habilitado na Etapa 2.');
-                }}
-              >
-                Gerar com IA (Etapa 2)
-              </Button>
+              <div className="pt-2">
+                <Button
+                  id="create-action-btn"
+                  variant="outline"
+                  size="md"
+                  disabled={true}
+                  className="w-full text-zinc-500 cursor-not-allowed bg-zinc-50"
+                  icon={<Lock className="w-3.5 h-3.5 text-zinc-400" />}
+                >
+                  Execução Indisponível (Etapa 1: Apenas Catálogo)
+                </Button>
+                <span className="text-[10px] text-zinc-400 text-center block mt-1.5 leading-tight">
+                  O motor de execução e adapters de geração serão ativados nas Etapas 2 e 3.
+                </span>
+              </div>
             </div>
           </Card>
         </div>

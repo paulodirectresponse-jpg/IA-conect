@@ -4,7 +4,7 @@ import { walletRepository } from '../repositories/walletRepository.js';
 import { auditRepository } from '../repositories/auditRepository.js';
 import { UserProfile, UserRole, UserStatus } from '../../src/types/index.js';
 
-const INITIAL_ADMIN_EMAIL = (process.env.INITIAL_ADMIN_EMAIL || 'paulo.direct.response@gmail.com').toLowerCase().trim();
+const INITIAL_ADMIN_EMAIL = (process.env.INITIAL_ADMIN_EMAIL || '').toLowerCase().trim();
 
 export const authService = {
   async registerOrSyncProfile(params: {
@@ -77,10 +77,19 @@ export const authService = {
     return { user: savedUser, isNew: true };
   },
 
-  async bootstrapFirstAdmin(userId: string): Promise<UserProfile> {
+  async bootstrapFirstAdmin(userId: string, bootstrapSecret?: string): Promise<UserProfile> {
     const user = await userRepository.getById(userId);
     if (!user) {
       throw new Error('Usuário não encontrado');
+    }
+
+    const envSecret = (process.env.ADMIN_BOOTSTRAP_SECRET || '').trim();
+    if (envSecret) {
+      if (!bootstrapSecret || bootstrapSecret.trim() !== envSecret) {
+        const err: any = new Error('Segredo técnico de bootstrap administrativo inválido ou ausente.');
+        err.code = 'INVALID_BOOTSTRAP_SECRET';
+        throw err;
+      }
     }
 
     const counts = await userRepository.count();

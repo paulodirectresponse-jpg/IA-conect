@@ -117,12 +117,16 @@ export const INITIAL_MODELS = [
   },
 ];
 
+/**
+ * Initial Cataloged Providers (Registered Metadata - Etapa 1)
+ * NOTE: In Etapa 1, no runtime adapters or API keys are active. Status is INACTIVE until integration in Etapa 3.
+ */
 export const INITIAL_PROVIDERS = [
   {
     provider_id: 'provider-atlas',
     name: 'Atlas Cloud',
     slug: 'atlas-cloud',
-    status: 'ACTIVE' as const,
+    status: 'INACTIVE' as const,
     priority: 100,
     is_configured: false,
   },
@@ -130,7 +134,7 @@ export const INITIAL_PROVIDERS = [
     provider_id: 'provider-wavespeed',
     name: 'WaveSpeed AI',
     slug: 'wavespeed',
-    status: 'ACTIVE' as const,
+    status: 'INACTIVE' as const,
     priority: 90,
     is_configured: false,
   },
@@ -138,7 +142,7 @@ export const INITIAL_PROVIDERS = [
     provider_id: 'provider-fal',
     name: 'Fal AI Compute',
     slug: 'fal-ai',
-    status: 'ACTIVE' as const,
+    status: 'INACTIVE' as const,
     priority: 80,
     is_configured: false,
   },

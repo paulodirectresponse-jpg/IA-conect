@@ -6,7 +6,7 @@ import { Card } from '../common/Card.js';
 
 interface RegisterViewProps {
   onSwitchToLogin: () => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
 }
 
 export const RegisterView: React.FC<RegisterViewProps> = ({
@@ -38,7 +38,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({
 
     try {
       await authService.register(email, password, displayName);
-      onSuccess();
+      onSuccess?.();
     } catch (err: any) {
       let msg = err.message || 'Falha ao registrar conta.';
       if (msg.includes('email-already-in-use')) {

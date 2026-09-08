@@ -23,18 +23,35 @@ This document outlines the strict zero-trust security invariants, Attribute-Base
    - Normal users can NEVER assign themselves `role = "ADMIN"`.
    - On registration or profile update, the `role` and `status` fields can only be mutated by verified Admins.
 
-5. **Server-Side Validation for Sensitive Operations**:
-   - Admin actions (credit/debit, suspending users, pricing adjustments) require server-side token validation and generate an immutable `AuditLog`.
+5. **Single Source of Truth for Authentication**:
+   - Firebase Authentication is the sole authority for identity and sessions (`firebaseUser`).
+   - All backend API endpoints verify the signed Firebase ID Token sent in the `Authorization: Bearer <token>` header.
+   - User identity (`uid`, `email`) is extracted server-side strictly from the validated token.
+   - Client-side callbacks or ad-hoc local state are never trusted for authentication or authorization.
 
-6. **Provider Credential Isolation**:
+6. **Secure Admin Bootstrap Rules**:
+   - `ADMIN_BOOTSTRAP_SECRET` is a technical one-time token for instance initialization, NOT a user account password. User accounts always authenticate via Firebase Auth.
+   - No administrative credentials, emails, or bootstrap secrets are hardcoded in source code or template files (`.env.example` contains only empty placeholders).
+   - Bootstrap can only be claimed if either no admin exists (`admins == 0`) or if a configured technical bootstrap secret matches.
+
+7. **Provider Registry Semantics (Registered vs. Integrated)**:
+   - Providers cataloged in Stage 1 are strictly in **REGISTERED** status (metadata for routing, pricing, and administrative setup).
+   - **is_configured** is server-authoritative (`false` in Stage 1) and cannot be modified by client requests.
+   - There are deliberately NO active generation adapters or live third-party API connections (Atlas, WaveSpeed, Fal) in Stage 1.
+   - No mock health checks, simulated generations, or fake provider execution are permitted.
+
+8. **Suspended User Enforcement**:
+   - Accounts marked with `status = "SUSPENDED"` are rejected server-side on all protected endpoints (`/api/wallet/*`, `/api/admin/*`, etc.) with HTTP 403 `USER_SUSPENDED`.
+
+9. **Provider Credential Isolation**:
    - Providers stored in Firestore NEVER store API keys or secrets. Secret credentials reside exclusively in server environment / Secret Manager.
 
-7. **Pricing Protection**:
-   - Separation of `provider_cost_cents` and `customer_price_cents`.
-   - Price modifications exceeding 50% require explicit confirmation in UI and strict admin authorization.
+10. **Pricing Protection**:
+    - Separation of `provider_cost_cents` and `customer_price_cents`.
+    - Price modifications exceeding 50% require explicit confirmation in UI and strict admin authorization.
 
-8. **Promotion Expiration**:
-   - Expired promotions (`expires_at <= now`) cannot be applied to customer billing.
+11. **Promotion Expiration**:
+    - Expired promotions (`expires_at <= now`) cannot be applied to customer billing.
 
 ---
 

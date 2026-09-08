@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ShieldAlert } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
 import { AppLayout } from './components/layout/AppLayout.js';
 import { LoginView } from './components/views/LoginView.js';
@@ -12,7 +13,7 @@ import { AdminView } from './components/views/AdminView.js';
 import { SettingsView } from './components/views/SettingsView.js';
 
 const MainApp: React.FC = () => {
-  const { currentUser, loading, isAdmin } = useAuth();
+  const { firebaseUser, loading, isAdmin, isSuspended, logout } = useAuth();
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [activeView, setActiveView] = useState<string>('dashboard');
 
@@ -29,20 +30,44 @@ const MainApp: React.FC = () => {
     );
   }
 
-  if (!currentUser) {
+  if (!firebaseUser) {
     if (authMode === 'register') {
       return (
         <RegisterView
           onSwitchToLogin={() => setAuthMode('login')}
-          onSuccess={() => setAuthMode('login')}
         />
       );
     }
     return (
       <LoginView
         onSwitchToRegister={() => setAuthMode('register')}
-        onSuccess={() => {}}
       />
+    );
+  }
+
+  // Suspended account screen
+  if (isSuspended) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full p-6 bg-white border border-rose-200 rounded-2xl shadow-sm text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-zinc-900">Conta Suspensa</h2>
+            <p className="text-xs text-zinc-600 mt-1 leading-relaxed">
+              Sua conta está suspensa por determinação administrativa. O acesso às operações e recursos da plataforma foi temporariamente bloqueado.
+            </p>
+          </div>
+          <button
+            id="btn-logout-suspended"
+            onClick={() => logout()}
+            className="w-full py-2 px-4 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+          >
+            Sair da Conta
+          </button>
+        </div>
+      </div>
     );
   }
 

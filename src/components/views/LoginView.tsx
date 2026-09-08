@@ -6,7 +6,7 @@ import { Card } from '../common/Card.js';
 
 interface LoginViewProps {
   onSwitchToRegister: () => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({
@@ -31,11 +31,13 @@ export const LoginView: React.FC<LoginViewProps> = ({
         setResetSent(true);
       } else {
         await authService.login(email, password);
-        onSuccess();
+        onSuccess?.();
       }
     } catch (err: any) {
       let msg = err.message || 'Falha ao autenticar.';
-      if (msg.includes('invalid-credential') || msg.includes('user-not-found') || msg.includes('wrong-password')) {
+      if (msg.includes('USER_SUSPENDED') || msg.toLowerCase().includes('suspens')) {
+        msg = 'Sua conta está suspensa. Entre em contato com o suporte para mais informações.';
+      } else if (msg.includes('invalid-credential') || msg.includes('user-not-found') || msg.includes('wrong-password')) {
         msg = 'E-mail ou senha incorretos.';
       } else if (msg.includes('too-many-requests')) {
         msg = 'Muitas tentativas sem sucesso. Aguarde alguns instantes.';

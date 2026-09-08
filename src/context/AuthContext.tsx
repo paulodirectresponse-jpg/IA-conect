@@ -7,13 +7,16 @@ import { UserProfile, WalletAccount } from '../types/index.js';
 
 interface AuthContextType {
   firebaseUser: FirebaseUser | null;
+  currentUser: FirebaseUser | null; // Alias for seamless consumption across components
   profile: UserProfile | null;
   wallet: WalletAccount | null;
   isAdmin: boolean;
+  isSuspended: boolean;
   loading: boolean;
+  authError: string | null;
   refreshMe: () => Promise<void>;
   refreshWallet: () => Promise<void>;
-  claimBootstrapAdmin: () => Promise<void>;
+  claimBootstrapAdmin: (bootstrapSecret?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -24,16 +27,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [wallet, setWallet] = useState<WalletAccount | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const loadUserData = async () => {
     try {
+      setAuthError(null);
       const data = await authService.getMe();
       setProfile(data.user);
       setWallet(data.wallet);
     } catch (err: any) {
       console.warn('[AuthContext] Failed to load user profile/wallet:', err.message);
-      setProfile(null);
-      setWallet(null);
+      setAuthError(err.message || 'Falha ao sincronizar perfil ou carteira.');
+      // If user is suspended, we can reflect that in profile
+      if (err.code === 'USER_SUSPENDED' || (err.message && err.message.toLowerCase().includes('suspens'))) {
+        setProfile((prev) => prev ? { ...prev, status: 'SUSPENDED' } : ({
+          user_id: firebaseUser?.uid || '',
+          email: firebaseUser?.email || '',
+          display_name: firebaseUser?.displayName || '',
+          role: 'USER',
+          status: 'SUSPENDED',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as UserProfile));
+      } else {
+        setProfile(null);
+        setWallet(null);
+      }
     }
   };
 
@@ -54,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setProfile(null);
         setWallet(null);
+        setAuthError(null);
       }
       setLoading(false);
     });
@@ -67,8 +87,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const claimBootstrapAdmin = async () => {
-    await authService.claimBootstrapAdmin();
+  const claimBootstrapAdmin = async (bootstrapSecret?: string) => {
+    await authService.claimBootstrapAdmin(bootstrapSecret);
     await loadUserData();
   };
 
@@ -77,18 +97,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setFirebaseUser(null);
     setProfile(null);
     setWallet(null);
+    setAuthError(null);
   };
 
   const isAdmin = profile?.role === 'ADMIN';
+  const isSuspended = profile?.status === 'SUSPENDED';
 
   return (
     <AuthContext.Provider
       value={{
         firebaseUser,
+        currentUser: firebaseUser, // Alias
         profile,
         wallet,
         isAdmin,
+        isSuspended,
         loading,
+        authError,
         refreshMe,
         refreshWallet,
         claimBootstrapAdmin,

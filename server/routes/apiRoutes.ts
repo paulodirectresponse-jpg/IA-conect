@@ -96,7 +96,8 @@ apiRouter.get('/auth/me', requireAuth, async (req: AuthenticatedRequest, res) =>
 apiRouter.post('/admin/bootstrap', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const uid = req.user!.uid;
-    const updated = await authService.bootstrapFirstAdmin(uid);
+    const bootstrapSecret = (req.body?.bootstrap_secret || req.headers['x-bootstrap-secret']) as string | undefined;
+    const updated = await authService.bootstrapFirstAdmin(uid, bootstrapSecret);
     res.json({
       success: true,
       data: {
@@ -311,9 +312,12 @@ apiRouter.patch('/admin/providers/:providerId', requireAuth, requireAdmin, async
     if (!existing) {
       return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Provedor não encontrado' } });
     }
+    // is_configured is server-authoritative and cannot be spoofed by frontend
+    const { is_configured: _ignored, ...allowedFields } = req.body || {};
     const updated = await catalogRepository.saveProvider({
       ...existing,
-      ...req.body,
+      ...allowedFields,
+      is_configured: false, // In Etapa 1, adapters/secrets do not exist
       updated_at: new Date().toISOString(),
     });
     res.json({ success: true, data: updated });
