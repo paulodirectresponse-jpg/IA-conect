@@ -14,6 +14,13 @@ import { draftRepository } from '../repositories/draftRepository.js';
 import { userPreferencesRepository } from '../repositories/userPreferencesRepository.js';
 import { promptCompilerService } from '../services/promptCompilerService.js';
 import { promptImproveService } from '../services/promptImproveService.js';
+import { assetReferenceResolver } from '../services/assetReferenceResolver.js';
+import { generationService } from '../services/generationService.js';
+import { smartRouterService } from '../services/smartRouterService.js';
+import { paymentService } from '../services/paymentService.js';
+import { generationRepository } from '../repositories/generationRepository.js';
+import { getAdminStorage } from '../repositories/firebaseAdminClient.js';
+import { getFirebaseConfig } from '../repositories/firestoreClient.js';
 
 export const apiRouter = Router();
 
@@ -815,5 +822,240 @@ apiRouter.post('/workspace/validate-and-preview', requireAuth, async (req: Authe
     });
   } catch (err: any) {
     res.status(400).json({ success: false, error: { code: 'VALIDATION_FAILED', message: err.message } });
+  }
+});
+
+// ==========================================
+// ETAPA 3: PROVIDER ASSET STREAMING
+// ==========================================
+
+/**
+ * Secure temporary asset stream endpoint for external AI providers.
+ * Validates HMAC token signature and expiration.
+ * Streams private asset bytes directly with appropriate MIME headers.
+ */
+apiRouter.get('/assets/stream/:token', async (req, res) => {
+  try {
+    const verified = assetReferenceResolver.verifyStreamToken(req.params.token);
+    if (!verified) {
+      return res.status(403).json({ error: 'Token de acesso ao asset expirado ou inválido.' });
+    }
+
+    const asset = await assetRepository.getAsset(verified.assetId, verified.userId);
+    if (!asset || asset.status !== 'READY') {
+      return res.status(404).json({ error: 'Asset não encontrado ou indisponível.' });
+    }
+
+    const storage = getAdminStorage();
+    const config = getFirebaseConfig();
+
+    if (storage && config.storageBucket && asset.storage_path) {
+      const bucket = storage.bucket(config.storageBucket);
+      const file = bucket.file(asset.storage_path);
+      const [exists] = await file.exists();
+
+      if (exists) {
+        res.setHeader('Content-Type', asset.mime_type || 'application/octet-stream');
+        res.setHeader('Cache-Control', 'private, max-age=1800');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return file.createReadStream().pipe(res);
+      }
+    }
+
+    // If file in storage does not exist or storage unavailable, return 404
+    res.status(404).json({ error: 'Arquivo do asset não encontrado no storage.' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Erro ao processar stream do asset.' });
+  }
+});
+
+// ==========================================
+// ETAPA 3: GENERATIONS ENGINE
+// ==========================================
+
+/**
+ * Dispatches a real generation: validates params, reserves funds in wallet,
+ * resolves references to signed provider URLs, submits to smart router & adapter.
+ */
+apiRouter.post('/generations', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const host = req.get('host') || process.env.APP_URL;
+
+    const generation = await generationService.createAndStartGeneration({
+      userId: uid,
+      model_id: req.body.model_id,
+      prompt: req.body.prompt,
+      negative_prompt: req.body.negative_prompt,
+      duration_seconds: Number(req.body.duration_seconds || 5),
+      resolution: req.body.resolution || '720p',
+      aspect_ratio: req.body.aspect_ratio || '16:9',
+      number_of_outputs: Number(req.body.number_of_outputs || 1),
+      seed: req.body.seed,
+      motion_strength: req.body.motion_strength,
+      references: req.body.references,
+      requested_provider_id: req.body.requested_provider_id,
+      client_request_id: req.body.client_request_id,
+      reqHost: host,
+    });
+
+    res.json({ success: true, data: generation });
+  } catch (err: any) {
+    const status = err.code === 'WALLET_INSUFFICIENT_FUNDS' ? 402 : 400;
+    res.status(status).json({
+      success: false,
+      error: { code: err.code || 'GENERATION_ERROR', message: err.message },
+    });
+  }
+});
+
+/**
+ * Lists user generation history.
+ */
+apiRouter.get('/generations', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const limit = Math.min(100, Number(req.query.limit || 50));
+    const list = await generationService.listUserGenerations(uid, limit);
+    res.json({ success: true, data: list });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'GENERATIONS_LIST_ERROR', message: err.message } });
+  }
+});
+
+/**
+ * Retrieves status and metadata for a specific generation.
+ */
+apiRouter.get('/generations/:generationId', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const generation = await generationService.getGeneration(req.params.generationId, uid);
+    if (!generation) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Geração não encontrada.' } });
+    }
+    res.json({ success: true, data: generation });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'GENERATION_FETCH_ERROR', message: err.message } });
+  }
+});
+
+/**
+ * Cancels a generation in progress and releases reserved wallet balance.
+ */
+apiRouter.post('/generations/:generationId/cancel', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const cancelled = await generationService.cancelGeneration(req.params.generationId, uid);
+    res.json({ success: true, data: cancelled });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'CANCEL_ERROR', message: err.message } });
+  }
+});
+
+// ==========================================
+// ETAPA 3: REAL PAYMENTS & DEPOSITS (PIX & CARD)
+// ==========================================
+
+/**
+ * Creates a deposit payment order via PIX or Credit Card.
+ */
+apiRouter.post('/payments', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const { amount_cents, method } = req.body;
+
+    const payment = await paymentService.createPayment({
+      userId: uid,
+      amount_cents: Number(amount_cents),
+      method: method || 'PIX',
+    });
+
+    res.json({ success: true, data: payment });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'PAYMENT_CREATE_ERROR', message: err.message } });
+  }
+});
+
+/**
+ * Checks status of a payment order.
+ */
+apiRouter.get('/payments/:paymentId', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const payment = await paymentService.getPayment(req.params.paymentId, uid);
+    if (!payment) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Pagamento não encontrado.' } });
+    }
+    res.json({ success: true, data: payment });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'PAYMENT_FETCH_ERROR', message: err.message } });
+  }
+});
+
+/**
+ * Confirms payment and credits wallet atomically with ledger entry.
+ */
+apiRouter.post('/payments/:paymentId/confirm', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const result = await paymentService.confirmPayment(req.params.paymentId, uid);
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'PAYMENT_CONFIRM_ERROR', message: err.message } });
+  }
+});
+
+/**
+ * Lists user payment orders.
+ */
+apiRouter.get('/payments', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const list = await paymentService.listUserPayments(uid);
+    res.json({ success: true, data: list });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'PAYMENTS_LIST_ERROR', message: err.message } });
+  }
+});
+
+// ==========================================
+// ETAPA 3: ADMIN DIAGNOSTICS & AUDIT
+// ==========================================
+
+/**
+ * Diagnostic tool for Admin: verifies Firebase Storage connection, permissions, and signed URL generation.
+ */
+apiRouter.get('/admin/storage-diagnostic', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const diagnostic = await assetReferenceResolver.runStorageDiagnostic();
+    res.json({ success: true, data: diagnostic });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'DIAGNOSTIC_ERROR', message: err.message } });
+  }
+});
+
+/**
+ * Lists recent routing logs and decisions for Smart Router audit.
+ */
+apiRouter.get('/admin/routing-logs', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const limit = Math.min(100, Number(req.query.limit || 50));
+    const logs = await smartRouterService.listRoutingLogs(limit);
+    res.json({ success: true, data: logs });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'ROUTING_LOGS_ERROR', message: err.message } });
+  }
+});
+
+/**
+ * Admin audit: lists all generations created across the entire platform.
+ */
+apiRouter.get('/admin/generations', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const limit = Math.min(200, Number(req.query.limit || 100));
+    const list = await generationRepository.listAllGenerations(limit);
+    res.json({ success: true, data: list });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'ADMIN_GENERATIONS_ERROR', message: err.message } });
   }
 });

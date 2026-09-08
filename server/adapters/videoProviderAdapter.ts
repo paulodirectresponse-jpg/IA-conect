@@ -1,0 +1,49 @@
+import { GenerationMode } from '../../src/types/index.js';
+import { ResolvedAssetReference } from '../services/assetReferenceResolver.js';
+
+export interface ProviderGenerationParams {
+  generation_id: string;
+  user_id: string;
+  model_id: string;
+  mode: GenerationMode;
+  prompt: string;
+  negative_prompt?: string;
+  duration_seconds: number;
+  resolution: string;
+  aspect_ratio: string;
+  number_of_outputs: number;
+  seed?: number | null;
+  motion_strength?: number | null;
+  references: ResolvedAssetReference[];
+  callback_url?: string;
+}
+
+export interface ProviderJobResult {
+  provider_job_id: string;
+  provider_id: string;
+  status: 'QUEUED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';
+  estimated_duration_seconds?: number;
+  provider_cost_cents?: number;
+  raw_response?: any;
+}
+
+export interface ProviderJobStatusResult {
+  provider_job_id: string;
+  status: 'QUEUED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';
+  progress_percent: number;
+  result_video_url?: string;
+  thumbnail_url?: string;
+  error_code?: string;
+  error_message?: string;
+  final_cost_cents?: number;
+}
+
+export interface VideoProviderAdapter {
+  readonly providerId: string;
+  readonly name: string;
+  isConfigured(): boolean;
+  submitGeneration(params: ProviderGenerationParams): Promise<ProviderJobResult>;
+  checkStatus(providerJobId: string): Promise<ProviderJobStatusResult>;
+  cancelJob?(providerJobId: string): Promise<boolean>;
+  estimateCost(params: ProviderGenerationParams): Promise<{ provider_cost_cents: number }>;
+}

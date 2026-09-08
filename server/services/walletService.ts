@@ -147,4 +147,198 @@ export const walletService = {
 
     return { transaction: recordedTx, account: updatedAccount };
   },
+
+  /**
+   * Reserves funds for an upcoming generation.
+   * Decreases available balance, increases reserved balance.
+   * Throws WALLET_INSUFFICIENT_FUNDS if available balance < amount_cents.
+   */
+  async reserveForGeneration(params: {
+    userId: string;
+    amount_cents: number;
+    generation_id: string;
+    idempotency_key: string;
+    description?: string;
+  }): Promise<{ transaction: WalletTransaction; account: WalletAccount }> {
+    const { userId, amount_cents, generation_id, idempotency_key, description } = params;
+
+    // Idempotency check
+    const existing = await walletRepository.getTransactionByIdempotencyKey(idempotency_key);
+    if (existing) {
+      const acc = await this.getSummary(userId);
+      return { transaction: existing, account: acc };
+    }
+
+    const currentBalance = await walletRepository.computeBalanceFromLedger(userId);
+    if (currentBalance.available_balance_cents < amount_cents) {
+      const err: any = new Error(
+        `Saldo insuficiente para autorizar a geração. Saldo disponível: R$ ${(currentBalance.available_balance_cents / 100).toFixed(2)}, Necessário: R$ ${(amount_cents / 100).toFixed(2)}.`
+      );
+      err.code = 'WALLET_INSUFFICIENT_FUNDS';
+      throw err;
+    }
+
+    const txId = `tx_res_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    const tx: WalletTransaction = {
+      transaction_id: txId,
+      user_id: userId,
+      type: 'GENERATION_RESERVE',
+      amount_cents,
+      status: 'COMPLETED',
+      description: description || `Reserva de saldo para geração #${generation_id.slice(-6)}`,
+      reference_id: generation_id,
+      idempotency_key,
+      created_at: new Date().toISOString(),
+    };
+
+    const recorded = await walletRepository.recordTransaction(tx);
+    const updatedAccount = await this.getSummary(userId);
+    return { transaction: recorded, account: updatedAccount };
+  },
+
+  /**
+   * Captures previously reserved funds when a generation completes successfully.
+   * Transfers reserved funds into permanent debits (used funds).
+   */
+  async captureForGeneration(params: {
+    userId: string;
+    amount_cents: number;
+    generation_id: string;
+    idempotency_key: string;
+    description?: string;
+  }): Promise<{ transaction: WalletTransaction; account: WalletAccount }> {
+    const { userId, amount_cents, generation_id, idempotency_key, description } = params;
+
+    const existing = await walletRepository.getTransactionByIdempotencyKey(idempotency_key);
+    if (existing) {
+      const acc = await this.getSummary(userId);
+      return { transaction: existing, account: acc };
+    }
+
+    const txId = `tx_cap_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    const tx: WalletTransaction = {
+      transaction_id: txId,
+      user_id: userId,
+      type: 'GENERATION_CAPTURE',
+      amount_cents,
+      status: 'COMPLETED',
+      description: description || `Cobrança de geração concluída #${generation_id.slice(-6)}`,
+      reference_id: generation_id,
+      idempotency_key,
+      created_at: new Date().toISOString(),
+    };
+
+    const recorded = await walletRepository.recordTransaction(tx);
+    const updatedAccount = await this.getSummary(userId);
+    return { transaction: recorded, account: updatedAccount };
+  },
+
+  /**
+   * Releases previously reserved funds when a generation fails or is cancelled before completion.
+   * Restores available balance immediately.
+   */
+  async releaseForGeneration(params: {
+    userId: string;
+    amount_cents: number;
+    generation_id: string;
+    idempotency_key: string;
+    reason?: string;
+  }): Promise<{ transaction: WalletTransaction; account: WalletAccount }> {
+    const { userId, amount_cents, generation_id, idempotency_key, reason } = params;
+
+    const existing = await walletRepository.getTransactionByIdempotencyKey(idempotency_key);
+    if (existing) {
+      const acc = await this.getSummary(userId);
+      return { transaction: existing, account: acc };
+    }
+
+    const txId = `tx_rel_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    const tx: WalletTransaction = {
+      transaction_id: txId,
+      user_id: userId,
+      type: 'GENERATION_RELEASE',
+      amount_cents,
+      status: 'COMPLETED',
+      description: reason ? `Liberação de saldo (${reason})` : `Liberação de reserva #${generation_id.slice(-6)}`,
+      reference_id: generation_id,
+      idempotency_key,
+      created_at: new Date().toISOString(),
+    };
+
+    const recorded = await walletRepository.recordTransaction(tx);
+    const updatedAccount = await this.getSummary(userId);
+    return { transaction: recorded, account: updatedAccount };
+  },
+
+  /**
+   * Issues a refund for a previously captured generation.
+   */
+  async refundForGeneration(params: {
+    userId: string;
+    amount_cents: number;
+    generation_id: string;
+    idempotency_key: string;
+    reason?: string;
+  }): Promise<{ transaction: WalletTransaction; account: WalletAccount }> {
+    const { userId, amount_cents, generation_id, idempotency_key, reason } = params;
+
+    const existing = await walletRepository.getTransactionByIdempotencyKey(idempotency_key);
+    if (existing) {
+      const acc = await this.getSummary(userId);
+      return { transaction: existing, account: acc };
+    }
+
+    const txId = `tx_ref_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    const tx: WalletTransaction = {
+      transaction_id: txId,
+      user_id: userId,
+      type: 'REFUND',
+      amount_cents,
+      status: 'COMPLETED',
+      description: reason ? `Reembolso de geração: ${reason}` : `Reembolso de geração #${generation_id.slice(-6)}`,
+      reference_id: generation_id,
+      idempotency_key,
+      created_at: new Date().toISOString(),
+    };
+
+    const recorded = await walletRepository.recordTransaction(tx);
+    const updatedAccount = await this.getSummary(userId);
+    return { transaction: recorded, account: updatedAccount };
+  },
+
+  /**
+   * Adds deposit funds from real payment (PIX or Card).
+   */
+  async depositFunds(params: {
+    userId: string;
+    amount_cents: number;
+    reference_id: string;
+    idempotency_key: string;
+    description?: string;
+  }): Promise<{ transaction: WalletTransaction; account: WalletAccount }> {
+    const { userId, amount_cents, reference_id, idempotency_key, description } = params;
+
+    const existing = await walletRepository.getTransactionByIdempotencyKey(idempotency_key);
+    if (existing) {
+      const acc = await this.getSummary(userId);
+      return { transaction: existing, account: acc };
+    }
+
+    const txId = `tx_dep_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    const tx: WalletTransaction = {
+      transaction_id: txId,
+      user_id: userId,
+      type: 'DEPOSIT',
+      amount_cents,
+      status: 'COMPLETED',
+      description: description || `Adição de saldo via PIX/Cartão #${reference_id.slice(-6)}`,
+      reference_id,
+      idempotency_key,
+      created_at: new Date().toISOString(),
+    };
+
+    const recorded = await walletRepository.recordTransaction(tx);
+    const updatedAccount = await this.getSummary(userId);
+    return { transaction: recorded, account: updatedAccount };
+  },
 };

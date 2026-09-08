@@ -73,23 +73,31 @@ export interface Generation {
   status: GenerationStatus;
   model_id: string;
   provider_id: string;
+  mode?: GenerationMode;
   original_prompt: string;
   compiled_prompt?: string;
   prompt_compiler_version?: string;
   duration_seconds?: number;
   resolution?: string;
+  aspect_ratio?: string;
   estimated_cost_cents?: number;
   maximum_authorized_cost_cents?: number;
   final_cost_cents?: number;
   currency: 'BRL';
   provider_job_id?: string;
   client_request_id?: string;
+  progress_percent?: number;
+  result_asset_id?: string | null;
+  result_url?: string | null;
+  thumbnail_url?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  attempt_count?: number;
+  references_count?: number;
   created_at: string;
   submitted_at?: string | null;
   completed_at?: string | null;
   failed_at?: string | null;
-  result_asset_id?: string | null;
-  error_code?: string | null;
 }
 
 export type AssetType = 'IMAGE' | 'VIDEO' | 'AUDIO';
@@ -414,3 +422,69 @@ export type AppErrorCode =
   | 'OPERATION_REJECTED'
   | 'PRICE_VARIATION_HIGH'
   | 'PROMOTION_EXPIRED';
+
+export type PaymentMethod = 'PIX' | 'CREDIT_CARD';
+export type PaymentStatus = 'PENDING' | 'CONFIRMED' | 'EXPIRED' | 'FAILED';
+
+export interface PaymentRecord {
+  payment_id: string;
+  user_id: string;
+  amount_cents: number;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  pix_code?: string;
+  pix_qr_code_base64?: string;
+  checkout_url?: string;
+  description: string;
+  idempotency_key: string;
+  created_at: string;
+  expires_at: string;
+  confirmed_at?: string | null;
+  failed_at?: string | null;
+}
+
+export interface RoutingLogEntry {
+  log_id: string;
+  generation_id?: string;
+  user_id: string;
+  model_id: string;
+  selected_provider_id: string;
+  strategy: string;
+  candidate_providers: Array<{
+    provider_id: string;
+    provider_cost_cents: number;
+    customer_price_cents: number;
+    status: ProviderStatus;
+    priority: number;
+    is_healthy: boolean;
+  }>;
+  reason: string;
+  created_at: string;
+}
+
+export interface GenerationAttemptLog {
+  attempt_id: string;
+  generation_id: string;
+  attempt_number: number;
+  provider_id: string;
+  provider_job_id?: string;
+  status: 'SUBMITTED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';
+  error_message?: string;
+  latency_ms?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StorageDiagnosticResult {
+  is_configured: boolean;
+  storage_bucket: string;
+  write_test: 'PASS' | 'FAIL' | 'SKIPPED';
+  signed_url_test: 'PASS' | 'FAIL' | 'SKIPPED';
+  message: string;
+  details?: {
+    latency_ms: number;
+    bucket_accessible: boolean;
+    error?: string;
+  };
+  checked_at: string;
+}

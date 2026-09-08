@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { Asset, AssetType, AssetCategory, AssetStatus } from '../../src/types/index.js';
+import { getAdminDb } from './firebaseAdminClient.js';
 
 // In-memory store fallback synchronized with Firestore REST
 const assetsMap = new Map<string, Asset>();
@@ -23,6 +24,20 @@ export const assetRepository = {
       search?: string;
     }
   ): Promise<Asset[]> {
+    // Try to sync from Firestore if available
+    try {
+      const db = getAdminDb();
+      if (db) {
+        const snap = await db.collection('assets').where('owner_user_id', '==', userId).get();
+        snap.forEach(doc => {
+          const data = doc.data() as Asset;
+          assetsMap.set(doc.id, data);
+        });
+      }
+    } catch (e: any) {
+      // Fallback gracefully to memory
+    }
+
     const list: Asset[] = [];
     const searchLower = filters?.search?.toLowerCase().trim();
 
@@ -45,7 +60,24 @@ export const assetRepository = {
   },
 
   async getAsset(assetId: string, userId: string): Promise<Asset | null> {
-    const asset = assetsMap.get(assetId);
+    let asset = assetsMap.get(assetId);
+    if (!asset) {
+      // Try fetching from Firestore
+      try {
+        const db = getAdminDb();
+        if (db) {
+          const doc = await db.collection('assets').doc(assetId).get();
+          if (doc.exists) {
+            const data = doc.data() as Asset;
+            assetsMap.set(assetId, data);
+            asset = data;
+          }
+        }
+      } catch (e: any) {
+        // Fallback
+      }
+    }
+
     if (!asset || asset.owner_user_id !== userId || asset.deleted_at) {
       return null;
     }
@@ -59,6 +91,27 @@ export const assetRepository = {
         return asset;
       }
     }
+
+    try {
+      const db = getAdminDb();
+      if (db) {
+        const snap = await db.collection('assets')
+          .where('owner_user_id', '==', userId)
+          .where('alias', '==', clean)
+          .limit(1)
+          .get();
+        if (!snap.empty) {
+          const data = snap.docs[0].data() as Asset;
+          if (!data.deleted_at) {
+            assetsMap.set(data.asset_id, data);
+            return data;
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore
+    }
+
     return null;
   },
 

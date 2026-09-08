@@ -1,4 +1,5 @@
 import { WalletAccount, WalletTransaction } from '../../src/types/index.js';
+import { getAdminDb } from './firebaseAdminClient.js';
 
 const accountsMap = new Map<string, WalletAccount>();
 const transactionsList: WalletTransaction[] = [];
@@ -7,6 +8,21 @@ const idempotencyMap = new Map<string, WalletTransaction>();
 export const walletRepository = {
   async getAccount(userId: string): Promise<WalletAccount> {
     let account = accountsMap.get(userId);
+    if (!account) {
+      try {
+        const db = getAdminDb();
+        if (db) {
+          const doc = await db.collection('wallets').doc(userId).get();
+          if (doc.exists) {
+            account = doc.data() as WalletAccount;
+            accountsMap.set(userId, account);
+          }
+        }
+      } catch {
+        // Fallback to default
+      }
+    }
+
     if (!account) {
       account = {
         account_id: userId,
@@ -26,6 +42,14 @@ export const walletRepository = {
 
   async saveAccount(account: WalletAccount): Promise<WalletAccount> {
     accountsMap.set(account.user_id, { ...account });
+    try {
+      const db = getAdminDb();
+      if (db) {
+        await db.collection('wallets').doc(account.user_id).set(account, { merge: true });
+      }
+    } catch {
+      // Non-blocking
+    }
     return { ...account };
   },
 
@@ -43,6 +67,14 @@ export const walletRepository = {
     transactionsList.push({ ...tx });
     if (tx.idempotency_key) {
       idempotencyMap.set(tx.idempotency_key, { ...tx });
+    }
+    try {
+      const db = getAdminDb();
+      if (db) {
+        await db.collection('ledger').doc(tx.transaction_id).set(tx);
+      }
+    } catch {
+      // Non-blocking
     }
     return { ...tx };
   },
@@ -103,6 +135,7 @@ export const walletRepository = {
         case 'GENERATION_CAPTURE':
           debits += amt;
           used += amt;
+          reserved = Math.max(0, reserved - amt);
           break;
         case 'GENERATION_RESERVE':
           reserved += amt;
