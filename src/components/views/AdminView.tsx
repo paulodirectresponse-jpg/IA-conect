@@ -77,7 +77,7 @@ export const AdminView: React.FC = () => {
               Painel de Controle e Governança
             </h1>
             <Badge variant="neutral" className="bg-zinc-900 text-zinc-50 border-zinc-900">
-              ADMIN CORE
+              ADMIN
             </Badge>
           </div>
           <p className="text-xs sm:text-sm text-zinc-500 mt-0.5">
@@ -165,8 +165,8 @@ export const AdminView: React.FC = () => {
           {/* Foundation Scope Status Card */}
           <Card
             id="admin-foundation-scope-card"
-            title="Status da Etapa 1 & Preparação para Etapas 2 e 3"
-            subtitle="Critérios de aceitação validados e isolamento garantido"
+            title="Arquitetura de Governança & Prontidão Operacional"
+            subtitle="Critérios de integridade financeira e isolamento operacional"
           >
             <div className="space-y-3 text-xs leading-relaxed text-zinc-700">
               <div className="p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-1">

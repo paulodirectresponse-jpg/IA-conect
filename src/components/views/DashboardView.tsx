@@ -140,7 +140,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               id="empty-generations-state"
               icon={<Sparkles className="w-6 h-6" />}
               title="Nenhuma geração realizada ainda"
-              description="Você está na Etapa 1 (Fundação da Plataforma). O motor de geração e compilação de prompts será conectado na Etapa 2. Sua carteira e contas já estão prontas."
+              description="Ambiente criativo pronto. Sua carteira e saldo estão disponíveis para geração no Creative Workspace."
               action={
                 <Button
                   id="dash-explore-create-btn"
@@ -160,7 +160,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         <div className="space-y-4">
           <Card
             id="card-architectural-specs"
-            title="Especificações da Etapa 1"
+            title="Garantias da Plataforma"
             subtitle="Diretrizes ativas de segurança e integridade"
           >
             <div className="space-y-3.5 text-xs">
@@ -195,7 +195,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 <div>
                   <span className="font-semibold text-zinc-900 block">Isolamento de Provedores</span>
                   <p className="text-zinc-500 leading-relaxed">
-                    Atlas Cloud, WaveSpeed e Fal catalogados para as Etapas 2 e 3 sem exposição de segredos.
+                    Atlas Cloud, WaveSpeed e Fal catalogados de forma segura sem exposição de segredos no cliente.
                   </p>
                 </div>
               </div>

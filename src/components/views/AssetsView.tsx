@@ -176,18 +176,15 @@ export const AssetsView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/80 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/80 pb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-              <FolderOpen className="w-6 h-6 text-emerald-400" />
-              <span>Biblioteca de Assets (@References)</span>
-            </h1>
-          </div>
-          <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Gerencie imagens de produtos, personagens, trilhas e referências visuais para os prompts
+          <h1 className="text-xl font-bold text-zinc-900 tracking-tight flex items-center gap-2">
+            <span>Biblioteca de Assets</span>
+          </h1>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Gerenciamento de referências visuais estruturadas (@) para consistência cinematográfica
           </p>
         </div>
 
@@ -195,7 +192,7 @@ export const AssetsView: React.FC = () => {
           type="button"
           id="btn-open-upload-modal"
           onClick={() => setIsUploadModalOpen(true)}
-          className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs flex items-center gap-2 transition-colors shadow-lg shadow-emerald-500/10 w-fit"
+          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-2 transition-colors shadow-xs w-fit"
         >
           <Plus className="w-4 h-4" />
           <span>Fazer Upload de Asset</span>
@@ -206,18 +203,18 @@ export const AssetsView: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-center gap-3 text-xs">
         {/* Search */}
         <div className="relative flex-1 w-full">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Pesquisar por nome ou @alias..."
-            className="w-full pl-8 pr-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-200 text-xs focus:outline-none focus:border-zinc-700"
+            className="w-full pl-8 pr-3 py-2 bg-white border border-zinc-200 rounded-xl text-zinc-900 text-xs focus:outline-none focus:border-zinc-400 shadow-2xs"
           />
         </div>
 
         {/* Type Tabs */}
-        <div className="flex items-center gap-1 p-1 bg-zinc-900 border border-zinc-800 rounded-xl">
+        <div className="flex items-center gap-1 p-1 bg-zinc-100 border border-zinc-200/60 rounded-xl">
           {[
             { id: 'ALL', label: 'Todos' },
             { id: 'IMAGE', label: 'Imagens' },
@@ -228,10 +225,10 @@ export const AssetsView: React.FC = () => {
               key={tab.id}
               type="button"
               onClick={() => setSelectedType(tab.id)}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 selectedType === tab.id
-                  ? 'bg-zinc-800 text-white font-semibold'
-                  : 'text-zinc-400 hover:text-white'
+                  ? 'bg-white text-zinc-900 shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-900'
               }`}
             >
               {tab.label}
@@ -243,7 +240,7 @@ export const AssetsView: React.FC = () => {
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
-          className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-300 text-xs focus:outline-none focus:border-zinc-700 w-full sm:w-auto"
+          className="bg-white border border-zinc-200 rounded-xl px-3 py-2 text-zinc-700 text-xs focus:outline-none focus:border-zinc-400 w-full sm:w-auto shadow-2xs"
         >
           <option value="ALL">Todas Categorias</option>
           <option value="PRODUCT">Produtos</option>
@@ -258,22 +255,22 @@ export const AssetsView: React.FC = () => {
       {/* Assets Grid */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 text-zinc-400 space-y-3">
-          <RefreshCw className="w-6 h-6 animate-spin text-emerald-500" />
-          <p className="text-xs">Carregando seus assets...</p>
+          <RefreshCw className="w-5 h-5 animate-spin text-zinc-600" />
+          <p className="text-xs font-medium text-zinc-500">Carregando seus assets...</p>
         </div>
       ) : filteredAssets.length === 0 ? (
-        <div className="text-center py-16 px-4 bg-zinc-900/40 border border-dashed border-zinc-800 rounded-2xl">
-          <FolderOpen className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
-          <h3 className="text-sm font-semibold text-white">Nenhum asset encontrado</h3>
-          <p className="text-xs text-zinc-400 max-w-md mx-auto mt-1 leading-relaxed">
-            Faça upload de fotos de produtos, logos, personagens ou vídeos de referência. Eles recebem um <strong className="text-emerald-400 font-mono">@alias</strong> automático para você usar no Creative Workspace.
+        <div className="text-center py-16 px-4 bg-white border border-dashed border-zinc-200 rounded-2xl shadow-xs">
+          <FolderOpen className="w-9 h-9 text-zinc-400 mx-auto mb-3" />
+          <h3 className="text-sm font-semibold text-zinc-900">Nenhum asset encontrado</h3>
+          <p className="text-xs text-zinc-500 max-w-md mx-auto mt-1 leading-relaxed">
+            Faça upload de fotos de produtos, logos, personagens ou trilhas de referência. Eles recebem um identificador <strong className="text-zinc-800 font-mono">@alias</strong> estruturado para uso no Creative Workspace.
           </p>
           <button
             type="button"
             onClick={() => setIsUploadModalOpen(true)}
-            className="mt-4 px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold inline-flex items-center gap-2"
+            className="mt-4 px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold inline-flex items-center gap-2 shadow-xs"
           >
-            <Plus className="w-3.5 h-3.5 text-emerald-400" />
+            <Plus className="w-3.5 h-3.5 text-zinc-400" />
             <span>Fazer Primeiro Upload</span>
           </button>
         </div>
@@ -283,28 +280,28 @@ export const AssetsView: React.FC = () => {
             <div
               key={asset.asset_id}
               id={`asset-card-${asset.asset_id}`}
-              className="group bg-zinc-900/80 border border-zinc-800 hover:border-zinc-700 rounded-2xl overflow-hidden flex flex-col justify-between transition-all"
+              className="group bg-white border border-zinc-200 hover:border-zinc-300 rounded-2xl overflow-hidden flex flex-col justify-between transition-all shadow-xs"
             >
               {/* Media Thumbnail */}
-              <div className="w-full h-44 bg-zinc-950 flex items-center justify-center relative overflow-hidden border-b border-zinc-800/80">
+              <div className="w-full h-44 bg-zinc-100 flex items-center justify-center relative overflow-hidden border-b border-zinc-100">
                 {asset.thumbnail_url || asset.public_url ? (
                   <img
                     src={asset.thumbnail_url || asset.public_url}
                     alt={asset.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
                     referrerPolicy="no-referrer"
                   />
                 ) : asset.type === 'VIDEO' ? (
-                  <Video className="w-10 h-10 text-sky-400" />
+                  <Video className="w-10 h-10 text-zinc-400" />
                 ) : asset.type === 'AUDIO' ? (
-                  <Music className="w-10 h-10 text-emerald-400" />
+                  <Music className="w-10 h-10 text-zinc-400" />
                 ) : (
-                  <ImageIcon className="w-10 h-10 text-amber-400" />
+                  <ImageIcon className="w-10 h-10 text-zinc-400" />
                 )}
 
                 {/* Top Category Badge */}
                 <div className="absolute top-2 left-2">
-                  <span className="px-2 py-0.5 rounded-full bg-zinc-950/80 backdrop-blur-md text-[10px] text-zinc-300 border border-zinc-700/60 font-medium">
+                  <span className="px-2 py-0.5 rounded-full bg-white/90 backdrop-blur-xs text-[10px] text-zinc-700 border border-zinc-200 font-medium shadow-2xs">
                     {asset.category}
                   </span>
                 </div>
@@ -315,7 +312,7 @@ export const AssetsView: React.FC = () => {
                     href={asset.public_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-zinc-950/80 backdrop-blur-md text-zinc-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-white/90 backdrop-blur-xs text-zinc-600 hover:text-zinc-900 opacity-0 group-hover:opacity-100 transition-opacity shadow-2xs"
                     title="Ver mídia original"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -330,27 +327,27 @@ export const AssetsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleCopyAlias(asset.alias, asset.asset_id)}
-                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-mono font-semibold transition-colors"
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-zinc-100 hover:bg-zinc-200/80 text-zinc-800 font-mono text-xs font-semibold transition-colors"
                       title="Copiar @alias para colar no prompt"
                     >
                       <span>@{asset.alias}</span>
                       {copiedId === asset.asset_id ? (
-                        <Check className="w-3 h-3 text-emerald-400" />
+                        <Check className="w-3 h-3 text-emerald-600" />
                       ) : (
-                        <Copy className="w-3 h-3 text-emerald-500/60" />
+                        <Copy className="w-3 h-3 text-zinc-400" />
                       )}
                     </button>
-                    <span className="text-[10px] text-zinc-500 font-mono">
+                    <span className="text-[10px] text-zinc-400 font-mono">
                       {formatBytes(asset.size_bytes)}
                     </span>
                   </div>
 
-                  <p className="font-semibold text-zinc-200 mt-1.5 truncate">{asset.name}</p>
+                  <p className="font-semibold text-zinc-900 mt-1.5 truncate">{asset.name}</p>
                 </div>
 
                 {/* Action Buttons */}
-                <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-zinc-400">
-                  <span className="text-[10px] text-zinc-500 font-mono">
+                <div className="pt-2 border-t border-zinc-100 flex items-center justify-between text-zinc-500">
+                  <span className="text-[10px] text-zinc-400 font-mono">
                     {new Date(asset.created_at).toLocaleDateString('pt-BR')}
                   </span>
 
@@ -358,7 +355,7 @@ export const AssetsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleStartEdit(asset)}
-                      className="p-1.5 rounded-lg hover:text-white hover:bg-zinc-800 transition-colors"
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
                       title="Editar metadados"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
@@ -366,7 +363,7 @@ export const AssetsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleDelete(asset.asset_id)}
-                      className="p-1.5 rounded-lg hover:text-red-400 hover:bg-zinc-800 transition-colors"
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                       title="Remover asset"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -381,17 +378,17 @@ export const AssetsView: React.FC = () => {
 
       {/* Upload Modal */}
       {isUploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden text-zinc-100">
-            <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-lg bg-white border border-zinc-200 rounded-2xl shadow-xl overflow-hidden text-zinc-900">
+            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <UploadCloud className="w-5 h-5 text-emerald-400" />
-                <h2 className="text-sm font-semibold text-white">Upload de Novo Asset</h2>
+                <UploadCloud className="w-4 h-4 text-zinc-700" />
+                <h2 className="text-sm font-semibold text-zinc-900">Upload de Novo Asset</h2>
               </div>
               <button
                 type="button"
                 onClick={() => setIsUploadModalOpen(false)}
-                className="p-1 rounded-lg text-zinc-400 hover:text-white"
+                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -400,7 +397,7 @@ export const AssetsView: React.FC = () => {
             <form onSubmit={handleUploadSubmit} className="p-6 space-y-4 text-xs">
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-zinc-800 hover:border-emerald-500/50 bg-zinc-950/60 rounded-2xl p-6 text-center cursor-pointer transition-colors"
+                className="border-2 border-dashed border-zinc-200 hover:border-zinc-400 bg-zinc-50/60 rounded-2xl p-6 text-center cursor-pointer transition-colors"
               >
                 <input
                   ref={fileInputRef}
@@ -409,18 +406,18 @@ export const AssetsView: React.FC = () => {
                   accept="image/*,video/*,audio/*"
                   className="hidden"
                 />
-                <UploadCloud className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                <UploadCloud className="w-8 h-8 text-zinc-400 mx-auto mb-2" />
                 {uploadFile ? (
                   <div>
-                    <p className="font-semibold text-white">{uploadFile.name}</p>
-                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                    <p className="font-semibold text-zinc-900">{uploadFile.name}</p>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
                       {formatBytes(uploadFile.size)} • Clique para trocar arquivo
                     </p>
                   </div>
                 ) : (
                   <div>
-                    <p className="font-medium text-zinc-200">Arraste ou clique para selecionar arquivo</p>
-                    <p className="text-[11px] text-zinc-500 mt-1">
+                    <p className="font-medium text-zinc-800">Arraste ou clique para selecionar arquivo</p>
+                    <p className="text-[11px] text-zinc-400 mt-1">
                       Imagens (até 25 MB), Vídeos (até 500 MB), Áudios (até 100 MB)
                     </p>
                   </div>
@@ -430,36 +427,36 @@ export const AssetsView: React.FC = () => {
               {uploadFile && (
                 <>
                   <div>
-                    <label className="block text-zinc-300 font-medium mb-1">Nome de Exibição</label>
+                    <label className="block text-zinc-700 font-medium mb-1">Nome de Exibição</label>
                     <input
                       type="text"
                       value={uploadName}
                       onChange={(e) => setUploadName(e.target.value)}
                       required
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-200 text-xs focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-zinc-900 text-xs focus:outline-none focus:border-zinc-400"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-zinc-300 font-medium mb-1">
-                        Alias de Prompt (<strong className="text-emerald-400 font-mono">@alias</strong>)
+                      <label className="block text-zinc-700 font-medium mb-1">
+                        Alias de Prompt (<strong className="text-zinc-900 font-mono">@alias</strong>)
                       </label>
                       <input
                         type="text"
                         value={uploadAlias}
                         onChange={(e) => setUploadAlias(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                         required
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 font-mono text-emerald-400 text-xs focus:outline-none focus:border-emerald-500"
+                        className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 font-mono text-zinc-900 text-xs focus:outline-none focus:border-zinc-400"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-zinc-300 font-medium mb-1">Categoria de Preservação</label>
+                      <label className="block text-zinc-700 font-medium mb-1">Categoria de Preservação</label>
                       <select
                         value={uploadCategory}
                         onChange={(e) => setUploadCategory(e.target.value as AssetCategory)}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-200 text-xs focus:outline-none focus:border-emerald-500"
+                        className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-zinc-800 text-xs focus:outline-none focus:border-zinc-400"
                       >
                         <option value="PRODUCT">Produto (logo e geometria)</option>
                         <option value="CHARACTER">Personagem (rosto/consistência)</option>
@@ -475,13 +472,13 @@ export const AssetsView: React.FC = () => {
 
               {uploading && (
                 <div className="space-y-1.5 pt-1">
-                  <div className="flex justify-between text-zinc-400 text-[11px]">
+                  <div className="flex justify-between text-zinc-500 text-[11px]">
                     <span>Enviando arquivo...</span>
                     <span>{uploadProgress}%</span>
                   </div>
-                  <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="w-full h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-emerald-500 transition-all duration-200"
+                      className="h-full bg-emerald-600 transition-all duration-200"
                       style={{ width: `${uploadProgress}%` }}
                     />
                   </div>
@@ -489,8 +486,8 @@ export const AssetsView: React.FC = () => {
               )}
 
               {uploadError && (
-                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-600" />
                   <span>{uploadError}</span>
                 </div>
               )}
@@ -499,14 +496,14 @@ export const AssetsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsUploadModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  className="px-4 py-2 rounded-xl text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={uploading || !uploadFile}
-                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-zinc-950 font-semibold"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold shadow-xs"
                 >
                   {uploading ? 'Enviando...' : 'Salvar Asset'}
                 </button>
@@ -518,17 +515,17 @@ export const AssetsView: React.FC = () => {
 
       {/* Edit Modal */}
       {editingAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden text-zinc-100">
-            <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-md bg-white border border-zinc-200 rounded-2xl shadow-xl overflow-hidden text-zinc-900">
+            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-emerald-400" />
-                <h2 className="text-sm font-semibold text-white">Editar Metadados do Asset</h2>
+                <Edit2 className="w-4 h-4 text-zinc-700" />
+                <h2 className="text-sm font-semibold text-zinc-900">Editar Metadados do Asset</h2>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingAsset(null)}
-                className="p-1 rounded-lg text-zinc-400 hover:text-white"
+                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -536,35 +533,35 @@ export const AssetsView: React.FC = () => {
 
             <form onSubmit={handleSaveEdit} className="p-6 space-y-4 text-xs">
               <div>
-                <label className="block text-zinc-300 font-medium mb-1">Nome do Asset</label>
+                <label className="block text-zinc-700 font-medium mb-1">Nome do Asset</label>
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   required
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-200 text-xs focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-zinc-900 text-xs focus:outline-none focus:border-zinc-400"
                 />
               </div>
 
               <div>
-                <label className="block text-zinc-300 font-medium mb-1">
-                  Alias (<strong className="text-emerald-400 font-mono">@alias</strong>)
+                <label className="block text-zinc-700 font-medium mb-1">
+                  Alias (<strong className="text-zinc-900 font-mono">@alias</strong>)
                 </label>
                 <input
                   type="text"
                   value={editAlias}
                   onChange={(e) => setEditAlias(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                   required
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 font-mono text-emerald-400 text-xs focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 font-mono text-zinc-900 text-xs focus:outline-none focus:border-zinc-400"
                 />
               </div>
 
               <div>
-                <label className="block text-zinc-300 font-medium mb-1">Categoria de Preservação</label>
+                <label className="block text-zinc-700 font-medium mb-1">Categoria de Preservação</label>
                 <select
                   value={editCategory}
                   onChange={(e) => setEditCategory(e.target.value as AssetCategory)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-200 text-xs focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-zinc-800 text-xs focus:outline-none focus:border-zinc-400"
                 >
                   <option value="PRODUCT">Produto (logo e geometria)</option>
                   <option value="CHARACTER">Personagem (rosto/consistência)</option>
@@ -576,8 +573,8 @@ export const AssetsView: React.FC = () => {
               </div>
 
               {editError && (
-                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-600" />
                   <span>{editError}</span>
                 </div>
               )}
@@ -586,14 +583,14 @@ export const AssetsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setEditingAsset(null)}
-                  className="px-4 py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  className="px-4 py-2 rounded-xl text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-xs"
                 >
                   {savingEdit ? 'Salvando...' : 'Salvar Alterações'}
                 </button>

@@ -82,6 +82,29 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && (resource.data.owner_user_id == request.auth.uid || isAdmin());
     }
 
+    // Workspace Drafts Collection
+    match /workspace_drafts/{draftId} {
+      allow get: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+    }
+
+    // Workspace Presets Collection
+    match /workspace_presets/{presetId} {
+      allow get: if isSignedIn() && (resource.data.user_id == 'system' || resource.data.user_id == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.user_id == 'system' || resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.user_id != 'system' && (resource.data.user_id == request.auth.uid || isAdmin());
+    }
+
+    // User Preferences Collection
+    match /user_preferences/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create, update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
     // Model Registry
     match /models/{modelId} {
       allow read: if isSignedIn();

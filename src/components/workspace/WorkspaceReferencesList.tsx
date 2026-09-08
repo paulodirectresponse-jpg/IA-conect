@@ -23,10 +23,10 @@ export const WorkspaceReferencesList: React.FC<WorkspaceReferencesListProps> = (
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1.5 font-medium text-zinc-300">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>Mídias & Referências de Prompt</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 font-mono">
+        <div className="flex items-center gap-1.5 font-semibold text-zinc-900">
+          <ShieldCheck className="w-4 h-4 text-zinc-600" />
+          <span>Mídias & Referências Ativas</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200 font-mono">
             {references.length}/{maxReferences}
           </span>
         </div>
@@ -36,7 +36,7 @@ export const WorkspaceReferencesList: React.FC<WorkspaceReferencesListProps> = (
             type="button"
             id="btn-add-reference-trigger"
             onClick={onOpenAssetPicker}
-            className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition-colors"
+            className="text-xs text-zinc-700 hover:text-zinc-900 font-medium flex items-center gap-1 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Adicionar Referência</span>
@@ -47,31 +47,31 @@ export const WorkspaceReferencesList: React.FC<WorkspaceReferencesListProps> = (
       {references.length === 0 ? (
         <div
           onClick={onOpenAssetPicker}
-          className="border border-dashed border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 rounded-xl p-3 text-center cursor-pointer transition-colors"
+          className="border border-dashed border-zinc-200 hover:border-zinc-300 bg-zinc-50/60 rounded-xl p-3 text-center cursor-pointer transition-colors"
         >
-          <p className="text-xs text-zinc-400">
-            Nenhuma referência anexada. Digite <span className="text-emerald-400 font-mono font-medium">@</span> no prompt ou clique para adicionar.
+          <p className="text-xs text-zinc-500">
+            Nenhuma mídia anexada. Digite <span className="text-zinc-800 font-mono font-semibold">@</span> no prompt ou clique para vincular imagens ou vídeos da sua biblioteca.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           {references.map((ref) => {
             const priorityColor: Record<string, string> = {
-              LOW: 'bg-zinc-800 text-zinc-400 border-zinc-700',
-              MEDIUM: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-              HIGH: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-              CRITICAL: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+              LOW: 'bg-zinc-100 text-zinc-600 border-zinc-200',
+              MEDIUM: 'bg-blue-50 text-blue-700 border-blue-200',
+              HIGH: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+              CRITICAL: 'bg-amber-50 text-amber-700 border-amber-200',
             };
 
             return (
               <div
                 key={ref.asset_id}
                 id={`reference-card-${ref.asset_id}`}
-                className="group relative bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 flex flex-col justify-between hover:border-zinc-700 transition-all text-xs"
+                className="group relative bg-white border border-zinc-200 rounded-xl p-2.5 flex flex-col justify-between hover:border-zinc-300 hover:shadow-xs transition-all text-xs"
               >
                 {/* Top preview */}
                 <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-lg bg-zinc-800 border border-zinc-700/60 overflow-hidden flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-zinc-100 border border-zinc-200 overflow-hidden flex items-center justify-center flex-shrink-0">
                     {ref.asset?.thumbnail_url || ref.asset?.public_url ? (
                       <img
                         src={ref.asset.thumbnail_url || ref.asset.public_url}
@@ -80,16 +80,16 @@ export const WorkspaceReferencesList: React.FC<WorkspaceReferencesListProps> = (
                         referrerPolicy="no-referrer"
                       />
                     ) : ref.asset?.type === 'VIDEO' ? (
-                      <Video className="w-4 h-4 text-sky-400" />
+                      <Video className="w-4 h-4 text-blue-500" />
                     ) : ref.asset?.type === 'AUDIO' ? (
-                      <Music className="w-4 h-4 text-emerald-400" />
+                      <Music className="w-4 h-4 text-purple-500" />
                     ) : (
-                      <ImageIcon className="w-4 h-4 text-amber-400" />
+                      <ImageIcon className="w-4 h-4 text-amber-500" />
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="font-mono text-emerald-400 font-semibold truncate">@{ref.alias_snapshot}</p>
+                    <p className="font-mono text-zinc-900 font-semibold truncate">@{ref.alias_snapshot}</p>
                     <p className="text-[10px] text-zinc-400 truncate">{ref.asset?.name || 'Asset'}</p>
                   </div>
 
@@ -100,7 +100,7 @@ export const WorkspaceReferencesList: React.FC<WorkspaceReferencesListProps> = (
                       e.stopPropagation();
                       onRemoveReference(ref.asset_id);
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition-all"
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-zinc-400 hover:text-red-500 hover:bg-zinc-100 transition-all"
                     title="Remover referência"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -108,7 +108,7 @@ export const WorkspaceReferencesList: React.FC<WorkspaceReferencesListProps> = (
                 </div>
 
                 {/* Bottom status & action */}
-                <div className="mt-2 pt-2 border-t border-zinc-800/80 flex items-center justify-between">
+                <div className="mt-2 pt-2 border-t border-zinc-100 flex items-center justify-between">
                   <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${priorityColor[ref.priority] || priorityColor.HIGH}`}>
                     {ref.priority}
                   </span>
@@ -116,7 +116,7 @@ export const WorkspaceReferencesList: React.FC<WorkspaceReferencesListProps> = (
                   <button
                     type="button"
                     onClick={() => setEditingRef(ref)}
-                    className="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1 py-0.5 px-1 rounded hover:bg-zinc-800 transition-colors"
+                    className="text-[11px] text-zinc-500 hover:text-zinc-800 flex items-center gap-1 py-0.5 px-1.5 rounded hover:bg-zinc-100 transition-colors"
                   >
                     <Settings className="w-3 h-3" />
                     <span>Regras</span>

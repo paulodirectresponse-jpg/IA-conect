@@ -748,23 +748,21 @@ apiRouter.post('/workspace/validate-and-preview', requireAuth, async (req: Authe
     // Pricing calculation (without exposing provider costs)
     const pricings = await catalogRepository.listPricing();
     const matchingPricings = pricings.filter(
-      (p) => p.active && p.model_id === model.model_id && (p.resolution === settings?.resolution || !settings?.resolution)
+      (p) => p.active && p.model_id === model.model_id && (p.resolution === settings?.resolution || p.resolution === 'ANY' || !settings?.resolution)
     );
 
-    let customerPriceCents = 75; // default fallback (R$ 0,75)
-    if (matchingPricings.length > 0) {
-      // Pick lowest customer price among active providers
-      const lowest = matchingPricings.reduce((min, curr) => curr.customer_price_cents < min.customer_price_cents ? curr : min);
-      customerPriceCents = lowest.customer_price_cents;
-    }
+    const hasPricing = matchingPricings.length > 0;
+    const customerPriceCents: number | null = hasPricing
+      ? matchingPricings.reduce((min, curr) => curr.customer_price_cents < min.customer_price_cents ? curr : min).customer_price_cents
+      : null;
 
     const numberOfOutputs = settings?.number_of_outputs || 1;
-    const totalEstimatedCents = customerPriceCents * numberOfOutputs;
+    const totalEstimatedCents = customerPriceCents !== null ? customerPriceCents * numberOfOutputs : null;
 
     // Check wallet balance
     const wallet = await walletService.getSummary(uid);
     const availableCents = wallet.available_balance_cents;
-    const hasSufficientFunds = availableCents >= totalEstimatedCents;
+    const hasSufficientFunds = totalEstimatedCents !== null ? availableCents >= totalEstimatedCents : false;
 
     // Compile prompt
     const compiled = promptCompilerService.compile({
@@ -779,6 +777,8 @@ apiRouter.post('/workspace/validate-and-preview', requireAuth, async (req: Authe
         aspect_ratio: settings?.aspect_ratio || '16:9',
       },
     });
+
+    const balanceAfter = totalEstimatedCents !== null ? availableCents - totalEstimatedCents : availableCents;
 
     const requestDraft = {
       request_id: `req_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
@@ -796,9 +796,10 @@ apiRouter.post('/workspace/validate-and-preview', requireAuth, async (req: Authe
         aspect_ratio: '16:9',
         number_of_outputs: 1,
       },
+      has_pricing: hasPricing,
       estimated_cost_cents: totalEstimatedCents,
       customer_balance_available_cents: availableCents,
-      balance_after_generation_cents: availableCents - totalEstimatedCents,
+      balance_after_generation_cents: balanceAfter,
       has_sufficient_funds: hasSufficientFunds,
       created_at: new Date().toISOString(),
     };
@@ -807,7 +808,9 @@ apiRouter.post('/workspace/validate-and-preview', requireAuth, async (req: Authe
       success: true,
       data: {
         request_draft: requestDraft,
-        notice: 'Requisição validada e compilada com sucesso. O motor de execução e roteamento real por menor custo serão ativados na Etapa 3. Nenhum saldo foi debitado.',
+        notice: hasPricing
+          ? 'Configuração e especificações validadas com sucesso. Nenhum saldo foi debitado nesta simulação.'
+          : 'Configuração de preço pendente para este modelo/resolução. Não há cobrança fictícia.',
       },
     });
   } catch (err: any) {

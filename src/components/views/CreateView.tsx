@@ -96,11 +96,12 @@ export const CreateView: React.FC = () => {
     async function loadWorkspaceData() {
       try {
         setLoading(true);
-        const [modelsRes, presetsRes, assetsRes, prefsRes] = await Promise.all([
+        const [modelsRes, presetsRes, assetsRes, prefsRes, pricingRes] = await Promise.all([
           workspaceService.listModels(),
           workspaceService.listPresets(),
           assetService.listAssets(),
           workspaceService.getUserPreferences(),
+          workspaceService.listPricing(),
         ]);
 
         if (!isMounted) return;
@@ -110,6 +111,7 @@ export const CreateView: React.FC = () => {
         setAvailableAssets(assetsRes);
         setFavoriteModelIds(prefsRes.favorite_model_ids || []);
         setRecentModelIds(prefsRes.recent_model_ids || []);
+        setPricing(pricingRes || []);
 
         // Try restoring latest draft
         const draft = await workspaceService.getLatestDraft().catch(() => null);
@@ -226,17 +228,16 @@ export const CreateView: React.FC = () => {
     }
   }, [selectedModel, mode, durationSeconds, resolution, aspectRatio, references, negativePrompt, prompt]);
 
-  // Pricing Calculation (BRL cents)
+  // Pricing Calculation (BRL cents) - STRICT RULE: NEVER INVENT FALLBACK PRICES
   const matchingPricing = pricing.filter(
-    (p) => p.active && p.model_id === selectedModelId && p.resolution === resolution
+    (p) => p.active && p.model_id === selectedModelId && (p.resolution === resolution || p.resolution === 'ANY' || !p.resolution)
   );
-  let unitPriceCents = 75; // R$ 0,75 default
-  if (matchingPricing.length > 0) {
-    unitPriceCents = Math.min(...matchingPricing.map((p) => p.customer_price_cents));
-  }
-  const totalEstimatedCostCents = unitPriceCents * numberOfOutputs;
+  const unitPriceCents: number | null = matchingPricing.length > 0
+    ? Math.min(...matchingPricing.map((p) => p.customer_price_cents))
+    : null;
+  const totalEstimatedCostCents: number | null = unitPriceCents !== null ? unitPriceCents * numberOfOutputs : null;
   const availableBalanceCents = wallet?.available_balance_cents || 0;
-  const hasSufficientFunds = availableBalanceCents >= totalEstimatedCostCents;
+  const hasSufficientFunds = totalEstimatedCostCents !== null ? availableBalanceCents >= totalEstimatedCostCents : true;
 
   // Handlers for References
   const handleAddReference = (asset: Asset) => {
@@ -357,36 +358,30 @@ export const CreateView: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-zinc-400 space-y-3">
-        <RefreshCw className="w-6 h-6 animate-spin text-emerald-500" />
-        <p className="text-xs">Carregando Creative Workspace e Modelos...</p>
+      <div className="flex flex-col items-center justify-center py-24 text-zinc-400 space-y-3">
+        <RefreshCw className="w-5 h-5 animate-spin text-zinc-600" />
+        <p className="text-xs font-medium text-zinc-500">Carregando Creative Workspace...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto pb-12">
-      {/* Top Bar: Title, Mode Tabs, Presets, Autosave Status */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-4">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      {/* Top Bar: Title, Presets, Autosave Status */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200/80 pb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-emerald-400" />
-              <span>Creative Workspace</span>
-            </h1>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-              Etapa 2 Ativa
-            </span>
-          </div>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Criação cinematográfica orientada a prompts com referências estruturadas (@)
+          <h1 className="text-xl font-bold text-zinc-900 tracking-tight flex items-center gap-2">
+            <span>Creative Workspace</span>
+          </h1>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Criação cinematográfica e composição com referências estruturadas (@)
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {lastSavedTime && (
-            <span className="text-[11px] text-zinc-500 flex items-center gap-1 font-mono">
-              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+            <span className="text-[11px] text-zinc-400 flex items-center gap-1.5 font-mono">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               <span>Salvo {lastSavedTime}</span>
             </span>
           )}
@@ -395,16 +390,16 @@ export const CreateView: React.FC = () => {
             type="button"
             id="btn-open-presets"
             onClick={() => setIsPresetModalOpen(true)}
-            className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 text-xs font-medium flex items-center gap-1.5 transition-colors"
+            className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
           >
-            <Bookmark className="w-3.5 h-3.5 text-emerald-400" />
+            <Bookmark className="w-3.5 h-3.5 text-zinc-500" />
             <span>Presets ({presets.length})</span>
           </button>
         </div>
       </div>
 
-      {/* Mode Selector Tabs (Text to Video, Image to Video, etc.) */}
-      <div className="flex items-center gap-1.5 p-1 rounded-xl bg-zinc-900/90 border border-zinc-800 w-fit text-xs">
+      {/* Mode Selector Segmented Control */}
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-zinc-100 border border-zinc-200/60 w-fit text-xs">
         {(
           [
             { id: 'TEXT_TO_VIDEO', label: 'Texto para Vídeo' },
@@ -420,10 +415,10 @@ export const CreateView: React.FC = () => {
               type="button"
               id={`tab-mode-${tab.id.toLowerCase()}`}
               onClick={() => setMode(tab.id)}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 isSelected
-                  ? 'bg-emerald-500 text-zinc-950 font-semibold shadow-xs'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+                  ? 'bg-white text-zinc-900 shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-900'
               }`}
             >
               {tab.label}
@@ -433,7 +428,7 @@ export const CreateView: React.FC = () => {
       </div>
 
       {/* Main Grid: Left (Editor + References) | Right (Model + Specs + Cost) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left 7 Cols: Prompt Editor & Attached References */}
         <div className="lg:col-span-7 space-y-4">
           {/* Prompt Editor */}
@@ -453,7 +448,7 @@ export const CreateView: React.FC = () => {
           />
 
           {/* Attached References with Preservation Rules */}
-          <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4">
+          <div className="bg-white border border-zinc-200/90 rounded-2xl p-5 shadow-xs">
             <WorkspaceReferencesList
               references={references}
               onUpdateReference={handleUpdateReference}
@@ -469,18 +464,18 @@ export const CreateView: React.FC = () => {
               {validationErrors.map((err, i) => (
                 <div
                   key={`err-${i}`}
-                  className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 flex items-center gap-2"
+                  className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 flex items-center gap-2"
                 >
-                  <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                   <span>{err}</span>
                 </div>
               ))}
               {validationWarnings.map((warn, i) => (
                 <div
                   key={`warn-${i}`}
-                  className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center gap-2"
+                  className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center gap-2"
                 >
-                  <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
                   <span>{warn}</span>
                 </div>
               ))}
@@ -491,7 +486,7 @@ export const CreateView: React.FC = () => {
         {/* Right 5 Cols: Model Selector, Generation Specs & Financial Summary */}
         <div className="lg:col-span-5 space-y-4">
           {/* Model Selector Card */}
-          <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4">
+          <div className="bg-white border border-zinc-200/90 rounded-2xl p-5 shadow-xs">
             <ModelSelector
               models={models}
               selectedModelId={selectedModelId}
@@ -503,18 +498,18 @@ export const CreateView: React.FC = () => {
           </div>
 
           {/* Technical Specs: Duration, Resolution, Aspect Ratio, Outputs */}
-          <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 space-y-4 text-xs">
-            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2">
-              <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
-                <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="bg-white border border-zinc-200/90 rounded-2xl p-5 space-y-4 text-xs shadow-xs">
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+              <span className="font-semibold text-zinc-900 flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5 text-zinc-600" />
                 <span>Parâmetros de Produção</span>
               </span>
-              <span className="text-[10px] text-zinc-500 font-mono">Diretos & Otimizados</span>
+              <span className="text-[10px] text-zinc-400 font-mono">Formatos & Taxas</span>
             </div>
 
             {/* Duration Selector */}
             <div>
-              <label className="block text-zinc-400 font-medium mb-1.5">Duração do Vídeo</label>
+              <label className="block text-zinc-600 font-medium mb-1.5">Duração</label>
               <div className="grid grid-cols-2 gap-2">
                 {(capabilities?.supported_durations || [5, 10]).map((dur) => {
                   const isSelected = durationSeconds === dur;
@@ -525,8 +520,8 @@ export const CreateView: React.FC = () => {
                       onClick={() => setDurationSeconds(dur)}
                       className={`py-2 px-3 rounded-xl border text-center font-medium transition-all ${
                         isSelected
-                          ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300 font-semibold'
-                          : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-800'
+                          ? 'bg-zinc-900 border-zinc-900 text-white font-semibold shadow-xs'
+                          : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
                       }`}
                     >
                       {dur} segundos
@@ -538,7 +533,7 @@ export const CreateView: React.FC = () => {
 
             {/* Resolution Selector */}
             <div>
-              <label className="block text-zinc-400 font-medium mb-1.5">Resolução de Renderização</label>
+              <label className="block text-zinc-600 font-medium mb-1.5">Resolução</label>
               <div className="grid grid-cols-2 gap-2">
                 {(capabilities?.supported_resolutions || ['720p', '1080p']).map((res) => {
                   const isSelected = resolution === res;
@@ -549,11 +544,11 @@ export const CreateView: React.FC = () => {
                       onClick={() => setResolution(res)}
                       className={`py-2 px-3 rounded-xl border text-center font-medium transition-all ${
                         isSelected
-                          ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300 font-semibold'
-                          : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-800'
+                          ? 'bg-zinc-900 border-zinc-900 text-white font-semibold shadow-xs'
+                          : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
                       }`}
                     >
-                      {res} {res === '1080p' ? '(FHD Pro)' : '(HD Padrão)'}
+                      {res} {res === '1080p' ? '(FHD Pro)' : '(HD)'}
                     </button>
                   );
                 })}
@@ -562,15 +557,10 @@ export const CreateView: React.FC = () => {
 
             {/* Aspect Ratio Selector */}
             <div>
-              <label className="block text-zinc-400 font-medium mb-1.5">Formato / Aspect Ratio</label>
+              <label className="block text-zinc-600 font-medium mb-1.5">Formato de Tela</label>
               <div className="grid grid-cols-3 gap-2">
                 {(capabilities?.supported_aspect_ratios || ['16:9', '9:16', '1:1']).map((ar) => {
                   const isSelected = aspectRatio === ar;
-                  const labelMap: Record<string, string> = {
-                    '16:9': '16:9 (Landscape)',
-                    '9:16': '9:16 (Reels/TikTok)',
-                    '1:1': '1:1 (Quadrado)',
-                  };
                   return (
                     <button
                       key={ar}
@@ -578,12 +568,12 @@ export const CreateView: React.FC = () => {
                       onClick={() => setAspectRatio(ar)}
                       className={`py-2 px-2 rounded-xl border text-center font-medium transition-all ${
                         isSelected
-                          ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300 font-semibold'
-                          : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-800'
+                          ? 'bg-zinc-900 border-zinc-900 text-white font-semibold shadow-xs'
+                          : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
                       }`}
                     >
                       <span className="block font-bold">{ar}</span>
-                      <span className="text-[9px] text-zinc-500 block truncate">
+                      <span className={`text-[9px] block truncate ${isSelected ? 'text-zinc-300' : 'text-zinc-500'}`}>
                         {ar === '16:9' ? 'Horizontal' : ar === '9:16' ? 'Vertical' : 'Feed'}
                       </span>
                     </button>
@@ -595,8 +585,8 @@ export const CreateView: React.FC = () => {
             {/* Number of Outputs */}
             <div>
               <div className="flex justify-between items-center mb-1.5">
-                <label className="text-zinc-400 font-medium">Variações Simultâneas</label>
-                <span className="font-semibold text-white font-mono">{numberOfOutputs} saída(s)</span>
+                <label className="text-zinc-600 font-medium">Variações Simultâneas</label>
+                <span className="font-semibold text-zinc-900 font-mono">{numberOfOutputs} saída(s)</span>
               </div>
               <div className="grid grid-cols-4 gap-1.5">
                 {[1, 2, 3, 4].map((num) => (
@@ -606,8 +596,8 @@ export const CreateView: React.FC = () => {
                     onClick={() => setNumberOfOutputs(num)}
                     className={`py-1.5 rounded-lg border text-center font-medium transition-colors ${
                       numberOfOutputs === num
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                        : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:bg-zinc-800'
+                        ? 'bg-zinc-900 border-zinc-900 text-white font-semibold shadow-xs'
+                        : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
                     }`}
                   >
                     {num}x
@@ -617,36 +607,36 @@ export const CreateView: React.FC = () => {
             </div>
 
             {/* Advanced On-Demand Drawer Toggle */}
-            <div className="pt-2 border-t border-zinc-800/80">
+            <div className="pt-2 border-t border-zinc-100">
               <button
                 type="button"
                 id="btn-toggle-advanced-settings"
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-200 py-1"
+                className="w-full flex items-center justify-between text-zinc-600 hover:text-zinc-900 py-1 text-xs font-medium"
               >
-                <span>Avançado Sob Demanda (Seed & Física)</span>
+                <span>Configurações Avançadas (Seed & Movimento)</span>
                 {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
 
               {showAdvanced && (
-                <div className="mt-3 space-y-3 pt-2 border-t border-zinc-800/60 animate-in fade-in">
+                <div className="mt-3 space-y-3 pt-3 border-t border-zinc-100 animate-in fade-in">
                   <div>
-                    <label className="block text-zinc-400 font-medium mb-1">
+                    <label className="block text-zinc-600 font-medium mb-1">
                       Seed de Reprodução (opcional)
                     </label>
                     <input
                       type="number"
                       value={seed}
                       onChange={(e) => setSeed(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                      placeholder="Aleatório se vazio"
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-zinc-200 text-xs focus:outline-none focus:border-zinc-700"
+                      placeholder="Aleatório se não preenchido"
+                      className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-1.5 text-zinc-900 text-xs focus:outline-none focus:border-zinc-400"
                     />
                   </div>
 
                   <div>
                     <div className="flex justify-between items-center mb-1">
-                      <label className="text-zinc-400 font-medium">Intensidade de Movimento (Motion)</label>
-                      <span className="text-zinc-300 font-mono">{motionStrength}/10</span>
+                      <label className="text-zinc-600 font-medium">Intensidade de Movimento</label>
+                      <span className="text-zinc-900 font-mono font-semibold">{motionStrength}/10</span>
                     </div>
                     <input
                       type="range"
@@ -654,7 +644,7 @@ export const CreateView: React.FC = () => {
                       max={10}
                       value={motionStrength}
                       onChange={(e) => setMotionStrength(parseInt(e.target.value, 10))}
-                      className="w-full accent-emerald-500 cursor-pointer"
+                      className="w-full accent-zinc-900 cursor-pointer"
                     />
                   </div>
                 </div>
@@ -663,66 +653,78 @@ export const CreateView: React.FC = () => {
           </div>
 
           {/* Financial Summary & Action Button */}
-          <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 space-y-4 text-xs">
+          <div className="bg-white border border-zinc-200/90 rounded-2xl p-5 space-y-4 text-xs shadow-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Wallet className="w-4 h-4 text-emerald-400" />
-                <span className="font-semibold text-zinc-200">Investimento Previsto</span>
+                <Wallet className="w-4 h-4 text-zinc-600" />
+                <span className="font-semibold text-zinc-800">Investimento Previsto</span>
               </div>
-              <span className="text-lg font-bold text-white tabular-nums">
-                {formatCentsToBRL(totalEstimatedCostCents)}
+              <span className="text-lg font-bold text-zinc-900 tabular-nums">
+                {totalEstimatedCostCents !== null
+                  ? formatCentsToBRL(totalEstimatedCostCents)
+                  : <span className="text-xs font-medium text-amber-600">Preço ainda não disponível</span>
+                }
               </span>
             </div>
 
-            <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
-              <div className="flex justify-between text-zinc-400 text-[11px]">
-                <span>Seu saldo em carteira:</span>
-                <span className="font-semibold text-zinc-200 tabular-nums">
+            <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-2">
+              <div className="flex justify-between text-zinc-600 text-[11px]">
+                <span>Saldo disponível em carteira:</span>
+                <span className="font-semibold text-zinc-900 tabular-nums">
                   {formatCentsToBRL(availableBalanceCents)}
                 </span>
               </div>
-              <div className="flex justify-between text-zinc-400 text-[11px]">
-                <span>Saldo após produção:</span>
-                <span
-                  className={`font-semibold tabular-nums ${
-                    hasSufficientFunds ? 'text-emerald-400' : 'text-red-400'
-                  }`}
-                >
-                  {formatCentsToBRL(availableBalanceCents - totalEstimatedCostCents)}
-                </span>
-              </div>
+              {totalEstimatedCostCents !== null && (
+                <div className="flex justify-between text-zinc-600 text-[11px]">
+                  <span>Saldo após produção:</span>
+                  <span
+                    className={`font-semibold tabular-nums ${
+                      hasSufficientFunds ? 'text-zinc-900' : 'text-red-600'
+                    }`}
+                  >
+                    {formatCentsToBRL(availableBalanceCents - totalEstimatedCostCents)}
+                  </span>
+                </div>
+              )}
             </div>
 
-            {!hasSufficientFunds && (
-              <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 flex items-center gap-2 text-[11px]">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-400" />
-                <span>Saldo insuficiente para cobrir o valor estimado.</span>
+            {totalEstimatedCostCents === null && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-600" />
+                <span>Configuração de preço pendente para esta combinação de modelo e resolução.</span>
               </div>
             )}
 
-            {/* Primary Action Button */}
+            {totalEstimatedCostCents !== null && !hasSufficientFunds && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-600" />
+                <span>Saldo insuficiente para cobrir o valor estimado da produção.</span>
+              </div>
+            )}
+
+            {/* Clear Primary Action Button */}
             <button
               type="button"
               id="btn-generate-video-action"
               onClick={handleTriggerGenerate}
-              disabled={validating || !prompt.trim() || validationErrors.length > 0}
-              className="w-full py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-950 font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 text-sm"
+              disabled={validating || !prompt.trim() || validationErrors.length > 0 || totalEstimatedCostCents === null || !hasSufficientFunds}
+              className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold transition-all flex items-center justify-center gap-2 shadow-xs text-sm"
             >
               {validating ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Compilando Requisição...</span>
+                  <span>Validando e Compilando...</span>
                 </>
               ) : (
                 <>
                   <Film className="w-4 h-4" />
-                  <span>Validar e Preparar Geração</span>
+                  <span>Generate video</span>
                 </>
               )}
             </button>
 
-            <p className="text-[10px] text-zinc-500 text-center leading-tight">
-              A compilação de prompt e regras de preservação são executadas de forma segura. O roteador e execução real de provedores serão ativados na Etapa 3.
+            <p className="text-[10px] text-zinc-400 text-center leading-tight">
+              Validação de parâmetros técnicos e compilação de regras de preservação estruturadas.
             </p>
           </div>
         </div>

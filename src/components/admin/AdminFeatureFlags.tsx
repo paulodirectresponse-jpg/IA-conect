@@ -69,7 +69,7 @@ export const AdminFeatureFlags: React.FC = () => {
     <div className="space-y-4">
       <div>
         <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Feature Flags & Governança de Módulos</h2>
-        <p className="text-xs text-zinc-500">Ativação granular de recursos para as Etapas 2 e 3 com auditoria obrigatória</p>
+        <p className="text-xs text-zinc-500">Ativação granular de capacidades e recursos com registro em auditoria</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

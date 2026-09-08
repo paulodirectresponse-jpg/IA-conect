@@ -20,7 +20,7 @@ export const HistoryView: React.FC = () => {
           id="empty-history-view"
           icon={<Clock className="w-6 h-6" />}
           title="Nenhum job de geração executado"
-          description="O histórico registrará cada execução de IA com seu respectivo job_id, provedor roteado, custo exato deduzido e status do processamento assim que a Etapa 2 for iniciada."
+          description="O histórico registrará cada execução com seu respectivo job ID, modelo utilizado, custo deduzido e status de renderização."
         />
       </Card>
     </div>

@@ -141,15 +141,14 @@ export const WalletView: React.FC = () => {
         </Card>
       </div>
 
-      {/* Stage 1 & Stage 3 Clarification Banner */}
+      {/* Clarification Banner */}
       <div className="flex items-start gap-3 p-4 rounded-xl bg-zinc-100/80 border border-zinc-200/80 text-xs text-zinc-700">
         <Info className="w-5 h-5 text-zinc-500 shrink-0 mt-0.5" />
         <div className="leading-relaxed">
           <strong className="font-semibold text-zinc-900 block mb-0.5">
-            Nota de Arquitetura: Pagamentos Reais na Etapa 3
+            Integridade Financeira e Ledger Imutável
           </strong>
-          O gateway de pagamentos com checkout Pix e Cartão será integrado na Etapa 3.
-          Nesta Etapa 1, toda a infraestrutura financeira, validações anti-duplicação por chave de idempotência e saldo em centavos já estão 100% operacionais via ajustes administrativos no painel.
+          Toda a infraestrutura financeira, validações anti-duplicação por chave de idempotência e contabilidade em centavos inteiros estão ativas e auditáveis.
         </div>
       </div>
 

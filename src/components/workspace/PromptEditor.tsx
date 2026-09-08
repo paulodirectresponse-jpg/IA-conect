@@ -131,13 +131,13 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
   };
 
   return (
-    <div className="relative flex flex-col bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 shadow-xl focus-within:border-zinc-700 transition-all text-xs">
+    <div className="relative flex flex-col bg-white border border-zinc-200/90 rounded-2xl p-5 shadow-xs focus-within:border-zinc-400 focus-within:ring-2 focus-within:ring-zinc-900/5 transition-all text-xs">
       {/* Header bar */}
-      <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80 mb-2">
-        <label htmlFor="workspace-prompt-input" className="font-medium text-zinc-300 flex items-center gap-1.5">
-          <span>Prompt da Cena</span>
-          <span className="text-[11px] text-zinc-500 font-normal">
-            (use <strong className="text-emerald-400 font-mono">@</strong> para referenciar produtos e mídias)
+      <div className="flex items-center justify-between pb-3 border-b border-zinc-100 mb-3">
+        <label htmlFor="workspace-prompt-input" className="font-semibold text-zinc-900 text-sm flex items-center gap-2">
+          <span>Descrição da Cena</span>
+          <span className="text-[11px] text-zinc-400 font-normal">
+            (use <strong className="text-zinc-800 font-mono">@</strong> para referenciar produtos e mídias)
           </span>
         </label>
 
@@ -147,10 +147,10 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
           id="btn-improve-prompt-trigger"
           onClick={onOpenImproveModal}
           disabled={!prompt.trim()}
-          className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 font-medium transition-colors"
-          title="Melhorar prompt com Gemini"
+          className="px-2.5 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200/80 text-zinc-700 hover:text-zinc-900 border border-zinc-200/80 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 font-medium text-xs transition-colors"
+          title="Otimizar prompt com IA"
         >
-          <Sparkles className="w-3.5 h-3.5" />
+          <Sparkles className="w-3.5 h-3.5 text-zinc-600" />
           <span>Melhorar com IA</span>
         </button>
       </div>
@@ -163,14 +163,14 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
           value={prompt}
           onChange={handleTextChange}
           onKeyDown={handleKeyDown}
-          placeholder="Descreva a cena desejada em detalhes. Ex: Um comercial de @perfume caindo em câmera lenta sobre águas translúcidas com reflexos dourados e iluminação cinematográfica..."
-          rows={4}
-          className="w-full bg-transparent resize-none focus:outline-none text-zinc-100 placeholder:text-zinc-600 text-sm leading-relaxed"
+          placeholder="Descreva detalhadamente a ação, enquadramento e iluminação. Ex: Comercial cinematográfico de @perfume sobre espelho d'água com gotas translúcidas em slow-motion..."
+          rows={5}
+          className="w-full bg-transparent resize-none focus:outline-none text-zinc-900 placeholder:text-zinc-400 text-sm sm:text-base leading-relaxed"
         />
 
         {/* Autocomplete Popup */}
         {showAutocomplete && (
-          <div className="absolute left-2 top-full mt-1">
+          <div className="absolute left-0 top-full mt-1.5">
             <ReferenceAutocomplete
               assets={filteredAssets}
               selectedIndex={autocompleteIndex}
@@ -187,11 +187,11 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
 
       {/* Negative Prompt Expandable */}
       {showNegativePrompt && supportsNegativePrompt && (
-        <div className="mt-3 pt-3 border-t border-zinc-800/80 animate-in fade-in">
+        <div className="mt-3 pt-3 border-t border-zinc-100 animate-in fade-in">
           <div className="flex items-center justify-between mb-1.5">
-            <label htmlFor="workspace-negative-prompt" className="text-zinc-400 font-medium flex items-center gap-1">
-              <EyeOff className="w-3.5 h-3.5 text-zinc-500" />
-              <span>Negative Prompt (O que evitar)</span>
+            <label htmlFor="workspace-negative-prompt" className="text-zinc-700 font-medium flex items-center gap-1.5">
+              <EyeOff className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Negative Prompt (Elementos indesejados)</span>
             </label>
             <button
               type="button"
@@ -199,7 +199,7 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
                 setShowNegativePrompt(false);
                 if (onChangeNegativePrompt) onChangeNegativePrompt('');
               }}
-              className="text-[11px] text-zinc-500 hover:text-zinc-300"
+              className="text-[11px] text-zinc-400 hover:text-zinc-600"
             >
               Remover
             </button>
@@ -208,39 +208,39 @@ export const PromptEditor: React.FC<PromptEditorProps> = ({
             id="workspace-negative-prompt"
             value={negativePrompt}
             onChange={(e) => onChangeNegativePrompt && onChangeNegativePrompt(e.target.value)}
-            placeholder="Ex: deformado, baixa resolução, sombras estouradas, ruído, distorção de logo..."
+            placeholder="Ex: deformações, baixa resolução, ruído visual, cortes bruscos..."
             rows={2}
-            className="w-full bg-zinc-950/60 border border-zinc-800/80 rounded-xl px-3 py-2 text-zinc-300 placeholder:text-zinc-600 text-xs focus:outline-none focus:border-zinc-700 resize-none"
+            className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-zinc-800 placeholder:text-zinc-400 text-xs focus:outline-none focus:border-zinc-400 resize-none"
           />
         </div>
       )}
 
       {/* Footer bar */}
-      <div className="flex items-center justify-between pt-3 mt-2 border-t border-zinc-800/60 text-[11px] text-zinc-500">
+      <div className="flex items-center justify-between pt-3 mt-2 border-t border-zinc-100 text-[11px] text-zinc-400">
         <div className="flex items-center gap-3">
           {supportsNegativePrompt && !showNegativePrompt && (
             <button
               type="button"
               id="btn-toggle-negative-prompt"
               onClick={() => setShowNegativePrompt(true)}
-              className="hover:text-zinc-300 flex items-center gap-1 transition-colors"
+              className="text-zinc-500 hover:text-zinc-800 flex items-center gap-1 transition-colors"
             >
               <SlidersHorizontal className="w-3 h-3" />
               <span>+ Negative Prompt</span>
             </button>
           )}
 
-          <span className="flex items-center gap-1 text-zinc-400">
-            <Shield className="w-3 h-3 text-emerald-400" />
-            <span>{attachedReferences.length} @ref ativa(s)</span>
+          <span className="flex items-center gap-1 text-zinc-500">
+            <Shield className="w-3 h-3 text-zinc-400" />
+            <span>{attachedReferences.length} @referência(s)</span>
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="hidden sm:inline text-zinc-600 font-mono">
-            Ctrl+Enter para validar
+        <div className="flex items-center gap-2.5">
+          <span className="hidden sm:inline text-zinc-400 font-mono text-[10px]">
+            Ctrl + Enter para gerar
           </span>
-          <span className={`font-mono ${prompt.length > maxPromptLength ? 'text-red-400 font-bold' : 'text-zinc-500'}`}>
+          <span className={`font-mono ${prompt.length > maxPromptLength ? 'text-red-500 font-bold' : 'text-zinc-400'}`}>
             {prompt.length}/{maxPromptLength}
           </span>
         </div>

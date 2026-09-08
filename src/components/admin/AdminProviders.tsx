@@ -120,8 +120,8 @@ export const AdminProviders: React.FC = () => {
       <div className="flex items-start gap-2.5 p-3.5 rounded-lg bg-zinc-100 border border-zinc-200/80 text-xs text-zinc-700 leading-relaxed">
         <Lock className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
         <div>
-          <strong className="text-zinc-900 block mb-0.5">Semântica da Etapa 1 — Registro de Metadados:</strong>
-          Os provedores listados encontram-se <strong>Cadastrados (REGISTERED)</strong> para composição de matriz de custos e regras de roteamento. Nesta etapa não existem adapters de execução nem chamadas reais a APIs de geração (Atlas, WaveSpeed, Fal). Chaves e segredos residem exclusivamente no servidor e serão conectados na Etapa 3.
+          <strong className="text-zinc-900 block mb-0.5">Registro de Provedores e Matriz de Roteamento:</strong>
+          Os provedores listados encontram-se <strong>Cadastrados (REGISTERED)</strong> para composição de matriz de custos e regras de roteamento. Chaves e credenciais residem exclusivamente protegidas no servidor.
         </div>
       </div>
 
@@ -158,7 +158,7 @@ export const AdminProviders: React.FC = () => {
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded font-medium">
                           <Lock className="w-3 h-3 text-zinc-400" />
-                          Não Integrado (Etapa 3)
+                          Aguardando Configuração
                         </span>
                       )}
                     </td>

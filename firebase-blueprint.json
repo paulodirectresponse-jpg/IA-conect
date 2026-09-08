@@ -265,6 +265,58 @@
         "updated_at": { "type": "string", "description": "ISO timestamp" }
       },
       "required": ["config_id", "base_currency", "min_deposit_cents", "max_price_change_percent_warning", "updated_at"]
+    },
+    "WorkspaceDraft": {
+      "title": "WorkspaceDraft",
+      "description": "User creative workspace autosave draft",
+      "type": "object",
+      "properties": {
+        "draft_id": { "type": "string", "description": "Unique draft ID" },
+        "user_id": { "type": "string", "description": "Owner user ID" },
+        "model_id": { "type": "string", "description": "Selected model ID" },
+        "mode": { "type": "string", "description": "Generation mode" },
+        "prompt": { "type": "string", "description": "Prompt text content" },
+        "negative_prompt": { "type": "string", "description": "Negative prompt content" },
+        "references": { "type": "array", "description": "Attached reference assets" },
+        "settings": { "type": "object", "description": "Technical execution parameters" },
+        "preset_id": { "type": "string", "description": "Applied preset ID if any" },
+        "created_at": { "type": "string", "description": "ISO timestamp of creation" },
+        "updated_at": { "type": "string", "description": "ISO timestamp of last update" }
+      },
+      "required": ["draft_id", "user_id", "model_id", "mode", "prompt", "created_at", "updated_at"]
+    },
+    "WorkspacePreset": {
+      "title": "WorkspacePreset",
+      "description": "Preset configuration template for workspace",
+      "type": "object",
+      "properties": {
+        "preset_id": { "type": "string", "description": "Unique preset ID" },
+        "user_id": { "type": "string", "description": "Owner user ID or system" },
+        "name": { "type": "string", "description": "Preset display name" },
+        "description": { "type": "string", "description": "Preset description" },
+        "category": { "type": "string", "description": "Category group" },
+        "prompt_template": { "type": "string", "description": "Prompt template text" },
+        "negative_prompt_template": { "type": "string", "description": "Negative prompt template" },
+        "generation_settings": { "type": "object", "description": "Generation settings payload" },
+        "reference_rules_template": { "type": "array", "description": "Reference slot rules" },
+        "included_asset_ids": { "type": "array", "description": "Associated asset IDs" },
+        "created_at": { "type": "string", "description": "ISO timestamp" },
+        "updated_at": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["preset_id", "user_id", "name", "category", "prompt_template", "created_at", "updated_at"]
+    },
+    "UserPreferences": {
+      "title": "UserPreferences",
+      "description": "User workspace preferences such as favorites and recents",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string", "description": "Owner user ID" },
+        "favorite_model_ids": { "type": "array", "description": "List of favorite model IDs" },
+        "recent_model_ids": { "type": "array", "description": "Recently selected model IDs" },
+        "last_used_mode": { "type": "string", "description": "Last generation mode used" },
+        "updated_at": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["user_id", "favorite_model_ids", "recent_model_ids", "updated_at"]
     }
   },
   "firestore": {
@@ -287,6 +339,18 @@
     "/assets/{assetId}": {
       "schema": "Asset",
       "description": "User asset metadata. Owned by owner_user_id."
+    },
+    "/workspace_drafts/{draftId}": {
+      "schema": "WorkspaceDraft",
+      "description": "Autosaved workspace drafts. Owned by user_id."
+    },
+    "/workspace_presets/{presetId}": {
+      "schema": "WorkspacePreset",
+      "description": "Workspace presets. System presets readable by all; user presets owned by user_id."
+    },
+    "/user_preferences/{userId}": {
+      "schema": "UserPreferences",
+      "description": "Workspace user preferences. Owned by userId."
     },
     "/models/{modelId}": {
       "schema": "Model",

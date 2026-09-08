@@ -35,9 +35,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onNavigate }) =
           <span className="font-semibold text-zinc-900 text-sm sm:text-base tracking-tight">
             Plataforma IA
           </span>
-          <span className="hidden sm:inline-block text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 font-medium">
-            Etapa 1
-          </span>
         </div>
       </div>
 

@@ -186,7 +186,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
         </Card>
 
         <div className="mt-6 text-center text-[11px] text-zinc-400">
-          Etapa 1: Arquitetura, Segurança e Ledger Imutável
+          Segurança Avançada, Arquitetura e Ledger Financeiro Imutável
         </div>
       </div>
     </div>

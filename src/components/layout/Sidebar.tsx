@@ -32,13 +32,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onClose();
   };
 
-  const navItems = [
+  interface NavItem {
+    id: string;
+    label: string;
+    icon: React.ReactNode;
+    tag?: string;
+  }
+
+  const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Visão Geral', icon: <LayoutDashboard className="w-4 h-4" /> },
     {
       id: 'create',
       label: 'Criar Vídeo',
       icon: <Sparkles className="w-4 h-4" />,
-      tag: 'Etapa 2',
     },
     { id: 'history', label: 'Histórico de Gerações', icon: <Clock className="w-4 h-4" /> },
     { id: 'assets', label: 'Biblioteca de Assets', icon: <FolderOpen className="w-4 h-4" /> },
@@ -134,9 +140,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <ShieldCheck className="w-4 h-4 text-amber-600" />
                     <span>Painel Admin</span>
                   </div>
-                  <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">
-                    Core
-                  </span>
                 </button>
               </nav>
             </div>
