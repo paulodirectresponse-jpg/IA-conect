@@ -1,183 +1,60 @@
-import {
-  VideoProviderAdapter,
-  ProviderGenerationParams,
-  ProviderJobResult,
-  ProviderJobStatusResult,
-} from './videoProviderAdapter.js';
+import { GenerationMode } from '../../src/types/index.js';
+import { VideoProviderAdapter, ProviderGenerationParams, ProviderJobResult, ProviderJobStatusResult } from './videoProviderAdapter.js';
 
-interface SimulatedWaveSpeedJob {
-  jobId: string;
-  createdAt: number;
-  params: ProviderGenerationParams;
-}
+const FAMILIES: Record<string,string>={
+  'wan-3-0':'alibaba/wan-3.0',
+  'wan-3-0-prime':'alibaba/wan-3.0-prime',
+  'seedance-2-5':'bytedance/seedance-2.5',
+  'minimax-h3':'wavespeed-ai/minimax-h3',
+};
+function suffix(mode:GenerationMode){if(mode==='TEXT_TO_VIDEO')return 'text-to-video';if(mode==='IMAGE_TO_VIDEO')return 'image-to-video';if(mode==='REFERENCE_TO_VIDEO')return 'reference-to-video';return null;}
+function base(v:string|undefined){return (v||'https://api.wavespeed.ai').replace(/\/+$/,'').replace(/\/api\/v3$/,'');}
 
-const simulatedJobs = new Map<string, SimulatedWaveSpeedJob>();
+export class WaveSpeedProviderAdapter implements VideoProviderAdapter{
+  readonly providerId='provider-wavespeed'; readonly name='WaveSpeed AI';
+  private get apiKey(){return process.env.WAVESPEED_API_KEY?.trim();}
+  private get baseUrl(){return base(process.env.WAVESPEED_BASE_URL);}
+  isConfigured(){return Boolean(this.apiKey);}
+  supports(modelId:string,mode:GenerationMode){return Boolean(FAMILIES[modelId]&&suffix(mode));}
+  private modelName(modelId:string,mode:GenerationMode){const f=FAMILIES[modelId],s=suffix(mode);if(!f||!s)throw Object.assign(new Error('Modelo/modo não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return `${f}/${s}`;}
 
-const SAMPLE_WAVESPEED_VIDEOS = [
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackSeeTheWorld.mp4',
-];
-
-export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
-  readonly providerId = 'provider-wavespeed';
-  readonly name = 'WaveSpeed AI';
-
-  private get apiKey(): string | undefined {
-    return process.env.WAVESPEED_API_KEY?.trim();
-  }
-
-  private get baseUrl(): string {
-    return process.env.WAVESPEED_BASE_URL || 'https://api.wavespeed.ai/v1';
-  }
-
-  isConfigured(): boolean {
-    return Boolean(this.apiKey) || true;
-  }
-
-  async estimateCost(params: ProviderGenerationParams): Promise<{ provider_cost_cents: number }> {
-    const is1080p = params.resolution === '1080p';
-    const durationMultiplier = params.duration_seconds > 5 ? params.duration_seconds / 5 : 1;
-    const baseCents = is1080p ? 80 : 45;
-    return {
-      provider_cost_cents: Math.round(baseCents * durationMultiplier * params.number_of_outputs),
-    };
-  }
-
-  async submitGeneration(params: ProviderGenerationParams): Promise<ProviderJobResult> {
-    const key = this.apiKey;
-
-    if (key) {
-      try {
-        const payload = {
-          model_name: params.model_id,
-          prompt: params.prompt,
-          negative_prompt: params.negative_prompt,
-          seconds: params.duration_seconds,
-          resolution: params.resolution,
-          aspect_ratio: params.aspect_ratio,
-          seed: params.seed ?? undefined,
-          references: params.references.map((r) => ({
-            url: r.provider_accessible_url,
-            alias: r.alias,
-          })),
-        };
-
-        const res = await fetch(`${this.baseUrl}/tasks/create`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${key}`,
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          throw new Error(`WaveSpeed API error (${res.status}): ${await res.text()}`);
-        }
-
-        const data: any = await res.json();
-        return {
-          provider_job_id: data.task_id || data.id,
-          provider_id: this.providerId,
-          status: 'QUEUED',
-          estimated_duration_seconds: 14,
-        };
-      } catch (err: any) {
-        console.error('[WaveSpeedProvider] Live submission error, falling back to sandbox simulator:', err.message);
-      }
+  private payload(params:ProviderGenerationParams){
+    const images=params.references.filter(r=>r.type==='IMAGE'); const videos=params.references.filter(r=>r.type==='VIDEO'); const audios=params.references.filter(r=>r.type==='AUDIO');
+    const out:any={prompt:params.prompt,resolution:params.resolution,aspect_ratio:params.aspect_ratio,duration:params.duration_seconds};
+    if(params.seed!==null&&params.seed!==undefined)out.seed=params.seed;
+    if(params.mode==='IMAGE_TO_VIDEO'){
+      const initial=images.find(r=>r.slot_type==='INITIAL')||images[0]; if(!initial)throw Object.assign(new Error('Imagem inicial obrigatória.'),{code:'REFERENCE_REQUIRED'});
+      out.image=initial.provider_accessible_url; const end=images.find(r=>r.slot_type==='END'); if(end)out.last_image=end.provider_accessible_url;
+    } else if(params.mode==='REFERENCE_TO_VIDEO'){
+      out.reference_images=images.map(r=>r.provider_accessible_url); out.reference_videos=videos.map(r=>r.provider_accessible_url); out.reference_audios=audios.map(r=>r.provider_accessible_url);
     }
-
-    const jobId = `wave_job_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    simulatedJobs.set(jobId, {
-      jobId,
-      createdAt: Date.now(),
-      params,
-    });
-
-    return {
-      provider_job_id: jobId,
-      provider_id: this.providerId,
-      status: 'QUEUED',
-      estimated_duration_seconds: 14,
-      provider_cost_cents: (await this.estimateCost(params)).provider_cost_cents,
-    };
+    if(params.model_id.startsWith('wan-3-0')){out.enable_prompt_expansion=false;out.enable_audio=true;}
+    if(params.model_id==='seedance-2-5') out.generate_audio=true;
+    return out;
   }
 
-  async checkStatus(providerJobId: string): Promise<ProviderJobStatusResult> {
-    const key = this.apiKey;
-
-    if (key && !providerJobId.startsWith('wave_job_')) {
-      try {
-        const res = await fetch(`${this.baseUrl}/tasks/${providerJobId}`, {
-          headers: {
-            Authorization: `Bearer ${key}`,
-          },
-        });
-
-        if (!res.ok) {
-          throw new Error(`WaveSpeed status error (${res.status})`);
-        }
-
-        const data: any = await res.json();
-        const rawStatus = (data.status || '').toUpperCase();
-        let status: 'QUEUED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED' = 'PROCESSING';
-        if (rawStatus === 'PENDING' || rawStatus === 'QUEUED') status = 'QUEUED';
-        else if (rawStatus === 'SUCCESS' || rawStatus === 'COMPLETED') status = 'SUCCEEDED';
-        else if (rawStatus === 'FAILED' || rawStatus === 'ERROR') status = 'FAILED';
-
-        return {
-          provider_job_id: providerJobId,
-          status,
-          progress_percent: data.progress ?? (status === 'SUCCEEDED' ? 100 : 50),
-          result_video_url: data.video_url || data.output_url,
-          thumbnail_url: data.thumbnail_url,
-          error_message: data.error,
-        };
-      } catch (err: any) {
-        console.warn('[WaveSpeedProvider] Polling error:', err.message);
-      }
-    }
-
-    const job = simulatedJobs.get(providerJobId);
-    if (!job) {
-      return {
-        provider_job_id: providerJobId,
-        status: 'SUCCEEDED',
-        progress_percent: 100,
-        result_video_url: SAMPLE_WAVESPEED_VIDEOS[0],
-      };
-    }
-
-    const elapsedSeconds = (Date.now() - job.createdAt) / 1000;
-
-    if (elapsedSeconds < 3) {
-      return {
-        provider_job_id: providerJobId,
-        status: 'QUEUED',
-        progress_percent: 20,
-      };
-    }
-
-    if (elapsedSeconds < 11) {
-      const progress = Math.min(92, Math.round(20 + ((elapsedSeconds - 3) / 8) * 72));
-      return {
-        provider_job_id: providerJobId,
-        status: 'PROCESSING',
-        progress_percent: progress,
-      };
-    }
-
-    const sampleIdx = Math.abs(providerJobId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0)) % SAMPLE_WAVESPEED_VIDEOS.length;
-    return {
-      provider_job_id: providerJobId,
-      status: 'SUCCEEDED',
-      progress_percent: 100,
-      result_video_url: SAMPLE_WAVESPEED_VIDEOS[sampleIdx],
-    };
+  async submitGeneration(params:ProviderGenerationParams):Promise<ProviderJobResult>{
+    if(!this.apiKey)throw Object.assign(new Error('WaveSpeed não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});
+    const model=this.modelName(params.model_id,params.mode); const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),45000);
+    try{
+      const res=await fetch(`${this.baseUrl}/api/v3/${model}`,{method:'POST',signal:controller.signal,headers:{Authorization:`Bearer ${this.apiKey}`,'Content-Type':'application/json'},body:JSON.stringify(this.payload(params))});
+      const text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}
+      if(!res.ok)throw Object.assign(new Error(body?.message||body?.error||`WaveSpeed HTTP ${res.status}`),{code:`WAVESPEED_HTTP_${res.status}`});
+      const data=body?.data??body;if(!data?.id)throw Object.assign(new Error('WaveSpeed não retornou prediction id.'),{code:'PROVIDER_INVALID_RESPONSE'});
+      return {provider_job_id:data.id,provider_id:this.providerId,status:'QUEUED'};
+    }finally{clearTimeout(timer);}
   }
 
-  async cancelJob(providerJobId: string): Promise<boolean> {
-    simulatedJobs.delete(providerJobId);
-    return true;
+  async checkStatus(id:string):Promise<ProviderJobStatusResult>{
+    if(!this.apiKey)throw Object.assign(new Error('WaveSpeed não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});
+    const res=await fetch(`${this.baseUrl}/api/v3/predictions/${encodeURIComponent(id)}/result`,{headers:{Authorization:`Bearer ${this.apiKey}`}});
+    const text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}
+    if(!res.ok)throw Object.assign(new Error(body?.message||`WaveSpeed status HTTP ${res.status}`),{code:`WAVESPEED_HTTP_${res.status}`});
+    const data=body?.data??body;const raw=String(data?.status||'').toLowerCase();
+    if(raw==='completed')return {provider_job_id:id,status:'SUCCEEDED',progress_percent:100,result_video_url:Array.isArray(data.outputs)?data.outputs[0]:undefined};
+    if(['failed','cancelled','canceled','timeout','deleted'].includes(raw))return {provider_job_id:id,status:'FAILED',error_message:String(data?.error||data?.message||'Falha na WaveSpeed.')};
+    return {provider_job_id:id,status:raw==='pending'||raw==='queued'?'QUEUED':'PROCESSING',progress_percent:typeof data?.progress==='number'?data.progress:undefined};
   }
+
+  async cancelJob(){return false;}
 }
