@@ -92,34 +92,215 @@ export interface Generation {
   error_code?: string | null;
 }
 
-export type AssetType = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'OTHER';
-export type AssetStatus = 'READY' | 'PROCESSING' | 'FAILED';
+export type AssetType = 'IMAGE' | 'VIDEO' | 'AUDIO';
+export type AssetCategory =
+  | 'PRODUCT'
+  | 'CHARACTER'
+  | 'ENVIRONMENT'
+  | 'STYLE'
+  | 'MOTION'
+  | 'AUDIO_REFERENCE'
+  | 'GENERIC';
+export type AssetStatus = 'READY' | 'UPLOADING' | 'PROCESSING' | 'FAILED';
 
 export interface Asset {
   asset_id: string;
   owner_user_id: string;
   type: AssetType;
+  category: AssetCategory;
+  name: string;
+  alias: string; // e.g. "perfume_master" (lowercase, alphanumeric + underscore)
   storage_path: string;
+  public_url?: string;
+  thumbnail_url?: string;
   mime_type: string;
   size_bytes: number;
   width?: number | null;
   height?: number | null;
   duration_seconds?: number | null;
-  created_at: string;
   status: AssetStatus;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+}
+
+export type GenerationMode =
+  | 'TEXT_TO_VIDEO'
+  | 'IMAGE_TO_VIDEO'
+  | 'REFERENCE_TO_VIDEO'
+  | 'VIDEO_TO_VIDEO'
+  | 'TEXT_TO_IMAGE'
+  | 'IMAGE_TO_IMAGE';
+
+export interface ModelCapabilities {
+  supported_modes: GenerationMode[];
+  supported_resolutions: string[]; // e.g. ['720p', '1080p']
+  supported_durations: number[]; // e.g. [5, 10, 15]
+  supported_aspect_ratios: string[]; // e.g. ['16:9', '9:16', '1:1', '4:5']
+  supports_image_reference: boolean;
+  supports_multiple_images: boolean;
+  supports_video_reference: boolean;
+  supports_audio_reference: boolean;
+  supports_negative_prompt: boolean;
+  supports_seed: boolean;
+  max_reference_images: number;
+  max_reference_videos: number;
+  max_reference_audio: number;
+  max_prompt_length: number;
+  supports_camera_control?: boolean;
+  supports_motion_strength?: boolean;
+  supports_loop?: boolean;
 }
 
 export type ModelCategory = 'VIDEO' | 'IMAGE' | 'AUDIO' | 'OTHER';
 export type ModelStatus = 'ACTIVE' | 'INACTIVE' | 'EXPERIMENTAL';
 
-export interface ModelRegistryItem {
+export interface ModelRegistryItem extends Partial<ModelCapabilities> {
   model_id: string;
   name: string;
   slug: string;
   category: ModelCategory;
   description: string;
   status: ModelStatus;
+  best_for?: string;
+  recommended_aspect_ratio?: string;
   created_at: string;
+  updated_at: string;
+}
+
+export type ReferencePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export interface WorkspaceReference {
+  asset_id: string;
+  alias_snapshot: string;
+  asset?: Asset;
+  role?: string;
+  priority: ReferencePriority;
+  preservation_rules: string[];
+  flexible_rules: string[];
+  notes?: string;
+}
+
+export type PromptImproveObjective =
+  | 'GENERAL'
+  | 'CINEMATIC'
+  | 'PRODUCT_FIDELITY'
+  | 'CHARACTER_CONSISTENCY'
+  | 'MOTION'
+  | 'REALISM'
+  | 'PROMPT_CLARITY'
+  | 'COST_EFFICIENCY';
+
+export interface CompiledPromptResult {
+  original_prompt: string;
+  compiled_prompt: string;
+  structured_context: {
+    subject?: string;
+    action?: string;
+    environment?: string;
+    camera?: string;
+    motion?: string;
+    lighting?: string;
+    style?: string;
+    continuity?: string;
+    references: Array<{
+      asset_id: string;
+      alias: string;
+      type: string;
+      category: string;
+      priority: string;
+      preservation_rules: string[];
+      flexible_rules: string[];
+    }>;
+    negative_constraints?: string[];
+    settings_summary: {
+      model_id: string;
+      mode: GenerationMode;
+      duration_seconds: number;
+      resolution: string;
+      aspect_ratio: string;
+    };
+  };
+  prompt_compiler_version: string;
+}
+
+export interface WorkspacePreset {
+  preset_id: string;
+  user_id: string; // 'system' or user UID
+  name: string;
+  description: string;
+  category: string;
+  prompt_template: string;
+  negative_prompt_template?: string;
+  generation_settings: {
+    model_id?: string;
+    mode: GenerationMode;
+    duration_seconds: number;
+    resolution: string;
+    aspect_ratio: string;
+    number_of_outputs?: number;
+    seed?: number | null;
+    motion_strength?: number;
+  };
+  reference_rules_template?: {
+    priority: ReferencePriority;
+    preservation_rules: string[];
+    flexible_rules: string[];
+  };
+  included_asset_ids?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceDraft {
+  draft_id: string;
+  user_id: string;
+  model_id: string;
+  mode: GenerationMode;
+  prompt: string;
+  negative_prompt?: string;
+  references: WorkspaceReference[];
+  settings: {
+    duration_seconds: number;
+    resolution: string;
+    aspect_ratio: string;
+    number_of_outputs: number;
+    seed?: number | null;
+    motion_strength?: number;
+  };
+  preset_id?: string | null;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface GenerationRequestDraft {
+  request_id: string;
+  user_id: string;
+  model_id: string;
+  model_name: string;
+  mode: GenerationMode;
+  prompt: string;
+  compiled_prompt: string;
+  prompt_compiler_version: string;
+  references: WorkspaceReference[];
+  settings: {
+    duration_seconds: number;
+    resolution: string;
+    aspect_ratio: string;
+    number_of_outputs: number;
+    seed?: number | null;
+    motion_strength?: number;
+  };
+  estimated_cost_cents: number;
+  customer_balance_available_cents: number;
+  created_at: string;
+}
+
+export interface UserPreferences {
+  user_id: string;
+  favorite_model_ids: string[];
+  recent_model_ids: string[];
+  last_used_mode?: GenerationMode;
   updated_at: string;
 }
 

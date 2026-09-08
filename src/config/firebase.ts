@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Initialize Firebase App
@@ -11,6 +12,9 @@ export const auth = getAuth(app);
 
 // Firestore Instance bound to the specific provisioned database
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
+
+// Firebase Storage Instance
+export const storage = getStorage(app, firebaseConfig.storageBucket || undefined);
 
 // Validate connection on boot as recommended in Firebase guidelines
 export async function testFirebaseConnection(): Promise<boolean> {

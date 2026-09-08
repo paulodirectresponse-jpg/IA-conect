@@ -7,6 +7,13 @@ import { pricingService } from '../services/pricingService.js';
 import { featureFlagService } from '../services/featureFlagService.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { auditRepository } from '../repositories/auditRepository.js';
+import { assetRepository } from '../repositories/assetRepository.js';
+import { assetService } from '../services/assetService.js';
+import { presetRepository } from '../repositories/presetRepository.js';
+import { draftRepository } from '../repositories/draftRepository.js';
+import { userPreferencesRepository } from '../repositories/userPreferencesRepository.js';
+import { promptCompilerService } from '../services/promptCompilerService.js';
+import { promptImproveService } from '../services/promptImproveService.js';
 
 export const apiRouter = Router();
 
@@ -413,5 +420,397 @@ apiRouter.get('/admin/audit-logs', requireAuth, requireAdmin, async (req: Authen
     res.json({ success: true, data: result });
   } catch (err: any) {
     res.status(500).json({ success: false, error: { code: 'AUDIT_LOGS_ERROR', message: 'Erro ao carregar logs de auditoria.' } });
+  }
+});
+
+// ==========================================
+// STAGE 2: MODELS & CAPABILITIES
+// ==========================================
+
+apiRouter.get('/models', async (req, res) => {
+  try {
+    const models = await catalogRepository.listModels();
+    res.json({ success: true, data: models });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'MODELS_LIST_ERROR', message: 'Erro ao carregar modelos.' } });
+  }
+});
+
+apiRouter.get('/models/:modelId', async (req, res) => {
+  try {
+    const model = await catalogRepository.getModel(req.params.modelId);
+    if (!model) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Modelo não encontrado.' } });
+    }
+    res.json({ success: true, data: model });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'MODEL_GET_ERROR', message: 'Erro ao buscar modelo.' } });
+  }
+});
+
+// ==========================================
+// STAGE 2: ASSETS & REFERENCES
+// ==========================================
+
+apiRouter.get('/assets', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const type = req.query.type as any;
+    const category = req.query.category as any;
+    const search = req.query.search as string;
+
+    const assets = await assetRepository.listUserAssets(uid, { type, category, search });
+    res.json({ success: true, data: assets });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'ASSETS_LIST_ERROR', message: err.message || 'Erro ao listar assets.' } });
+  }
+});
+
+apiRouter.post('/assets', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const {
+      name,
+      alias,
+      category,
+      mime_type,
+      size_bytes,
+      filename,
+      storage_path,
+      public_url,
+      width,
+      height,
+      duration_seconds,
+    } = req.body;
+
+    const asset = await assetService.registerAsset({
+      userId: uid,
+      name,
+      alias,
+      category,
+      mime_type: mime_type || 'image/jpeg',
+      size_bytes: size_bytes || 0,
+      filename: filename || name || 'asset',
+      storage_path,
+      public_url,
+      width,
+      height,
+      duration_seconds,
+    });
+
+    res.json({ success: true, data: asset });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'ASSET_CREATE_ERROR', message: err.message } });
+  }
+});
+
+apiRouter.patch('/assets/:assetId', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const assetId = req.params.assetId;
+    const { name, alias, category, status, public_url } = req.body;
+
+    const updated = await assetRepository.updateAsset(assetId, uid, {
+      name,
+      alias,
+      category,
+      status,
+      public_url,
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'ASSET_UPDATE_ERROR', message: err.message } });
+  }
+});
+
+apiRouter.delete('/assets/:assetId', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const assetId = req.params.assetId;
+
+    await assetRepository.softDeleteAsset(assetId, uid);
+    res.json({ success: true, message: 'Asset removido com sucesso.' });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'ASSET_DELETE_ERROR', message: err.message } });
+  }
+});
+
+// ==========================================
+// STAGE 2: PRESETS
+// ==========================================
+
+apiRouter.get('/presets', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const presets = await presetRepository.listPresets(uid);
+    res.json({ success: true, data: presets });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'PRESETS_LIST_ERROR', message: 'Erro ao listar presets.' } });
+  }
+});
+
+apiRouter.post('/presets', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const {
+      name,
+      description,
+      category,
+      prompt_template,
+      negative_prompt_template,
+      generation_settings,
+      reference_rules_template,
+      included_asset_ids,
+    } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Nome do preset é obrigatório.' } });
+    }
+
+    const created = await presetRepository.createPreset(uid, {
+      name: name.trim(),
+      description: description || '',
+      category: category || 'Personalizado',
+      prompt_template: prompt_template || '',
+      negative_prompt_template,
+      generation_settings: generation_settings || {
+        mode: 'TEXT_TO_VIDEO',
+        duration_seconds: 5,
+        resolution: '720p',
+        aspect_ratio: '16:9',
+      },
+      reference_rules_template,
+      included_asset_ids,
+    });
+
+    res.json({ success: true, data: created });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'PRESET_CREATE_ERROR', message: err.message } });
+  }
+});
+
+apiRouter.delete('/presets/:presetId', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const presetId = req.params.presetId;
+
+    await presetRepository.deletePreset(presetId, uid);
+    res.json({ success: true, message: 'Preset excluído com sucesso.' });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'PRESET_DELETE_ERROR', message: err.message } });
+  }
+});
+
+// ==========================================
+// STAGE 2: DRAFTS & AUTOSAVE
+// ==========================================
+
+apiRouter.get('/drafts/latest', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const draft = await draftRepository.getLatestDraft(uid);
+    res.json({ success: true, data: draft });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'DRAFT_GET_ERROR', message: 'Erro ao recuperar rascunho.' } });
+  }
+});
+
+apiRouter.post('/drafts', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const saved = await draftRepository.saveDraft(uid, req.body);
+    res.json({ success: true, data: saved });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'DRAFT_SAVE_ERROR', message: err.message } });
+  }
+});
+
+apiRouter.delete('/drafts/:draftId', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    await draftRepository.deleteDraft(req.params.draftId, uid);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'DRAFT_DELETE_ERROR', message: err.message } });
+  }
+});
+
+// ==========================================
+// STAGE 2: USER PREFERENCES
+// ==========================================
+
+apiRouter.get('/user/preferences', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const prefs = await userPreferencesRepository.getPreferences(uid);
+    res.json({ success: true, data: prefs });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'PREFS_GET_ERROR', message: 'Erro ao carregar preferências.' } });
+  }
+});
+
+apiRouter.post('/user/preferences/toggle-favorite', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const { model_id } = req.body;
+    if (!model_id) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'model_id obrigatório.' } });
+    const prefs = await userPreferencesRepository.toggleFavorite(uid, model_id);
+    res.json({ success: true, data: prefs });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'PREFS_UPDATE_ERROR', message: err.message } });
+  }
+});
+
+apiRouter.post('/user/preferences/track-recent', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const { model_id, mode } = req.body;
+    if (!model_id) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'model_id obrigatório.' } });
+    const prefs = await userPreferencesRepository.trackRecentModel(uid, model_id, mode);
+    res.json({ success: true, data: prefs });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'PREFS_UPDATE_ERROR', message: err.message } });
+  }
+});
+
+// ==========================================
+// STAGE 2: WORKSPACE (COMPILER & IMPROVER)
+// ==========================================
+
+apiRouter.post('/workspace/compile-prompt', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { original_prompt, references, negative_prompt, generation_settings } = req.body;
+    if (!original_prompt || !original_prompt.trim()) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Prompt original é obrigatório.' } });
+    }
+
+    const compiled = promptCompilerService.compile({
+      original_prompt,
+      references: references || [],
+      negative_prompt,
+      generation_settings: generation_settings || {
+        model_id: 'wan-2-1-video',
+        mode: 'TEXT_TO_VIDEO',
+        duration_seconds: 5,
+        resolution: '720p',
+        aspect_ratio: '16:9',
+      },
+    });
+
+    res.json({ success: true, data: compiled });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'COMPILATION_ERROR', message: err.message } });
+  }
+});
+
+apiRouter.post('/workspace/improve-prompt', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { prompt, objective, references, model_name } = req.body;
+    if (!prompt || !prompt.trim()) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Prompt é obrigatório para otimização.' } });
+    }
+
+    const result = await promptImproveService.improve({
+      prompt,
+      objective,
+      references,
+      model_name,
+    });
+
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: { code: 'PROMPT_IMPROVE_ERROR', message: err.message || 'Falha ao otimizar prompt.' } });
+  }
+});
+
+apiRouter.post('/workspace/validate-and-preview', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const uid = req.user!.uid;
+    const {
+      model_id,
+      mode,
+      prompt,
+      negative_prompt,
+      references,
+      settings,
+    } = req.body;
+
+    if (!prompt || !prompt.trim()) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'O prompt é obrigatório para validação.' } });
+    }
+
+    const model = await catalogRepository.getModel(model_id || 'wan-2-1-video');
+    if (!model) {
+      return res.status(400).json({ success: false, error: { code: 'MODEL_NOT_FOUND', message: 'Modelo selecionado inválido.' } });
+    }
+
+    // Pricing calculation (without exposing provider costs)
+    const pricings = await catalogRepository.listPricing();
+    const matchingPricings = pricings.filter(
+      (p) => p.active && p.model_id === model.model_id && (p.resolution === settings?.resolution || !settings?.resolution)
+    );
+
+    let customerPriceCents = 75; // default fallback (R$ 0,75)
+    if (matchingPricings.length > 0) {
+      // Pick lowest customer price among active providers
+      const lowest = matchingPricings.reduce((min, curr) => curr.customer_price_cents < min.customer_price_cents ? curr : min);
+      customerPriceCents = lowest.customer_price_cents;
+    }
+
+    const numberOfOutputs = settings?.number_of_outputs || 1;
+    const totalEstimatedCents = customerPriceCents * numberOfOutputs;
+
+    // Check wallet balance
+    const wallet = await walletService.getSummary(uid);
+    const availableCents = wallet.available_balance_cents;
+    const hasSufficientFunds = availableCents >= totalEstimatedCents;
+
+    // Compile prompt
+    const compiled = promptCompilerService.compile({
+      original_prompt: prompt,
+      references: references || [],
+      negative_prompt,
+      generation_settings: {
+        model_id: model.model_id,
+        mode: mode || 'TEXT_TO_VIDEO',
+        duration_seconds: settings?.duration_seconds || 5,
+        resolution: settings?.resolution || '720p',
+        aspect_ratio: settings?.aspect_ratio || '16:9',
+      },
+    });
+
+    const requestDraft = {
+      request_id: `req_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      user_id: uid,
+      model_id: model.model_id,
+      model_name: model.name,
+      mode: mode || 'TEXT_TO_VIDEO',
+      prompt: prompt.trim(),
+      compiled_prompt: compiled.compiled_prompt,
+      prompt_compiler_version: compiled.prompt_compiler_version,
+      references: references || [],
+      settings: settings || {
+        duration_seconds: 5,
+        resolution: '720p',
+        aspect_ratio: '16:9',
+        number_of_outputs: 1,
+      },
+      estimated_cost_cents: totalEstimatedCents,
+      customer_balance_available_cents: availableCents,
+      balance_after_generation_cents: availableCents - totalEstimatedCents,
+      has_sufficient_funds: hasSufficientFunds,
+      created_at: new Date().toISOString(),
+    };
+
+    res.json({
+      success: true,
+      data: {
+        request_draft: requestDraft,
+        notice: 'Requisição validada e compilada com sucesso. O motor de execução e roteamento real por menor custo serão ativados na Etapa 3. Nenhum saldo foi debitado.',
+      },
+    });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: { code: 'VALIDATION_FAILED', message: err.message } });
   }
 });
