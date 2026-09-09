@@ -1,12 +1,14 @@
 import React from 'react';
 import {
+  Box,
+  FolderKanban,
   Home,
-  Sparkles,
-  Clock3,
   Images,
+  Layers3,
   ShieldCheck,
+  Sparkles,
+  UserRound,
   X,
-  WandSparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { BrandMark } from '../common/BrandMark.js';
@@ -22,58 +24,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpe
   const { isAdmin } = useAuth();
   const handleItemClick = (view: string) => { onNavigate(view); onClose(); };
 
-  const navItems = [
+  const main = [
     { id: 'dashboard', label: 'Início', icon: Home },
     { id: 'create', label: 'Criar', icon: Sparkles },
     { id: 'assets', label: 'Assets', icon: Images },
-    { id: 'history', label: 'Histórico', icon: Clock3 },
   ];
+  const libraries = [
+    { id: 'characters', label: 'Personagens', icon: UserRound },
+    { id: 'products', label: 'Produtos', icon: Box },
+    { id: 'styles', label: 'Estilos', icon: Layers3 },
+    { id: 'projects', label: 'Projetos', icon: FolderKanban },
+  ];
+
+  const render = ({ id, label, icon: Icon }: { id:string; label:string; icon:any }) => {
+    const active = currentView === id;
+    return <button key={id} onClick={() => handleItemClick(id)} className={`group relative flex items-center gap-3 w-full h-10 px-3 rounded-xl text-[11px] font-semibold transition-all ${active ? 'bg-white/[0.075] text-white border border-white/[0.07]' : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.035]'}`}>
+      {active && <span className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-gradient-to-b from-violet-400 to-cyan-300" />}
+      <Icon className={`w-4 h-4 ${active ? 'text-violet-300' : 'text-zinc-650 group-hover:text-zinc-400'}`} />
+      <span>{label}</span>
+    </button>;
+  };
 
   return (
     <>
       {isOpen && <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden" onClick={onClose} />}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-[208px] border-r border-white/[0.07] bg-[#090b10] flex flex-col transition-transform duration-200 lg:static lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-[70px] px-5 flex items-center justify-between border-b border-white/[0.06]">
-          <BrandMark />
-          <button onClick={onClose} className="lg:hidden p-1.5 rounded-lg text-zinc-500 hover:bg-white/5 hover:text-white"><X className="w-4 h-4" /></button>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-[204px] border-r border-white/[0.06] bg-[#080a0e] flex flex-col transition-transform duration-200 lg:static lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="h-[64px] px-4 flex items-center justify-between border-b border-white/[0.05]"><BrandMark/><button onClick={onClose} className="lg:hidden p-1.5 rounded-lg text-zinc-500 hover:bg-white/5 hover:text-white"><X className="w-4 h-4"/></button></div>
+        <div className="flex-1 overflow-y-auto px-2.5 py-4">
+          <nav className="space-y-1">{main.map(render)}</nav>
+          <div className="my-4 h-px bg-white/[0.055]" />
+          <p className="px-3 mb-2 text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-700">Biblioteca</p>
+          <nav className="space-y-1">{libraries.map(render)}</nav>
+          {isAdmin && <><div className="my-4 h-px bg-white/[0.055]"/><button onClick={() => handleItemClick('admin')} className={`flex items-center gap-3 w-full h-10 px-3 rounded-xl text-[11px] font-semibold ${currentView === 'admin' ? 'bg-emerald-400/10 text-white' : 'text-zinc-500 hover:bg-white/[0.035] hover:text-white'}`}><ShieldCheck className="w-4 h-4 text-emerald-400"/> Painel Admin</button></>}
         </div>
-
-        <div className="flex-1 overflow-y-auto px-3 py-5">
-          <nav className="space-y-1.5">
-            {navItems.map(({ id, label, icon: Icon }) => {
-              const active = currentView === id;
-              return (
-                <button key={id} onClick={() => handleItemClick(id)} className={`group relative flex items-center gap-3 w-full h-10 px-3 rounded-xl text-[12px] font-semibold transition-all ${active ? 'bg-gradient-to-r from-violet-500/20 to-cyan-400/5 text-white border border-violet-400/20 shadow-[inset_0_1px_0_rgba(255,255,255,.04)]' : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04]'}`}>
-                  {active && <span className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-gradient-to-b from-violet-400 to-cyan-400" />}
-                  <Icon className={`w-4 h-4 ${active ? 'text-violet-300' : 'text-zinc-600 group-hover:text-zinc-400'}`} />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </nav>
-
-          <div className="my-5 h-px bg-white/[0.06]" />
-          <p className="px-3 mb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-700">Studio</p>
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
-            <div className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300"><WandSparkles className="w-3.5 h-3.5 text-cyan-400"/> Auto Router</div>
-            <p className="mt-1.5 text-[9px] leading-relaxed text-zinc-600">Escolhe a melhor rota compatível por capacidade e custo.</p>
-          </div>
-
-          {isAdmin && (
-            <div className="mt-4">
-              <button onClick={() => handleItemClick('admin')} className={`flex items-center gap-3 w-full h-10 px-3 rounded-xl text-[12px] font-semibold transition-all ${currentView === 'admin' ? 'bg-white/[0.08] text-white' : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200'}`}>
-                <ShieldCheck className="w-4 h-4 text-emerald-400" /> Painel Admin
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="p-3 border-t border-white/[0.06]">
-          <div className="rounded-xl border border-white/[0.06] bg-gradient-to-br from-violet-500/[0.08] to-cyan-400/[0.03] p-3">
-            <p className="text-[10px] font-semibold text-zinc-200">IA Connect Studio</p>
-            <p className="mt-1 text-[9px] text-zinc-600">Imagem e vídeo em um único workflow.</p>
-          </div>
-        </div>
+        <div className="p-3 border-t border-white/[0.055]"><div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3"><p className="text-[9px] font-semibold text-zinc-300">Studio inteligente</p><p className="mt-1 text-[8px] leading-relaxed text-zinc-650">Imagem, vídeo e bibliotecas consistentes em um único workflow.</p></div></div>
       </aside>
     </>
   );
