@@ -27,6 +27,8 @@ const isFrameReference = (ref: WorkspaceReference) =>
     String(ref.role || '').toUpperCase()
   );
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export const PromptComposer: React.FC<PromptComposerProps> = ({
   prompt,
   onChangePrompt,
@@ -44,6 +46,7 @@ export const PromptComposer: React.FC<PromptComposerProps> = ({
   const [mentionStart, setMentionStart] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
 
   const promptReferences = useMemo(
     () => references.filter((ref) => !isFrameReference(ref)),
@@ -59,7 +62,40 @@ export const PromptComposer: React.FC<PromptComposerProps> = ({
     });
   }, [promptReferences, mentionQuery]);
 
+  const highlightedPrompt = useMemo(() => {
+    const aliases = promptReferences
+      .map((ref) => ref.alias_snapshot)
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length);
+
+    if (!aliases.length || !prompt) return [<React.Fragment key="plain">{prompt}</React.Fragment>];
+
+    const aliasRegex = new RegExp(`(@(?:${aliases.map(escapeRegExp).join('|')}))(?=\\b|\\s|$|[.,;:!?])`, 'gi');
+    const parts = prompt.split(aliasRegex);
+    const aliasSet = new Set(aliases.map((alias) => `@${alias.toLowerCase()}`));
+
+    return parts.map((part, index) => {
+      if (aliasSet.has(part.toLowerCase())) {
+        return (
+          <span
+            key={`${part}-${index}`}
+            className="inline rounded-[5px] border border-emerald-300 bg-emerald-100 px-[2px] py-[1px] font-semibold text-emerald-800 box-decoration-clone"
+          >
+            {part}
+          </span>
+        );
+      }
+      return <React.Fragment key={`text-${index}`}>{part}</React.Fragment>;
+    });
+  }, [prompt, promptReferences]);
+
   useEffect(() => setActiveIndex(0), [mentionQuery, suggestions.length]);
+
+  const syncHighlightScroll = () => {
+    if (!textareaRef.current || !highlightRef.current) return;
+    highlightRef.current.scrollTop = textareaRef.current.scrollTop;
+    highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
+  };
 
   const detectMention = (value: string, caret: number) => {
     const before = value.slice(0, caret);
@@ -89,6 +125,7 @@ export const PromptComposer: React.FC<PromptComposerProps> = ({
       const pos = start + token.length;
       textarea?.focus();
       textarea?.setSelectionRange(pos, pos);
+      syncHighlightScroll();
     }, 0);
   };
 
@@ -114,36 +151,49 @@ export const PromptComposer: React.FC<PromptComposerProps> = ({
       </div>
 
       <div className="relative">
-        <textarea
-          ref={textareaRef}
-          id="workspace-prompt-input"
-          value={prompt}
-          onChange={(e) => {
-            onChangePrompt(e.target.value);
-            detectMention(e.target.value, e.target.selectionStart);
-          }}
-          onClick={(e) => detectMention(prompt, (e.target as HTMLTextAreaElement).selectionStart)}
-          onKeyDown={(e) => {
-            if (!mentionOpen) return;
-            if (e.key === 'Escape') {
-              e.preventDefault();
-              setMentionOpen(false);
-            } else if (e.key === 'ArrowDown' && suggestions.length) {
-              e.preventDefault();
-              setActiveIndex((i) => (i + 1) % suggestions.length);
-            } else if (e.key === 'ArrowUp' && suggestions.length) {
-              e.preventDefault();
-              setActiveIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
-            } else if (e.key === 'Enter' && suggestions[activeIndex]) {
-              e.preventDefault();
-              insertReference(suggestions[activeIndex]);
-            }
-          }}
-          placeholder="Descreva o vídeo. Digite @ para usar uma mídia anexada..."
-          rows={5}
-          maxLength={maxChars}
-          className="w-full p-3 bg-white border border-zinc-200 hover:border-zinc-300 focus:border-emerald-600 rounded-xl text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none resize-none leading-relaxed shadow-2xs transition-colors"
-        />
+        <div className="relative rounded-xl bg-white border border-zinc-200 hover:border-zinc-300 focus-within:border-emerald-600 shadow-2xs transition-colors overflow-hidden">
+          <div
+            ref={highlightRef}
+            aria-hidden="true"
+            className="absolute inset-0 p-3 text-xs leading-relaxed whitespace-pre-wrap break-words overflow-hidden pointer-events-none text-zinc-900"
+          >
+            {highlightedPrompt}
+            {prompt.endsWith('\n') ? '\u200b' : null}
+          </div>
+
+          <textarea
+            ref={textareaRef}
+            id="workspace-prompt-input"
+            value={prompt}
+            onChange={(e) => {
+              onChangePrompt(e.target.value);
+              detectMention(e.target.value, e.target.selectionStart);
+            }}
+            onClick={(e) => detectMention(prompt, (e.target as HTMLTextAreaElement).selectionStart)}
+            onScroll={syncHighlightScroll}
+            onKeyDown={(e) => {
+              if (!mentionOpen) return;
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                setMentionOpen(false);
+              } else if (e.key === 'ArrowDown' && suggestions.length) {
+                e.preventDefault();
+                setActiveIndex((i) => (i + 1) % suggestions.length);
+              } else if (e.key === 'ArrowUp' && suggestions.length) {
+                e.preventDefault();
+                setActiveIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+              } else if (e.key === 'Enter' && suggestions[activeIndex]) {
+                e.preventDefault();
+                insertReference(suggestions[activeIndex]);
+              }
+            }}
+            placeholder="Descreva o vídeo. Digite @ para usar uma mídia anexada..."
+            rows={5}
+            maxLength={maxChars}
+            className="relative z-10 w-full p-3 bg-transparent border-0 rounded-xl text-xs text-transparent caret-zinc-900 placeholder:text-zinc-400 focus:outline-none resize-none leading-relaxed overflow-auto selection:bg-emerald-200/80"
+            style={{ WebkitTextFillColor: 'transparent' }}
+          />
+        </div>
 
         {mentionOpen && (
           <div className="absolute z-[90] left-2 right-2 top-full mt-1 bg-white border border-zinc-200 rounded-xl shadow-2xl overflow-hidden">
