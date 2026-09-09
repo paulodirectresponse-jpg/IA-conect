@@ -4,6 +4,16 @@ import { pricingSyncService } from '../services/pricingSyncService.js';
 
 export const adminPricingRuntimeRouter = Router();
 
+adminPricingRuntimeRouter.get('/admin/pricing/live', requireAuth, requireAdmin, async (_req: AuthenticatedRequest, res) => {
+  try {
+    const result = await pricingSyncService.getLatestSnapshot();
+    return res.json({ success:true, data:result });
+  } catch (err:any) {
+    console.error('[AdminPricingSnapshot]', err?.message || err);
+    return res.status(500).json({ success:false, error:{ code:'PRICING_SNAPSHOT_FAILED', message:err?.message || 'Não foi possível carregar o último snapshot de preços.' } });
+  }
+});
+
 adminPricingRuntimeRouter.post('/admin/pricing/sync', requireAuth, requireAdmin, async (_req: AuthenticatedRequest, res) => {
   try {
     const result = await pricingSyncService.runHourlySync();
