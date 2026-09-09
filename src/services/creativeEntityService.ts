@@ -2,6 +2,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase.js';
 
 export type CreativeEntityKind = 'CHARACTER' | 'PRODUCT' | 'STYLE' | 'PROJECT';
+export type CreativeEntityAssetRole = 'FACE' | 'BODY' | 'PRIMARY';
 
 export interface CreativeEntity {
   entity_id: string;
@@ -12,6 +13,7 @@ export interface CreativeEntity {
   cover_asset_id?: string | null;
   cover_url?: string | null;
   asset_ids: string[];
+  asset_roles?: Partial<Record<CreativeEntityAssetRole, string>>;
   project_id?: string | null;
   status?: 'ACTIVE' | 'ARCHIVED';
   created_at: string;
@@ -66,6 +68,7 @@ export const creativeEntityService = {
       cover_asset_id: input.cover_asset_id ?? previous?.cover_asset_id ?? null,
       cover_url: input.cover_url ?? previous?.cover_url ?? null,
       asset_ids: input.asset_ids ?? previous?.asset_ids ?? [],
+      asset_roles: input.asset_roles ?? previous?.asset_roles ?? {},
       project_id: input.kind === 'PROJECT' ? null : (input.project_id ?? previous?.project_id ?? null),
       status: input.status ?? previous?.status ?? 'ACTIVE',
       created_at: input.created_at || previous?.created_at || now,
