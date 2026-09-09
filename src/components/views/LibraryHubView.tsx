@@ -4,6 +4,7 @@ import { CreativeEntity, CreativeEntityKind, creativeEntityService } from '../..
 import { assetService } from '../../services/assetService.js';
 import { Asset } from '../../types/index.js';
 import { EntityLibraryView } from './EntityLibraryView.js';
+import { SingleImageEntityLibraryView } from './SingleImageEntityLibraryView.js';
 import { AssetsView } from './AssetsView.js';
 
 type LibrarySection = 'ASSETS' | 'CHARACTER' | 'PRODUCT' | 'STYLE';
@@ -47,9 +48,11 @@ export const LibraryHubView: React.FC = () => {
       </aside>
 
       <section className="flex-1 min-w-0">
-        <div className="mb-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-white/[0.06] pb-3"><div><p className="text-[9px] text-zinc-700">Você está em</p><h2 className="text-lg font-black text-white">{currentLabel}</h2></div><div className="inline-flex gap-1 p-1 rounded-xl border border-white/[0.07] bg-[#11151c] overflow-x-auto">{tabs.map(({id,label,icon:Icon})=><button key={id} onClick={()=>setSection(id)} className={`h-8 px-3 rounded-lg text-[10px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5 ${section===id?'bg-white/[0.09] text-white':'text-zinc-600 hover:text-zinc-200'}`}><Icon className="w-3.5 h-3.5"/>{label}</button>)}</div></div>
+        <div className="mb-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-white/[0.06] pb-3"><div><p className="text-[9px] text-zinc-700">Você está em</p><h2 className="text-lg font-black text-white">{currentLabel}</h2></div><div className="inline-flex gap-1 p-1 rounded-xl border border-white/[0.07] bg-[#11151c] overflow-x-auto">{tabs.map(({id,label,icon:TabIcon})=><button key={id} onClick={()=>setSection(id)} className={`h-8 px-3 rounded-lg text-[10px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5 ${section===id?'bg-white/[0.09] text-white':'text-zinc-600 hover:text-zinc-200'}`}><TabIcon className="w-3.5 h-3.5"/>{label}</button>)}</div></div>
         {section==='ASSETS' && (selectedProject?<ProjectAssets project={selectedProject} onProjectChange={next=>setProjects(prev=>prev.map(p=>p.entity_id===next.entity_id?next:p))}/>:<AssetsView/>)}
-        {section!=='ASSETS' && <EntityLibraryView kind={section as CreativeEntityKind} embedded projectId={selectedProjectId}/>} 
+        {section==='CHARACTER' && <EntityLibraryView kind="CHARACTER" embedded projectId={selectedProjectId}/>} 
+        {section==='PRODUCT' && <SingleImageEntityLibraryView kind="PRODUCT" embedded projectId={selectedProjectId}/>} 
+        {section==='STYLE' && <SingleImageEntityLibraryView kind="STYLE" embedded projectId={selectedProjectId}/>} 
       </section>
     </div>
   </div>;
