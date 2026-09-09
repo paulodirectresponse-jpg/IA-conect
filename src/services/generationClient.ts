@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient.js';
+import { assetService } from './assetService.js';
 import { Generation, GenerationRequestDraft } from '../types/index.js';
 
 function normalizeReferences(draft: GenerationRequestDraft) {
@@ -12,7 +13,6 @@ function normalizeReferences(draft: GenerationRequestDraft) {
     if (['START_FRAME', 'INITIAL_FRAME', 'INITIAL'].includes(role)) slot_type = 'INITIAL';
     else if (['END_FRAME', 'END'].includes(role)) slot_type = 'END';
     else if (!hasExplicitRoles && draft.mode === 'IMAGE_TO_VIDEO') {
-      // Legacy draft compatibility only. New workspaces always persist explicit roles.
       slot_type = index === 0 ? 'INITIAL' : index === 1 ? 'END' : 'GENERAL';
     }
 
@@ -24,9 +24,36 @@ function normalizeReferences(draft: GenerationRequestDraft) {
   });
 }
 
+function isImageGeneration(generation: Generation) {
+  const mode = String((generation as any).mode || '');
+  return mode === 'TEXT_TO_IMAGE' || mode === 'IMAGE_TO_IMAGE';
+}
+
+async function ensureGeneratedAssets(generation: Generation) {
+  if (generation.status !== 'SUCCEEDED') return;
+  const raw = generation as any;
+  const urls = Array.from(new Set([
+    ...(Array.isArray(raw.result_urls) ? raw.result_urls : []),
+    raw.result_url,
+  ].filter(Boolean).map(String)));
+  if (!urls.length) return;
+  const type = isImageGeneration(generation) ? 'IMAGE' : 'VIDEO';
+  await Promise.all(urls.map((url, index) => assetService.registerGeneratedAsset({
+    generationId: generation.generation_id,
+    modelId: generation.model_id,
+    providerId: String(raw.provider_id || 'provider'),
+    url,
+    type,
+    index: index + 1,
+  }).catch((err) => {
+    console.warn('[GenerationClient] generated asset fallback:', err);
+    return null;
+  })));
+}
+
 export const generationClient = {
   async create(draft: GenerationRequestDraft): Promise<Generation> {
-    return apiRequest<Generation>('/api/generations', {
+    const generation = await apiRequest<Generation>('/api/generations', {
       method: 'POST',
       body: JSON.stringify({
         model_id: draft.model_id,
@@ -43,15 +70,14 @@ export const generationClient = {
         client_request_id: draft.request_id,
       }),
     });
+    await ensureGeneratedAssets(generation);
+    return generation;
   },
 
-  /**
-   * Reads through the backend instead of Firestore directly so every poll also
-   * asks the provider for the latest state, captures/release funds and creates
-   * generated assets when the job completes.
-   */
   async get(id: string): Promise<Generation> {
-    return apiRequest<Generation>(`/api/generations/${id}`);
+    const generation = await apiRequest<Generation>(`/api/generations/${id}`);
+    await ensureGeneratedAssets(generation);
+    return generation;
   },
 
   async list(max = 50): Promise<Generation[]> {
