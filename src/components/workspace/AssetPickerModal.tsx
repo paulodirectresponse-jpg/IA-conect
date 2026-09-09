@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Asset, AssetType, AssetCategory } from '../../types/index.js';
 import { assetService } from '../../services/assetService.js';
 import { ASSET_UPLOAD_LIMITS } from '../../config/constants.js';
@@ -13,6 +13,8 @@ import {
   AlertCircle,
   Loader2,
   FolderOpen,
+  RefreshCw,
+  Ban,
 } from 'lucide-react';
 
 interface AssetPickerModalProps {
@@ -53,6 +55,17 @@ const TypeIcon: React.FC<{ type: AssetType }> = ({ type }) => {
   return <ImageIcon className="w-5 h-5 text-zinc-400" />;
 };
 
+function mergeAssets(...groups: Asset[][]): Asset[] {
+  const map = new Map<string, Asset>();
+  for (const group of groups) {
+    for (const asset of group || []) {
+      if (!asset?.asset_id) continue;
+      map.set(asset.asset_id, asset);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+}
+
 export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
   isOpen,
   onClose,
@@ -71,8 +84,29 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [activeFileName, setActiveFileName] = useState('');
+  const [libraryAssets, setLibraryAssets] = useState<Asset[]>(availableAssets || []);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const taskRef = useRef<{ cancel: () => void } | null>(null);
+
+  const refreshLibrary = useCallback(async () => {
+    setLibraryLoading(true);
+    setLibraryError(null);
+    try {
+      const latest = await assetService.listAssets();
+      setLibraryAssets((current) => mergeAssets(latest, availableAssets, current));
+    } catch (err: any) {
+      setLibraryError(err?.message || 'Não foi possível carregar a Biblioteca de Assets.');
+      setLibraryAssets((current) => mergeAssets(availableAssets, current));
+    } finally {
+      setLibraryLoading(false);
+    }
+  }, [availableAssets]);
+
+  useEffect(() => {
+    setLibraryAssets((current) => mergeAssets(availableAssets, current));
+  }, [availableAssets]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -81,17 +115,23 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
     setUploadError(null);
     setUploadProgress(0);
     setActiveFileName('');
-  }, [isOpen, defaultTab]);
+    setLibraryAssets((current) => mergeAssets(availableAssets, current));
+    void refreshLibrary();
+  }, [isOpen, defaultTab, availableAssets, refreshLibrary]);
 
-  const filteredAssets = useMemo(() => {
+  const visibleAssets = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return availableAssets.filter(
+    return libraryAssets.filter(
       (a) =>
-        allowedTypes.includes(a.type) &&
         !a.deleted_at &&
         (!q || a.name.toLowerCase().includes(q) || a.alias.toLowerCase().includes(q))
     );
-  }, [availableAssets, search, allowedTypes]);
+  }, [libraryAssets, search]);
+
+  const libraryCount = useMemo(
+    () => libraryAssets.filter((a) => !a.deleted_at).length,
+    [libraryAssets]
+  );
 
   if (!isOpen) return null;
 
@@ -136,6 +176,7 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
         },
       });
       taskRef.current = null;
+      setLibraryAssets((current) => mergeAssets([created], current));
       onAssetUploaded(created);
       onSelectAsset(created);
       onClose();
@@ -190,7 +231,7 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
               activeTab === 'LIBRARY' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-zinc-500'
             }`}
           >
-            Biblioteca ({filteredAssets.length})
+            Biblioteca ({libraryCount})
           </button>
         </div>
 
@@ -227,10 +268,7 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
                     <p className="mt-3 text-xs font-semibold text-zinc-800 truncate max-w-full">{activeFileName}</p>
                     <p className="mt-1 text-[10px] text-zinc-500">Enviando e anexando automaticamente...</p>
                     <div className="mt-3 w-full max-w-xs h-1.5 bg-zinc-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-600 rounded-full transition-all"
-                        style={{ width: `${Math.max(2, uploadProgress)}%` }}
-                      />
+                      <div className="h-full bg-emerald-600 rounded-full transition-all" style={{ width: `${Math.max(2, uploadProgress)}%` }} />
                     </div>
                     <div className="mt-2 flex items-center gap-3">
                       <span className="font-mono text-[10px] text-emerald-700">{uploadProgress}%</span>
@@ -275,27 +313,56 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                <input
-                  autoFocus
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar na Biblioteca de Assets..."
-                  className="w-full pl-8 pr-3 py-2.5 bg-white border border-zinc-200 rounded-xl text-xs outline-none focus:border-emerald-500"
-                />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                  <input
+                    autoFocus
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar na Biblioteca de Assets..."
+                    className="w-full pl-8 pr-3 py-2.5 bg-white border border-zinc-200 rounded-xl text-xs outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void refreshLibrary()}
+                  disabled={libraryLoading}
+                  className="w-10 h-10 rounded-xl border border-zinc-200 bg-white flex items-center justify-center text-zinc-500 hover:text-emerald-700 hover:border-emerald-300 disabled:opacity-50"
+                  title="Atualizar biblioteca"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${libraryLoading ? 'animate-spin' : ''}`} />
+                </button>
               </div>
 
-              {filteredAssets.length ? (
+              {libraryError && (
+                <div className="flex items-start justify-between gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[10px]">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{libraryError}</span>
+                  </div>
+                  <button type="button" onClick={() => void refreshLibrary()} className="font-semibold whitespace-nowrap">
+                    Tentar novamente
+                  </button>
+                </div>
+              )}
+
+              {libraryLoading && libraryCount === 0 ? (
+                <div className="py-12 text-center">
+                  <Loader2 className="w-7 h-7 text-emerald-600 mx-auto animate-spin" />
+                  <p className="mt-2 text-xs font-semibold text-zinc-600">Carregando sua biblioteca...</p>
+                </div>
+              ) : visibleAssets.length ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {filteredAssets.map((asset) => {
+                  {visibleAssets.map((asset) => {
                     const attached = attachedAssetIds.includes(asset.asset_id);
+                    const compatible = allowedTypes.includes(asset.type);
                     const url = asset.thumbnail_url || asset.public_url;
                     return (
                       <button
                         key={asset.asset_id}
                         type="button"
-                        disabled={attached}
+                        disabled={attached || !compatible}
                         onClick={() => {
                           onSelectAsset(asset);
                           onClose();
@@ -303,7 +370,9 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
                         className={`group text-left rounded-xl border overflow-hidden transition-all ${
                           attached
                             ? 'border-emerald-200 bg-emerald-50/40 cursor-default'
-                            : 'border-zinc-200 bg-white hover:border-emerald-400 hover:shadow-sm'
+                            : !compatible
+                              ? 'border-zinc-200 bg-zinc-50 opacity-65 cursor-not-allowed'
+                              : 'border-zinc-200 bg-white hover:border-emerald-400 hover:shadow-sm'
                         }`}
                       >
                         <div className="h-28 bg-zinc-100 relative flex items-center justify-center overflow-hidden">
@@ -315,6 +384,11 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
                           {attached && (
                             <span className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/95 border border-emerald-200 text-[9px] font-semibold text-emerald-700 shadow-sm">
                               <Check className="w-2.5 h-2.5" /> Neste vídeo
+                            </span>
+                          )}
+                          {!compatible && !attached && (
+                            <span className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/95 border border-zinc-200 text-[9px] font-semibold text-zinc-600 shadow-sm">
+                              <Ban className="w-2.5 h-2.5" /> Incompatível
                             </span>
                           )}
                         </div>
@@ -332,15 +406,15 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
               ) : (
                 <div className="py-12 text-center">
                   <FolderOpen className="w-8 h-8 text-zinc-300 mx-auto" />
-                  <p className="mt-2 text-xs font-semibold text-zinc-600">Nada encontrado</p>
-                  <p className="mt-1 text-[10px] text-zinc-400">Envie um novo arquivo e ele também ficará disponível na biblioteca.</p>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('UPLOAD')}
-                    className="mt-3 text-[11px] font-semibold text-emerald-700"
-                  >
-                    Enviar agora
-                  </button>
+                  <p className="mt-2 text-xs font-semibold text-zinc-600">{search ? 'Nenhum asset corresponde à busca' : 'Sua biblioteca está vazia'}</p>
+                  <p className="mt-1 text-[10px] text-zinc-400">
+                    {search ? 'Limpe a busca ou atualize a biblioteca.' : 'Envie um novo arquivo e ele ficará disponível aqui automaticamente.'}
+                  </p>
+                  {!search && (
+                    <button type="button" onClick={() => setActiveTab('UPLOAD')} className="mt-3 text-[11px] font-semibold text-emerald-700">
+                      Enviar agora
+                    </button>
+                  )}
                 </div>
               )}
             </div>
