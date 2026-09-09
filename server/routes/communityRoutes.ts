@@ -59,6 +59,7 @@ communityRouter.get('/community/feed',async(req:AuthenticatedRequest,res)=>{
     const generations=(await generationRepository.listAllGenerations(Math.min(250,requested*4)))
       .filter(g=>g.status==='SUCCEEDED'&&Boolean(g.result_url))
       .filter(g=>kind==='ALL'||mediaType(g.mode)===kind)
+      .filter((g:any)=>!g.community_recreate_source_id)
       .slice(0,requested);
     const items=await Promise.all(generations.map(g=>enrichGeneration(g,req.user!.uid)));
     res.json({success:true,data:{items}});
@@ -95,17 +96,32 @@ communityRouter.post('/community/:generationId/download',async(req:Authenticated
 
 communityRouter.post('/community/:generationId/recreate',async(req:AuthenticatedRequest,res)=>{
   try{
-    const db=dbOrThrow(),generationId=req.params.generationId,userId=req.user!.uid;
-    const generation=await generationRepository.getGeneration(generationId);
-    if(!generation||generation.status!=='SUCCEEDED')return res.status(404).json({success:false,error:{code:'NOT_FOUND',message:'Criação não encontrada.'}});
+    const db=dbOrThrow(),sourceId=req.params.generationId,userId=req.user!.uid;
+    const source=await generationRepository.getGeneration(sourceId);
+    if(!source||source.status!=='SUCCEEDED'||!source.result_url)return res.status(404).json({success:false,error:{code:'NOT_FOUND',message:'Criação não encontrada.'}});
     const clonedRefs=[] as any[];
-    for(const ref of generation.references||[]){
+    for(const ref of source.references||[]){
       const srcDoc=await db.collection('assets').doc(ref.asset_id).get();
       if(!srcDoc.exists)continue;
       const a=srcDoc.data() as any;if(a.deleted_at||!a.public_url)continue;
-      const cloned=await assetRepository.createAsset({owner_user_id:userId,type:a.type,category:'GENERIC',name:`Referência da comunidade - ${a.name||'asset'}`,storage_path:a.storage_path||`community://${a.asset_id}`,public_url:a.public_url,thumbnail_url:a.thumbnail_url||a.public_url,mime_type:a.mime_type|| (a.type==='VIDEO'?'video/mp4':'image/jpeg'),size_bytes:Number(a.size_bytes||0),width:a.width??null,height:a.height??null,duration_seconds:a.duration_seconds??null,status:'READY',origin:'UPLOAD'});
+      const cloned=await assetRepository.createAsset({owner_user_id:userId,type:a.type,category:'GENERIC',name:`Referência da comunidade - ${a.name||'asset'}`,storage_path:a.storage_path||`community://${a.asset_id}`,public_url:a.public_url,thumbnail_url:a.thumbnail_url||a.public_url,mime_type:a.mime_type||(a.type==='VIDEO'?'video/mp4':'image/jpeg'),size_bytes:Number(a.size_bytes||0),width:a.width??null,height:a.height??null,duration_seconds:a.duration_seconds??null,status:'READY',origin:'UPLOAD'});
       clonedRefs.push({asset_id:cloned.asset_id,slot_type:ref.slot_type||'GENERAL',alias:ref.alias||cloned.alias});
     }
-    res.json({success:true,data:{snapshot:{model_id:generation.model_id,mode:generation.mode,prompt:generation.original_prompt||'',negative_prompt:generation.negative_prompt||'',duration_seconds:generation.duration_seconds||5,resolution:generation.resolution||'720p',aspect_ratio:generation.aspect_ratio||'16:9',number_of_outputs:generation.number_of_outputs||1,seed:generation.seed??null,motion_strength:generation.motion_strength??null,references:clonedRefs},target:mediaType(generation.mode)==='IMAGE'?'create-image':'create-video'}});
+    const now=new Date().toISOString();
+    const clonedId=`gen_community_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    const clonedGeneration={
+      ...source,
+      generation_id:clonedId,
+      user_id:userId,
+      references:clonedRefs,
+      created_at:now,
+      updated_at:now,
+      completed_at:now,
+      community_recreate_source_id:sourceId,
+      provider_job_id:null,
+      idempotency_key:`community_recreate_${clonedId}`,
+    } as any;
+    await db.collection('generations').doc(clonedId).set(clonedGeneration);
+    res.json({success:true,data:{generation_id:clonedId,target:mediaType(source.mode)==='IMAGE'?'create-image':'create-video'}});
   }catch(err:any){res.status(500).json({success:false,error:{code:'COMMUNITY_RECREATE_ERROR',message:err?.message||'Não foi possível preparar a recriação.'}});}
 });
