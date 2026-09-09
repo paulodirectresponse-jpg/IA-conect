@@ -11,6 +11,7 @@ import { HistoryView } from './components/views/HistoryView.js';
 import { AssetsView } from './components/views/AssetsView.js';
 import { AdminView } from './components/views/AdminView.js';
 import { SettingsView } from './components/views/SettingsView.js';
+import { EntityLibraryView } from './components/views/EntityLibraryView.js';
 import { BrandMark } from './components/common/BrandMark.js';
 
 const MainApp: React.FC = () => {
@@ -56,6 +57,10 @@ const MainApp: React.FC = () => {
       {currentSafeView === 'create' && <CreateHubView />}
       {currentSafeView === 'history' && <HistoryView />}
       {currentSafeView === 'assets' && <AssetsView />}
+      {currentSafeView === 'characters' && <EntityLibraryView kind="CHARACTER" />}
+      {currentSafeView === 'products' && <EntityLibraryView kind="PRODUCT" />}
+      {currentSafeView === 'styles' && <EntityLibraryView kind="STYLE" />}
+      {currentSafeView === 'projects' && <EntityLibraryView kind="PROJECT" />}
       {currentSafeView === 'admin' && isAdmin && <AdminView />}
       {currentSafeView === 'settings' && <SettingsView />}
     </AppLayout>
