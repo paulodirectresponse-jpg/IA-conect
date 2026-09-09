@@ -6,6 +6,7 @@ import { Asset, AssetType, AssetCategory } from '../types/index.js';
 import { ASSET_UPLOAD_LIMITS } from '../config/constants.js';
 
 export interface UploadAssetParams { file:File; name?:string; alias?:string; category?:AssetCategory; onProgress?:(percent:number)=>void; onTaskReady?:(task:{cancel:()=>void})=>void; timeoutMs?:number; }
+export interface RegisterGeneratedAssetParams { generationId:string; modelId:string; providerId:string; url:string; type:AssetType; index?:number; name?:string; }
 export type AssetOriginFilter = 'ALL' | 'UPLOAD' | 'GENERATED';
 export function sanitizeAlias(v:string){return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]/g,'_').replace(/^_+|_+$/g,'').replace(/_+/g,'_');}
 
@@ -87,6 +88,46 @@ export const assetService={
     const asset={asset_id:signed.asset_id,owner_user_id:user.uid,type:signed.type||type,category,name:(name||file.name).trim(),alias:cleanAlias,storage_path:signed.storage_path,public_url:signed.public_url,thumbnail_url:type==='IMAGE'?signed.public_url:'',mime_type:file.type||'application/octet-stream',size_bytes:file.size,width:null,height:null,duration_seconds:null,status:'READY',origin:'UPLOAD',source_generation_id:null,source_model_id:null,source_provider_id:null,created_at:now,updated_at:now,deleted_at:null} as Asset;
     await setDoc(doc(db,'assets',asset.asset_id),asset);
     onProgress?.(100);
+    return asset;
+  },
+
+  async registerGeneratedAsset(params:RegisterGeneratedAssetParams):Promise<Asset>{
+    const user=await getAuthenticatedUser();
+    if(!user) throw new Error('Usuário não autenticado.');
+    const existing=await this.listAssets();
+    const already=existing.find(a=>String((a as any).source_generation_id||'')===params.generationId&&String((a as any).public_url||'')===params.url);
+    if(already) return already;
+    const index=params.index||1;
+    const suffix=params.generationId.slice(-6);
+    const baseName=params.name||`${params.type==='IMAGE'?'Imagem':'Vídeo'} gerado ${suffix}${index>1?` ${index}`:''}`;
+    const alias=await uniqueAlias(`${params.type==='IMAGE'?'generated_image':'generated_video'}_${suffix}${index>1?`_${index}`:''}`,user.uid);
+    const now=new Date().toISOString();
+    const assetId=`ast_generated_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    const asset={
+      asset_id:assetId,
+      owner_user_id:user.uid,
+      type:params.type,
+      category:'GENERIC',
+      name:baseName,
+      alias,
+      storage_path:`provider://${params.providerId}/${params.generationId}/${index}`,
+      public_url:params.url,
+      thumbnail_url:params.type==='IMAGE'?params.url:'',
+      mime_type:params.type==='IMAGE'?'image/jpeg':'video/mp4',
+      size_bytes:0,
+      width:null,
+      height:null,
+      duration_seconds:null,
+      status:'READY',
+      origin:'GENERATED',
+      source_generation_id:params.generationId,
+      source_model_id:params.modelId,
+      source_provider_id:params.providerId,
+      created_at:now,
+      updated_at:now,
+      deleted_at:null,
+    } as unknown as Asset;
+    await setDoc(doc(db,'assets',assetId),asset);
     return asset;
   },
 
