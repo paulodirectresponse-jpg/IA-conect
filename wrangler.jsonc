@@ -12,6 +12,9 @@
       "/health"
     ]
   },
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
   "vars": {
     "ATLAS_BASE_URL": "https://api.atlascloud.ai",
     "WAVESPEED_BASE_URL": "https://api.wavespeed.ai",
