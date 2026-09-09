@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { userRepository } from '../repositories/userRepository.js';
-import { getFirebaseConfig } from '../repositories/firestoreClient.js';
+import { firestoreRestCall, getFirebaseConfig } from '../repositories/firestoreClient.js';
 import { UserProfile } from '../../src/types/index.js';
 
 export interface AuthenticatedRequest extends Request {
@@ -20,12 +20,42 @@ async function verifyFirebaseIdToken(idToken:string){
   return {uid:String(user.localId),email:String(user.email||''),name:String(user.displayName||'')};
 }
 
+function unwrapFirestoreValue(value:any):any {
+  if (!value || typeof value !== 'object') return value;
+  if ('stringValue' in value) return value.stringValue;
+  if ('integerValue' in value) return Number(value.integerValue);
+  if ('doubleValue' in value) return Number(value.doubleValue);
+  if ('booleanValue' in value) return Boolean(value.booleanValue);
+  if ('timestampValue' in value) return value.timestampValue;
+  if ('nullValue' in value) return null;
+  if ('arrayValue' in value) return (value.arrayValue?.values || []).map(unwrapFirestoreValue);
+  if ('mapValue' in value) return unwrapFirestoreFields(value.mapValue?.fields || {});
+  return undefined;
+}
+
+function unwrapFirestoreFields(fields:any):any {
+  const result:Record<string,any> = {};
+  for (const [key,value] of Object.entries(fields || {})) result[key] = unwrapFirestoreValue(value);
+  return result;
+}
+
+async function getProfileWithUserToken(uid:string, idToken:string):Promise<UserProfile|null> {
+  try {
+    const doc = await firestoreRestCall(`users/${encodeURIComponent(uid)}`, 'GET', undefined, idToken);
+    const data = unwrapFirestoreFields(doc?.fields || {});
+    if (!data?.user_id) data.user_id = uid;
+    return data as UserProfile;
+  } catch (err:any) {
+    console.warn('[Auth] Firestore REST profile lookup unavailable:', err?.message || err);
+    return null;
+  }
+}
+
 /**
  * Cloudflare-safe Firebase authentication.
- *
- * firebase-admin pulls in Node/gRPC-dependent modules that are not reliable in a
- * Worker runtime. Identity Toolkit's accounts:lookup endpoint validates the ID
- * token server-side without weakening authentication or decoding unsigned JWTs.
+ * Identity Toolkit validates the Firebase ID token, while the profile is loaded
+ * with the same user token through Firestore REST. This avoids firebase-admin/
+ * gRPC limitations inside Workers and keeps role checks server-side.
  */
 export async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
@@ -38,19 +68,20 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
     const decoded = await verifyFirebaseIdToken(token);
     req.user = { ...decoded, idToken: token };
 
-    // Profile lookup is best-effort here. User-facing routes can operate with the
-    // verified Firebase identity even while privileged Firestore access is being
-    // migrated away from firebase-admin for Workers compatibility.
-    try {
-      const profile = await userRepository.getById(decoded.uid);
-      if(profile){
-        if (profile.status === 'SUSPENDED') {
-          return res.status(403).json({ success: false, error: { code: 'USER_SUSPENDED', message: 'Sua conta está suspensa.' } });
-        }
-        req.userProfile = profile;
+    // Primary path for Workers: profile lookup authorized by the user's own ID token.
+    let profile = await getProfileWithUserToken(decoded.uid, token);
+
+    // Fallback for runtimes where firebase-admin is available.
+    if (!profile) {
+      try { profile = await userRepository.getById(decoded.uid); }
+      catch (profileErr:any) { console.warn('[Auth] Admin profile fallback unavailable:', profileErr?.message || profileErr); }
+    }
+
+    if (profile) {
+      if (profile.status === 'SUSPENDED') {
+        return res.status(403).json({ success: false, error: { code: 'USER_SUSPENDED', message: 'Sua conta está suspensa.' } });
       }
-    } catch (profileErr:any) {
-      console.warn('[Auth] Profile lookup unavailable in Worker:', profileErr?.message || profileErr);
+      req.userProfile = profile;
     }
     next();
   } catch (error:any) {
