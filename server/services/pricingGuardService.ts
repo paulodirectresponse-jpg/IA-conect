@@ -2,13 +2,10 @@ import { GenerationMode } from '../../src/types/index.js';
 import { VideoProviderAdapter, ProviderGenerationParams, ProviderGenerationReference } from '../adapters/videoProviderAdapter.js';
 import { fxRateService } from './fxRateService.js';
 
+const STANDARD_GROSS_MARGIN = 0.40;
 const bufferRate = () => Math.min(0.25, Math.max(0, Number(process.env.PRICING_SAFETY_BUFFER_PERCENT || 5) / 100));
-const targetMargin = (mode:GenerationMode) => (mode === 'TEXT_TO_IMAGE' || mode === 'IMAGE_TO_IMAGE')
-  ? Math.min(0.8, Math.max(0.1, Number(process.env.IMAGE_TARGET_MARGIN_PERCENT || 50) / 100))
-  : Math.min(0.8, Math.max(0.1, Number(process.env.VIDEO_TARGET_MARGIN_PERCENT || 40) / 100));
-const minimumMargin = (mode:GenerationMode) => (mode === 'TEXT_TO_IMAGE' || mode === 'IMAGE_TO_IMAGE')
-  ? Math.min(0.7, Math.max(0.05, Number(process.env.IMAGE_MIN_MARGIN_PERCENT || 35) / 100))
-  : Math.min(0.7, Math.max(0.05, Number(process.env.VIDEO_MIN_MARGIN_PERCENT || 30) / 100));
+const targetMargin = (_mode:GenerationMode) => STANDARD_GROSS_MARGIN;
+const minimumMargin = (_mode:GenerationMode) => STANDARD_GROSS_MARGIN;
 
 function fakeReference(type:'IMAGE'|'VIDEO'|'AUDIO',slot_type:'INITIAL'|'END'|'GENERAL'='GENERAL'):ProviderGenerationReference{
   return {
