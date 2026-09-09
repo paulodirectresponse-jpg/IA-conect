@@ -4,6 +4,7 @@ import {
   ProviderGenerationParams,
   ProviderJobResult,
   ProviderJobStatusResult,
+  ProviderCostQuote,
 } from './videoProviderAdapter.js';
 import { compileProviderReferencePrompt } from './providerPromptReferences.js';
 
@@ -107,6 +108,31 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
       base.refers=params.references.map((r)=>({url:r.provider_accessible_url,type:r.type.toLowerCase()}));
     }
     return base;
+  }
+
+  async quoteCostUsd(params:ProviderGenerationParams):Promise<ProviderCostQuote>{
+    if(!this.apiKey)throw Object.assign(new Error('Atlas Cloud não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});
+    const single={...params,number_of_outputs:1};
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),9000);
+    try{
+      const res=await fetch(`${this.baseUrl}/api/v1/model/calculate`,{
+        method:'POST',signal:controller.signal,
+        headers:{Authorization:`Bearer ${this.apiKey}`,'Content-Type':'application/json'},
+        body:JSON.stringify(this.buildPayload(single)),
+      });
+      const text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}
+      if(!res.ok)throw Object.assign(new Error(body?.message||body?.error||`Atlas pricing HTTP ${res.status}`),{code:`ATLAS_PRICE_HTTP_${res.status}`});
+      const data=body?.data??body;
+      const unit=Number(data?.price);
+      if(!Number.isFinite(unit)||unit<0)throw Object.assign(new Error('Atlas retornou preço inválido.'),{code:'PROVIDER_PRICE_INVALID'});
+      return {
+        effective_price_usd:unit*Math.max(1,params.number_of_outputs),
+        list_price_usd:Number.isFinite(Number(data?.origin_price))?Number(data.origin_price)*Math.max(1,params.number_of_outputs):null,
+        discount_rate:Number.isFinite(Number(data?.discount))?Number(data.discount):null,
+        estimated:Boolean(data?.estimated),
+        source:'LIVE_API',
+      };
+    }finally{clearTimeout(timer);}
   }
 
   async submitGeneration(params:ProviderGenerationParams):Promise<ProviderJobResult>{
