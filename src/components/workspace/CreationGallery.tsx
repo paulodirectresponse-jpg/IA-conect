@@ -18,226 +18,36 @@ interface Props {
   onCreateVideoFromImage?: (asset: Asset) => void;
 }
 
-type MediaGroup = {
-  generation: Generation;
-  assets: Asset[];
-  ratio: string;
-  kind: 'IMAGE' | 'VIDEO';
-};
-
+type MediaGroup = { generation: Generation; assets: Asset[]; ratio: string; kind: 'IMAGE' | 'VIDEO' };
 const isImageGeneration = (generation: Generation) => generation.mode === 'TEXT_TO_IMAGE' || generation.mode === 'IMAGE_TO_IMAGE';
 const isWorking = (status: string) => ['QUEUED', 'RESERVING_FUNDS', 'SUBMITTED', 'PROCESSING'].includes(status);
 const cssRatio = (ratio?: string) => (ratio || '16:9').replace(':', ' / ');
-const ratioValue = (ratio?: string) => {
-  const [w, h] = String(ratio || '16:9').split(':').map(Number);
-  return w > 0 && h > 0 ? w / h : 16 / 9;
-};
-const widthClassFor = (ratio?: string) => {
-  const value = ratioValue(ratio);
-  if (value < 0.8) return 'w-[176px] md:w-[196px]';
-  if (value < 1.2) return 'w-[220px] md:w-[240px]';
-  if (value < 1.6) return 'w-[268px] md:w-[292px]';
-  return 'w-[310px] md:w-[340px]';
-};
+const ratioValue = (ratio?: string) => { const [w, h] = String(ratio || '16:9').split(':').map(Number); return w > 0 && h > 0 ? w / h : 16 / 9; };
+const widthClassFor = (ratio?: string) => { const value = ratioValue(ratio); if (value < 0.8) return 'w-[176px] md:w-[196px]'; if (value < 1.2) return 'w-[220px] md:w-[240px]'; if (value < 1.6) return 'w-[268px] md:w-[292px]'; return 'w-[310px] md:w-[340px]'; };
 const generatedAsset = (asset: Asset) => !asset.deleted_at && Boolean(asset.source_generation_id || String(asset.origin || '').toUpperCase() === 'GENERATED');
 
 function runtimeAsset(generation: Generation, url: string, index: number, kind: 'IMAGE' | 'VIDEO'): Asset {
-  return {
-    asset_id: `runtime-${generation.generation_id}-${index}`,
-    owner_user_id: generation.user_id,
-    type: kind,
-    category: 'GENERIC',
-    name: kind === 'IMAGE' ? `Imagem gerada ${index + 1}` : `Vídeo gerado ${index + 1}`,
-    alias: `resultado_${generation.generation_id.slice(-6)}_${index + 1}`,
-    storage_path: '',
-    public_url: url,
-    thumbnail_url: kind === 'IMAGE' ? url : generation.thumbnail_url || undefined,
-    mime_type: kind === 'IMAGE' ? 'image/png' : 'video/mp4',
-    size_bytes: 0,
-    status: 'READY',
-    created_at: generation.completed_at || generation.created_at,
-    updated_at: generation.completed_at || generation.created_at,
-  };
+  return { asset_id: `runtime-${generation.generation_id}-${index}`, owner_user_id: generation.user_id, type: kind, category: 'GENERIC', name: kind === 'IMAGE' ? `Imagem gerada ${index + 1}` : `Vídeo gerado ${index + 1}`, alias: `resultado_${generation.generation_id.slice(-6)}_${index + 1}`, storage_path: '', public_url: url, thumbnail_url: kind === 'IMAGE' ? url : generation.thumbnail_url || undefined, mime_type: kind === 'IMAGE' ? 'image/png' : 'video/mp4', size_bytes: 0, status: 'READY', created_at: generation.completed_at || generation.created_at, updated_at: generation.completed_at || generation.created_at };
 }
 
-export const CreationGallery: React.FC<Props> = ({
-  defaultFilter,
-  title = 'Minhas criações',
-  subtitle = 'Seu histórico de gerações fica disponível aqui.',
-  liveGeneration,
-  onRestoreGeneration,
-  onUseImageAsReference,
-  onEditImage,
-  onCreateVideoFromImage,
-}) => {
+export const CreationGallery: React.FC<Props> = ({ defaultFilter, title = 'Minhas criações', subtitle = 'Seu histórico de gerações fica disponível aqui.', liveGeneration, onRestoreGeneration, onUseImageAsReference, onEditImage, onCreateVideoFromImage }) => {
   const [filter, setFilter] = useState<CreationGalleryFilter>(defaultFilter);
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [error, setError] = useState('');
-
   useEffect(() => setFilter(defaultFilter), [defaultFilter]);
+  const refresh = async () => { try { const [generationRows, assetRows] = await Promise.all([generationClient.list(100), assetService.listAssets()]); setGenerations(generationRows || []); setAssets(assetRows || []); } catch {} finally { setLoading(false); } };
+  useEffect(() => { refresh(); const handler = () => window.setTimeout(refresh, 500); window.addEventListener('generation:updated', handler); return () => window.removeEventListener('generation:updated', handler); }, []);
+  const mergedGenerations = useMemo(() => { const rows = liveGeneration ? [liveGeneration, ...generations.filter((item) => item.generation_id !== liveGeneration.generation_id)] : generations; return [...rows].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)); }, [generations, liveGeneration]);
+  const groups = useMemo<MediaGroup[]>(() => { const byGeneration = new Map<string, Asset[]>(); for (const asset of assets.filter(generatedAsset)) { const generationId = String(asset.source_generation_id || ''); if (!generationId) continue; const bucket = byGeneration.get(generationId) || []; const identity = asset.public_url || asset.asset_id; if (!bucket.some((item) => (item.public_url || item.asset_id) === identity)) bucket.push(asset); byGeneration.set(generationId, bucket); } return mergedGenerations.map((generation) => { const kind: 'IMAGE' | 'VIDEO' = isImageGeneration(generation) ? 'IMAGE' : 'VIDEO'; const groupAssets = [...(byGeneration.get(generation.generation_id) || [])]; const urls = Array.from(new Set([...(generation.result_urls || []), generation.result_url].filter(Boolean).map(String))); const existingUrls = new Set(groupAssets.map((asset) => asset.public_url).filter(Boolean)); urls.forEach((url, index) => { if (!existingUrls.has(url)) groupAssets.push(runtimeAsset(generation, url, index, kind)); }); return { generation, assets: groupAssets, ratio: generation.aspect_ratio || '16:9', kind }; }); }, [assets, mergedGenerations]);
+  const visibleGroups = useMemo(() => { const q = query.trim().toLowerCase(); return groups.filter((group) => { const matchesFilter = filter === 'ALL' || group.kind === filter; const haystack = `${group.generation.original_prompt || ''} ${group.generation.model_id || ''}`.toLowerCase(); return matchesFilter && (!q || haystack.includes(q)); }); }, [groups, filter, query]);
+  const download = async (asset: Asset) => { if (!asset.public_url) return; setError(''); try { await downloadMediaDirect(asset.public_url, safeDownloadName(asset.name, asset.type === 'VIDEO' ? 'VIDEO' : 'IMAGE')); } catch (err: any) { setError(err?.message || 'Não foi possível baixar este arquivo.'); } };
+  const actionButton = (label: string, onClick: () => void, icon: React.ReactNode) => <button type="button" onClick={onClick} title={label} aria-label={label} className="w-8 h-8 rounded-xl bg-black/75 backdrop-blur-md border border-white/10 grid place-items-center text-white hover:bg-black/90 hover:border-white/20 transition-colors">{icon}</button>;
 
-  const refresh = async () => {
-    try {
-      const [generationRows, assetRows] = await Promise.all([
-        generationClient.list(100),
-        assetService.listAssets(),
-      ]);
-      setGenerations(generationRows || []);
-      setAssets(assetRows || []);
-    } catch {
-      // Keep the last good gallery state if refresh fails.
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    refresh();
-    const handler = () => window.setTimeout(refresh, 500);
-    window.addEventListener('generation:updated', handler);
-    return () => window.removeEventListener('generation:updated', handler);
-  }, []);
-
-  const mergedGenerations = useMemo(() => {
-    const rows = liveGeneration
-      ? [liveGeneration, ...generations.filter((item) => item.generation_id !== liveGeneration.generation_id)]
-      : generations;
-    return [...rows].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
-  }, [generations, liveGeneration]);
-
-  const groups = useMemo<MediaGroup[]>(() => {
-    const byGeneration = new Map<string, Asset[]>();
-    for (const asset of assets.filter(generatedAsset)) {
-      const generationId = String(asset.source_generation_id || '');
-      if (!generationId) continue;
-      const bucket = byGeneration.get(generationId) || [];
-      const identity = asset.public_url || asset.asset_id;
-      if (!bucket.some((item) => (item.public_url || item.asset_id) === identity)) bucket.push(asset);
-      byGeneration.set(generationId, bucket);
-    }
-
-    return mergedGenerations.map((generation) => {
-      const kind: 'IMAGE' | 'VIDEO' = isImageGeneration(generation) ? 'IMAGE' : 'VIDEO';
-      const groupAssets = [...(byGeneration.get(generation.generation_id) || [])];
-      const urls = Array.from(new Set([...(generation.result_urls || []), generation.result_url].filter(Boolean).map(String)));
-      const existingUrls = new Set(groupAssets.map((asset) => asset.public_url).filter(Boolean));
-      urls.forEach((url, index) => {
-        if (!existingUrls.has(url)) groupAssets.push(runtimeAsset(generation, url, index, kind));
-      });
-      return { generation, assets: groupAssets, ratio: generation.aspect_ratio || '16:9', kind };
-    });
-  }, [assets, mergedGenerations]);
-
-  const visibleGroups = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return groups.filter((group) => {
-      const matchesFilter = filter === 'ALL' || group.kind === filter;
-      const haystack = `${group.generation.original_prompt || ''} ${group.generation.model_id || ''}`.toLowerCase();
-      return matchesFilter && (!q || haystack.includes(q));
-    });
-  }, [groups, filter, query]);
-
-  const download = async (asset: Asset) => {
-    if (!asset.public_url) return;
-    setError('');
-    try {
-      await downloadMediaDirect(asset.public_url, safeDownloadName(asset.name, asset.type));
-    } catch (err: any) {
-      setError(err?.message || 'Não foi possível baixar este arquivo.');
-    }
-  };
-
-  const actionButton = (label: string, onClick: () => void, icon: React.ReactNode) => (
-    <button type="button" onClick={onClick} title={label} aria-label={label} className="w-8 h-8 rounded-xl bg-black/75 backdrop-blur-md border border-white/10 grid place-items-center text-white hover:bg-black/90 hover:border-white/20 transition-colors">
-      {icon}
-    </button>
-  );
-
-  return (
-    <main className="flex-1 min-w-0 h-full overflow-y-auto bg-[#0b0e13]">
-      <header className="sticky top-0 z-20 px-5 lg:px-6 pt-5 pb-3 border-b border-white/[0.055] bg-[#0b0e13]/95 backdrop-blur-xl">
-        <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-3">
-          <div>
-            <h2 className="text-[20px] font-bold tracking-tight text-white">{title}</h2>
-            <p className="mt-0.5 text-[10px] text-zinc-600">{subtitle}</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative w-56 max-w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar criações..." className="w-full h-9 pl-9 pr-3 rounded-xl bg-white/[0.035] border border-white/[0.07] text-[10px] text-zinc-300 outline-none" />
-            </div>
-            <div className="flex gap-1.5">
-              {(['VIDEO', 'IMAGE', 'ALL'] as CreationGalleryFilter[]).map((value) => (
-                <button key={value} onClick={() => setFilter(value)} className={`px-3 py-1.5 rounded-lg border text-[9px] font-semibold transition-colors ${filter === value ? 'border-cyan-300/25 bg-cyan-300/10 text-cyan-200' : 'border-white/[0.06] text-zinc-600 hover:text-zinc-300'}`}>
-                  {value === 'VIDEO' ? 'Vídeos' : value === 'IMAGE' ? 'Imagens' : 'Todos'}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        {error && <p className="mt-2 text-[9px] text-rose-400">{error}</p>}
-      </header>
-
-      <div className="p-5 lg:p-6">
-        {loading && !visibleGroups.length ? (
-          <div className="min-h-[420px] grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-cyan-300" /></div>
-        ) : visibleGroups.length ? (
-          <div className="space-y-7">
-            {visibleGroups.map((group) => {
-              const generation = group.generation;
-              const placeholders = isWorking(generation.status) && !group.assets.length ? Math.max(1, generation.number_of_outputs || 1) : 0;
-              return (
-                <section key={generation.generation_id}>
-                  <div className="mb-2.5 min-w-0">
-                    <p className="text-[10px] font-semibold text-zinc-300 truncate">{generation.original_prompt || 'Geração sem título'}</p>
-                    <p className="mt-0.5 text-[8px] text-zinc-600">{generation.model_id} · {group.ratio} · {generation.resolution || '-'}{group.kind === 'VIDEO' && generation.duration_seconds ? ` · ${generation.duration_seconds}s` : ''}</p>
-                  </div>
-
-                  <div className="flex gap-3 overflow-x-auto pb-2 items-start">
-                    {group.assets.map((asset) => (
-                      <article key={asset.asset_id} className={`group/card shrink-0 ${widthClassFor(group.ratio)}`}>
-                        <div className="relative overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#11151c]" style={{ aspectRatio: cssRatio(group.ratio) }}>
-                          {asset.type === 'VIDEO'
-                            ? <video src={asset.public_url} controls preload="metadata" className="w-full h-full object-cover" />
-                            : <img src={asset.public_url} alt={asset.name} className="w-full h-full object-cover" />}
-
-                          <div className="absolute top-2.5 right-2.5 flex flex-wrap justify-end gap-1.5 max-w-[calc(100%-20px)]">
-                            {onRestoreGeneration && actionButton('Regenerar com esta configuração', () => onRestoreGeneration(generation), <RotateCcw className="w-3.5 h-3.5" />)}
-                            {asset.type === 'IMAGE' && onUseImageAsReference && actionButton('Usar como referência', () => onUseImageAsReference(asset), <ImageIcon className="w-3.5 h-3.5" />)}
-                            {asset.type === 'IMAGE' && onEditImage && actionButton('Editar imagem', () => onEditImage(asset), <Edit3 className="w-3.5 h-3.5" />)}
-                            {asset.type === 'IMAGE' && onCreateVideoFromImage && actionButton('Gerar vídeo com esta imagem', () => onCreateVideoFromImage(asset), <Film className="w-3.5 h-3.5" />)}
-                            {actionButton('Baixar', () => download(asset), <Download className="w-3.5 h-3.5" />)}
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-
-                    {Array.from({ length: placeholders }).map((_, index) => (
-                      <article key={`${generation.generation_id}-loading-${index}`} className={`shrink-0 ${widthClassFor(group.ratio)}`}>
-                        <div className="relative overflow-hidden rounded-[14px] border border-cyan-300/20 bg-[#10151c] shadow-[0_0_32px_rgba(34,211,238,.05)]" style={{ aspectRatio: cssRatio(group.ratio) }}>
-                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(34,211,238,.10),transparent_48%)] animate-pulse" />
-                          <div className="absolute inset-0 grid place-items-center text-center">
-                            <div><Sparkles className="w-4 h-4 mx-auto text-cyan-200/80" /><p className="mt-2 text-[8px] text-zinc-500">{Math.max(4, Math.min(96, generation.progress_percent || 8))}%</p></div>
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="min-h-[420px] flex flex-col items-center justify-center text-center">
-            <div className="w-14 h-14 rounded-2xl bg-white/[0.035] border border-white/[0.06] grid place-items-center"><ImageIcon className="w-6 h-6 text-zinc-700" /></div>
-            <h3 className="mt-4 text-sm font-semibold text-zinc-300">Nenhuma criação neste filtro</h3>
-            <p className="mt-1 text-[10px] text-zinc-600">Suas gerações permanecem aqui para reutilização.</p>
-          </div>
-        )}
-      </div>
-    </main>
-  );
+  return <main className="flex-1 min-w-0 h-full overflow-y-auto bg-[#0b0e13]">
+    <header className="sticky top-0 z-20 px-5 lg:px-6 pt-5 pb-3 border-b border-white/[0.055] bg-[#0b0e13]/95 backdrop-blur-xl"><div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-3"><div><h2 className="text-[20px] font-bold tracking-tight text-white">{title}</h2><p className="mt-0.5 text-[10px] text-zinc-600">{subtitle}</p></div><div className="flex flex-wrap items-center gap-2"><div className="relative w-56 max-w-full"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600"/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar criações..." className="w-full h-9 pl-9 pr-3 rounded-xl bg-white/[0.035] border border-white/[0.07] text-[10px] text-zinc-300 outline-none"/></div><div className="flex gap-1.5">{(['VIDEO','IMAGE','ALL'] as CreationGalleryFilter[]).map((value)=><button key={value} onClick={()=>setFilter(value)} className={`px-3 py-1.5 rounded-lg border text-[9px] font-semibold transition-colors ${filter===value?'border-cyan-300/25 bg-cyan-300/10 text-cyan-200':'border-white/[0.06] text-zinc-600 hover:text-zinc-300'}`}>{value==='VIDEO'?'Vídeos':value==='IMAGE'?'Imagens':'Todos'}</button>)}</div></div></div>{error&&<p className="mt-2 text-[9px] text-rose-400">{error}</p>}</header>
+    <div className="p-5 lg:p-6">{loading&&!visibleGroups.length?<div className="min-h-[420px] grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-cyan-300"/></div>:visibleGroups.length?<div className="space-y-7">{visibleGroups.map((group)=>{const generation=group.generation;const placeholders=isWorking(generation.status)&&!group.assets.length?Math.max(1,generation.number_of_outputs||1):0;return <section key={generation.generation_id}><div className="mb-2.5 min-w-0"><p className="text-[10px] font-semibold text-zinc-300 truncate">{generation.original_prompt||'Geração sem título'}</p><p className="mt-0.5 text-[8px] text-zinc-600">{generation.model_id} · {group.ratio} · {generation.resolution||'-'}{group.kind==='VIDEO'&&generation.duration_seconds?` · ${generation.duration_seconds}s`:''}</p></div><div className="flex gap-3 overflow-x-auto pb-2 items-start">{group.assets.map((asset)=><article key={asset.asset_id} className={`group/card shrink-0 ${widthClassFor(group.ratio)}`}><div className="relative overflow-hidden rounded-[14px] border border-white/[0.07] bg-[#11151c]" style={{aspectRatio:cssRatio(group.ratio)}}>{asset.type==='VIDEO'?<video src={asset.public_url} controls preload="metadata" className="w-full h-full object-cover"/>:<img src={asset.public_url} alt={asset.name} className="w-full h-full object-cover"/>}<div className="absolute top-2.5 right-2.5 flex flex-wrap justify-end gap-1.5 max-w-[calc(100%-20px)]">{onRestoreGeneration&&actionButton('Regenerar com esta configuração',()=>onRestoreGeneration(generation),<RotateCcw className="w-3.5 h-3.5"/>)}{asset.type==='IMAGE'&&onUseImageAsReference&&actionButton('Usar como referência',()=>onUseImageAsReference(asset),<ImageIcon className="w-3.5 h-3.5"/>)}{asset.type==='IMAGE'&&onEditImage&&actionButton('Editar imagem',()=>onEditImage(asset),<Edit3 className="w-3.5 h-3.5"/>)}{asset.type==='IMAGE'&&onCreateVideoFromImage&&actionButton('Gerar vídeo com esta imagem',()=>onCreateVideoFromImage(asset),<Film className="w-3.5 h-3.5"/>)}{actionButton('Baixar',()=>download(asset),<Download className="w-3.5 h-3.5"/>)}</div></div></article>)}{Array.from({length:placeholders}).map((_,index)=><article key={`${generation.generation_id}-loading-${index}`} className={`shrink-0 ${widthClassFor(group.ratio)}`}><div className="relative overflow-hidden rounded-[14px] border border-cyan-300/20 bg-[#10151c] shadow-[0_0_32px_rgba(34,211,238,.05)]" style={{aspectRatio:cssRatio(group.ratio)}}><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(34,211,238,.10),transparent_48%)] animate-pulse"/><div className="absolute inset-0 grid place-items-center text-center"><div><Sparkles className="w-4 h-4 mx-auto text-cyan-200/80"/><p className="mt-2 text-[8px] text-zinc-500">{Math.max(4,Math.min(96,generation.progress_percent||8))}%</p></div></div></div></article>)}</div></section>})}</div>:<div className="min-h-[420px] flex flex-col items-center justify-center text-center"><div className="w-14 h-14 rounded-2xl bg-white/[0.035] border border-white/[0.06] grid place-items-center"><ImageIcon className="w-6 h-6 text-zinc-700"/></div><h3 className="mt-4 text-sm font-semibold text-zinc-300">Nenhuma criação neste filtro</h3><p className="mt-1 text-[10px] text-zinc-600">Suas gerações permanecem aqui para reutilização.</p></div>}</div>
+  </main>;
 };
