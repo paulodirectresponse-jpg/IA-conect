@@ -24,8 +24,8 @@ export const CreateHubView: React.FC<{ initialMode?: 'VIDEO' | 'IMAGE' }> = ({ i
     window.setTimeout(() => setHandoffNotice(''), 3200);
   };
 
-  return <div className="h-full min-h-0 flex flex-col bg-[#0b0e13]">
-    {handoffNotice && <div className="shrink-0 mx-3 mt-2 rounded-lg border border-violet-400/20 bg-violet-400/[0.08] px-3 py-1.5 text-[9px] font-medium text-violet-200">{handoffNotice}</div>}
+  return <div className="h-full min-h-0 flex flex-col bg-[radial-gradient(circle_at_82%_-10%,rgba(25,184,255,.07),transparent_28%),#06101a]">
+    {handoffNotice && <div className="shrink-0 mx-3 mt-2 rounded-lg border border-sky-300/20 bg-sky-300/[0.07] px-3 py-1.5 text-[9px] font-medium text-sky-200">{handoffNotice}</div>}
     <div className="flex-1 min-h-0">{mediaMode==='VIDEO'
       ? <CreateView initialAsset={videoSeedAsset} onEditImage={editImage}/>
       : <ImageCreateView onUseImageForVideo={useImageForVideo} initialEditAsset={imageEditAsset}/>
