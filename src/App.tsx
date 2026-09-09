@@ -12,6 +12,7 @@ import { HistoryView } from './components/views/HistoryView.js';
 import { AdminView } from './components/views/AdminView.js';
 import { SettingsView } from './components/views/SettingsView.js';
 import { LibraryHubView } from './components/views/LibraryHubView.js';
+import { CommunityView } from './components/views/CommunityView.js';
 import { BrandMark } from './components/common/BrandMark.js';
 
 const MainApp: React.FC = () => {
@@ -34,6 +35,7 @@ const MainApp: React.FC = () => {
     {currentSafeView==='wallet'&&<WalletView/>}
     {currentSafeView==='create-video'&&<CreateHubView initialMode="VIDEO"/>}
     {currentSafeView==='create-image'&&<CreateHubView initialMode="IMAGE"/>}
+    {currentSafeView==='community'&&<CommunityView onNavigate={setActiveView}/>} 
     {currentSafeView==='history'&&<HistoryView/>}
     {currentSafeView==='library'&&<LibraryHubView/>}
     {currentSafeView==='admin'&&isAdmin&&<AdminView/>}
