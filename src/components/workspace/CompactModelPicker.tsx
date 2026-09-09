@@ -17,6 +17,8 @@ interface Props {
   currentResolution: string;
   currentDuration: number;
   currentOutputs: number;
+  livePricesByModelId?: Record<string, number | null>;
+  priceLoadingModelIds?: string[];
 }
 
 const accentFor = (id?: string) => {
@@ -33,6 +35,7 @@ export const CompactModelPicker: React.FC<Props> = (p) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+  const loadingIds = useMemo(() => new Set(p.priceLoadingModelIds || []), [p.priceLoadingModelIds]);
 
   useEffect(() => {
     const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -41,11 +44,25 @@ export const CompactModelPicker: React.FC<Props> = (p) => {
   }, []);
 
   const selected = p.models.find((m) => m.model_id === p.selectedModelId) || null;
-  const modelPrice = (id?: string | null) => {
+
+  const staticModelPrice = (id?: string | null) => {
     if (!id) return null;
     const rows = p.pricing.filter((x) => x.active && x.model_id === id && (!x.resolution || x.resolution === 'ANY' || x.resolution.toLowerCase() === p.currentResolution.toLowerCase()));
     if (!rows.length) return null;
     return Math.min(...rows.map((x) => Math.ceil(x.customer_price_cents * (p.currentDuration / Math.max(1, x.duration_seconds || 1)) * Math.max(1, p.currentOutputs))));
+  };
+
+  const modelPrice = (id?: string | null) => {
+    if (!id) return null;
+    if (p.livePricesByModelId && Object.prototype.hasOwnProperty.call(p.livePricesByModelId, id)) return p.livePricesByModelId[id] ?? null;
+    return staticModelPrice(id);
+  };
+
+  const priceText = (id?: string | null) => {
+    if (!id) return '—';
+    if (loadingIds.has(id)) return 'calculando...';
+    const cents = modelPrice(id);
+    return cents == null ? '—' : formatCentsToBRL(cents);
   };
 
   const filtered = useMemo(() => {
@@ -55,7 +72,6 @@ export const CompactModelPicker: React.FC<Props> = (p) => {
 
   const sorted = [...filtered].sort((a, b) => Number(p.favoriteModelIds.includes(b.model_id)) - Number(p.favoriteModelIds.includes(a.model_id)) || Number(p.recentModelIds.includes(b.model_id)) - Number(p.recentModelIds.includes(a.model_id)) || a.name.localeCompare(b.name));
   const displayModel = p.selectionMode === 'AUTO' ? p.autoResolvedModel : selected;
-  const displayPrice = modelPrice(displayModel?.model_id);
   const maxDuration = displayModel?.supported_durations?.length ? Math.max(...displayModel.supported_durations) : null;
 
   return (
@@ -76,7 +92,7 @@ export const CompactModelPicker: React.FC<Props> = (p) => {
               {displayModel?.supported_resolutions?.length ? <span className="inline-flex items-center gap-1 rounded-md bg-black/30 px-1.5 py-1"><Gauge className="w-3 h-3"/> {displayModel.supported_resolutions.join(' · ')}</span> : null}
               {displayModel?.supports_image_reference && <span className="inline-flex items-center gap-1 rounded-md bg-black/30 px-1.5 py-1"><Images className="w-3 h-3"/> refs</span>}
             </div>
-            <div className="text-right"><p className="text-[8px] text-white/45">estimativa atual</p><p className="text-[12px] font-black text-white">{displayPrice == null ? '—' : formatCentsToBRL(displayPrice)}</p></div>
+            <div className="text-right"><p className="text-[8px] text-white/45">estimativa atual</p><p className="text-[12px] font-black text-white">{priceText(displayModel?.model_id)}</p></div>
           </div>
         </div>
       </button>
@@ -95,12 +111,11 @@ export const CompactModelPicker: React.FC<Props> = (p) => {
             {sorted.map((m) => {
               const active = p.selectionMode === 'MANUAL' && m.model_id === p.selectedModelId;
               const fav = p.favoriteModelIds.includes(m.model_id);
-              const cents = modelPrice(m.model_id);
               const max = m.supported_durations?.length ? Math.max(...m.supported_durations) : null;
               return <button key={m.model_id} type="button" onClick={() => { p.onSelectModel(m); setOpen(false); }} className={`w-full group/model flex items-center gap-3 p-2.5 rounded-xl text-left border transition-all ${active ? 'bg-white/[0.075] border-cyan-400/20' : 'border-transparent hover:bg-white/[0.04] hover:border-white/[0.05]'}`}>
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${accentFor(m.model_id)} border border-white/[0.07] grid place-items-center shrink-0`}><span className="text-[11px] font-black text-white">{initials(m.name)}</span></div>
                 <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="text-[10px] font-bold text-white truncate">{m.name}</p>{active && <Check className="w-3 h-3 text-cyan-300 shrink-0"/>}</div><p className="mt-0.5 text-[8px] text-zinc-600 truncate">{m.best_for || m.description}</p><div className="mt-1.5 flex flex-wrap gap-1 text-[7.5px] text-zinc-500">{max && <span className="rounded bg-white/[0.035] px-1.5 py-0.5">até {max}s</span>}{m.supported_resolutions?.slice(0,3).map((r)=><span key={r} className="rounded bg-white/[0.035] px-1.5 py-0.5">{r}</span>)}{m.supports_image_reference && <span className="rounded bg-white/[0.035] px-1.5 py-0.5">imagem</span>}{m.supports_video_reference && <span className="rounded bg-white/[0.035] px-1.5 py-0.5">vídeo ref</span>}{m.supports_audio_reference && <span className="rounded bg-white/[0.035] px-1.5 py-0.5">áudio</span>}</div></div>
-                <div className="shrink-0 text-right"><p className="text-[9px] font-bold text-white">{cents == null ? '—' : formatCentsToBRL(cents)}</p><p className="text-[7px] text-zinc-700">config. atual</p></div>
+                <div className="shrink-0 text-right"><p className="text-[9px] font-bold text-white">{priceText(m.model_id)}</p><p className="text-[7px] text-zinc-700">config. atual</p></div>
                 <span onClick={(e) => { e.stopPropagation(); p.onToggleFavorite(m.model_id); }} className={fav ? 'text-amber-400' : 'text-zinc-700 group-hover/model:text-zinc-500'}><Star className={`w-3.5 h-3.5 ${fav ? 'fill-current' : ''}`}/></span>
               </button>;
             })}
