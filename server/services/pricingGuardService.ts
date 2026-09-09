@@ -1,11 +1,9 @@
 import { GenerationMode } from '../../src/types/index.js';
 import { VideoProviderAdapter, ProviderGenerationParams, ProviderGenerationReference } from '../adapters/videoProviderAdapter.js';
 import { fxRateService } from './fxRateService.js';
+import { pricingSettingsService } from './pricingSettingsService.js';
 
-const STANDARD_GROSS_MARGIN = 0.40;
 const bufferRate = () => Math.min(0.25, Math.max(0, Number(process.env.PRICING_SAFETY_BUFFER_PERCENT || 5) / 100));
-const targetMargin = (_mode:GenerationMode) => STANDARD_GROSS_MARGIN;
-const minimumMargin = (_mode:GenerationMode) => STANDARD_GROSS_MARGIN;
 
 function fakeReference(type:'IMAGE'|'VIDEO'|'AUDIO',slot_type:'INITIAL'|'END'|'GENERAL'='GENERAL'):ProviderGenerationReference{
   return {
@@ -76,9 +74,10 @@ export const pricingGuardService={
       number_of_outputs:Math.max(1,input.number_of_outputs),seed:input.seed,motion_strength:input.motion_strength,
       references:syntheticReferences(input.mode),
     };
-    const [providerQuote, fxSnapshot] = await Promise.all([
+    const [providerQuote, fxSnapshot, settings] = await Promise.all([
       adapter.quoteCostUsd(params),
       fxRateService.get(false),
+      pricingSettingsService.get(false),
     ]);
     const providerUsd=Number(providerQuote.effective_price_usd);
     if(!Number.isFinite(providerUsd)||providerUsd<0) throw Object.assign(new Error('Cotação do provider inválida.'),{code:'LIVE_QUOTE_INVALID'});
@@ -86,14 +85,13 @@ export const pricingGuardService={
     const providerCost=Math.max(1,Math.ceil(providerUsd*fxRate*100));
     const safetyBuffer=bufferRate();
     const safeCost=Math.max(providerCost,Math.ceil(providerCost*(1+safetyBuffer)));
-    const margin=targetMargin(input.mode);
+    const margin=Math.min(0.80,Math.max(0.10,settings.gross_margin_percent/100));
     const customer=Math.max(safeCost+1,Math.ceil(safeCost/(1-margin)));
     const effectiveMargin=1-(safeCost/customer);
-    const minMargin=minimumMargin(input.mode);
-    if(effectiveMargin+1e-9<minMargin) throw Object.assign(new Error('Margem calculada abaixo do mínimo operacional.'),{code:'MARGIN_BELOW_MINIMUM'});
+    if(effectiveMargin+1e-9<margin) throw Object.assign(new Error('Margem calculada abaixo do mínimo operacional.'),{code:'MARGIN_BELOW_MINIMUM'});
     return {
       provider_cost_usd:providerUsd,provider_cost_brl_cents:providerCost,safe_cost_brl_cents:safeCost,
-      customer_price_cents:customer,target_margin:margin,minimum_margin:minMargin,effective_margin:effectiveMargin,
+      customer_price_cents:customer,target_margin:margin,minimum_margin:margin,effective_margin:effectiveMargin,
       fx_rate:fxRate,fx_source:fxSnapshot.source,safety_buffer_rate:safetyBuffer,estimated:Boolean(providerQuote.estimated),quoted_at:new Date().toISOString(),
     };
   },
