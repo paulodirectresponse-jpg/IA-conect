@@ -10,7 +10,9 @@ const DOC='app_config/pricing';
 const DEFAULT_MARGIN_PERCENT=40;
 let cache:PricingSettings|null=null;
 let cacheAt=0;
-const CACHE_MS=60_000;
+// Keep this deliberately short: Cloudflare isolates do not share memory. A short
+// cache gives the pricing engine fast reads while propagating admin changes site-wide.
+const CACHE_MS=5_000;
 
 function sanitizeMargin(value:number){
   if(!Number.isFinite(value)) return DEFAULT_MARGIN_PERCENT;
