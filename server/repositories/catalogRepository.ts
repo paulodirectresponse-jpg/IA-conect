@@ -1,78 +1,231 @@
-import { ModelRegistryItem, ProviderRegistryItem, ProviderModelMapping, PricingEntry, PromotionEntry, FeatureFlag } from '../../src/types/index.js';
+import {
+  ModelRegistryItem,
+  ProviderRegistryItem,
+  ProviderModelMapping,
+  PricingEntry,
+  PromotionEntry,
+  FeatureFlag,
+} from '../../src/types/index.js';
 import { getAdminDb } from './firebaseAdminClient.js';
 import { INITIAL_FEATURE_FLAGS } from '../../src/config/constants.js';
 
-function db(){const d=getAdminDb();if(!d)throw new Error('Firestore Admin indisponível.');return d;}
-const now=()=>new Date().toISOString();
-const durations=(a:number,b:number)=>Array.from({length:b-a+1},(_,i)=>a+i);
+const now = () => new Date().toISOString();
+const durations = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+const imageRatios = ['1:1','3:2','2:3','3:4','4:3','4:5','5:4','9:16','16:9','21:9'];
+const videoRatios = ['16:9','9:16','1:1','4:3','3:4','21:9'];
 
-const VIDEO_MODELS:ModelRegistryItem[]=[
- {model_id:'wan-3-0-prime',name:'WAN 3.0 Prime',slug:'wan-3-0-prime',category:'VIDEO',description:'WAN 3.0 acelerado para produção premium com texto, imagem e referências multimodais.',status:'ACTIVE',best_for:'Alta qualidade e velocidade',recommended_aspect_ratio:'16:9',supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],supported_resolutions:['480p','720p','1080p'],supported_durations:durations(2,30),supported_aspect_ratios:['16:9','9:16','1:1','4:3','3:4'],supports_image_reference:true,supports_multiple_images:true,supports_video_reference:true,supports_audio_reference:true,supports_negative_prompt:false,supports_seed:true,max_reference_images:10,max_reference_videos:5,max_reference_audio:5,max_prompt_length:20000,supports_start_end_image:true,created_at:now(),updated_at:now()},
- {model_id:'wan-3-0',name:'WAN 3.0',slug:'wan-3-0',category:'VIDEO',description:'Modelo versátil com excelente custo-benefício, 480p a 1080p e até 30 segundos.',status:'ACTIVE',best_for:'Melhor custo-benefício',recommended_aspect_ratio:'16:9',supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],supported_resolutions:['480p','720p','1080p'],supported_durations:durations(2,30),supported_aspect_ratios:['16:9','9:16','1:1','4:3','3:4'],supports_image_reference:true,supports_multiple_images:true,supports_video_reference:true,supports_audio_reference:true,supports_negative_prompt:false,supports_seed:true,max_reference_images:10,max_reference_videos:5,max_reference_audio:5,max_prompt_length:20000,supports_start_end_image:true,created_at:now(),updated_at:now()},
- {model_id:'seedance-2-5',name:'Seedance 2.5',slug:'seedance-2-5',category:'VIDEO',description:'Geração cinematográfica multimodal com áudio sincronizado e forte aderência ao prompt.',status:'ACTIVE',best_for:'Movimento e cinematografia',recommended_aspect_ratio:'16:9',supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],supported_resolutions:['480p','720p','1080p'],supported_durations:durations(4,30),supported_aspect_ratios:['16:9','9:16','1:1','4:3','3:4','21:9'],supports_image_reference:true,supports_multiple_images:true,supports_video_reference:true,supports_audio_reference:true,supports_negative_prompt:false,supports_seed:true,max_reference_images:30,max_reference_videos:10,max_reference_audio:10,max_prompt_length:20000,supports_start_end_image:true,created_at:now(),updated_at:now()},
- {model_id:'minimax-h3',name:'MiniMax H3',slug:'minimax-h3',category:'VIDEO',description:'Modelo multimodal rápido para referências de imagem, vídeo e áudio.',status:'ACTIVE',best_for:'Referências multimodais',recommended_aspect_ratio:'16:9',supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],supported_resolutions:['480p','540p','768p','1080p'],supported_durations:durations(3,15),supported_aspect_ratios:['16:9','9:16','1:1','4:3','3:4','21:9'],supports_image_reference:true,supports_multiple_images:true,supports_video_reference:true,supports_audio_reference:true,supports_negative_prompt:false,supports_seed:true,max_reference_images:9,max_reference_videos:3,max_reference_audio:3,max_prompt_length:10000,created_at:now(),updated_at:now()}
+/**
+ * Production catalog is code-backed on purpose. Firebase Admin is not a hard
+ * dependency for reads, so Cloudflare Workers can always render the studio and
+ * route jobs even when Admin SDK is unavailable in the runtime.
+ */
+export const MODEL_CATALOG: ModelRegistryItem[] = [
+  {
+    model_id:'wan-3-0-prime', name:'WAN 3.0 Prime', slug:'wan-3-0-prime', category:'VIDEO',
+    description:'Modelo premium de vídeo para texto, frames e referências multimodais, com até 30 segundos.',
+    status:'ACTIVE', best_for:'Qualidade premium, produto e cinematografia', recommended_aspect_ratio:'16:9',
+    supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],
+    supported_resolutions:['480p','720p','1080p'], supported_durations:durations(2,30), supported_aspect_ratios:videoRatios,
+    supports_image_reference:true, supports_multiple_images:true, supports_video_reference:true, supports_audio_reference:true,
+    supports_negative_prompt:false, supports_seed:true, supports_start_end_image:true,
+    max_reference_images:10, max_reference_videos:5, max_reference_audio:5, max_prompt_length:20000,
+    created_at:now(), updated_at:now(),
+  },
+  {
+    model_id:'seedance-2-5', name:'Seedance 2.5', slug:'seedance-2-5', category:'VIDEO',
+    description:'Modelo cinematográfico multimodal com áudio nativo, referências e duração de até 30 segundos.',
+    status:'ACTIVE', best_for:'Movimento, direção cinematográfica e consistência multimodal', recommended_aspect_ratio:'16:9',
+    supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],
+    supported_resolutions:['480p','720p','1080p'], supported_durations:durations(4,30), supported_aspect_ratios:videoRatios,
+    supports_image_reference:true, supports_multiple_images:true, supports_video_reference:true, supports_audio_reference:true,
+    supports_negative_prompt:false, supports_seed:true, supports_start_end_image:true,
+    max_reference_images:30, max_reference_videos:10, max_reference_audio:10, max_prompt_length:20000,
+    created_at:now(), updated_at:now(),
+  },
+  {
+    model_id:'wan-3-0', name:'WAN 3.0', slug:'wan-3-0', category:'VIDEO',
+    description:'Modelo forte e versátil para produção de vídeo com referências e duração de até 30 segundos.',
+    status:'ACTIVE', best_for:'Custo-benefício sem abrir mão de qualidade', recommended_aspect_ratio:'16:9',
+    supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],
+    supported_resolutions:['480p','720p','1080p'], supported_durations:durations(2,30), supported_aspect_ratios:videoRatios,
+    supports_image_reference:true, supports_multiple_images:true, supports_video_reference:true, supports_audio_reference:true,
+    supports_negative_prompt:false, supports_seed:true, supports_start_end_image:true,
+    max_reference_images:10, max_reference_videos:5, max_reference_audio:5, max_prompt_length:20000,
+    created_at:now(), updated_at:now(),
+  },
+  {
+    model_id:'minimax-h3', name:'MiniMax H3', slug:'minimax-h3', category:'VIDEO',
+    description:'Modelo multimodal de alto nível para clipes curtos com imagem, vídeo e áudio de referência.',
+    status:'ACTIVE', best_for:'Referências multimodais e clipes de até 15 segundos', recommended_aspect_ratio:'16:9',
+    supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],
+    supported_resolutions:['768p'], supported_durations:durations(4,15), supported_aspect_ratios:videoRatios,
+    supports_image_reference:true, supports_multiple_images:true, supports_video_reference:true, supports_audio_reference:true,
+    supports_negative_prompt:false, supports_seed:true, supports_start_end_image:true,
+    max_reference_images:9, max_reference_videos:3, max_reference_audio:3, max_prompt_length:10000,
+    created_at:now(), updated_at:now(),
+  },
+  {
+    model_id:'seedance-2-0', name:'Seedance 2.0', slug:'seedance-2-0', category:'VIDEO',
+    description:'Seedance multimodal para produção de clipes de até 15 segundos com áudio e referências.',
+    status:'ACTIVE', best_for:'Clipes de 15s, movimento e referências', recommended_aspect_ratio:'16:9',
+    supported_modes:['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'],
+    supported_resolutions:['480p','720p','1080p'], supported_durations:durations(4,15), supported_aspect_ratios:videoRatios,
+    supports_image_reference:true, supports_multiple_images:true, supports_video_reference:true, supports_audio_reference:true,
+    supports_negative_prompt:false, supports_seed:true, supports_start_end_image:true,
+    max_reference_images:9, max_reference_videos:3, max_reference_audio:3, max_prompt_length:20000,
+    created_at:now(), updated_at:now(),
+  },
+
+  {
+    model_id:'nano-banana-pro-image', name:'Google Nano Banana Pro', slug:'nano-banana-pro-image', category:'IMAGE',
+    description:'Google Gemini 3 Pro Image para geração e edição premium, alta fidelidade e saída até 4K.',
+    status:'ACTIVE', best_for:'Fotorealismo, produto, composição e edição premium', recommended_aspect_ratio:'1:1',
+    supported_modes:['TEXT_TO_IMAGE','IMAGE_TO_IMAGE'], supported_resolutions:['1K','2K','4K'], supported_durations:[1],
+    supported_aspect_ratios:imageRatios, supports_image_reference:true, supports_multiple_images:true,
+    supports_video_reference:false, supports_audio_reference:false, supports_negative_prompt:false, supports_seed:false,
+    max_reference_images:10, max_reference_videos:0, max_reference_audio:0, max_prompt_length:10000,
+    created_at:now(), updated_at:now(),
+  },
+  {
+    model_id:'nano-banana-2-image', name:'Google Nano Banana 2', slug:'nano-banana-2-image', category:'IMAGE',
+    description:'Google Gemini 3.1 Flash Image com qualidade Pro, alta velocidade, edição e saída até 4K.',
+    status:'ACTIVE', best_for:'Produção rápida premium e consistência de referências', recommended_aspect_ratio:'1:1',
+    supported_modes:['TEXT_TO_IMAGE','IMAGE_TO_IMAGE'], supported_resolutions:['1K','2K','4K'], supported_durations:[1],
+    supported_aspect_ratios:imageRatios, supports_image_reference:true, supports_multiple_images:true,
+    supports_video_reference:false, supports_audio_reference:false, supports_negative_prompt:false, supports_seed:true,
+    max_reference_images:14, max_reference_videos:0, max_reference_audio:0, max_prompt_length:10000,
+    created_at:now(), updated_at:now(),
+  },
+  {
+    model_id:'seedream-5-pro-image', name:'Seedream 5.0 Pro', slug:'seedream-5-pro-image', category:'IMAGE',
+    description:'ByteDance flagship para imagem profissional, tipografia, fotorealismo e edição multi-referência.',
+    status:'ACTIVE', best_for:'Campanhas, produto, tipografia e composição profissional', recommended_aspect_ratio:'1:1',
+    supported_modes:['TEXT_TO_IMAGE','IMAGE_TO_IMAGE'], supported_resolutions:['1K','1.5K','2K'], supported_durations:[1],
+    supported_aspect_ratios:imageRatios, supports_image_reference:true, supports_multiple_images:true,
+    supports_video_reference:false, supports_audio_reference:false, supports_negative_prompt:false, supports_seed:false,
+    max_reference_images:10, max_reference_videos:0, max_reference_audio:0, max_prompt_length:12000,
+    created_at:now(), updated_at:now(),
+  },
+  {
+    model_id:'gpt-image-2', name:'GPT Image 2', slug:'gpt-image-2', category:'IMAGE',
+    description:'OpenAI GPT Image 2 para geração e edição premium com excelente aderência ao prompt e texto.',
+    status:'ACTIVE', best_for:'Marketing, produto, texto e edição de alta qualidade', recommended_aspect_ratio:'1:1',
+    supported_modes:['TEXT_TO_IMAGE','IMAGE_TO_IMAGE'], supported_resolutions:['1K','2K','4K'], supported_durations:[1],
+    supported_aspect_ratios:imageRatios, supports_image_reference:true, supports_multiple_images:true,
+    supports_video_reference:false, supports_audio_reference:false, supports_negative_prompt:false, supports_seed:false,
+    max_reference_images:16, max_reference_videos:0, max_reference_audio:0, max_prompt_length:12000,
+    created_at:now(), updated_at:now(),
+  },
 ];
 
-const IMAGE_MODELS:ModelRegistryItem[]=[
- {model_id:'flux-2-flash-image',name:'FLUX 2 Flash',slug:'flux-2-flash-image',category:'IMAGE',description:'Geração e edição de imagens ultrarrápida para exploração, referências e produção diária.',status:'ACTIVE',best_for:'Velocidade e melhor custo-benefício',recommended_aspect_ratio:'1:1',supported_modes:['TEXT_TO_IMAGE','IMAGE_TO_IMAGE'],supported_resolutions:['1K'],supported_durations:[1],supported_aspect_ratios:['1:1','16:9','9:16','4:3','3:4','3:2','2:3','4:5','5:4'],supports_image_reference:true,supports_multiple_images:true,supports_video_reference:false,supports_audio_reference:false,supports_negative_prompt:false,supports_seed:true,max_reference_images:4,max_reference_videos:0,max_reference_audio:0,max_prompt_length:10000,created_at:now(),updated_at:now()},
- {model_id:'flux-2-flex-image',name:'FLUX 2 Flex',slug:'flux-2-flex-image',category:'IMAGE',description:'Modelo premium de imagem com mais fidelidade visual e melhor acabamento para peças finais.',status:'ACTIVE',best_for:'Qualidade premium e edição',recommended_aspect_ratio:'1:1',supported_modes:['TEXT_TO_IMAGE','IMAGE_TO_IMAGE'],supported_resolutions:['1K'],supported_durations:[1],supported_aspect_ratios:['1:1','16:9','9:16','4:3','3:4','3:2','2:3','4:5','5:4'],supports_image_reference:true,supports_multiple_images:true,supports_video_reference:false,supports_audio_reference:false,supports_negative_prompt:false,supports_seed:true,max_reference_images:4,max_reference_videos:0,max_reference_audio:0,max_prompt_length:10000,created_at:now(),updated_at:now()},
- {model_id:'qwen-image-2',name:'Qwen Image 2.0',slug:'qwen-image-2',category:'IMAGE',description:'Geração de imagem equilibrada para texto, composição e criação visual com excelente custo.',status:'ACTIVE',best_for:'Texto, composição e criação geral',recommended_aspect_ratio:'1:1',supported_modes:['TEXT_TO_IMAGE'],supported_resolutions:['1K'],supported_durations:[1],supported_aspect_ratios:['1:1','16:9','9:16','4:3','3:4','3:2','2:3','4:5','5:4'],supports_image_reference:false,supports_multiple_images:false,supports_video_reference:false,supports_audio_reference:false,supports_negative_prompt:false,supports_seed:true,max_reference_images:0,max_reference_videos:0,max_reference_audio:0,max_prompt_length:10000,created_at:now(),updated_at:now()}
+export const PROVIDER_CATALOG: ProviderRegistryItem[] = [
+  {provider_id:'provider-wavespeed',name:'WaveSpeed AI',slug:'wavespeed',status:'ACTIVE',priority:110,is_configured:false,created_at:now(),updated_at:now()},
+  {provider_id:'provider-atlas',name:'Atlas Cloud',slug:'atlas',status:'ACTIVE',priority:100,is_configured:false,created_at:now(),updated_at:now()},
 ];
 
-const PROVIDERS:ProviderRegistryItem[]=[
- {provider_id:'provider-atlas',name:'Atlas Cloud',slug:'atlas',status:'ACTIVE',priority:100,is_configured:false,created_at:now(),updated_at:now()},
- {provider_id:'provider-wavespeed',name:'WaveSpeed AI',slug:'wavespeed',status:'ACTIVE',priority:90,is_configured:false,created_at:now(),updated_at:now()}
+const mapping = (id:string, model_id:string, provider_id:string, provider_model_identifier:string):ProviderModelMapping => ({
+  mapping_id:id, model_id, provider_id, provider_model_identifier, status:'ACTIVE', updated_at:now(),
+});
+
+export const MODEL_MAPPINGS: ProviderModelMapping[] = [
+  mapping('map-wan3p-atlas','wan-3-0-prime','provider-atlas','alibaba/wan-3.0-prime'),
+  mapping('map-wan3p-wave','wan-3-0-prime','provider-wavespeed','alibaba/wan-3.0-prime'),
+  mapping('map-seed25-atlas','seedance-2-5','provider-atlas','bytedance/seedance-2.5'),
+  mapping('map-seed25-wave','seedance-2-5','provider-wavespeed','bytedance/seedance-2.5'),
+  mapping('map-wan3-atlas','wan-3-0','provider-atlas','alibaba/wan-3.0'),
+  mapping('map-wan3-wave','wan-3-0','provider-wavespeed','alibaba/wan-3.0'),
+  mapping('map-h3-atlas','minimax-h3','provider-atlas','minimax/h3'),
+  mapping('map-h3-wave','minimax-h3','provider-wavespeed','wavespeed-ai/minimax-h3'),
+  mapping('map-seed20-atlas','seedance-2-0','provider-atlas','bytedance/seedance-2.0'),
+
+  mapping('map-banana-pro-wave','nano-banana-pro-image','provider-wavespeed','google/nano-banana-pro'),
+  mapping('map-banana2-wave','nano-banana-2-image','provider-wavespeed','google/nano-banana-2'),
+  mapping('map-seed5-wave','seedream-5-pro-image','provider-wavespeed','bytedance/seedream-v5.0-pro'),
+  mapping('map-gptimg2-wave','gpt-image-2','provider-wavespeed','openai/gpt-image-2'),
+  mapping('map-banana-pro-atlas','nano-banana-pro-image','provider-atlas','google/nano-banana-pro'),
+  mapping('map-banana2-atlas','nano-banana-2-image','provider-atlas','google/nano-banana-2'),
+  mapping('map-seed5-atlas','seedream-5-pro-image','provider-atlas','bytedance/seedream-v5.0-pro'),
+  mapping('map-gptimg2-atlas','gpt-image-2','provider-atlas','openai/gpt-image-2'),
 ];
 
-const VIDEO_MAPPINGS:ProviderModelMapping[]=[['wan-3-0-prime','provider-atlas'],['wan-3-0-prime','provider-wavespeed'],['wan-3-0','provider-atlas'],['wan-3-0','provider-wavespeed'],['seedance-2-5','provider-atlas'],['seedance-2-5','provider-wavespeed'],['minimax-h3','provider-atlas'],['minimax-h3','provider-wavespeed']].map(([model_id,provider_id],i)=>({mapping_id:`map-stage3-${i+1}`,model_id,provider_id,provider_model_identifier:model_id,status:'ACTIVE',updated_at:now()} as ProviderModelMapping));
-const IMAGE_MAPPINGS:ProviderModelMapping[]=[
- {mapping_id:'map-stage4-image-1',model_id:'flux-2-flash-image',provider_id:'provider-wavespeed',provider_model_identifier:'wavespeed-ai/flux-2-flash',status:'ACTIVE',updated_at:now()},
- {mapping_id:'map-stage4-image-2',model_id:'flux-2-flex-image',provider_id:'provider-wavespeed',provider_model_identifier:'wavespeed-ai/flux-2-flex',status:'ACTIVE',updated_at:now()},
- {mapping_id:'map-stage4-image-3',model_id:'qwen-image-2',provider_id:'provider-atlas',provider_model_identifier:'qwen/qwen-image-2.0',status:'ACTIVE',updated_at:now()}
+const videoCostRows:Array<[string,string,string,number]> = [
+  ['wan-3-0','provider-atlas','480p',20],['wan-3-0','provider-atlas','720p',41],['wan-3-0','provider-atlas','1080p',82],
+  ['wan-3-0','provider-wavespeed','480p',24],['wan-3-0','provider-wavespeed','720p',48],['wan-3-0','provider-wavespeed','1080p',97],
+  ['wan-3-0-prime','provider-atlas','480p',31],['wan-3-0-prime','provider-atlas','720p',64],['wan-3-0-prime','provider-atlas','1080p',129],
+  ['wan-3-0-prime','provider-wavespeed','480p',36],['wan-3-0-prime','provider-wavespeed','720p',73],['wan-3-0-prime','provider-wavespeed','1080p',145],
+  ['seedance-2-5','provider-atlas','480p',71],['seedance-2-5','provider-atlas','720p',153],['seedance-2-5','provider-atlas','1080p',302],
+  ['seedance-2-5','provider-wavespeed','480p',75],['seedance-2-5','provider-wavespeed','720p',160],['seedance-2-5','provider-wavespeed','1080p',315],
+  ['minimax-h3','provider-atlas','768p',41],['minimax-h3','provider-wavespeed','768p',51],
+  ['seedance-2-0','provider-atlas','480p',57],['seedance-2-0','provider-atlas','720p',57],['seedance-2-0','provider-atlas','1080p',57],
 ];
 
-const VIDEO_COSTS:Array<[string,string,string,number]>=[['wan-3-0','provider-atlas','480p',20],['wan-3-0','provider-atlas','720p',41],['wan-3-0','provider-atlas','1080p',82],['wan-3-0','provider-wavespeed','480p',24],['wan-3-0','provider-wavespeed','720p',48],['wan-3-0','provider-wavespeed','1080p',97],['wan-3-0-prime','provider-atlas','480p',31],['wan-3-0-prime','provider-atlas','720p',64],['wan-3-0-prime','provider-atlas','1080p',129],['wan-3-0-prime','provider-wavespeed','480p',36],['wan-3-0-prime','provider-wavespeed','720p',73],['wan-3-0-prime','provider-wavespeed','1080p',145],['seedance-2-5','provider-atlas','480p',71],['seedance-2-5','provider-atlas','720p',153],['seedance-2-5','provider-atlas','1080p',302],['minimax-h3','provider-atlas','768p',41],['minimax-h3','provider-wavespeed','768p',51]];
-const VIDEO_PRICING:PricingEntry[]=VIDEO_COSTS.map(([model,provider,res,cost],i)=>({pricing_id:`stage3-price-${i+1}`,provider_id:provider,model_id:model,resolution:res,duration_seconds:1,unit:'PER_SECOND',provider_cost_cents:cost,customer_price_cents:Math.ceil(cost*1.12),currency:'BRL',effective_from:'2026-09-08T00:00:00.000Z',active:true,updated_at:now()}));
+const videoPricing: PricingEntry[] = videoCostRows.map(([model,provider,res,cost],i) => ({
+  pricing_id:`premium-video-${i+1}`, provider_id:provider, model_id:model, resolution:res, duration_seconds:1,
+  unit:'PER_SECOND', provider_cost_cents:cost, customer_price_cents:Math.ceil(cost*1.12), currency:'BRL',
+  effective_from:'2026-09-09T00:00:00.000Z', active:true, updated_at:now(),
+}));
 
-// Conservative per-image prices in BRL cents. Combined FLUX entries use the more expensive edit route so Auto never under-reserves a job with references.
-const IMAGE_PRICING:PricingEntry[]=[
- {pricing_id:'stage4-image-price-flash',provider_id:'provider-wavespeed',model_id:'flux-2-flash-image',resolution:'1K',duration_seconds:1,unit:'PER_IMAGE',provider_cost_cents:7,customer_price_cents:8,currency:'BRL',effective_from:'2026-09-09T00:00:00.000Z',active:true,updated_at:now()},
- {pricing_id:'stage4-image-price-flex',provider_id:'provider-wavespeed',model_id:'flux-2-flex-image',resolution:'1K',duration_seconds:1,unit:'PER_IMAGE',provider_cost_cents:62,customer_price_cents:70,currency:'BRL',effective_from:'2026-09-09T00:00:00.000Z',active:true,updated_at:now()},
- {pricing_id:'stage4-image-price-qwen',provider_id:'provider-atlas',model_id:'qwen-image-2',resolution:'1K',duration_seconds:1,unit:'PER_IMAGE',provider_cost_cents:15,customer_price_cents:17,currency:'BRL',effective_from:'2026-09-09T00:00:00.000Z',active:true,updated_at:now()}
+const imagePrice = (id:string,provider:string,model:string,res:string,cost:number):PricingEntry => ({
+  pricing_id:id, provider_id:provider, model_id:model, resolution:res, duration_seconds:1, unit:'PER_IMAGE',
+  provider_cost_cents:cost, customer_price_cents:Math.ceil(cost*1.12), currency:'BRL',
+  effective_from:'2026-09-09T00:00:00.000Z', active:true, updated_at:now(),
+});
+
+// Conservative 1K base prices (BRL cents). Higher tiers reserve more before dispatch.
+const imagePricing: PricingEntry[] = [
+  imagePrice('img-nbp-wave-1k','provider-wavespeed','nano-banana-pro-image','1K',72),
+  imagePrice('img-nbp-wave-2k','provider-wavespeed','nano-banana-pro-image','2K',108),
+  imagePrice('img-nbp-wave-4k','provider-wavespeed','nano-banana-pro-image','4K',144),
+  imagePrice('img-nb2-wave-1k','provider-wavespeed','nano-banana-2-image','1K',36),
+  imagePrice('img-nb2-wave-2k','provider-wavespeed','nano-banana-2-image','2K',54),
+  imagePrice('img-nb2-wave-4k','provider-wavespeed','nano-banana-2-image','4K',72),
+  imagePrice('img-seed5-wave-1k','provider-wavespeed','seedream-5-pro-image','1K',25),
+  imagePrice('img-seed5-wave-15k','provider-wavespeed','seedream-5-pro-image','1.5K',25),
+  imagePrice('img-seed5-wave-2k','provider-wavespeed','seedream-5-pro-image','2K',25),
+  imagePrice('img-gpt2-wave-1k','provider-wavespeed','gpt-image-2','1K',36),
+  imagePrice('img-gpt2-wave-2k','provider-wavespeed','gpt-image-2','2K',56),
+  imagePrice('img-gpt2-wave-4k','provider-wavespeed','gpt-image-2','4K',97),
+
+  imagePrice('img-nbp-atlas-1k','provider-atlas','nano-banana-pro-image','1K',72),
+  imagePrice('img-nb2-atlas-1k','provider-atlas','nano-banana-2-image','1K',41),
+  imagePrice('img-seed5-atlas-1k','provider-atlas','seedream-5-pro-image','1K',23),
+  imagePrice('img-gpt2-atlas-1k','provider-atlas','gpt-image-2','1K',6),
 ];
 
-let initialized:Promise<void>|null=null;
-async function ensure(){
- if(initialized)return initialized;
- initialized=(async()=>{
-  const d=db();
-  const videoMigration=d.collection('app_migrations').doc('stage3-catalog-v2');
-  const videoState=await videoMigration.get();
-  if(!videoState.exists){
-   const batch=d.batch();
-   VIDEO_MODELS.forEach(x=>batch.set(d.collection('models').doc(x.model_id),x,{merge:true}));
-   PROVIDERS.forEach(x=>batch.set(d.collection('providers').doc(x.provider_id),x,{merge:true}));
-   VIDEO_MAPPINGS.forEach(x=>batch.set(d.collection('provider_models').doc(x.mapping_id),x,{merge:true}));
-   VIDEO_PRICING.forEach(x=>batch.set(d.collection('pricing').doc(x.pricing_id),x,{merge:true}));
-   INITIAL_FEATURE_FLAGS.forEach(f=>batch.set(d.collection('feature_flags').doc(f.flag_key),{...f,updated_at:now()},{merge:true}));
-   ['wan-2-1-video','kling-v1-5','hunyuan-video'].forEach(id=>batch.set(d.collection('models').doc(id),{status:'INACTIVE',updated_at:now()},{merge:true}));
-   batch.set(videoMigration,{applied_at:now(),version:2});
-   await batch.commit();
-  }
+export const PRICING_CATALOG: PricingEntry[] = [...videoPricing, ...imagePricing];
 
-  const imageMigration=d.collection('app_migrations').doc('stage4-image-catalog-v1');
-  const imageState=await imageMigration.get();
-  if(!imageState.exists){
-   const batch=d.batch();
-   IMAGE_MODELS.forEach(x=>batch.set(d.collection('models').doc(x.model_id),x,{merge:true}));
-   IMAGE_MAPPINGS.forEach(x=>batch.set(d.collection('provider_models').doc(x.mapping_id),x,{merge:true}));
-   IMAGE_PRICING.forEach(x=>batch.set(d.collection('pricing').doc(x.pricing_id),x,{merge:true}));
-   batch.set(imageMigration,{applied_at:now(),version:1,feature:'image-generation'});
-   await batch.commit();
-  }
- })();
- return initialized;
+const promotions: PromotionEntry[] = [];
+const flags: FeatureFlag[] = INITIAL_FEATURE_FLAGS.map((f) => ({ ...f, updated_at:now() }));
+
+async function bestEffortWrite(collection:string, id:string, value:any) {
+  const db = getAdminDb();
+  if (!db) throw new Error('Firestore Admin indisponível para alteração administrativa.');
+  await db.collection(collection).doc(id).set(value, { merge:true });
+  return value;
 }
 
-async function list<T>(c:string){await ensure();const s=await db().collection(c).get();return s.docs.map(d=>d.data() as T);}
-export const catalogRepository={async listModels(){return(await list<ModelRegistryItem>('models')).filter(x=>x.status!=='INACTIVE');},async getModel(id:string){await ensure();const x=await db().collection('models').doc(id).get();return x.exists?x.data() as ModelRegistryItem:null;},async saveModel(x:ModelRegistryItem){await ensure();x.updated_at=now();await db().collection('models').doc(x.model_id).set(x,{merge:true});return x;},async listProviders(){return(await list<ProviderRegistryItem>('providers')).sort((a,b)=>b.priority-a.priority);},async getProvider(id:string){await ensure();const x=await db().collection('providers').doc(id).get();return x.exists?x.data() as ProviderRegistryItem:null;},async saveProvider(x:ProviderRegistryItem){await ensure();x.updated_at=now();await db().collection('providers').doc(x.provider_id).set(x,{merge:true});return x;},async listMappings(){return list<ProviderModelMapping>('provider_models');},async saveMapping(x:ProviderModelMapping){await ensure();x.updated_at=now();await db().collection('provider_models').doc(x.mapping_id).set(x,{merge:true});return x;},async listPricing(){return list<PricingEntry>('pricing');},async getPricing(id:string){await ensure();const x=await db().collection('pricing').doc(id).get();return x.exists?x.data() as PricingEntry:null;},async savePricing(x:PricingEntry){await ensure();x.updated_at=now();await db().collection('pricing').doc(x.pricing_id).set(x,{merge:true});return x;},async listPromotions(){return list<PromotionEntry>('promotions');},async getPromotion(id:string){await ensure();const x=await db().collection('promotions').doc(id).get();return x.exists?x.data() as PromotionEntry:null;},async savePromotion(x:PromotionEntry){await ensure();await db().collection('promotions').doc(x.promotion_id).set(x,{merge:true});return x;},async listFeatureFlags(){return list<FeatureFlag>('feature_flags');},async getFeatureFlag(id:string){await ensure();const x=await db().collection('feature_flags').doc(id).get();return x.exists?x.data() as FeatureFlag:null;},async saveFeatureFlag(x:FeatureFlag){await ensure();x.updated_at=now();await db().collection('feature_flags').doc(x.flag_key).set(x,{merge:true});return x;},clearForTesting(){initialized=null;}};
+export const catalogRepository = {
+  async listModels() { return MODEL_CATALOG.filter((x) => x.status !== 'INACTIVE'); },
+  async getModel(id:string) { return MODEL_CATALOG.find((x) => x.model_id === id && x.status !== 'INACTIVE') || null; },
+  async saveModel(x:ModelRegistryItem) { x.updated_at=now(); return bestEffortWrite('models',x.model_id,x); },
+
+  async listProviders() { return [...PROVIDER_CATALOG].sort((a,b) => b.priority-a.priority); },
+  async getProvider(id:string) { return PROVIDER_CATALOG.find((x) => x.provider_id === id) || null; },
+  async saveProvider(x:ProviderRegistryItem) { x.updated_at=now(); return bestEffortWrite('providers',x.provider_id,x); },
+
+  async listMappings() { return MODEL_MAPPINGS; },
+  async saveMapping(x:ProviderModelMapping) { x.updated_at=now(); return bestEffortWrite('provider_models',x.mapping_id,x); },
+
+  async listPricing() { return PRICING_CATALOG; },
+  async getPricing(id:string) { return PRICING_CATALOG.find((x) => x.pricing_id === id) || null; },
+  async savePricing(x:PricingEntry) { x.updated_at=now(); return bestEffortWrite('pricing',x.pricing_id,x); },
+
+  async listPromotions() { return promotions; },
+  async getPromotion(id:string) { return promotions.find((x) => x.promotion_id === id) || null; },
+  async savePromotion(x:PromotionEntry) { return bestEffortWrite('promotions',x.promotion_id,x); },
+
+  async listFeatureFlags() { return flags; },
+  async getFeatureFlag(id:string) { return flags.find((x) => x.flag_key === id) || null; },
+  async saveFeatureFlag(x:FeatureFlag) { x.updated_at=now(); return bestEffortWrite('feature_flags',x.flag_key,x); },
+  clearForTesting() {},
+};
