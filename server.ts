@@ -3,12 +3,14 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { apiRouter } from './server/routes/apiRoutes.js';
 import { runtimeRouter } from './server/routes/runtimeRoutes.js';
+import { adminPricingRuntimeRouter } from './server/routes/adminPricingRuntimeRoutes.js';
 
 async function startServer() {
   const app=express(); const PORT=Number(process.env.PORT || 3000);
   // Runtime binary routes must be mounted before the JSON parser.
   app.use('/api',runtimeRouter);
   app.use(express.json({limit:'4mb'}));
+  app.use('/api',adminPricingRuntimeRouter);
   app.use('/api',apiRouter);
   app.get('/health',(req,res)=>res.json({status:'ok',service:'ai-video-router',stage:3}));
 
