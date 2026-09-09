@@ -26,31 +26,107 @@ export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
   supports_start_end_image: false,
 };
 
+type KnownCapabilityDefaults = Partial<ModelCapabilities>;
+
+/**
+ * Verified provider-agnostic model facts. Firestore remains authoritative when a
+ * field is explicitly configured; these values only fill missing capability data.
+ */
+const KNOWN_MODEL_DEFAULTS: Record<string, KnownCapabilityDefaults> = {
+  'wan-3-0': {
+    supports_image_reference: true,
+    supports_multiple_images: true,
+    supports_video_reference: true,
+    supports_audio_reference: true,
+    supports_start_end_image: true,
+    max_reference_images: 10,
+    max_reference_videos: 5,
+    max_reference_audio: 5,
+    max_prompt_length: 20000,
+  },
+  'wan-3-0-prime': {
+    supports_image_reference: true,
+    supports_multiple_images: true,
+    supports_video_reference: true,
+    supports_audio_reference: true,
+    supports_start_end_image: true,
+    max_reference_images: 10,
+    max_reference_videos: 5,
+    max_reference_audio: 5,
+    max_prompt_length: 20000,
+  },
+  'seedance-2-5': {
+    supports_image_reference: true,
+    supports_multiple_images: true,
+    supports_video_reference: true,
+    supports_audio_reference: true,
+    supports_start_end_image: true,
+    max_reference_images: 30,
+    max_reference_videos: 10,
+    max_reference_audio: 10,
+  },
+  'minimax-h3': {
+    supports_image_reference: true,
+    supports_multiple_images: true,
+    supports_video_reference: true,
+    supports_audio_reference: true,
+    supports_start_end_image: false,
+    max_reference_images: 9,
+    max_reference_videos: 3,
+    max_reference_audio: 3,
+  },
+};
+
+function knownValue<K extends keyof ModelCapabilities>(
+  model: Partial<ModelRegistryItem>,
+  key: K,
+  fallback: ModelCapabilities[K]
+): ModelCapabilities[K] {
+  const explicit = model[key as keyof ModelRegistryItem] as ModelCapabilities[K] | undefined;
+  if (explicit !== undefined && explicit !== null) return explicit;
+  const known = KNOWN_MODEL_DEFAULTS[model.model_id || '']?.[key] as ModelCapabilities[K] | undefined;
+  return known ?? fallback;
+}
+
 export function getModelCapabilities(model?: Partial<ModelRegistryItem> | null): ModelCapabilities {
   if (!model) return DEFAULT_MODEL_CAPABILITIES;
   return {
-    supported_modes: model.supported_modes && model.supported_modes.length > 0 ? model.supported_modes : DEFAULT_MODEL_CAPABILITIES.supported_modes,
-    supported_resolutions: model.supported_resolutions && model.supported_resolutions.length > 0 ? model.supported_resolutions : DEFAULT_MODEL_CAPABILITIES.supported_resolutions,
-    supported_durations: model.supported_durations && model.supported_durations.length > 0 ? model.supported_durations : DEFAULT_MODEL_CAPABILITIES.supported_durations,
-    supported_aspect_ratios: model.supported_aspect_ratios && model.supported_aspect_ratios.length > 0 ? model.supported_aspect_ratios : DEFAULT_MODEL_CAPABILITIES.supported_aspect_ratios,
-    supports_image_reference: model.supports_image_reference ?? DEFAULT_MODEL_CAPABILITIES.supports_image_reference,
-    supports_multiple_images: model.supports_multiple_images ?? DEFAULT_MODEL_CAPABILITIES.supports_multiple_images,
-    supports_video_reference: model.supports_video_reference ?? DEFAULT_MODEL_CAPABILITIES.supports_video_reference,
-    supports_audio_reference: model.supports_audio_reference ?? DEFAULT_MODEL_CAPABILITIES.supports_audio_reference,
+    supported_modes:
+      model.supported_modes && model.supported_modes.length > 0
+        ? model.supported_modes
+        : DEFAULT_MODEL_CAPABILITIES.supported_modes,
+    supported_resolutions:
+      model.supported_resolutions && model.supported_resolutions.length > 0
+        ? model.supported_resolutions
+        : DEFAULT_MODEL_CAPABILITIES.supported_resolutions,
+    supported_durations:
+      model.supported_durations && model.supported_durations.length > 0
+        ? model.supported_durations
+        : DEFAULT_MODEL_CAPABILITIES.supported_durations,
+    supported_aspect_ratios:
+      model.supported_aspect_ratios && model.supported_aspect_ratios.length > 0
+        ? model.supported_aspect_ratios
+        : DEFAULT_MODEL_CAPABILITIES.supported_aspect_ratios,
+    supports_image_reference: knownValue(model, 'supports_image_reference', DEFAULT_MODEL_CAPABILITIES.supports_image_reference),
+    supports_multiple_images: knownValue(model, 'supports_multiple_images', DEFAULT_MODEL_CAPABILITIES.supports_multiple_images),
+    supports_video_reference: knownValue(model, 'supports_video_reference', DEFAULT_MODEL_CAPABILITIES.supports_video_reference),
+    supports_audio_reference: knownValue(model, 'supports_audio_reference', DEFAULT_MODEL_CAPABILITIES.supports_audio_reference),
     supports_negative_prompt: model.supports_negative_prompt ?? DEFAULT_MODEL_CAPABILITIES.supports_negative_prompt,
     supports_seed: model.supports_seed ?? DEFAULT_MODEL_CAPABILITIES.supports_seed,
-    max_reference_images: model.max_reference_images ?? DEFAULT_MODEL_CAPABILITIES.max_reference_images,
-    max_reference_videos: model.max_reference_videos ?? DEFAULT_MODEL_CAPABILITIES.max_reference_videos,
-    max_reference_audio: model.max_reference_audio ?? DEFAULT_MODEL_CAPABILITIES.max_reference_audio,
-    max_prompt_length: model.max_prompt_length ?? DEFAULT_MODEL_CAPABILITIES.max_prompt_length,
+    max_reference_images: knownValue(model, 'max_reference_images', DEFAULT_MODEL_CAPABILITIES.max_reference_images),
+    max_reference_videos: knownValue(model, 'max_reference_videos', DEFAULT_MODEL_CAPABILITIES.max_reference_videos),
+    max_reference_audio: knownValue(model, 'max_reference_audio', DEFAULT_MODEL_CAPABILITIES.max_reference_audio),
+    max_prompt_length: knownValue(model, 'max_prompt_length', DEFAULT_MODEL_CAPABILITIES.max_prompt_length),
     supports_camera_control: model.supports_camera_control ?? false,
     supports_motion_strength: model.supports_motion_strength ?? false,
     supports_loop: model.supports_loop ?? false,
-    supports_start_end_image: model.supports_start_end_image ?? false,
+    supports_start_end_image: knownValue(model, 'supports_start_end_image', false),
   };
 }
 
-function unique<T>(values: T[]): T[] { return Array.from(new Set(values)); }
+function unique<T>(values: T[]): T[] {
+  return Array.from(new Set(values));
+}
 
 export function mergeModelCapabilities(models: ModelRegistryItem[]): ModelCapabilities {
   const active = models.filter((m) => m.status !== 'INACTIVE');
@@ -78,7 +154,11 @@ export function mergeModelCapabilities(models: ModelRegistryItem[]): ModelCapabi
   };
 }
 
-export interface CompatibilityCheckResult { valid: boolean; errors: string[]; warnings: string[]; }
+export interface CompatibilityCheckResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
 
 export function validateConfiguration(
   model: ModelRegistryItem | null,
@@ -96,16 +176,25 @@ export function validateConfiguration(
 ): CompatibilityCheckResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  if (!model) return { valid: false, errors: ['Nenhuma IA compatível foi encontrada para esta combinação.'], warnings: [] };
+  if (!model) {
+    return {
+      valid: false,
+      errors: ['Nenhuma IA compatível foi encontrada para esta combinação.'],
+      warnings: [],
+    };
+  }
+
   const caps = getModelCapabilities(model);
   if (!caps.supported_modes.includes(config.mode)) errors.push(`O modelo ${model.name} não suporta o modo ${config.mode}.`);
   if (!caps.supported_durations.includes(config.duration_seconds)) errors.push(`Duração de ${config.duration_seconds}s não suportada por ${model.name}.`);
   if (!caps.supported_resolutions.includes(config.resolution)) errors.push(`Resolução ${config.resolution} não suportada por ${model.name}.`);
   if (!caps.supported_aspect_ratios.includes(config.aspect_ratio)) errors.push(`Proporção ${config.aspect_ratio} não suportada por ${model.name}.`);
   if (config.has_end_image && !caps.supports_start_end_image) errors.push(`${model.name} não suporta quadro final.`);
+
   const imageRefs = config.references.filter((r) => r.asset?.type === 'IMAGE' || !r.asset?.type);
   const videoRefs = config.references.filter((r) => r.asset?.type === 'VIDEO');
   const audioRefs = config.references.filter((r) => r.asset?.type === 'AUDIO');
+
   if (imageRefs.length > 0 && !caps.supports_image_reference) errors.push(`O modelo ${model.name} não suporta imagens de referência.`);
   else if (imageRefs.length > caps.max_reference_images) errors.push(`O modelo ${model.name} aceita no máximo ${caps.max_reference_images} imagem(ns) de referência.`);
   if (videoRefs.length > 0 && !caps.supports_video_reference) errors.push(`O modelo ${model.name} não suporta vídeos de referência.`);
@@ -114,6 +203,7 @@ export function validateConfiguration(
   else if (audioRefs.length > caps.max_reference_audio) errors.push(`O modelo ${model.name} aceita no máximo ${caps.max_reference_audio} áudio(s) de referência.`);
   if (config.negative_prompt?.trim() && !caps.supports_negative_prompt) warnings.push(`O modelo ${model.name} não processa negative prompt; este campo será ignorado.`);
   if (config.promptText && config.promptText.length > caps.max_prompt_length) errors.push(`O prompt excede o limite de ${caps.max_prompt_length} caracteres de ${model.name}.`);
+
   return { valid: errors.length === 0, errors, warnings };
 }
 
