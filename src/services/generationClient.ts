@@ -74,6 +74,7 @@ export const generationClient = {
         motion_strength: draft.settings.motion_strength,
         references: normalizeReferences(draft),
         client_request_id: draft.request_id,
+        maximum_authorized_cost_cents: draft.estimated_cost_cents,
       }),
     });
     queueAssetRegistration(generation);
