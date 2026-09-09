@@ -24,6 +24,14 @@ export interface ProviderGenerationParams {
   callback_url?: string;
 }
 
+export interface ProviderCostQuote {
+  effective_price_usd: number;
+  list_price_usd?: number | null;
+  discount_rate?: number | null;
+  estimated?: boolean;
+  source: 'LIVE_API';
+}
+
 export interface ProviderJobResult {
   provider_job_id: string;
   provider_id: string;
@@ -57,6 +65,8 @@ export interface VideoProviderAdapter {
   readonly name: string;
   isConfigured(): boolean;
   supports(modelId: string, mode: GenerationMode): boolean;
+  /** Exact/pre-flight provider quote. Absence means the provider cannot be used in anti-loss routing. */
+  quoteCostUsd?(params: ProviderGenerationParams): Promise<ProviderCostQuote>;
   submitGeneration(params: ProviderGenerationParams): Promise<ProviderJobResult>;
   checkStatus(providerJobId: string): Promise<ProviderJobStatusResult>;
   cancelJob?(providerJobId: string): Promise<boolean>;
