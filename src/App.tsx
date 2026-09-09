@@ -8,7 +8,6 @@ import { DashboardView } from './components/views/DashboardView.js';
 import { WalletView } from './components/views/WalletView.js';
 import { CreateHubView } from './components/views/CreateHubView.js';
 import { HistoryView } from './components/views/HistoryView.js';
-import { AssetsView } from './components/views/AssetsView.js';
 import { AdminView } from './components/views/AdminView.js';
 import { SettingsView } from './components/views/SettingsView.js';
 import { LibraryHubView } from './components/views/LibraryHubView.js';
@@ -23,14 +22,14 @@ const MainApp: React.FC = () => {
   if (!firebaseUser) return authMode==='register'?<RegisterView onSwitchToLogin={()=>setAuthMode('login')}/>:<LoginView onSwitchToRegister={()=>setAuthMode('register')}/>;
   if (isSuspended) return <div className="min-h-screen bg-[#080a0f] flex items-center justify-center p-4 text-zinc-100"><div className="max-w-md w-full p-6 bg-[#11151c] border border-white/[0.08] rounded-2xl shadow-2xl text-center space-y-4"><div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-400/10 flex items-center justify-center mx-auto"><ShieldAlert className="w-6 h-6"/></div><div><h2 className="text-base font-bold text-white">Conta suspensa</h2><p className="text-xs text-zinc-500 mt-1 leading-relaxed">O acesso às operações e recursos da plataforma foi temporariamente bloqueado.</p></div><button onClick={()=>logout()} className="w-full py-2.5 px-4 bg-white text-black hover:bg-zinc-200 text-xs font-semibold rounded-xl transition-colors">Sair da conta</button></div></div>;
 
-  const currentSafeView = activeView==='admin'&&!isAdmin?'dashboard':activeView;
+  const normalizedView = activeView === 'assets' ? 'library' : activeView;
+  const currentSafeView = normalizedView==='admin'&&!isAdmin?'dashboard':normalizedView;
   return <AppLayout currentView={currentSafeView} onNavigate={setActiveView}>
     {currentSafeView==='dashboard'&&<DashboardView onNavigate={setActiveView}/>} 
     {currentSafeView==='wallet'&&<WalletView/>}
     {currentSafeView==='create-video'&&<CreateHubView initialMode="VIDEO"/>}
     {currentSafeView==='create-image'&&<CreateHubView initialMode="IMAGE"/>}
     {currentSafeView==='history'&&<HistoryView/>}
-    {currentSafeView==='assets'&&<AssetsView/>}
     {currentSafeView==='library'&&<LibraryHubView/>}
     {currentSafeView==='admin'&&isAdmin&&<AdminView/>}
     {currentSafeView==='settings'&&<SettingsView/>}
