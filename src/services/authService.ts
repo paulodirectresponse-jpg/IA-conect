@@ -4,7 +4,6 @@ import {
   signOut,
   sendPasswordResetEmail,
   updateProfile,
-  User as FirebaseUser,
 } from 'firebase/auth';
 import { auth } from '../config/firebase.js';
 import { apiRequest } from './apiClient.js';
@@ -21,38 +20,29 @@ export const authService = {
       }
     }
 
-    try {
-      const token = await cred.user.getIdToken();
-      const res = await apiRequest<{ user: UserProfile; wallet: WalletAccount }>('/api/auth/register-profile', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          display_name: displayName,
-        }),
-      });
-      return res;
-    } catch (err) {
-      await signOut(auth);
-      throw err;
-    }
+    // Keep the Firebase session alive if backend profile synchronization fails.
+    // AuthContext can surface/retry the synchronization error without bouncing the
+    // user back to login and destroying an otherwise valid Firebase session.
+    const token = await cred.user.getIdToken();
+    return apiRequest<{ user: UserProfile; wallet: WalletAccount }>('/api/auth/register-profile', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        display_name: displayName,
+      }),
+    });
   },
 
   async login(email: string, pass: string): Promise<{ user: UserProfile; wallet: WalletAccount }> {
     const cred = await signInWithEmailAndPassword(auth, email, pass);
-    try {
-      const token = await cred.user.getIdToken();
-      const res = await apiRequest<{ user: UserProfile; wallet: WalletAccount }>('/api/auth/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      return res;
-    } catch (err) {
-      await signOut(auth);
-      throw err;
-    }
+    const token = await cred.user.getIdToken();
+    return apiRequest<{ user: UserProfile; wallet: WalletAccount }>('/api/auth/me', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
   },
 
   async logout(): Promise<void> {
