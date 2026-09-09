@@ -2,6 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "ia-conect",
   "compatibility_date": "2026-09-08",
+  "compatibility_flags": ["nodejs_compat"],
   "main": "./worker/index.ts",
   "assets": {
     "not_found_handling": "single-page-application",
