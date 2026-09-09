@@ -5,10 +5,13 @@ import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
 function cfg(){
  const token=process.env.MERCADOPAGO_ACCESS_TOKEN?.trim();
  if(!token){const e:any=new Error('Mercado Pago ainda não configurado.');e.code='PAYMENTS_NOT_CONFIGURED';throw e;}
+ const explicit=String(process.env.MERCADOPAGO_ENVIRONMENT||process.env.MERCADOPAGO_MODE||'').trim().toLowerCase();
+ const inferred=token.startsWith('TEST-')?'test':'production';
+ const mode=explicit==='production'||explicit==='prod'?'production':explicit==='test'||explicit==='sandbox'?'test':inferred;
  return{
   token,
   base:(process.env.MERCADOPAGO_BASE_URL||'https://api.mercadopago.com').replace(/\/$/,''),
-  mode:String(process.env.MERCADOPAGO_MODE||'test').toLowerCase()==='production'?'production':'test'
+  mode
  } as const;
 }
 function amountString(c:number){return (c/100).toFixed(2);}
@@ -63,7 +66,7 @@ async function applyOrderToPayment(order:any,payment:any){
 function mercadoPagoError(body:any,status:number){
  const message=String(body?.message||body?.error||body?.cause?.[0]?.description||`Mercado Pago Orders HTTP ${status}`);
  if(message.toLowerCase().includes('unauthorized use of live credentials')){
-  return Object.assign(new Error('Credencial do Mercado Pago incompatível com o ambiente de teste. Use o Access Token exibido em Testes > Credenciais de teste da aplicação IA conect.'),{code:'MERCADOPAGO_CREDENTIAL_ENV_MISMATCH'});
+  return Object.assign(new Error('As credenciais do Mercado Pago não correspondem ao ambiente configurado. Confira o Access Token e a variável MERCADOPAGO_ENVIRONMENT.'),{code:'MERCADOPAGO_CREDENTIAL_ENV_MISMATCH'});
  }
  return Object.assign(new Error(message),{code:`MERCADOPAGO_ORDERS_HTTP_${status}`});
 }
@@ -72,14 +75,12 @@ export const paymentService={
  isConfigured(){return Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN?.trim());},
  async createPayment(params:{userId:string;amount_cents:number;method:PaymentMethod}):Promise<PaymentRecord>{
   if(params.method!=='PIX')throw Object.assign(new Error('Neste MVP, recargas online estão habilitadas apenas via Pix.'),{code:'PAYMENT_METHOD_UNSUPPORTED'});
-  if(!Number.isInteger(params.amount_cents)||params.amount_cents<500)throw new Error('Recarga mínima: R$ 5,00.');if(params.amount_cents>1000000)throw new Error('Recarga máxima por transação: R$ 10.000,00.');
+  if(!Number.isInteger(params.amount_cents)||params.amount_cents<500)throw new Error('Recarga mínima: R$ 5,00.');
+  if(params.amount_cents>1000000)throw new Error('Recarga máxima por transação: R$ 10.000,00.');
   const {token,base,mode}=cfg();const realEmail=await getUserEmail(params.userId);
 
-  // Mercado Pago Orders sandbox has a predefined Pix contract: R$ 50,00 +
-  // test payer APRO. Do not send arbitrary amounts in sandbox; the public UI
-  // may accept them, but the gateway test API only guarantees this scenario.
   if(mode==='test'&&params.amount_cents!==5000){
-   throw Object.assign(new Error('No ambiente de teste do Mercado Pago, o teste oficial de Pix deve ser feito com R$ 50,00. Selecione R$ 50,00 para validar a integração.'),{code:'MERCADOPAGO_TEST_PIX_AMOUNT'});
+   throw Object.assign(new Error('O Access Token atual é de teste. Para Pix real a partir de R$ 5,00, configure o Access Token de produção e MERCADOPAGO_ENVIRONMENT=production no Cloudflare.'),{code:'MERCADOPAGO_TEST_PIX_AMOUNT'});
   }
 
   const paymentId=`pay_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,idem=`mp-order:${paymentId}`;const amount=amountString(params.amount_cents);
