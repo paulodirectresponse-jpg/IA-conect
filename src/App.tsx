@@ -6,7 +6,7 @@ import { LoginView } from './components/views/LoginView.js';
 import { RegisterView } from './components/views/RegisterView.js';
 import { DashboardView } from './components/views/DashboardView.js';
 import { WalletView } from './components/views/WalletView.js';
-import { CreateView } from './components/views/CreateView.js';
+import { CreateHubView } from './components/views/CreateHubView.js';
 import { HistoryView } from './components/views/HistoryView.js';
 import { AssetsView } from './components/views/AssetsView.js';
 import { AdminView } from './components/views/AdminView.js';
@@ -32,20 +32,11 @@ const MainApp: React.FC = () => {
 
   if (!firebaseUser) {
     if (authMode === 'register') {
-      return (
-        <RegisterView
-          onSwitchToLogin={() => setAuthMode('login')}
-        />
-      );
+      return <RegisterView onSwitchToLogin={() => setAuthMode('login')} />;
     }
-    return (
-      <LoginView
-        onSwitchToRegister={() => setAuthMode('register')}
-      />
-    );
+    return <LoginView onSwitchToRegister={() => setAuthMode('register')} />;
   }
 
-  // Suspended account screen
   if (isSuspended) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
@@ -71,14 +62,13 @@ const MainApp: React.FC = () => {
     );
   }
 
-  // Fallback if non-admin tries to open admin
   const currentSafeView = activeView === 'admin' && !isAdmin ? 'dashboard' : activeView;
 
   return (
     <AppLayout activeView={currentSafeView} onNavigate={setActiveView}>
       {currentSafeView === 'dashboard' && <DashboardView onNavigate={setActiveView} />}
       {currentSafeView === 'wallet' && <WalletView />}
-      {currentSafeView === 'create' && <CreateView />}
+      {currentSafeView === 'create' && <CreateHubView />}
       {currentSafeView === 'history' && <HistoryView />}
       {currentSafeView === 'assets' && <AssetsView />}
       {currentSafeView === 'admin' && isAdmin && <AdminView />}
