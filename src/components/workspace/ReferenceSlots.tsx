@@ -109,13 +109,22 @@ export const ReferenceSlots: React.FC<Props> = ({
       !['START_FRAME', 'INITIAL_FRAME', 'INITIAL', 'END_FRAME', 'END'].includes(String(r.role || '').toUpperCase())
   );
 
-  const canAddStart = Boolean(capabilities?.supports_image_reference && capabilities.supported_modes.includes('IMAGE_TO_VIDEO'));
-  const canAddEnd = Boolean(canAddStart && capabilities?.supports_start_end_image);
-  const canAddGeneral = Boolean(
+  const frameModeActive = Boolean(initialImage || endImage);
+  const referenceModeActive = extras.length > 0;
+  const modelCanStart = Boolean(capabilities?.supports_image_reference && capabilities.supported_modes.includes('IMAGE_TO_VIDEO'));
+  const modelCanEnd = Boolean(modelCanStart && capabilities?.supports_start_end_image);
+  const modelCanGeneral = Boolean(
     capabilities?.supports_image_reference || capabilities?.supports_video_reference || capabilities?.supports_audio_reference
   );
-  const showFrames = canAddStart || Boolean(initialImage) || Boolean(endImage);
-  const showGeneral = canAddGeneral || extras.length > 0;
+
+  // Current upstream APIs expose first/last-frame and multimodal-reference as
+  // different generation modes. Disable the opposite add path instead of letting
+  // the user build a request whose references would be silently ignored.
+  const canAddStart = modelCanStart && !referenceModeActive;
+  const canAddEnd = modelCanEnd && !referenceModeActive;
+  const canAddGeneral = modelCanGeneral && !frameModeActive;
+  const showFrames = Boolean(initialImage || endImage) || canAddStart;
+  const showGeneral = extras.length > 0 || canAddGeneral;
 
   const isAssetSupported = (asset?: Asset) => {
     if (!asset) return true;
@@ -134,7 +143,7 @@ export const ReferenceSlots: React.FC<Props> = ({
             <label className="text-xs font-semibold text-zinc-800">Mídia deste vídeo</label>
           </div>
           <p className="text-[9px] text-zinc-400 mt-0.5 leading-snug">
-            Anexe aqui primeiro. Depois use <strong className="font-mono text-zinc-600">@</strong> no prompt para mencionar.
+            Anexe aqui primeiro. Depois use <strong className="font-mono text-zinc-600">@</strong> no prompt para mencionar assets.
           </p>
         </div>
         <div title={modeExplanation} className="flex items-center gap-1 text-[9px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 shrink-0">
@@ -151,26 +160,37 @@ export const ReferenceSlots: React.FC<Props> = ({
         </div>
       )}
 
+      {referenceModeActive && !frameModeActive && modelCanStart && (
+        <div className="rounded-lg border border-zinc-100 bg-zinc-50 px-2.5 py-1.5 text-[9px] text-zinc-500">
+          Você está em modo de referências. Remova os assets anexados para usar imagem inicial/final.
+        </div>
+      )}
+      {frameModeActive && !referenceModeActive && modelCanGeneral && (
+        <div className="rounded-lg border border-zinc-100 bg-zinc-50 px-2.5 py-1.5 text-[9px] text-zinc-500">
+          Você está em modo de primeiro/último quadro. Remova os quadros para usar referências pelo @.
+        </div>
+      )}
+
       {showFrames && (
         <div className={`grid ${canAddEnd || endImage ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
           <FrameSlot
             asset={initialImage}
             label="Imagem inicial"
-            subtitle="Opcional"
+            subtitle={referenceModeActive ? 'Indisponível com referências' : 'Opcional'}
             onPick={() => onOpenPicker('INITIAL')}
             onRemove={() => onRemoveSlot('INITIAL')}
             canPick={canAddStart}
-            incompatible={Boolean(initialImage && !canAddStart)}
+            incompatible={Boolean(initialImage && (!modelCanStart || referenceModeActive))}
           />
           {(canAddEnd || endImage) && (
             <FrameSlot
               asset={endImage}
               label="Imagem final"
-              subtitle="Opcional"
+              subtitle={referenceModeActive ? 'Indisponível com referências' : 'Opcional'}
               onPick={() => onOpenPicker('END')}
               onRemove={() => onRemoveSlot('END')}
               canPick={canAddEnd}
-              incompatible={Boolean(endImage && !canAddEnd)}
+              incompatible={Boolean(endImage && (!modelCanEnd || referenceModeActive))}
             />
           )}
         </div>
@@ -194,7 +214,7 @@ export const ReferenceSlots: React.FC<Props> = ({
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
               {extras.map((ref) => {
                 const asset = ref.asset;
-                const supported = isAssetSupported(asset);
+                const supported = isAssetSupported(asset) && !frameModeActive;
                 return (
                   <div key={ref.asset_id} className="group relative w-[80px] shrink-0" title={asset?.name || ref.alias_snapshot}>
                     <div className={`relative h-[70px] rounded-lg overflow-hidden border bg-zinc-100 flex items-center justify-center ${supported ? 'border-zinc-200' : 'border-amber-300'}`}>
@@ -225,8 +245,10 @@ export const ReferenceSlots: React.FC<Props> = ({
             <button type="button" onClick={() => onOpenPicker('GENERAL')} className="w-full py-3 rounded-lg border border-dashed border-zinc-200 hover:border-emerald-400 hover:bg-emerald-50/20 text-[10px] text-zinc-500 hover:text-emerald-700 transition-colors">
               + Enviar novo arquivo ou escolher da Biblioteca de Assets
             </button>
+          ) : frameModeActive ? (
+            <p className="py-2 text-[9px] text-zinc-500">Remova a imagem inicial/final para anexar referências multimodais.</p>
           ) : (
-            <p className="py-2 text-[9px] text-amber-700">A IA selecionada não aceita novas referências deste tipo. Remova os itens incompatíveis ou troque de IA.</p>
+            <p className="py-2 text-[9px] text-amber-700">A IA selecionada não aceita novas referências. Remova itens incompatíveis ou troque de IA.</p>
           )}
         </div>
       )}
