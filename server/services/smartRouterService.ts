@@ -3,7 +3,7 @@ import { catalogRepository } from '../repositories/catalogRepository.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { getAdminDb } from '../repositories/firebaseAdminClient.js';
 import { providerFinanceService, ProviderFinanceSnapshot } from './providerFinanceService.js';
-import { pricingGuardService } from './pricingGuardService.js';
+import { quoteCacheService } from './quoteCacheService.js';
 import { GenerationMode, RoutingLogEntry, ProviderStatus, ProviderModelMapping } from '../../src/types/index.js';
 
 export interface RoutingCandidate{
@@ -30,7 +30,7 @@ const seedance20WaveMapping:ProviderModelMapping={mapping_id:'map-seed20-wave-ru
 export const smartRouterService={
  async selectProvider(params:{
    userId:string;model_id:string;mode:GenerationMode;duration_seconds:number;resolution:string;number_of_outputs:number;
-   aspect_ratio?:string;prompt?:string;negative_prompt?:string;seed?:number|null;motion_strength?:number|null;generation_id?:string;
+   aspect_ratio?:string;prompt?:string;negative_prompt?:string;seed?:number|null;motion_strength?:number|null;generation_id?:string;force_live_quote?:boolean;
  }):Promise<RoutingDecision>{
   const [providers,baseMappings,financeRows]=await Promise.all([
     catalogRepository.listProviders(),
@@ -48,11 +48,11 @@ export const smartRouterService={
     const adapter=providerRegistry.getAdapter(p.provider_id);
     if(!adapter||!adapter.isConfigured()||!adapter.supports(params.model_id,params.mode)||!adapter.quoteCostUsd)return null;
     try{
-      const quote=await pricingGuardService.quote(adapter,{
+      const quote=await quoteCacheService.getOrQuote(adapter,{
         userId:params.userId,model_id:params.model_id,mode:params.mode,prompt:params.prompt,negative_prompt:params.negative_prompt,
         duration_seconds:params.duration_seconds,resolution:params.resolution,aspect_ratio:params.aspect_ratio||'16:9',
         number_of_outputs:params.number_of_outputs,seed:params.seed,motion_strength:params.motion_strength,
-      });
+      },Boolean(params.force_live_quote));
       const finance=financeById.get(p.provider_id);
       if(finance?.balance_brl_cents!=null&&finance.balance_brl_cents<quote.provider_cost_brl_cents)return null;
       const lowBalance=Boolean(finance?.low_balance);
