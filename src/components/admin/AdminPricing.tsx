@@ -1,52 +1,103 @@
-import React, { useEffect, useState } from 'react';
-import { Plus, Edit2, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, RefreshCw, AlertTriangle, Clock3 } from 'lucide-react';
 import { adminService } from '../../services/adminService.js';
 import { apiRequest } from '../../services/apiClient.js';
-import { PricingEntry, ModelRegistryItem, ProviderRegistryItem } from '../../types/index.js';
-import { formatCentsToBRL, parseBRLToCents } from '../../config/constants.js';
+import { ModelRegistryItem, ProviderRegistryItem } from '../../types/index.js';
+import { formatCentsToBRL } from '../../config/constants.js';
 import { Card } from '../common/Card.js';
 import { Button } from '../common/Button.js';
-import { Modal } from '../common/Modal.js';
 
 type LiveRow = {
   key:string; provider_id:string; model_id:string; mode:string; duration_seconds:number; resolution:string;
   provider_cost_brl_cents:number|null; customer_price_cents:number|null; margin_percent:number|null;
   status:'OK'|'FAILED'; checked_at:string; error?:string;
 };
-type SyncResult = { checked_at:string; checked:number; healthy:number; failed:number; rows:LiveRow[] };
+type SyncResult = { checked_at:string|null; checked:number; healthy:number; failed:number; rows:LiveRow[] };
+
+const modeLabel=(mode:string)=>({
+  TEXT_TO_VIDEO:'Texto → vídeo',IMAGE_TO_VIDEO:'Imagem → vídeo',REFERENCE_TO_VIDEO:'Referência → vídeo',
+  TEXT_TO_IMAGE:'Texto → imagem',IMAGE_TO_IMAGE:'Imagem → imagem',
+}[mode]||mode);
 
 export const AdminPricing: React.FC = () => {
-  const [pricingList,setPricingList]=useState<PricingEntry[]>([]); const [liveRows,setLiveRows]=useState<LiveRow[]>([]);
-  const [models,setModels]=useState<ModelRegistryItem[]>([]); const [providers,setProviders]=useState<ProviderRegistryItem[]>([]);
-  const [loading,setLoading]=useState(true); const [syncing,setSyncing]=useState(false); const [syncMessage,setSyncMessage]=useState('');
-  const [modalOpen,setModalOpen]=useState(false); const [editingPricing,setEditingPricing]=useState<PricingEntry|null>(null);
-  const [modelId,setModelId]=useState(''); const [providerId,setProviderId]=useState(''); const [resolution,setResolution]=useState('720p');
-  const [durationSeconds,setDurationSeconds]=useState(5); const [providerCostStr,setProviderCostStr]=useState(''); const [customerPriceStr,setCustomerPriceStr]=useState('');
-  const [reason,setReason]=useState(''); const [confirmedHighVariation,setConfirmedHighVariation]=useState(false); const [highVariationWarning,setHighVariationWarning]=useState<string|null>(null);
-  const [saveLoading,setSaveLoading]=useState(false); const [error,setError]=useState<string|null>(null);
+  const [liveRows,setLiveRows]=useState<LiveRow[]>([]);
+  const [models,setModels]=useState<ModelRegistryItem[]>([]);
+  const [providers,setProviders]=useState<ProviderRegistryItem[]>([]);
+  const [loading,setLoading]=useState(true);
+  const [syncing,setSyncing]=useState(false);
+  const [message,setMessage]=useState('');
+  const [lastCheckedAt,setLastCheckedAt]=useState<string|null>(null);
 
-  const loadData=async()=>{try{setLoading(true);const [p,m,pr]=await Promise.all([adminService.listPricing(),adminService.listModels(),adminService.listProviders()]);setPricingList(p);setModels(m);setProviders(pr);}finally{setLoading(false);}};
-  useEffect(()=>{loadData().catch(console.error);},[]);
+  const loadSnapshot=async()=>{
+    setLoading(true);
+    try{
+      const [snapshot,m,p]=await Promise.all([
+        apiRequest<SyncResult>('/api/admin/pricing/live'),
+        adminService.listModels(),
+        adminService.listProviders(),
+      ]);
+      setLiveRows(snapshot.rows||[]);
+      setLastCheckedAt(snapshot.checked_at||null);
+      setModels(m);
+      setProviders(p);
+    }finally{setLoading(false);}
+  };
 
-  const syncNow=async()=>{setSyncing(true);setSyncMessage('');try{const r=await apiRequest<SyncResult>('/api/admin/pricing/sync',{method:'POST'});setLiveRows(r.rows||[]);setSyncMessage(`${r.healthy} preço(s) atualizado(s) agora${r.failed?` · ${r.failed} falha(s)`:''}.`);}catch(e:any){setSyncMessage(e?.message||'Falha ao buscar preços.');}finally{setSyncing(false);}};
-  const openCreate=()=>{setEditingPricing(null);setModelId(models[0]?.model_id||'');setProviderId(providers[0]?.provider_id||'');setResolution('720p');setDurationSeconds(5);setProviderCostStr('');setCustomerPriceStr('');setReason('');setError(null);setHighVariationWarning(null);setConfirmedHighVariation(false);setModalOpen(true);};
-  const openEdit=(p:PricingEntry)=>{setEditingPricing(p);setModelId(p.model_id);setProviderId(p.provider_id);setResolution(p.resolution);setDurationSeconds(p.duration_seconds||5);setProviderCostStr((p.provider_cost_cents/100).toFixed(2).replace('.',','));setCustomerPriceStr((p.customer_price_cents/100).toFixed(2).replace('.',','));setReason('');setError(null);setHighVariationWarning(null);setConfirmedHighVariation(false);setModalOpen(true);};
-  const save=async(e:React.FormEvent)=>{e.preventDefault();setError(null);const pc=parseBRLToCents(providerCostStr),cc=parseBRLToCents(customerPriceStr);if(cc<=0)return setError('O preço ao cliente deve ser maior que zero.');if(reason.trim().length<3)return setError('Informe uma justificativa para a auditoria.');setSaveLoading(true);try{await adminService.savePricing({pricing_id:editingPricing?.pricing_id,model_id:modelId,provider_id:providerId,resolution,duration_seconds:durationSeconds,unit:'PER_GENERATION',provider_cost_cents:pc,customer_price_cents:cc,active:true},reason,confirmedHighVariation);setModalOpen(false);await loadData();}catch(err:any){if(err.code==='PRICE_VARIATION_HIGH')setHighVariationWarning(err.message);else setError(err.message||'Falha ao salvar.');}finally{setSaveLoading(false);}};
-  const nameModel=(id:string)=>models.find(m=>m.model_id===id)?.name||id; const nameProvider=(id:string)=>providers.find(p=>p.provider_id===id)?.name||id;
+  useEffect(()=>{loadSnapshot().catch((e)=>setMessage(e?.message||'Falha ao carregar preços vivos.'));},[]);
+
+  const syncNow=async()=>{
+    setSyncing(true);setMessage('');
+    try{
+      const r=await apiRequest<SyncResult>('/api/admin/pricing/sync',{method:'POST'});
+      setLiveRows(r.rows||[]);setLastCheckedAt(r.checked_at||null);
+      setMessage(`${r.healthy} cotações atualizadas${r.failed?` · ${r.failed} combinação(ões) indisponível(is)`:''}.`);
+    }catch(e:any){setMessage(e?.message||'Falha ao atualizar preços.');}
+    finally{setSyncing(false);}
+  };
+
+  const nameModel=(id:string)=>models.find(m=>m.model_id===id)?.name||id;
+  const nameProvider=(id:string)=>providers.find(p=>p.provider_id===id)?.name||id;
+  const rows=useMemo(()=>[...liveRows].sort((a,b)=>nameModel(a.model_id).localeCompare(nameModel(b.model_id))||a.mode.localeCompare(b.mode)||a.resolution.localeCompare(b.resolution)||nameProvider(a.provider_id).localeCompare(nameProvider(b.provider_id))),[liveRows,models,providers]);
+  const healthy=rows.filter(r=>r.status==='OK').length;
+  const failed=rows.length-healthy;
 
   return <div className="space-y-4">
-    <div className="flex items-center justify-between gap-3 flex-wrap"><div><h2 className="text-base font-semibold text-zinc-900 tracking-tight">Matriz de Precificação</h2><p className="text-xs text-zinc-500">Custo vivo dos provedores e tarifas manuais com salvaguardas.</p></div><div className="flex gap-2"><Button id="btn-sync-pricing" variant="secondary" size="sm" onClick={syncNow} isLoading={syncing} icon={<RefreshCw className="w-3.5 h-3.5"/>}>Atualizar preços agora</Button><Button id="btn-add-pricing" variant="primary" size="sm" onClick={openCreate} icon={<Plus className="w-3.5 h-3.5"/>}>Nova Tarifa</Button></div></div>
-    {syncMessage&&<div className="text-xs px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700">{syncMessage}</div>}
-    <Card id="admin-pricing-card">{loading?<div className="py-8 text-center text-xs text-zinc-400">Carregando...</div>:<div className="overflow-x-auto -mx-5 sm:-mx-6"><table className="w-full text-left text-xs border-collapse"><thead><tr className="border-b border-zinc-100 bg-zinc-50/70 text-zinc-500"><th className="py-3 px-4 sm:px-6">Modelo / Configuração</th><th className="py-3 px-4">Provedor</th><th className="py-3 px-4 text-right">Custo Provedor</th><th className="py-3 px-4 text-right">Preço Cliente</th><th className="py-3 px-4 text-right">Margem</th><th className="py-3 px-4 sm:px-6 text-right">Ação</th></tr></thead><tbody className="divide-y divide-zinc-100">
-      {liveRows.map(r=><tr key={`live-${r.key}`} className="bg-emerald-50/20"><td className="py-3 px-4 sm:px-6"><span className="font-semibold text-zinc-900 block">{nameModel(r.model_id)}</span><span className="text-[11px] text-zinc-500">{r.resolution} • {r.duration_seconds}s • AO VIVO</span></td><td className="py-3 px-4">{nameProvider(r.provider_id)}</td><td className="py-3 px-4 text-right">{r.provider_cost_brl_cents==null?'—':formatCentsToBRL(r.provider_cost_brl_cents)}</td><td className="py-3 px-4 text-right font-semibold">{r.customer_price_cents==null?'—':formatCentsToBRL(r.customer_price_cents)}</td><td className="py-3 px-4 text-right">{r.status==='OK'?<span className="text-emerald-700 font-semibold">{r.margin_percent?.toFixed(0)}%</span>:<span className="text-rose-600">Falhou</span>}</td><td className="py-3 px-4 sm:px-6 text-right"><span className="inline-flex items-center gap-1 text-[10px] text-emerald-700"><CheckCircle2 className="w-3 h-3"/> consultado</span></td></tr>)}
-      {pricingList.map(p=>{const margin=p.customer_price_cents-p.provider_cost_cents;const pct=p.provider_cost_cents>0?(margin/p.provider_cost_cents)*100:0;return <tr key={p.pricing_id}><td className="py-3 px-4 sm:px-6"><span className="font-semibold text-zinc-900 block">{nameModel(p.model_id)}</span><span className="text-[11px] text-zinc-500">{p.resolution} • {p.duration_seconds}s • TARIFA MANUAL</span></td><td className="py-3 px-4">{nameProvider(p.provider_id)}</td><td className="py-3 px-4 text-right">{formatCentsToBRL(p.provider_cost_cents)}</td><td className="py-3 px-4 text-right font-semibold">{formatCentsToBRL(p.customer_price_cents)}</td><td className="py-3 px-4 text-right text-emerald-700 font-semibold">{pct.toFixed(0)}%</td><td className="py-3 px-4 sm:px-6 text-right"><Button id={`btn-edit-pricing-${p.pricing_id}`} variant="secondary" size="sm" onClick={()=>openEdit(p)} icon={<Edit2 className="w-3.5 h-3.5"/>}>Editar</Button></td></tr>;})}
-      {!liveRows.length&&!pricingList.length&&<tr><td colSpan={6} className="py-10 text-center text-zinc-500">Nenhum preço carregado. Clique em “Atualizar preços agora” para consultar os provedores.</td></tr>}
-    </tbody></table></div>}</Card>
-    <Modal id="pricing-form-modal" isOpen={modalOpen} onClose={()=>setModalOpen(false)} title={editingPricing?'Editar Tarifa de Preço':'Cadastrar Tarifa de Preço'} description="Override manual com trilha de auditoria"><form onSubmit={save} className="space-y-4 text-xs">{error&&<div className="p-3 rounded-lg bg-rose-50 text-rose-800 border border-rose-200">{error}</div>}{highVariationWarning&&<div className="p-3 rounded-lg bg-amber-50 border border-amber-300 text-amber-900"><div className="flex gap-2"><AlertTriangle className="w-4 h-4"/>{highVariationWarning}</div><label className="flex gap-2 mt-2"><input type="checkbox" checked={confirmedHighVariation} onChange={e=>setConfirmedHighVariation(e.target.checked)}/>Confirmo expressamente esta alteração.</label></div>}
-      <div className="grid grid-cols-2 gap-3"><label>Modelo<select value={modelId} onChange={e=>setModelId(e.target.value)} className="w-full p-2 border rounded-lg">{models.map(m=><option key={m.model_id} value={m.model_id}>{m.name}</option>)}</select></label><label>Provedor<select value={providerId} onChange={e=>setProviderId(e.target.value)} className="w-full p-2 border rounded-lg">{providers.map(p=><option key={p.provider_id} value={p.provider_id}>{p.name}</option>)}</select></label></div>
-      <div className="grid grid-cols-2 gap-3"><label>Resolução<select value={resolution} onChange={e=>setResolution(e.target.value)} className="w-full p-2 border rounded-lg"><option>720p</option><option>1080p</option><option>1K</option><option>2K</option></select></label><label>Duração<input type="number" min={1} value={durationSeconds} onChange={e=>setDurationSeconds(Number(e.target.value))} className="w-full p-2 border rounded-lg"/></label></div>
-      <div className="grid grid-cols-2 gap-3"><label>Custo provedor (R$)<input required value={providerCostStr} onChange={e=>setProviderCostStr(e.target.value)} className="w-full p-2 border rounded-lg"/></label><label>Preço cliente (R$)<input required value={customerPriceStr} onChange={e=>setCustomerPriceStr(e.target.value)} className="w-full p-2 border rounded-lg"/></label></div>
-      <label>Justificativa<textarea required rows={2} value={reason} onChange={e=>setReason(e.target.value)} className="w-full p-2 border rounded-lg resize-none"/></label><Button id="save-pricing-submit-btn" type="submit" variant="primary" size="md" isLoading={saveLoading} className="w-full">{editingPricing?'Salvar alterações':'Cadastrar tarifa'}</Button>
-    </form></Modal>
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <h2 className="text-base font-semibold text-zinc-900 tracking-tight">Matriz de Precificação ao Vivo</h2>
+        <p className="text-xs text-zinc-500">Fonte única de preço: consulta direta aos provedores com margem bruta protegida de 40%.</p>
+      </div>
+      <Button id="btn-sync-pricing" variant="secondary" size="sm" onClick={syncNow} isLoading={syncing} icon={<RefreshCw className="w-3.5 h-3.5"/>}>Atualizar preços agora</Button>
+    </div>
+
+    <div className="flex items-center gap-3 flex-wrap text-[11px] text-zinc-500">
+      <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500"/>{healthy} disponíveis</span>
+      {failed>0&&<span className="inline-flex items-center gap-1.5 text-amber-600"><AlertTriangle className="w-3.5 h-3.5"/>{failed} indisponíveis</span>}
+      {lastCheckedAt&&<span className="inline-flex items-center gap-1.5"><Clock3 className="w-3.5 h-3.5"/>Última sincronização: {new Date(lastCheckedAt).toLocaleString('pt-BR')}</span>}
+    </div>
+
+    {message&&<div className="text-xs px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700">{message}</div>}
+
+    <Card id="admin-pricing-card">
+      {loading?<div className="py-10 text-center text-xs text-zinc-400">Carregando último snapshot de preços...</div>:
+      <div className="overflow-x-auto -mx-5 sm:-mx-6"><table className="w-full text-left text-xs border-collapse">
+        <thead><tr className="border-b border-zinc-100 bg-zinc-50/70 text-zinc-500">
+          <th className="py-3 px-4 sm:px-6">Modelo / Configuração</th><th className="py-3 px-4">Modo</th><th className="py-3 px-4">Provedor</th><th className="py-3 px-4 text-right">Custo Provedor</th><th className="py-3 px-4 text-right">Preço Cliente</th><th className="py-3 px-4 text-right">Margem</th><th className="py-3 px-4 sm:px-6 text-right">Status</th>
+        </tr></thead>
+        <tbody className="divide-y divide-zinc-100">
+          {rows.map(r=><tr key={r.key} className={r.status==='FAILED'?'bg-amber-50/30':''}>
+            <td className="py-3 px-4 sm:px-6"><span className="font-semibold text-zinc-900 block">{nameModel(r.model_id)}</span><span className="text-[11px] text-zinc-500">{r.resolution} • {r.duration_seconds}s • AO VIVO</span></td>
+            <td className="py-3 px-4 text-zinc-600">{modeLabel(r.mode)}</td>
+            <td className="py-3 px-4">{nameProvider(r.provider_id)}</td>
+            <td className="py-3 px-4 text-right">{r.provider_cost_brl_cents==null?'—':formatCentsToBRL(r.provider_cost_brl_cents)}</td>
+            <td className="py-3 px-4 text-right font-semibold">{r.customer_price_cents==null?'—':formatCentsToBRL(r.customer_price_cents)}</td>
+            <td className="py-3 px-4 text-right">{r.status==='OK'?<span className="text-emerald-700 font-semibold">{r.margin_percent?.toFixed(0)}%</span>:<span className="text-amber-700">—</span>}</td>
+            <td className="py-3 px-4 sm:px-6 text-right">{r.status==='OK'?<span className="inline-flex items-center gap-1 text-[10px] text-emerald-700"><CheckCircle2 className="w-3 h-3"/>consultado</span>:<span title={r.error} className="inline-flex items-center gap-1 text-[10px] text-amber-700"><AlertTriangle className="w-3 h-3"/>indisponível</span>}</td>
+          </tr>)}
+          {!rows.length&&<tr><td colSpan={7} className="py-12 text-center text-zinc-500">Ainda não existe snapshot vivo. Clique em “Atualizar preços agora”.</td></tr>}
+        </tbody>
+      </table></div>}
+    </Card>
+    <p className="text-[10px] leading-relaxed text-zinc-500">Esta matriz é de referência operacional. No momento exato da geração, o Smart Router solicita novamente a cotação da configuração escolhida e bloqueia a geração se nenhum provedor retornar preço seguro. Tarifas manuais antigas não são usadas como substituição silenciosa.</p>
   </div>;
 };
