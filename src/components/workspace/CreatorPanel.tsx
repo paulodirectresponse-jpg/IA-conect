@@ -8,7 +8,6 @@ import {
   Ratio,
   Settings2,
   SlidersHorizontal,
-  Video,
   WandSparkles,
   X,
 } from 'lucide-react';
@@ -72,6 +71,8 @@ interface Props {
   onGenerate: () => void;
   validating: boolean;
   validationErrors: string[];
+  livePricesByModelId?: Record<string, number | null>;
+  priceLoadingModelIds?: string[];
 }
 
 type OpenCard = 'duration' | 'ratio' | 'resolution' | 'outputs' | null;
@@ -116,6 +117,8 @@ export const CreatorPanel: React.FC<Props> = (p) => {
           currentResolution={p.resolution}
           currentDuration={p.durationSeconds}
           currentOutputs={p.numberOfOutputs}
+          livePricesByModelId={p.livePricesByModelId}
+          priceLoadingModelIds={p.priceLoadingModelIds}
         />
 
         <div className="flex items-center justify-between"><span className="text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-600">Frames</span><span className="text-[8px] text-zinc-750">inputs estruturais</span></div>
