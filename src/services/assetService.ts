@@ -1,6 +1,6 @@
 import { collection, doc, getDocs, setDoc, updateDoc, query, where } from 'firebase/firestore';
-import { ref as storageRef, uploadBytesResumable } from 'firebase/storage';
-import { auth, db, storage } from '../config/firebase.js';
+import { auth, db } from '../config/firebase.js';
+import { apiRequest } from './apiClient.js';
 import { Asset, AssetType, AssetCategory } from '../types/index.js';
 import { ASSET_UPLOAD_LIMITS } from '../config/constants.js';
 
@@ -13,6 +13,26 @@ async function uniqueAlias(baseValue:string,userId:string){
   const used=new Set(existing.docs.map(d=>String((d.data() as any).alias||'')));
   if(!used.has(base)) return base;
   let i=1; while(used.has(`${base}_${i}`)) i++; return `${base}_${i}`;
+}
+
+interface SignedUploadResponse { asset_id:string; type:AssetType; storage_path:string; signed_url:string; token:string; public_url:string; bucket:string; }
+
+function uploadToSignedUrl(url:string,file:File,onProgress?:(percent:number)=>void,onTaskReady?:(task:{cancel:()=>void})=>void,timeoutMs=120000){
+  return new Promise<void>((resolve,reject)=>{
+    const xhr=new XMLHttpRequest();
+    xhr.open('PUT',url,true);
+    xhr.timeout=timeoutMs;
+    xhr.upload.onprogress=(event)=>{if(event.lengthComputable){const pct=Math.round((event.loaded/event.total)*90);onProgress?.(Math.max(5,Math.min(95,pct)));}};
+    xhr.onerror=()=>reject(new Error('Falha de rede ao enviar o arquivo para o Supabase Storage.'));
+    xhr.ontimeout=()=>reject(new Error('Upload excedeu o tempo limite.'));
+    xhr.onabort=()=>reject(new Error('Upload cancelado.'));
+    xhr.onload=()=>{if(xhr.status>=200&&xhr.status<300)resolve();else reject(new Error(`Supabase Storage recusou o upload (${xhr.status}): ${xhr.responseText||'erro desconhecido'}`));};
+    const form=new FormData();
+    form.append('cacheControl','3600');
+    form.append('',file);
+    onTaskReady?.({cancel:()=>xhr.abort()});
+    xhr.send(form);
+  });
 }
 
 export const assetService={
@@ -32,33 +52,21 @@ export const assetService={
     else if(file.type.startsWith('audio/')||ASSET_UPLOAD_LIMITS.AUDIO.allowed_extensions.includes(ext)) type='AUDIO';
     if(file.size>ASSET_UPLOAD_LIMITS[type].max_bytes) throw new Error('Arquivo excede o limite máximo permitido.');
 
-    const assetId=`ast_${Date.now()}_${Math.random().toString(16).slice(2,10)}`;
     const cleanAlias=await uniqueAlias(alias||name||file.name.replace(/\.[^.]+$/,''),user.uid);
-    const safeExt=ext.replace(/[^a-z0-9]/g,'');
-    const storagePath=`users/${user.uid}/assets/${assetId}/original${safeExt?'.'+safeExt:''}`;
-    const task=uploadBytesResumable(storageRef(storage,storagePath),file,{contentType:file.type||'application/octet-stream',customMetadata:{owner_user_id:user.uid,asset_id:assetId}});
-    onTaskReady?.({cancel:()=>task.cancel()});
+    onProgress?.(5);
+    const signed=await apiRequest<SignedUploadResponse>('assets/signed-upload',{method:'POST',body:JSON.stringify({filename:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size})});
+    await uploadToSignedUrl(signed.signed_url,file,onProgress,onTaskReady,timeoutMs);
 
-    return await new Promise<Asset>((resolve,reject)=>{
-      const timer=setTimeout(()=>{task.cancel();reject(new Error('Upload excedeu o tempo limite.'));},timeoutMs);
-      task.on('state_changed',snap=>{
-        const percent=snap.totalBytes?Math.round((snap.bytesTransferred/snap.totalBytes)*90):5;
-        onProgress?.(Math.max(5,percent));
-      },err=>{clearTimeout(timer);reject(new Error(err?.message||'Falha ao enviar o arquivo para o Firebase Storage.'));},async()=>{
-        clearTimeout(timer);
-        try{
-          const now=new Date().toISOString();
-          const asset:Asset={
-            asset_id:assetId,owner_user_id:user.uid,type,category,
-            name:(name||file.name).trim(),alias:cleanAlias,storage_path:storagePath,
-            public_url:'',thumbnail_url:'',mime_type:file.type||'application/octet-stream',size_bytes:file.size,
-            width:null,height:null,duration_seconds:null,status:'READY',created_at:now,updated_at:now,deleted_at:null,
-          } as Asset;
-          await setDoc(doc(db,'assets',assetId),asset);
-          onProgress?.(100); resolve(asset);
-        }catch(err:any){reject(new Error(err?.message||'Arquivo enviado, mas não foi possível registrar o asset.'));}
-      });
-    });
+    const now=new Date().toISOString();
+    const asset:Asset={
+      asset_id:signed.asset_id,owner_user_id:user.uid,type:signed.type||type,category,
+      name:(name||file.name).trim(),alias:cleanAlias,storage_path:signed.storage_path,
+      public_url:signed.public_url,thumbnail_url:type==='IMAGE'?signed.public_url:'',mime_type:file.type||'application/octet-stream',size_bytes:file.size,
+      width:null,height:null,duration_seconds:null,status:'READY',created_at:now,updated_at:now,deleted_at:null,
+    } as Asset;
+    await setDoc(doc(db,'assets',asset.asset_id),asset);
+    onProgress?.(100);
+    return asset;
   },
 
   async updateAsset(assetId:string,updates:{name?:string;alias?:string;category?:AssetCategory;public_url?:string}):Promise<Asset>{
