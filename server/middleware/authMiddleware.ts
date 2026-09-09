@@ -9,8 +9,12 @@ export interface AuthenticatedRequest extends Request {
   userProfile?: UserProfile;
 }
 
-/** Production authentication is fail-closed: Firebase Admin must cryptographically
- * verify the ID token. Unverified JWT payload decoding is intentionally forbidden. */
+/**
+ * Production authentication is fail-closed: Firebase Admin must cryptographically
+ * verify the ID token. A missing Firestore profile is NOT an authentication failure:
+ * /auth/me and /auth/register-profile are responsible for creating/syncing it on the
+ * first authenticated request.
+ */
 export async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
@@ -23,16 +27,18 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
     if (!decoded.uid) throw new Error('Token sem UID');
 
     req.user = { uid: decoded.uid, email: decoded.email || '', name: decoded.name || '' };
+
+    // Existing profiles are loaded for suspension/admin checks. Missing profiles are
+    // allowed through so the auth endpoints can create them deterministically.
     const profile = await userRepository.getById(decoded.uid);
-    if (!profile) {
-      return res.status(403).json({ success: false, error: { code: 'PROFILE_REQUIRED', message: 'Perfil da conta não encontrado.' } });
-    }
-    if (profile.status === 'SUSPENDED') {
+    if (profile?.status === 'SUSPENDED') {
       return res.status(403).json({ success: false, error: { code: 'USER_SUSPENDED', message: 'Sua conta está suspensa.' } });
     }
-    req.userProfile = profile;
+    if (profile) req.userProfile = profile;
+
     next();
   } catch (error) {
+    console.warn('[Auth] Token verification/profile lookup failed:', (error as any)?.message || error);
     return res.status(401).json({ success: false, error: { code: 'AUTH_SESSION_INVALID', message: 'Sessão inválida ou expirada. Faça login novamente.' } });
   }
 }
