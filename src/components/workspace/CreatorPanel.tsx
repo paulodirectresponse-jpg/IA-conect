@@ -84,7 +84,10 @@ export const CreatorPanel: React.FC<Props> = (p) => {
   const enough = total == null ? p.hasSufficientFunds : p.availableBalanceCents >= total;
   const canGenerate = p.prompt.trim().length > 0 && enough && !p.validating && p.validationErrors.length === 0;
   const canUseMedia = Boolean(
-    p.capabilities?.supports_image_reference ||
+    p.references.length ||
+      p.initialImage ||
+      p.endImage ||
+      p.capabilities?.supports_image_reference ||
       p.capabilities?.supports_video_reference ||
       p.capabilities?.supports_audio_reference
   );
