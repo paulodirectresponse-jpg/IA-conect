@@ -1,7 +1,7 @@
 import { GenerationMode } from '../../src/types/index.js';
 import { VideoProviderAdapter, ProviderGenerationParams, ProviderGenerationReference } from '../adapters/videoProviderAdapter.js';
+import { fxRateService } from './fxRateService.js';
 
-const fx = () => Math.max(1, Number(process.env.PROVIDER_USD_BRL || 5.10));
 const bufferRate = () => Math.min(0.25, Math.max(0, Number(process.env.PRICING_SAFETY_BUFFER_PERCENT || 5) / 100));
 const targetMargin = (mode:GenerationMode) => (mode === 'TEXT_TO_IMAGE' || mode === 'IMAGE_TO_IMAGE')
   ? Math.min(0.8, Math.max(0.1, Number(process.env.IMAGE_TARGET_MARGIN_PERCENT || 50) / 100))
@@ -56,6 +56,7 @@ export interface SafeProviderQuote {
   minimum_margin:number;
   effective_margin:number;
   fx_rate:number;
+  fx_source:'LIVE_API'|'ENV_FALLBACK';
   safety_buffer_rate:number;
   estimated:boolean;
   quoted_at:string;
@@ -78,10 +79,13 @@ export const pricingGuardService={
       number_of_outputs:Math.max(1,input.number_of_outputs),seed:input.seed,motion_strength:input.motion_strength,
       references:syntheticReferences(input.mode),
     };
-    const providerQuote=await adapter.quoteCostUsd(params);
+    const [providerQuote, fxSnapshot] = await Promise.all([
+      adapter.quoteCostUsd(params),
+      fxRateService.get(false),
+    ]);
     const providerUsd=Number(providerQuote.effective_price_usd);
     if(!Number.isFinite(providerUsd)||providerUsd<0) throw Object.assign(new Error('Cotação do provider inválida.'),{code:'LIVE_QUOTE_INVALID'});
-    const fxRate=fx();
+    const fxRate=fxSnapshot.rate;
     const providerCost=Math.max(1,Math.ceil(providerUsd*fxRate*100));
     const safetyBuffer=bufferRate();
     const safeCost=Math.max(providerCost,Math.ceil(providerCost*(1+safetyBuffer)));
@@ -93,7 +97,7 @@ export const pricingGuardService={
     return {
       provider_cost_usd:providerUsd,provider_cost_brl_cents:providerCost,safe_cost_brl_cents:safeCost,
       customer_price_cents:customer,target_margin:margin,minimum_margin:minMargin,effective_margin:effectiveMargin,
-      fx_rate:fxRate,safety_buffer_rate:safetyBuffer,estimated:Boolean(providerQuote.estimated),quoted_at:new Date().toISOString(),
+      fx_rate:fxRate,fx_source:fxSnapshot.source,safety_buffer_rate:safetyBuffer,estimated:Boolean(providerQuote.estimated),quoted_at:new Date().toISOString(),
     };
   },
 };
