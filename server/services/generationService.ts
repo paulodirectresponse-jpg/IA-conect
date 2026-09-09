@@ -32,12 +32,15 @@ interface StartParams {
   idToken?: string;
 }
 
+const IMAGE_MODEL_IDS = new Set(['flux-2-flash-image', 'flux-2-flex-image', 'qwen-image-2']);
+
 function isImageMode(mode?: GenerationMode) {
   return mode === 'TEXT_TO_IMAGE' || mode === 'IMAGE_TO_IMAGE';
 }
 
-function inferMode(refs: GenerationReferenceInput[], requested?: GenerationMode): GenerationMode {
+function inferMode(refs: GenerationReferenceInput[], requested: GenerationMode | undefined, modelId: string): GenerationMode {
   if (requested) return requested;
+  if (IMAGE_MODEL_IDS.has(modelId)) return refs.length ? 'IMAGE_TO_IMAGE' : 'TEXT_TO_IMAGE';
   if (!refs.length) return 'TEXT_TO_VIDEO';
   if (refs.some((r) => r.slot_type === 'INITIAL')) return 'IMAGE_TO_VIDEO';
   return 'REFERENCE_TO_VIDEO';
@@ -88,7 +91,7 @@ export const generationService = {
     }
 
     const refs = params.references || [];
-    const mode = inferMode(refs, params.mode);
+    const mode = inferMode(refs, params.mode, params.model_id);
     const imageJob = isImageMode(mode);
     const billDuration = imageJob ? 1 : params.duration_seconds;
 
