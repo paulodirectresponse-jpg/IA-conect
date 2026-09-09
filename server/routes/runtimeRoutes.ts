@@ -54,12 +54,24 @@ runtimeRouter.post('/workspace/validate-and-preview',requireAuth,jsonBody,async(
   const uid=req.user!.uid;const{model_id,mode,prompt,negative_prompt,references=[],settings={}}=req.body;
   if(!prompt?.trim())return res.status(400).json({success:false,error:{code:'VALIDATION_ERROR',message:'O prompt é obrigatório.'}});
   const model=await catalogRepository.getModel(model_id);if(!model||model.status==='INACTIVE')return res.status(400).json({success:false,error:{code:'MODEL_NOT_FOUND',message:'Modelo indisponível.'}});
-  const resolvedMode=(mode||'TEXT_TO_VIDEO') as GenerationMode;let quote:any=null;
-  try{quote=await smartRouterService.selectProvider({userId:uid,model_id:model.model_id,mode:resolvedMode,duration_seconds:Number(settings.duration_seconds||5),resolution:String(settings.resolution||'720p'),number_of_outputs:Number(settings.number_of_outputs||1)});}catch(e:any){if(e?.code!=='NO_PROVIDER_AVAILABLE')throw e;}
-  const wallet=await walletService.getSummary(uid);const estimated=quote?.selected?.customer_price_cents??null;
-  const compiled=promptCompilerService.compile({original_prompt:prompt,references,negative_prompt,generation_settings:{model_id:model.model_id,mode:resolvedMode,duration_seconds:Number(settings.duration_seconds||5),resolution:String(settings.resolution||'720p'),aspect_ratio:String(settings.aspect_ratio||'16:9')}});
-  const requestDraft={request_id:`req_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,user_id:uid,model_id:model.model_id,model_name:model.name,mode:resolvedMode,prompt:prompt.trim(),compiled_prompt:compiled.compiled_prompt,prompt_compiler_version:compiled.prompt_compiler_version,references,settings:{...settings,duration_seconds:Number(settings.duration_seconds||5),resolution:String(settings.resolution||'720p'),aspect_ratio:String(settings.aspect_ratio||'16:9'),number_of_outputs:Number(settings.number_of_outputs||1)},estimated_cost_cents:estimated,customer_balance_available_cents:wallet.available_balance_cents,balance_after_generation_cents:estimated==null?wallet.available_balance_cents:wallet.available_balance_cents-estimated,has_sufficient_funds:estimated!=null&&wallet.available_balance_cents>=estimated,created_at:new Date().toISOString()};
-  return res.json({success:true,data:{request_draft:requestDraft,notice:estimated!=null?'Preço calculado pela rota configurada mais econômica. Nenhum saldo foi debitado ainda.':'Nenhum provider configurado e precificado está disponível para esta combinação.'}});
+  const resolvedMode=(mode||'TEXT_TO_VIDEO') as GenerationMode;
+  const quote=await smartRouterService.selectProvider({
+    userId:uid,
+    model_id:model.model_id,
+    mode:resolvedMode,
+    prompt:String(prompt).trim(),
+    negative_prompt,
+    duration_seconds:Number(settings.duration_seconds||1),
+    resolution:String(settings.resolution||'1K'),
+    aspect_ratio:String(settings.aspect_ratio||'1:1'),
+    number_of_outputs:Number(settings.number_of_outputs||1),
+    seed:settings.seed,
+    motion_strength:settings.motion_strength,
+  });
+  const wallet=await walletService.getSummary(uid);const estimated=quote.selected.customer_price_cents;
+  const compiled=promptCompilerService.compile({original_prompt:prompt,references,negative_prompt,generation_settings:{model_id:model.model_id,mode:resolvedMode,duration_seconds:Number(settings.duration_seconds||1),resolution:String(settings.resolution||'1K'),aspect_ratio:String(settings.aspect_ratio||'1:1')}});
+  const requestDraft={request_id:`req_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,user_id:uid,model_id:model.model_id,model_name:model.name,mode:resolvedMode,prompt:prompt.trim(),compiled_prompt:compiled.compiled_prompt,prompt_compiler_version:compiled.prompt_compiler_version,references,settings:{...settings,duration_seconds:Number(settings.duration_seconds||1),resolution:String(settings.resolution||'1K'),aspect_ratio:String(settings.aspect_ratio||'1:1'),number_of_outputs:Number(settings.number_of_outputs||1)},estimated_cost_cents:estimated,customer_balance_available_cents:wallet.available_balance_cents,balance_after_generation_cents:wallet.available_balance_cents-estimated,has_sufficient_funds:wallet.available_balance_cents>=estimated,provider_id:quote.selected.provider_id,pricing_quoted_at:quote.selected.quoted_at,created_at:new Date().toISOString()};
+  return res.json({success:true,data:{request_draft:requestDraft,notice:`Preço protegido por cotação ao vivo. Margem operacional: ${quote.selected.margin_percent.toFixed(1)}%.`}});
  }catch(err:any){return res.status(400).json({success:false,error:{code:err?.code||'VALIDATION_FAILED',message:err?.message||'Falha na validação.'}});}
 });
 
