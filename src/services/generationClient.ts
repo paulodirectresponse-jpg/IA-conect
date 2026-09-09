@@ -1,5 +1,3 @@
-import { collection, doc, getDoc, getDocs, limit as limitQuery, orderBy, query, where } from 'firebase/firestore';
-import { auth, db } from '../config/firebase.js';
 import { apiRequest } from './apiClient.js';
 import { Generation, GenerationRequestDraft } from '../types/index.js';
 
@@ -32,8 +30,10 @@ export const generationClient = {
       method: 'POST',
       body: JSON.stringify({
         model_id: draft.model_id,
+        mode: draft.mode,
         prompt: draft.prompt,
-        duration_seconds: draft.settings.duration_seconds,
+        negative_prompt: (draft as any).negative_prompt,
+        duration_seconds: draft.settings.duration_seconds || 1,
         resolution: draft.settings.resolution,
         aspect_ratio: draft.settings.aspect_ratio,
         number_of_outputs: draft.settings.number_of_outputs,
@@ -45,27 +45,17 @@ export const generationClient = {
     });
   },
 
+  /**
+   * Reads through the backend instead of Firestore directly so every poll also
+   * asks the provider for the latest state, captures/release funds and creates
+   * generated assets when the job completes.
+   */
   async get(id: string): Promise<Generation> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Usuário não autenticado.');
-    const snap = await getDoc(doc(db, 'generations', id));
-    if (!snap.exists()) throw new Error('Geração não encontrada.');
-    const data = snap.data() as Generation;
-    if ((data as any).user_id !== user.uid) throw new Error('Acesso negado.');
-    return data;
+    return apiRequest<Generation>(`/api/generations/${id}`);
   },
 
   async list(max = 50): Promise<Generation[]> {
-    const user = auth.currentUser;
-    if (!user) return [];
-    const q = query(
-      collection(db, 'generations'),
-      where('user_id', '==', user.uid),
-      orderBy('created_at', 'desc'),
-      limitQuery(Math.min(100, max))
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => d.data() as Generation);
+    return apiRequest<Generation[]>(`/api/generations?limit=${Math.min(100, max)}`);
   },
 
   async cancel(id: string): Promise<Generation> {
