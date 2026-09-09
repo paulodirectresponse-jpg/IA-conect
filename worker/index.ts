@@ -1,4 +1,4 @@
-import { handleAsNodeRequest } from 'cloudflare:node';
+import { httpServerHandler } from 'cloudflare:node';
 import express from 'express';
 import { apiRouter } from '../server/routes/apiRoutes.js';
 import { runtimeRouter } from '../server/routes/runtimeRoutes.js';
@@ -31,11 +31,11 @@ app.get('/health', (_req, res) => {
 
 app.listen(3000);
 
+const httpHandler = httpServerHandler({ port: 3000 }) as any;
+
 export default {
-  async fetch(request: Request) {
-    return handleAsNodeRequest(3000, request);
-  },
-  async scheduled(_controller: ScheduledController, _env: unknown, ctx: ExecutionContext) {
+  fetch: httpHandler.fetch.bind(httpHandler),
+  async scheduled(_controller: any, _env: unknown, ctx: any) {
     ctx.waitUntil(
       pricingSyncService.runHourlySync().then((result) => {
         console.log('[PricingSync]', JSON.stringify({
