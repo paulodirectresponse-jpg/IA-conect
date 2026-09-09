@@ -122,6 +122,6 @@ communityRouter.post('/community/:generationId/recreate',async(req:Authenticated
       idempotency_key:`community_recreate_${clonedId}`,
     } as any;
     await db.collection('generations').doc(clonedId).set(clonedGeneration);
-    res.json({success:true,data:{generation_id:clonedId,target:mediaType(source.mode)==='IMAGE'?'create-image':'create-video'}});
+    res.json({success:true,data:{generation_id:clonedId,snapshot:{generation_id:clonedId},target:mediaType(source.mode)==='IMAGE'?'create-image':'create-video'}});
   }catch(err:any){res.status(500).json({success:false,error:{code:'COMMUNITY_RECREATE_ERROR',message:err?.message||'Não foi possível preparar a recriação.'}});}
 });
