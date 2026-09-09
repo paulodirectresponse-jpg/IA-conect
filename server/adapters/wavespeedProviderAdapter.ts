@@ -4,6 +4,7 @@ import {
   ProviderGenerationParams,
   ProviderJobResult,
   ProviderJobStatusResult,
+  ProviderCostQuote,
 } from './videoProviderAdapter.js';
 import { compileProviderReferencePrompt } from './providerPromptReferences.js';
 
@@ -106,11 +107,7 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
     const prompt = compileProviderReferencePrompt(params, 'wavespeed');
 
     if (params.model_id === 'minimax-h3') {
-      const out: any = {
-        prompt,
-        resolution: params.resolution,
-        duration: params.duration_seconds,
-      };
+      const out: any = { prompt, resolution: params.resolution, duration: params.duration_seconds };
       if (params.seed !== null && params.seed !== undefined) out.seed = params.seed;
       if (params.mode === 'TEXT_TO_VIDEO') out.aspect_ratio = params.aspect_ratio;
       if (params.mode === 'IMAGE_TO_VIDEO') {
@@ -129,12 +126,7 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
       return out;
     }
 
-    const out: any = {
-      prompt,
-      resolution: params.resolution,
-      aspect_ratio: params.aspect_ratio,
-      duration: params.duration_seconds,
-    };
+    const out: any = { prompt, resolution: params.resolution, aspect_ratio: params.aspect_ratio, duration: params.duration_seconds };
     if (params.negative_prompt?.trim()) out.negative_prompt = params.negative_prompt.trim();
     if (params.seed !== null && params.seed !== undefined) out.seed = params.seed;
 
@@ -150,18 +142,40 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
       out.reference_audios = audios.map((r) => r.provider_accessible_url);
     }
 
-    if (params.model_id.startsWith('wan-3-0')) {
-      out.enable_prompt_expansion = false;
-      out.enable_audio = true;
-    }
+    if (params.model_id.startsWith('wan-3-0')) { out.enable_prompt_expansion = false; out.enable_audio = true; }
     if (params.model_id === 'seedance-2-5' || params.model_id === 'seedance-2-0') out.generate_audio = true;
     return out;
   }
 
   private payload(params: ProviderGenerationParams) {
-    return params.mode === 'TEXT_TO_IMAGE' || params.mode === 'IMAGE_TO_IMAGE'
-      ? this.imagePayload(params)
-      : this.videoPayload(params);
+    return params.mode === 'TEXT_TO_IMAGE' || params.mode === 'IMAGE_TO_IMAGE' ? this.imagePayload(params) : this.videoPayload(params);
+  }
+
+  async quoteCostUsd(params: ProviderGenerationParams): Promise<ProviderCostQuote> {
+    if (!this.apiKey) throw Object.assign(new Error('WaveSpeed não configurada.'), { code:'PROVIDER_NOT_CONFIGURED' });
+    const model = this.modelName(params.model_id, params.mode);
+    const single = { ...params, number_of_outputs: 1 };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 9000);
+    try {
+      const res = await fetch(`${this.baseUrl}/api/v3/model/price`, {
+        method: 'POST', signal: controller.signal,
+        headers: { Authorization:`Bearer ${this.apiKey}`, 'Content-Type':'application/json' },
+        body: JSON.stringify({ model_id:model, inputs:this.payload(single) }),
+      });
+      const text = await res.text(); let body:any={}; try { body=JSON.parse(text); } catch {}
+      if (!res.ok) throw Object.assign(new Error(body?.message || body?.error || `WaveSpeed pricing HTTP ${res.status}`), { code:`WAVESPEED_PRICE_HTTP_${res.status}` });
+      const data=body?.data ?? body;
+      const unit=Number(data?.discounted_price ?? data?.price);
+      if (!Number.isFinite(unit) || unit < 0) throw Object.assign(new Error('WaveSpeed retornou preço inválido.'), { code:'PROVIDER_PRICE_INVALID' });
+      return {
+        effective_price_usd: unit * Math.max(1, params.number_of_outputs),
+        list_price_usd: Number.isFinite(Number(data?.price)) ? Number(data.price) * Math.max(1, params.number_of_outputs) : null,
+        discount_rate: Number.isFinite(Number(data?.discount_rate)) ? Number(data.discount_rate) : null,
+        estimated: false,
+        source: 'LIVE_API',
+      };
+    } finally { clearTimeout(timer); }
   }
 
   async submitGeneration(params: ProviderGenerationParams): Promise<ProviderJobResult> {
@@ -175,8 +189,7 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
         headers:{ Authorization:`Bearer ${this.apiKey}`, 'Content-Type':'application/json' },
         body:JSON.stringify(this.payload(params)),
       });
-      const text = await res.text();
-      let body:any={}; try { body=JSON.parse(text); } catch {}
+      const text = await res.text(); let body:any={}; try { body=JSON.parse(text); } catch {}
       if (!res.ok) throw Object.assign(new Error(body?.message || body?.error || `WaveSpeed HTTP ${res.status}`), { code:`WAVESPEED_HTTP_${res.status}` });
       const data=body?.data ?? body;
       if (!data?.id) throw Object.assign(new Error('WaveSpeed não retornou prediction id.'), { code:'PROVIDER_INVALID_RESPONSE' });
@@ -194,9 +207,7 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
       const outputs = Array.isArray(data.outputs) ? data.outputs.filter(Boolean) : [data.output?.video_url,data.video_url,data.output?.image_url,data.image_url].filter(Boolean);
       return { provider_job_id:id, status:'SUCCEEDED', progress_percent:100, result_video_url:outputs[0], result_urls:outputs };
     }
-    if (['failed','cancelled','canceled','timeout','deleted'].includes(raw)) {
-      return { provider_job_id:id, status:'FAILED', error_message:String(data?.error || data?.message || 'Falha na WaveSpeed.') };
-    }
+    if (['failed','cancelled','canceled','timeout','deleted'].includes(raw)) return { provider_job_id:id, status:'FAILED', error_message:String(data?.error || data?.message || 'Falha na WaveSpeed.') };
     return { provider_job_id:id, status: raw==='pending'||raw==='queued' ? 'QUEUED':'PROCESSING', progress_percent:typeof data?.progress==='number'?data.progress:undefined };
   }
 
