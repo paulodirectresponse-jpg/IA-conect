@@ -6,6 +6,7 @@ import { Asset, AssetType, AssetCategory } from '../types/index.js';
 import { ASSET_UPLOAD_LIMITS } from '../config/constants.js';
 
 export interface UploadAssetParams { file:File; name?:string; alias?:string; category?:AssetCategory; onProgress?:(percent:number)=>void; onTaskReady?:(task:{cancel:()=>void})=>void; timeoutMs?:number; }
+export type AssetOriginFilter = 'ALL' | 'UPLOAD' | 'GENERATED';
 export function sanitizeAlias(v:string){return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]/g,'_').replace(/^_+|_+$/g,'').replace(/_+/g,'_');}
 
 async function getAuthenticatedUser(): Promise<User | null> {
@@ -58,12 +59,15 @@ function uploadToSignedUrl(url:string,file:File,onProgress?:(percent:number)=>vo
 }
 
 export const assetService={
-  async listAssets(filters?:{type?:AssetType;category?:AssetCategory;search?:string}):Promise<Asset[]>{
+  async listAssets(filters?:{type?:AssetType;category?:AssetCategory;search?:string;origin?:AssetOriginFilter}):Promise<Asset[]>{
     const user=await getAuthenticatedUser();
     if(!user) return [];
     const snap=await getDocs(query(collection(db,'assets'),where('owner_user_id','==',user.uid)));
     const search=filters?.search?.toLowerCase().trim();
-    return snap.docs.map(d=>d.data() as Asset).filter(a=>!a.deleted_at&&(!filters?.type||a.type===filters.type)&&(!filters?.category||a.category===filters.category)&&(!search||a.name.toLowerCase().includes(search)||a.alias.toLowerCase().includes(search))).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at));
+    return snap.docs.map(d=>d.data() as Asset).filter(a=>{
+      const origin=String((a as any).origin||'UPLOAD').toUpperCase();
+      return !a.deleted_at&&(!filters?.type||a.type===filters.type)&&(!filters?.category||a.category===filters.category)&&(!filters?.origin||filters.origin==='ALL'||origin===filters.origin)&&(!search||a.name.toLowerCase().includes(search)||a.alias.toLowerCase().includes(search));
+    }).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at));
   },
 
   async uploadAsset(params:UploadAssetParams):Promise<Asset>{
@@ -80,7 +84,7 @@ export const assetService={
     const signed=await apiRequest<SignedUploadResponse>('assets/signed-upload',{method:'POST',body:JSON.stringify({filename:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size})});
     await uploadToSignedUrl(signed.signed_url,file,onProgress,onTaskReady,timeoutMs);
     const now=new Date().toISOString();
-    const asset:Asset={asset_id:signed.asset_id,owner_user_id:user.uid,type:signed.type||type,category,name:(name||file.name).trim(),alias:cleanAlias,storage_path:signed.storage_path,public_url:signed.public_url,thumbnail_url:type==='IMAGE'?signed.public_url:'',mime_type:file.type||'application/octet-stream',size_bytes:file.size,width:null,height:null,duration_seconds:null,status:'READY',created_at:now,updated_at:now,deleted_at:null} as Asset;
+    const asset={asset_id:signed.asset_id,owner_user_id:user.uid,type:signed.type||type,category,name:(name||file.name).trim(),alias:cleanAlias,storage_path:signed.storage_path,public_url:signed.public_url,thumbnail_url:type==='IMAGE'?signed.public_url:'',mime_type:file.type||'application/octet-stream',size_bytes:file.size,width:null,height:null,duration_seconds:null,status:'READY',origin:'UPLOAD',source_generation_id:null,source_model_id:null,source_provider_id:null,created_at:now,updated_at:now,deleted_at:null} as Asset;
     await setDoc(doc(db,'assets',asset.asset_id),asset);
     onProgress?.(100);
     return asset;
