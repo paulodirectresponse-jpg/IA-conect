@@ -3,7 +3,7 @@ import { ResolvedAssetReference } from '../services/assetReferenceResolver.js';
 
 export interface ProviderGenerationReference extends ResolvedAssetReference {
   slot_type?: 'INITIAL' | 'END' | 'GENERAL';
-  /** Local alias visible inside the current video's prompt, e.g. img1/video1/audio1. */
+  /** Local alias visible inside the current job prompt, e.g. img1/video1/audio1. */
   prompt_alias?: string;
 }
 
@@ -36,13 +36,22 @@ export interface ProviderJobStatusResult {
   provider_job_id: string;
   status: 'QUEUED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';
   progress_percent?: number;
+  /** First/primary video URL for video generations. */
   result_video_url?: string;
+  /** One or more image URLs for image generations. */
+  result_image_urls?: string[];
+  /** Generic media outputs when a provider does not distinguish type. */
+  result_urls?: string[];
   thumbnail_url?: string;
   error_code?: string;
   error_message?: string;
   final_cost_cents?: number;
 }
 
+/**
+ * Historical name kept to avoid a breaking import migration. The contract now
+ * supports both image and video generation modes.
+ */
 export interface VideoProviderAdapter {
   readonly providerId: string;
   readonly name: string;
