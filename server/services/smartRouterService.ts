@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { getAdminDb } from '../repositories/firebaseAdminClient.js';
-import { providerFinanceService } from './providerFinanceService.js';
+import { providerFinanceService, ProviderFinanceSnapshot } from './providerFinanceService.js';
 import { GenerationMode, RoutingLogEntry, ProviderStatus, ProviderModelMapping, PricingEntry } from '../../src/types/index.js';
 
 export interface RoutingCandidate{
@@ -32,9 +32,10 @@ export const smartRouterService={
     catalogRepository.listProviders(),
     catalogRepository.listMappings(),
     catalogRepository.listPricing(),
-    providerFinanceService.getAll(false).catch(()=>[]),
+    providerFinanceService.getAll(false).catch(()=>[] as ProviderFinanceSnapshot[]),
   ]);
-  const financeById=new Map(financeRows.map(row=>[row.provider_id,row]));
+  const financeById=new Map<string,ProviderFinanceSnapshot>();
+  for(const row of financeRows)financeById.set(row.provider_id,row);
   const mappings=[...baseMappings];
   if(!mappings.some(m=>m.model_id==='seedance-2-0'&&m.provider_id==='provider-wavespeed'))mappings.push(seedance20WaveMapping);
   const pricing=[...basePricing];
@@ -54,10 +55,8 @@ export const smartRouterService={
     const multiplier=(params.duration_seconds/base)*Math.max(1,params.number_of_outputs);
     const providerCost=Math.ceil(e.provider_cost_cents*multiplier);
     const customerPrice=Math.ceil(e.customer_price_cents*multiplier);
-    // Cost protection: a generation is never routed without a positive, known price.
     if(providerCost<=0||customerPrice<=0)continue;
-    const finance=financeById.get(p.provider_id as any);
-    // If the provider reported a live balance and it cannot cover this job, do not submit there.
+    const finance=financeById.get(p.provider_id);
     if(finance?.balance_brl_cents!=null&&finance.balance_brl_cents<providerCost)continue;
     const lowBalance=Boolean(finance?.low_balance);
     candidates.push({
