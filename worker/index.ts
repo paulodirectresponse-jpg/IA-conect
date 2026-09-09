@@ -5,6 +5,7 @@ import { runtimeRouter } from '../server/routes/runtimeRoutes.js';
 import { generationRuntimeRouter } from '../server/routes/generationRuntimeRoutes.js';
 import { providerFinanceRouter } from '../server/routes/providerFinanceRoutes.js';
 import { pricingRuntimeRouter } from '../server/routes/pricingRuntimeRoutes.js';
+import { adminPricingRuntimeRouter } from '../server/routes/adminPricingRuntimeRoutes.js';
 import { pricingSyncService } from '../server/services/pricingSyncService.js';
 
 const app = express();
@@ -16,6 +17,7 @@ app.use(express.json({ limit: '4mb' }));
 
 // Operational/admin routes are isolated from the legacy catalog endpoints.
 app.use('/api', providerFinanceRouter);
+app.use('/api', adminPricingRuntimeRouter);
 
 // Live pricing preview must win over the legacy catalog-based preview route.
 app.use('/api', pricingRuntimeRouter);
