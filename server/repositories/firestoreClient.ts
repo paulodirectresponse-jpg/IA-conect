@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
 export interface FirebaseAppConfig {
   projectId: string;
   appId: string;
@@ -12,24 +9,36 @@ export interface FirebaseAppConfig {
   oAuthClientId?: string;
 }
 
+const DEFAULT_FIREBASE_CONFIG: FirebaseAppConfig = {
+  projectId: 'gen-lang-client-0510531411',
+  appId: '1:95393923395:web:7611476379065294276ff6',
+  apiKey: 'AIzaSyDAwbXpg8vbJkNycgfb4c6-RMGvvj0FthI',
+  authDomain: 'gen-lang-client-0510531411.firebaseapp.com',
+  firestoreDatabaseId: 'ai-studio-plataformadegera-e6616302-36d7-4bea-b8cc-032f200c423e',
+  storageBucket: 'gen-lang-client-0510531411.firebasestorage.app',
+  messagingSenderId: '95393923395',
+  oAuthClientId: '95393923395-vcqb1jqq71irjuvdfekt773a3n3thank.apps.googleusercontent.com',
+};
+
 let cachedConfig: FirebaseAppConfig | null = null;
 
+/**
+ * Runtime-safe Firebase config.
+ *
+ * Cloudflare Workers do not expose the repository filesystem at runtime, so the
+ * backend must not read firebase-applet-config.json with node:fs. Public Firebase
+ * web configuration is safe to bundle; sensitive credentials remain Worker secrets.
+ */
 export function getFirebaseConfig(): FirebaseAppConfig {
   if (!cachedConfig) {
-    const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
-    if (fs.existsSync(configPath)) {
-      cachedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    } else {
-      cachedConfig = {
-        projectId: process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0510531411',
-        appId: '',
-        apiKey: process.env.FIREBASE_API_KEY || '',
-        authDomain: '',
-        firestoreDatabaseId: '(default)',
-      };
-    }
+    cachedConfig = {
+      ...DEFAULT_FIREBASE_CONFIG,
+      projectId: process.env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_CONFIG.projectId,
+      firestoreDatabaseId: process.env.FIREBASE_DATABASE_ID || DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || DEFAULT_FIREBASE_CONFIG.storageBucket,
+    };
   }
-  return cachedConfig!;
+  return cachedConfig;
 }
 
 /**
@@ -50,7 +59,7 @@ export async function firestoreRestCall(
   };
 
   if (idToken) {
-    headers['Authorization'] = `Bearer ${idToken}`;
+    headers.Authorization = `Bearer ${idToken}`;
   }
 
   const response = await fetch(url, {

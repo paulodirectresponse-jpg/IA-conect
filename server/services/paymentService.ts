@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { getAdminDb } from '../repositories/firebaseAdminClient.js';
-import { PaymentRecord, PaymentMethod, WalletAccount } from '../../src/types/index.js';
+import { PaymentRecord, PaymentMethod } from '../../src/types/index.js';
 import { walletService } from './walletService.js';
 import { userRepository } from '../repositories/userRepository.js';
 
@@ -20,7 +20,7 @@ export const paymentService={
  },
  async getPayment(paymentId:string,userId:string):Promise<PaymentRecord|null>{const d=await db().collection('payments').doc(paymentId).get();if(!d.exists)return null;const p=d.data() as PaymentRecord;return p.user_id===userId?p:null;},
  async listUserPayments(userId:string):Promise<PaymentRecord[]>{const s=await db().collection('payments').where('user_id','==',userId).orderBy('created_at','desc').limit(50).get();return s.docs.map(d=>d.data() as PaymentRecord);},
- async confirmPayment(){const e:any=new Error('Confirmação manual proibida. Aguarde o webhook verificado do Mercado Pago.');e.code='PAYMENT_CONFIRM_FORBIDDEN';throw e;},
+ async confirmPayment(_paymentId?:string,_userId?:string){const e:any=new Error('Confirmação manual proibida. Aguarde o webhook verificado do Mercado Pago.');e.code='PAYMENT_CONFIRM_FORBIDDEN';throw e;},
  verifyWebhookSignature(headers:Record<string,any>,dataId:string){const secret=process.env.MERCADOPAGO_WEBHOOK_SECRET?.trim();if(!secret)return false;const sig=String(headers['x-signature']||''),requestId=String(headers['x-request-id']||'');const parsed=parseSig(sig),ts=parsed.ts,v1=parsed.v1;if(!ts||!v1)return false;const manifest=`id:${dataId};request-id:${requestId};ts:${ts};`;const expected=crypto.createHmac('sha256',secret).update(manifest).digest('hex');try{return crypto.timingSafeEqual(Buffer.from(expected,'hex'),Buffer.from(v1,'hex'));}catch{return false;}},
  async processWebhook(params:{headers:Record<string,any>;dataId:string}){
   if(!this.verifyWebhookSignature(params.headers,params.dataId))throw Object.assign(new Error('Assinatura de webhook inválida.'),{code:'INVALID_WEBHOOK_SIGNATURE'});const {token,base}=cfg();const r=await fetch(`${base}/v1/payments/${encodeURIComponent(params.dataId)}`,{headers:{Authorization:`Bearer ${token}`}});const text=await r.text();let body:any={};try{body=JSON.parse(text);}catch{}if(!r.ok)throw new Error(`Falha ao consultar pagamento Mercado Pago (${r.status}).`);const internalId=String(body?.external_reference||'');if(!internalId)return {ignored:true};const ref=db().collection('payments').doc(internalId);const snap=await ref.get();if(!snap.exists)return {ignored:true};const payment:any=snap.data();if(String(payment.gateway_payment_id)!==String(body.id))return {ignored:true};const status=mapStatus(String(body.status||''));
