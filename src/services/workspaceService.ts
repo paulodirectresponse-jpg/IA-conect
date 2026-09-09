@@ -13,6 +13,7 @@ import {
 import { db, auth } from '../config/firebase.js';
 import { apiRequest } from './apiClient.js';
 import { DEFAULT_SYSTEM_PRESETS } from '../config/constants.js';
+import { STUDIO_FALLBACK_MODELS, STUDIO_FALLBACK_PRICING } from '../config/studioCatalog.js';
 import {
   ModelRegistryItem,
   WorkspacePreset,
@@ -28,7 +29,13 @@ import {
 
 export const workspaceService = {
   async listModels(): Promise<ModelRegistryItem[]> {
-    return apiRequest<ModelRegistryItem[]>('/api/catalog/models');
+    try {
+      const rows = await apiRequest<ModelRegistryItem[]>('/api/catalog/models');
+      return rows?.length ? rows : STUDIO_FALLBACK_MODELS;
+    } catch (err) {
+      console.warn('[WorkspaceService] catalog models fallback:', err);
+      return STUDIO_FALLBACK_MODELS;
+    }
   },
 
   async getModel(modelId: string): Promise<ModelRegistryItem> {
@@ -40,9 +47,11 @@ export const workspaceService = {
 
   async listPricing(): Promise<PricingEntry[]> {
     try {
-      return (await apiRequest<PricingEntry[]>('/api/catalog/pricing')) || [];
-    } catch {
-      return [];
+      const rows = await apiRequest<PricingEntry[]>('/api/catalog/pricing');
+      return rows?.length ? rows : STUDIO_FALLBACK_PRICING;
+    } catch (err) {
+      console.warn('[WorkspaceService] catalog pricing fallback:', err);
+      return STUDIO_FALLBACK_PRICING;
     }
   },
 
