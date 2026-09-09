@@ -6,11 +6,12 @@ export const adminPricingRuntimeRouter = Router();
 
 adminPricingRuntimeRouter.get('/admin/pricing/live', requireAuth, requireAdmin, async (_req: AuthenticatedRequest, res) => {
   try {
-    const result = await pricingSyncService.getLatestSnapshot();
+    let result = await pricingSyncService.getLatestSnapshot();
+    if (!result.rows.length) result = await pricingSyncService.runHourlySync();
     return res.json({ success:true, data:result });
   } catch (err:any) {
     console.error('[AdminPricingSnapshot]', err?.message || err);
-    return res.status(500).json({ success:false, error:{ code:'PRICING_SNAPSHOT_FAILED', message:err?.message || 'Não foi possível carregar o último snapshot de preços.' } });
+    return res.status(500).json({ success:false, error:{ code:'PRICING_SNAPSHOT_FAILED', message:err?.message || 'Não foi possível executar a verificação dos provedores.' } });
   }
 });
 
