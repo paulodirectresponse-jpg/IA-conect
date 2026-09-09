@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
-import { User, ShieldCheck, Key, LogOut, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Fingerprint, LogOut, ShieldCheck, UserRound } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
-import { Card } from '../common/Card.js';
-import { Button } from '../common/Button.js';
-import { Badge } from '../common/Badge.js';
 
 export const SettingsView: React.FC = () => {
   const { profile, isAdmin, claimBootstrapAdmin, logout } = useAuth();
@@ -13,139 +10,43 @@ export const SettingsView: React.FC = () => {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
   const handleClaimAdmin = async () => {
-    setBootstrapLoading(true);
-    setBootstrapMessage(null);
-    setBootstrapError(null);
-    try {
-      await claimBootstrapAdmin(bootstrapSecret.trim() || undefined);
-      setBootstrapMessage('Permissões de Administrador concedidas com sucesso!');
-    } catch (err: any) {
-      setBootstrapError(err.message || 'Falha ao reivindicar bootstrap de administrador.');
-    } finally {
-      setBootstrapLoading(false);
-    }
+    setBootstrapLoading(true); setBootstrapMessage(null); setBootstrapError(null);
+    try { await claimBootstrapAdmin(bootstrapSecret.trim() || undefined); setBootstrapMessage('Permissões administrativas concedidas.'); }
+    catch (err: any) { setBootstrapError(err.message || 'Falha ao reivindicar bootstrap de administrador.'); }
+    finally { setBootstrapLoading(false); }
   };
 
+  const initial = profile?.display_name?.charAt(0).toUpperCase() || 'U';
+  const panel = 'rounded-2xl border border-white/[0.07] bg-[#11151c] shadow-[0_18px_55px_rgba(0,0,0,.12)]';
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 tracking-tight">
-          Configurações da Conta
-        </h1>
-        <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-          Gerenciamento de credenciais, permissões de acesso e identificação
-        </p>
+    <div className="max-w-5xl mx-auto space-y-5">
+      <div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-violet-400">Conta</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-white">Perfil e configurações</h1><p className="mt-1 text-xs text-zinc-600">Gerencie sua identidade, segurança e permissões do studio.</p></div>
+
+      <div className={`${panel} p-5`}>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-400 p-[1px]"><div className="w-full h-full rounded-2xl bg-[#0d1117] flex items-center justify-center text-lg font-black text-white">{initial}</div></div>
+          <div className="min-w-0 flex-1"><h2 className="text-base font-bold text-white truncate">{profile?.display_name || 'Usuário'}</h2><p className="text-[11px] text-zinc-500 truncate">{profile?.email}</p></div>
+          <div className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-full border border-white/[0.07] bg-white/[0.035] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-zinc-400"><ShieldCheck className="w-3 h-3 text-emerald-400"/>{profile?.role || 'USER'}</div>
+        </div>
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold text-zinc-500"><UserRound className="w-3.5 h-3.5"/> Identidade</div><p className="mt-2 text-[11px] font-medium text-zinc-300">{profile?.display_name || '—'}</p><p className="mt-0.5 text-[10px] text-zinc-600">{profile?.email || '—'}</p></div>
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3.5"><div className="flex items-center gap-2 text-[10px] font-semibold text-zinc-500"><Fingerprint className="w-3.5 h-3.5"/> Identificador</div><p className="mt-2 text-[10px] font-mono text-zinc-400 break-all select-all">{profile?.user_id || '—'}</p></div>
+        </div>
       </div>
 
-      {/* Profile Details Card */}
-      <Card id="settings-profile-card" title="Perfil do Usuário">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-          <div>
-            <span className="text-zinc-500 block mb-1">Nome de Exibição</span>
-            <span className="font-semibold text-zinc-900 text-sm">{profile?.display_name || '—'}</span>
-          </div>
-
-          <div>
-            <span className="text-zinc-500 block mb-1">E-mail Cadastrado</span>
-            <span className="font-semibold text-zinc-900 text-sm">{profile?.email || '—'}</span>
-          </div>
-
-          <div>
-            <span className="text-zinc-500 block mb-1">Identificador de Usuário (UID)</span>
-            <span className="font-mono text-zinc-700 bg-zinc-100 px-2 py-1 rounded text-[11px] select-all block break-all">
-              {profile?.user_id || '—'}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-zinc-500 block mb-1">Papel no Sistema (Role)</span>
-            <div className="flex items-center gap-2">
-              <Badge variant={isAdmin ? 'warning' : 'neutral'}>
-                {profile?.role || 'USER'}
-              </Badge>
-              {isAdmin && <span className="text-[11px] text-zinc-500 font-medium">Acesso Total ao Painel</span>}
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Admin Bootstrap Helper Section */}
       {!isAdmin && (
-        <Card
-          id="settings-bootstrap-card"
-          title="Bootstrap Administrativo"
-          subtitle="Procedimento de configuração inicial da plataforma"
-        >
-          <div className="space-y-3 text-xs text-zinc-600">
-            <p className="leading-relaxed">
-              Caso você seja o responsável técnico ou o administrador inicial desta instância e nenhum administrador tenha sido designado ainda, você pode acionar o bootstrap do primeiro admin abaixo.
-            </p>
-
-            <div className="p-3 bg-zinc-50 border border-zinc-200/80 rounded-lg space-y-2">
-              <label className="block text-[11px] font-semibold text-zinc-700">
-                Segredo Técnico de Bootstrap (Opcional)
-              </label>
-              <input
-                id="bootstrap-secret-input"
-                type="password"
-                value={bootstrapSecret}
-                onChange={(e) => setBootstrapSecret(e.target.value)}
-                placeholder="Informe se configurado no servidor (ADMIN_BOOTSTRAP_SECRET)"
-                className="w-full p-2 bg-white border border-zinc-300 rounded text-xs text-zinc-900 font-mono"
-              />
-              <span className="text-[10px] text-zinc-500 block leading-tight">
-                <strong>Nota de Segurança:</strong> O segredo de bootstrap é um token técnico de provisionamento do servidor, não a senha da sua conta de usuário.
-              </span>
-            </div>
-
-            {bootstrapMessage && (
-              <div className="p-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-2 font-medium">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>{bootstrapMessage}</span>
-              </div>
-            )}
-
-            {bootstrapError && (
-              <div className="p-3 rounded-lg bg-rose-50 text-rose-800 border border-rose-200 flex items-center gap-2 font-medium">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>{bootstrapError}</span>
-              </div>
-            )}
-
-            <Button
-              id="claim-admin-btn"
-              variant="outline"
-              size="sm"
-              isLoading={bootstrapLoading}
-              onClick={handleClaimAdmin}
-              icon={<ShieldCheck className="w-4 h-4 text-amber-600" />}
-            >
-              Reivindicar Primeiro Administrador (Bootstrap)
-            </Button>
-          </div>
-        </Card>
+        <div className={`${panel} p-5`}>
+          <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-amber-400"/><h2 className="text-sm font-bold text-white">Bootstrap administrativo</h2></div>
+          <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">Use apenas no provisionamento inicial da plataforma.</p>
+          <input type="password" value={bootstrapSecret} onChange={(e) => setBootstrapSecret(e.target.value)} placeholder="ADMIN_BOOTSTRAP_SECRET (opcional)" className="mt-4 w-full h-10 px-3 rounded-xl border border-white/[0.07] bg-white/[0.03] text-xs text-zinc-300 font-mono outline-none focus:border-violet-400/30"/>
+          {bootstrapMessage && <div className="mt-3 rounded-xl border border-emerald-400/10 bg-emerald-400/[0.06] px-3 py-2.5 text-[10px] text-emerald-300 flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5"/>{bootstrapMessage}</div>}
+          {bootstrapError && <div className="mt-3 rounded-xl border border-rose-400/10 bg-rose-400/[0.06] px-3 py-2.5 text-[10px] text-rose-300 flex items-center gap-2"><AlertTriangle className="w-3.5 h-3.5"/>{bootstrapError}</div>}
+          <button disabled={bootstrapLoading} onClick={handleClaimAdmin} className="mt-3 h-9 px-3 rounded-xl border border-white/[0.08] bg-white/[0.04] text-[10px] font-semibold text-zinc-300 hover:bg-white/[0.07] disabled:opacity-50">{bootstrapLoading ? 'Processando...' : 'Reivindicar primeiro administrador'}</button>
+        </div>
       )}
 
-      {/* Security & Session */}
-      <Card id="settings-session-card" title="Sessão & Segurança">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-semibold text-zinc-900">Encerrar Sessão</h4>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              Desconectar com segurança deste dispositivo
-            </p>
-          </div>
-          <Button
-            id="settings-logout-btn"
-            variant="danger"
-            size="sm"
-            onClick={logout}
-            icon={<LogOut className="w-4 h-4" />}
-          >
-            Sair da Conta
-          </Button>
-        </div>
-      </Card>
+      <div className={`${panel} p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4`}><div><h2 className="text-sm font-bold text-white">Sessão e segurança</h2><p className="mt-1 text-[10px] text-zinc-600">Encerre o acesso com segurança neste dispositivo.</p></div><button onClick={logout} className="h-9 px-3.5 rounded-xl border border-rose-400/10 bg-rose-500/[0.06] text-[10px] font-semibold text-rose-300 hover:bg-rose-500/[0.1] flex items-center justify-center gap-1.5"><LogOut className="w-3.5 h-3.5"/> Sair da conta</button></div>
     </div>
   );
 };
