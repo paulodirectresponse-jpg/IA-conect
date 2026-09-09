@@ -1,5 +1,6 @@
 import { VideoProviderAdapter } from '../adapters/videoProviderAdapter.js';
 import { pricingGuardService, PricingGuardInput, SafeProviderQuote } from './pricingGuardService.js';
+import { pricingSettingsService } from './pricingSettingsService.js';
 
 const DEFAULT_TTL_MS = 30 * 60 * 1000;
 const cache = new Map<string,{expires_at:number;value:SafeProviderQuote}>();
@@ -10,7 +11,7 @@ function ttlMs(){
   return minutes*60*1000;
 }
 
-function keyFor(adapter:VideoProviderAdapter,input:PricingGuardInput){
+function keyFor(adapter:VideoProviderAdapter,input:PricingGuardInput,marginPercent:number){
   return [
     adapter.providerId,
     input.model_id,
@@ -21,12 +22,16 @@ function keyFor(adapter:VideoProviderAdapter,input:PricingGuardInput){
     input.number_of_outputs,
     input.seed ?? '',
     input.motion_strength ?? '',
+    `margin-${marginPercent}`,
   ].join(':');
 }
 
 export const quoteCacheService={
   async getOrQuote(adapter:VideoProviderAdapter,input:PricingGuardInput,force=false){
-    const key=keyFor(adapter,input);
+    // Margin is part of the cache identity. Changing it never reuses a 30-minute
+    // quote calculated with the previous business rule.
+    const settings=await pricingSettingsService.get(false);
+    const key=keyFor(adapter,input,settings.gross_margin_percent);
     const now=Date.now();
     const hit=cache.get(key);
     if(!force&&hit&&hit.expires_at>now){
