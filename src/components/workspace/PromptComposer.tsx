@@ -22,6 +22,11 @@ interface PromptComposerProps {
   maxChars?: number;
 }
 
+const isFrameReference = (ref: WorkspaceReference) =>
+  ['START_FRAME', 'INITIAL_FRAME', 'INITIAL', 'END_FRAME', 'END'].includes(
+    String(ref.role || '').toUpperCase()
+  );
+
 export const PromptComposer: React.FC<PromptComposerProps> = ({
   prompt,
   onChangePrompt,
@@ -40,14 +45,19 @@ export const PromptComposer: React.FC<PromptComposerProps> = ({
   const [activeIndex, setActiveIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const promptReferences = useMemo(
+    () => references.filter((ref) => !isFrameReference(ref)),
+    [references]
+  );
+
   const suggestions = useMemo(() => {
     const q = mentionQuery.trim().toLowerCase();
-    return references.filter((r) => {
+    return promptReferences.filter((r) => {
       const name = r.asset?.name?.toLowerCase() || '';
       const alias = r.alias_snapshot.toLowerCase();
       return !q || name.includes(q) || alias.includes(q);
     });
-  }, [references, mentionQuery]);
+  }, [promptReferences, mentionQuery]);
 
   useEffect(() => setActiveIndex(0), [mentionQuery, suggestions.length]);
 
@@ -140,7 +150,7 @@ export const PromptComposer: React.FC<PromptComposerProps> = ({
             <div className="px-3 py-2 border-b border-zinc-100 flex items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] font-semibold text-zinc-700">Mídias deste vídeo</p>
-                <p className="text-[9px] text-zinc-400">Somente itens anexados aqui aparecem no @.</p>
+                <p className="text-[9px] text-zinc-400">Somente assets anexados ao vídeo aparecem no @.</p>
               </div>
               <button
                 type="button"
@@ -189,7 +199,9 @@ export const PromptComposer: React.FC<PromptComposerProps> = ({
               {!suggestions.length && (
                 <div className="p-5 text-center">
                   <p className="text-[11px] text-zinc-500">
-                    {references.length ? 'Nenhuma mídia corresponde a esta busca.' : 'Nenhuma mídia anexada a este vídeo.'}
+                    {promptReferences.length
+                      ? 'Nenhuma mídia corresponde a esta busca.'
+                      : 'Nenhum asset foi anexado a este vídeo ainda.'}
                   </p>
                   <button
                     type="button"
@@ -208,7 +220,7 @@ export const PromptComposer: React.FC<PromptComposerProps> = ({
         )}
 
         <div className="flex justify-between mt-1 px-0.5 text-[10px] text-zinc-400">
-          <span>Digite @ para mencionar uma mídia deste vídeo</span>
+          <span>Digite @ para mencionar um asset deste vídeo</span>
           <span className="font-mono">{prompt.length} / {maxChars}</span>
         </div>
       </div>
