@@ -28,10 +28,6 @@ export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
 
 type KnownCapabilityDefaults = Partial<ModelCapabilities>;
 
-/**
- * Verified provider-agnostic model facts. Firestore remains authoritative when a
- * field is explicitly configured; these values only fill missing capability data.
- */
 const KNOWN_MODEL_DEFAULTS: Record<string, KnownCapabilityDefaults> = {
   'wan-3-0': {
     supports_image_reference: true,
@@ -128,6 +124,12 @@ function unique<T>(values: T[]): T[] {
   return Array.from(new Set(values));
 }
 
+function isFrameReference(ref: WorkspaceReference) {
+  return ['START_FRAME', 'INITIAL_FRAME', 'INITIAL', 'END_FRAME', 'END'].includes(
+    String(ref.role || '').toUpperCase()
+  );
+}
+
 export function mergeModelCapabilities(models: ModelRegistryItem[]): ModelCapabilities {
   const active = models.filter((m) => m.status !== 'INACTIVE');
   if (!active.length) return DEFAULT_MODEL_CAPABILITIES;
@@ -190,6 +192,11 @@ export function validateConfiguration(
   if (!caps.supported_resolutions.includes(config.resolution)) errors.push(`Resolução ${config.resolution} não suportada por ${model.name}.`);
   if (!caps.supported_aspect_ratios.includes(config.aspect_ratio)) errors.push(`Proporção ${config.aspect_ratio} não suportada por ${model.name}.`);
   if (config.has_end_image && !caps.supports_start_end_image) errors.push(`${model.name} não suporta quadro final.`);
+
+  const generalRefs = config.references.filter((r) => !isFrameReference(r));
+  if ((config.has_start_image || config.has_end_image) && generalRefs.length > 0) {
+    errors.push('Imagem inicial/final e referências multimodais usam modos de geração diferentes. Remova um dos grupos antes de gerar.');
+  }
 
   const imageRefs = config.references.filter((r) => r.asset?.type === 'IMAGE' || !r.asset?.type);
   const videoRefs = config.references.filter((r) => r.asset?.type === 'VIDEO');
