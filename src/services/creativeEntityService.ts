@@ -1,4 +1,4 @@
-import { collection, deleteDoc, doc, getDocs, query, setDoc, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase.js';
 
 export type CreativeEntityKind = 'CHARACTER' | 'PRODUCT' | 'STYLE' | 'PROJECT';
@@ -16,20 +16,34 @@ export interface CreativeEntity {
   updated_at: string;
 }
 
+async function readAll(): Promise<CreativeEntity[]> {
+  const user = auth.currentUser;
+  if (!user) return [];
+  const ref = doc(db, 'user_preferences', user.uid);
+  const snap = await getDoc(ref);
+  const rows = snap.exists() ? (snap.data() as any).creative_entities : [];
+  return Array.isArray(rows) ? rows as CreativeEntity[] : [];
+}
+
+async function writeAll(rows: CreativeEntity[]) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Usuário não autenticado.');
+  await setDoc(doc(db, 'user_preferences', user.uid), {
+    user_id: user.uid,
+    creative_entities: rows,
+    updated_at: new Date().toISOString(),
+  }, { merge: true });
+}
+
 export const creativeEntityService = {
   async list(kind: CreativeEntityKind): Promise<CreativeEntity[]> {
-    const user = auth.currentUser;
-    if (!user) return [];
-    const snap = await getDocs(query(collection(db, 'creative_entities'), where('owner_user_id', '==', user.uid)));
-    return snap.docs
-      .map((row) => row.data() as CreativeEntity)
-      .filter((row) => row.kind === kind)
-      .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+    return (await readAll()).filter((row) => row.kind === kind).sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
   },
 
   async save(input: Partial<CreativeEntity> & { kind: CreativeEntityKind; name: string }): Promise<CreativeEntity> {
     const user = auth.currentUser;
     if (!user) throw new Error('Usuário não autenticado.');
+    const rows = await readAll();
     const now = new Date().toISOString();
     const entityId = input.entity_id || `ent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const value: CreativeEntity = {
@@ -44,11 +58,11 @@ export const creativeEntityService = {
       created_at: input.created_at || now,
       updated_at: now,
     };
-    await setDoc(doc(db, 'creative_entities', entityId), value, { merge: true });
+    await writeAll([value, ...rows.filter((row) => row.entity_id !== entityId)]);
     return value;
   },
 
   async remove(entityId: string): Promise<void> {
-    await deleteDoc(doc(db, 'creative_entities', entityId));
+    await writeAll((await readAll()).filter((row) => row.entity_id !== entityId));
   },
 };
