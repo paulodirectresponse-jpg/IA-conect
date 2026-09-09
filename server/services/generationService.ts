@@ -1,13 +1,11 @@
 import crypto from 'crypto';
-import { Generation, GenerationMode, GenerationAttemptLog } from '../../src/types/index.js';
+import { Generation, GenerationMode, GenerationAttemptLog, AssetType } from '../../src/types/index.js';
 import { generationRepository } from '../repositories/generationRepository.js';
 import { smartRouterService } from './smartRouterService.js';
 import { walletService } from './walletService.js';
 import { assetReferenceResolver } from './assetReferenceResolver.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { assetRepository } from '../repositories/assetRepository.js';
-import { getAdminStorage } from '../repositories/firebaseAdminClient.js';
-import { getFirebaseConfig } from '../repositories/firestoreClient.js';
 
 interface GenerationReferenceInput {
   asset_id: string;
@@ -18,6 +16,7 @@ interface GenerationReferenceInput {
 interface StartParams {
   userId: string;
   model_id: string;
+  mode?: GenerationMode;
   prompt: string;
   negative_prompt?: string;
   duration_seconds: number;
@@ -33,7 +32,12 @@ interface StartParams {
   idToken?: string;
 }
 
-function inferMode(refs: GenerationReferenceInput[]): GenerationMode {
+function isImageMode(mode?: GenerationMode) {
+  return mode === 'TEXT_TO_IMAGE' || mode === 'IMAGE_TO_IMAGE';
+}
+
+function inferMode(refs: GenerationReferenceInput[], requested?: GenerationMode): GenerationMode {
+  if (requested) return requested;
   if (!refs.length) return 'TEXT_TO_VIDEO';
   if (refs.some((r) => r.slot_type === 'INITIAL')) return 'IMAGE_TO_VIDEO';
   return 'REFERENCE_TO_VIDEO';
@@ -43,42 +47,38 @@ function terminal(status: string) {
   return ['SUCCEEDED', 'FAILED', 'CANCELLED', 'REFUNDED'].includes(status);
 }
 
-async function archiveResult(userId: string, generationId: string, url: string) {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Result download HTTP ${response.status}`);
-    const length = Number(response.headers.get('content-length') || 0);
-    if (length > 300 * 1024 * 1024) throw new Error('Resultado excede limite de 300MB.');
-    const buffer = Buffer.from(await response.arrayBuffer());
-
-    // Legacy archive path. Failure is non-blocking because provider result_url
-    // remains available; result archival will be fully moved to Supabase later.
-    const storage = getAdminStorage();
-    const cfg = getFirebaseConfig();
-    if (!storage || !cfg.storageBucket) throw new Error('Storage de arquivo de resultado indisponível.');
-    const contentType = response.headers.get('content-type') || 'video/mp4';
-    const storagePath = `users/${userId}/generations/${generationId}/result.mp4`;
-    await storage.bucket(cfg.storageBucket).file(storagePath).save(buffer, {
-      resumable: false,
-      contentType,
-      metadata: { cacheControl: 'private,max-age=3600' },
-    });
-    const asset = await assetRepository.createAsset({
-      owner_user_id: userId,
-      type: 'VIDEO',
-      category: 'GENERIC',
-      name: `Generation ${generationId.slice(-6)}`,
-      alias: `generation_${generationId.slice(-6)}`,
-      storage_path: storagePath,
-      mime_type: contentType,
-      size_bytes: buffer.length,
-      status: 'READY',
-    });
-    return asset;
-  } catch (err: any) {
-    console.warn('[GenerationArchive]', err?.message);
-    return null;
+async function registerGeneratedAssets(generation: Generation, urls: string[]) {
+  const mediaType: AssetType = isImageMode(generation.mode) ? 'IMAGE' : 'VIDEO';
+  const created = [];
+  for (let index = 0; index < urls.length; index += 1) {
+    const url = urls[index];
+    if (!url) continue;
+    try {
+      const asset = await assetRepository.createAsset({
+        owner_user_id: generation.user_id,
+        type: mediaType,
+        category: 'GENERIC',
+        name: mediaType === 'IMAGE'
+          ? `Imagem gerada ${generation.generation_id.slice(-6)}${urls.length > 1 ? ` ${index + 1}` : ''}`
+          : `Vídeo gerado ${generation.generation_id.slice(-6)}${urls.length > 1 ? ` ${index + 1}` : ''}`,
+        alias: `${mediaType === 'IMAGE' ? 'generated_image' : 'generated_video'}_${generation.generation_id.slice(-6)}${urls.length > 1 ? `_${index + 1}` : ''}`,
+        storage_path: `provider://${generation.provider_id}/${generation.provider_job_id || generation.generation_id}/${index + 1}`,
+        public_url: url,
+        thumbnail_url: mediaType === 'IMAGE' ? url : generation.thumbnail_url || '',
+        mime_type: mediaType === 'IMAGE' ? 'image/jpeg' : 'video/mp4',
+        size_bytes: 0,
+        status: 'READY',
+        origin: 'GENERATED',
+        source_generation_id: generation.generation_id,
+        source_model_id: generation.model_id,
+        source_provider_id: generation.provider_id,
+      });
+      created.push(asset);
+    } catch (err: any) {
+      console.warn('[GeneratedAssetRegister]', generation.generation_id, err?.message || err);
+    }
   }
+  return created;
 }
 
 export const generationService = {
@@ -86,26 +86,32 @@ export const generationService = {
     if (!params.model_id || !params.prompt?.trim()) {
       throw Object.assign(new Error('Modelo e prompt são obrigatórios.'), { code: 'VALIDATION_ERROR' });
     }
-    if (!Number.isInteger(params.duration_seconds) || params.duration_seconds <= 0) {
+
+    const refs = params.references || [];
+    const mode = inferMode(refs, params.mode);
+    const imageJob = isImageMode(mode);
+    const billDuration = imageJob ? 1 : params.duration_seconds;
+
+    if (!imageJob && (!Number.isInteger(params.duration_seconds) || params.duration_seconds <= 0)) {
       throw Object.assign(new Error('Duração inválida.'), { code: 'VALIDATION_ERROR' });
     }
     if (!Number.isInteger(params.number_of_outputs) || params.number_of_outputs < 1 || params.number_of_outputs > 4) {
       throw Object.assign(new Error('Quantidade de saídas inválida.'), { code: 'VALIDATION_ERROR' });
+    }
+    if (mode === 'IMAGE_TO_IMAGE' && !refs.length) {
+      throw Object.assign(new Error('Adicione pelo menos uma imagem de referência para editar.'), { code: 'REFERENCE_REQUIRED' });
     }
 
     const clientId = params.client_request_id || crypto.randomUUID();
     const existing = await generationRepository.findByClientRequest(params.userId, clientId);
     if (existing) return existing;
 
-    const refs = params.references || [];
-    const mode = inferMode(refs);
     const generationId = `gen_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
-
     const decision = await smartRouterService.selectProvider({
       userId: params.userId,
       model_id: params.model_id,
       mode,
-      duration_seconds: params.duration_seconds,
+      duration_seconds: billDuration,
       resolution: params.resolution,
       number_of_outputs: params.number_of_outputs,
       generation_id: generationId,
@@ -122,8 +128,8 @@ export const generationService = {
       mode,
       original_prompt: params.prompt.trim(),
       compiled_prompt: params.prompt.trim(),
-      prompt_compiler_version: 'stage3-router-1.1-local-aliases',
-      duration_seconds: params.duration_seconds,
+      prompt_compiler_version: 'stage4-unified-media-1.0',
+      duration_seconds: imageJob ? undefined : params.duration_seconds,
       resolution: params.resolution,
       aspect_ratio: params.aspect_ratio,
       estimated_cost_cents: reserveAmount,
@@ -170,8 +176,6 @@ export const generationService = {
         return {
           ...asset,
           slot_type: (source?.slot_type || 'GENERAL') as 'INITIAL' | 'END' | 'GENERAL',
-          // The user's local alias is deliberately separate from the global
-          // library alias. Provider adapters translate it at the API boundary.
           prompt_alias: source?.alias || asset.alias,
         };
       });
@@ -214,7 +218,7 @@ export const generationService = {
             mode,
             prompt: params.prompt.trim(),
             negative_prompt: params.negative_prompt,
-            duration_seconds: params.duration_seconds,
+            duration_seconds: billDuration,
             resolution: params.resolution,
             aspect_ratio: params.aspect_ratio,
             number_of_outputs: params.number_of_outputs,
@@ -316,16 +320,19 @@ export const generationService = {
       });
     }
 
+    const outputs = (status.result_urls || status.result_image_urls || [status.result_video_url]).filter(Boolean) as string[];
     generation.status = 'SUCCEEDED';
     generation.progress_percent = 100;
     generation.final_cost_cents = finalCost;
     generation.completed_at = new Date().toISOString();
-    generation.result_url = status.result_video_url || null;
-    generation.thumbnail_url = status.thumbnail_url || null;
+    generation.result_url = outputs[0] || null;
+    generation.thumbnail_url = isImageMode(generation.mode) ? outputs[0] || null : status.thumbnail_url || null;
+    (generation as Generation & { result_urls?: string[] }).result_urls = outputs;
 
-    if (status.result_video_url) {
-      const asset = await archiveResult(generation.user_id, generation.generation_id, status.result_video_url);
-      if (asset) generation.result_asset_id = asset.asset_id;
+    if (outputs.length) {
+      const assets = await registerGeneratedAssets(generation, outputs);
+      if (assets[0]) generation.result_asset_id = assets[0].asset_id;
+      (generation as Generation & { result_asset_ids?: string[] }).result_asset_ids = assets.map((asset) => asset.asset_id);
     }
     return generationRepository.saveGeneration(generation);
   },
