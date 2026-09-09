@@ -70,13 +70,14 @@ generationRuntimeRouter.post('/generations', requireAuth, async (req: Authentica
       references: req.body.references || [],
       requested_provider_id: req.body.requested_provider_id,
       client_request_id: req.body.client_request_id,
+      maximum_authorized_cost_cents: Number.isFinite(Number(req.body.maximum_authorized_cost_cents)) ? Number(req.body.maximum_authorized_cost_cents) : undefined,
       reqHost: host,
       idToken,
     });
 
     res.json({ success: true, data: generation });
   } catch (err: any) {
-    const status = err?.code === 'WALLET_INSUFFICIENT_FUNDS' ? 402 : 400;
+    const status = err?.code === 'WALLET_INSUFFICIENT_FUNDS' ? 402 : err?.code === 'PRICE_CHANGED_REQUOTE_REQUIRED' ? 409 : 400;
     res.status(status).json({
       success: false,
       error: {
