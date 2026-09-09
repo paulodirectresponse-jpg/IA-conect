@@ -17,6 +17,7 @@ import {
   validateConfiguration,
 } from '../../services/modelCapabilities.js';
 import { DEFAULT_PRESERVATION_RULES } from '../../config/constants.js';
+import { STUDIO_FALLBACK_MODELS, STUDIO_FALLBACK_PRICING } from '../../config/studioCatalog.js';
 import { generationIntentResolver } from '../../services/generationIntentResolver.js';
 import { CreatorPanel } from '../workspace/CreatorPanel.js';
 import { ResultsCanvas } from '../workspace/ResultsCanvas.js';
@@ -25,10 +26,10 @@ import { PresetModal } from '../workspace/PresetModal.js';
 import { AssetPickerModal } from '../workspace/AssetPickerModal.js';
 import { GenerationRequestPreviewModal } from '../workspace/GenerationRequestPreviewModal.js';
 import { ReferenceRulesModal } from '../workspace/ReferenceRulesModal.js';
-import { Loader2 } from 'lucide-react';
 
 const unique = (values: string[]) => Array.from(new Set(values));
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const FALLBACK_VIDEO_MODELS = STUDIO_FALLBACK_MODELS.filter((m) => m.category === 'VIDEO' && m.status !== 'INACTIVE');
 
 function localAliasFor(asset: Asset, refs: WorkspaceReference[]) {
   const prefix = asset.type === 'VIDEO' ? 'video' : asset.type === 'AUDIO' ? 'audio' : 'img';
@@ -41,11 +42,11 @@ function localAliasFor(asset: Asset, refs: WorkspaceReference[]) {
 export const CreateView: React.FC = () => {
   const { wallet, refreshWallet } = useAuth();
 
-  const [loading, setLoading] = useState(true);
-  const [models, setModels] = useState<ModelRegistryItem[]>([]);
-  const [pricing, setPricing] = useState<PricingEntry[]>([]);
+  const [loading] = useState(false);
+  const [models, setModels] = useState<ModelRegistryItem[]>(FALLBACK_VIDEO_MODELS);
+  const [pricing, setPricing] = useState<PricingEntry[]>(STUDIO_FALLBACK_PRICING);
   const [selectionMode, setSelectionMode] = useState<'AUTO' | 'MANUAL'>('AUTO');
-  const [manualModelId, setManualModelId] = useState('');
+  const [manualModelId, setManualModelId] = useState(FALLBACK_VIDEO_MODELS[0]?.model_id || '');
 
   const [initialImage, setInitialImage] = useState<Asset | null>(null);
   const [endImage, setEndImage] = useState<Asset | null>(null);
@@ -83,65 +84,54 @@ export const CreateView: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const [modelsRes, presetsRes, assetsRes, prefsRes, pricingRes] = await Promise.all([
-          workspaceService.listModels(),
-          workspaceService.listPresets(),
-          assetService.listAssets(),
-          workspaceService.getUserPreferences(),
-          workspaceService.listPricing(),
-        ]);
-        if (!mounted) return;
 
-        const activeModels = modelsRes.filter((m) => m.status !== 'INACTIVE' && m.category === 'VIDEO');
-        setModels(activeModels);
-        setPresets(presetsRes);
-        setAvailableAssets(assetsRes);
-        setFavoriteModelIds(prefsRes.favorite_model_ids || []);
-        setRecentModelIds(prefsRes.recent_model_ids || []);
-        setPricing(pricingRes || []);
-        setManualModelId(activeModels[0]?.model_id || '');
-
-        const draft = await workspaceService.getLatestDraft().catch(() => null);
-        if (!draft || !mounted) return;
-
-        if (draft.model_id === 'AUTO') {
-          setSelectionMode('AUTO');
-        } else if (draft.model_id && activeModels.some((m) => m.model_id === draft.model_id)) {
-          setSelectionMode('MANUAL');
-          setManualModelId(draft.model_id);
-        }
-
-        setPrompt(draft.prompt || '');
-        setNegativePrompt(draft.negative_prompt || '');
-        const draftRefs = draft.references || [];
-        setReferences(draftRefs);
-
-        const start = draftRefs.find((r) => ['START_FRAME', 'INITIAL_FRAME'].includes(String(r.role || '').toUpperCase()));
-        const end = draftRefs.find((r) => String(r.role || '').toUpperCase() === 'END_FRAME');
-        if (start?.asset) setInitialImage(start.asset);
-        if (end?.asset) setEndImage(end.asset);
-        if (!start?.asset && draft.mode === 'IMAGE_TO_VIDEO') {
-          const firstImage = draftRefs.find((r) => r.asset?.type === 'IMAGE');
-          if (firstImage?.asset) setInitialImage(firstImage.asset);
-        }
-
-        if (draft.settings) {
-          setDurationSeconds(draft.settings.duration_seconds || 5);
-          setResolution(draft.settings.resolution || '720p');
-          setAspectRatio(draft.settings.aspect_ratio || '16:9');
-          setNumberOfOutputs(draft.settings.number_of_outputs || 1);
-          setSeed(draft.settings.seed ?? '');
-          setMotionStrength(draft.settings.motion_strength ?? 5);
-        }
-      } catch (err) {
-        console.error('[CreateView] Erro ao carregar workspace:', err);
-      } finally {
-        if (mounted) setLoading(false);
+    workspaceService.listModels().then((rows) => {
+      if (!mounted) return;
+      const active = rows.filter((m) => m.status !== 'INACTIVE' && m.category === 'VIDEO');
+      if (active.length) {
+        setModels(active);
+        setManualModelId((current) => active.some((m) => m.model_id === current) ? current : active[0].model_id);
       }
-    })();
+    }).catch(() => {});
+
+    workspaceService.listPricing().then((rows) => { if (mounted && rows?.length) setPricing(rows); }).catch(() => {});
+    workspaceService.listPresets().then((rows) => { if (mounted) setPresets(rows); }).catch(() => {});
+    assetService.listAssets().then((rows) => { if (mounted) setAvailableAssets(rows); }).catch(() => {});
+    workspaceService.getUserPreferences().then((prefs) => {
+      if (!mounted) return;
+      setFavoriteModelIds(prefs.favorite_model_ids || []);
+      setRecentModelIds(prefs.recent_model_ids || []);
+    }).catch(() => {});
+
+    workspaceService.getLatestDraft().then((draft) => {
+      if (!draft || !mounted) return;
+      const knownVideoIds = new Set(FALLBACK_VIDEO_MODELS.map((m) => m.model_id));
+      if (draft.model_id === 'AUTO') setSelectionMode('AUTO');
+      else if (draft.model_id && knownVideoIds.has(draft.model_id)) { setSelectionMode('MANUAL'); setManualModelId(draft.model_id); }
+
+      setPrompt(draft.prompt || '');
+      setNegativePrompt(draft.negative_prompt || '');
+      const draftRefs = draft.references || [];
+      setReferences(draftRefs.filter((r) => !['START_FRAME','INITIAL_FRAME','END_FRAME'].includes(String(r.role || '').toUpperCase())));
+
+      const start = draftRefs.find((r) => ['START_FRAME', 'INITIAL_FRAME'].includes(String(r.role || '').toUpperCase()));
+      const end = draftRefs.find((r) => String(r.role || '').toUpperCase() === 'END_FRAME');
+      if (start?.asset) setInitialImage(start.asset);
+      if (end?.asset) setEndImage(end.asset);
+      if (!start?.asset && draft.mode === 'IMAGE_TO_VIDEO') {
+        const firstImage = draftRefs.find((r) => r.asset?.type === 'IMAGE');
+        if (firstImage?.asset) setInitialImage(firstImage.asset);
+      }
+
+      if (draft.settings) {
+        setDurationSeconds(draft.settings.duration_seconds || 5);
+        setResolution(draft.settings.resolution || '720p');
+        setAspectRatio(draft.settings.aspect_ratio || '16:9');
+        setNumberOfOutputs(draft.settings.number_of_outputs || 1);
+        setSeed(draft.settings.seed ?? '');
+        setMotionStrength(draft.settings.motion_strength ?? 5);
+      }
+    }).catch(() => {});
 
     return () => {
       mounted = false;
@@ -157,14 +147,13 @@ export const CreateView: React.FC = () => {
   const autoCapabilities = useMemo(() => mergeModelCapabilities(models), [models]);
 
   const inferredIntent = useMemo(
-    () =>
-      generationIntentResolver.resolveMode({
-        model: selectionMode === 'MANUAL' ? manualModel : undefined,
-        prompt,
-        references,
-        initialAsset: initialImage,
-        endAsset: endImage,
-      }),
+    () => generationIntentResolver.resolveMode({
+      model: selectionMode === 'MANUAL' ? manualModel : undefined,
+      prompt,
+      references,
+      initialAsset: initialImage,
+      endAsset: endImage,
+    }),
     [selectionMode, manualModel, prompt, references, initialImage, endImage]
   );
   const mode = inferredIntent.mode;
@@ -210,20 +199,19 @@ export const CreateView: React.FC = () => {
   );
 
   const autoCompatibleModels = useMemo(
-    () =>
-      findCompatibleModels(models, {
-        mode,
-        imageCount: counts.IMAGE,
-        videoCount: counts.VIDEO,
-        audioCount: counts.AUDIO,
-        hasStartImage: Boolean(initialImage),
-        hasEndImage: Boolean(endImage),
-        desiredResolution: resolution,
-        desiredDuration: durationSeconds,
-        desiredAspectRatio: aspectRatio,
-        promptLength: prompt.length,
-        usesNegativePrompt: Boolean(negativePrompt.trim()),
-      }),
+    () => findCompatibleModels(models, {
+      mode,
+      imageCount: counts.IMAGE,
+      videoCount: counts.VIDEO,
+      audioCount: counts.AUDIO,
+      hasStartImage: Boolean(initialImage),
+      hasEndImage: Boolean(endImage),
+      desiredResolution: resolution,
+      desiredDuration: durationSeconds,
+      desiredAspectRatio: aspectRatio,
+      promptLength: prompt.length,
+      usesNegativePrompt: Boolean(negativePrompt.trim()),
+    }),
     [models, mode, counts, initialImage, endImage, resolution, durationSeconds, aspectRatio, prompt.length, negativePrompt]
   );
 
@@ -410,10 +398,6 @@ export const CreateView: React.FC = () => {
       setValidating(false);
     }
   };
-
-  if (loading) {
-    return <div className="flex-1 h-full grid place-items-center bg-[#0b0e13]"><div className="flex items-center gap-2 text-[10px] text-zinc-600"><Loader2 className="w-4 h-4 animate-spin text-violet-400"/> Preparando studio...</div></div>;
-  }
 
   return (
     <div className="flex h-full min-h-0 bg-[#0b0e13]">
