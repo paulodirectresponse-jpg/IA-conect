@@ -95,7 +95,7 @@ export const CreateView: React.FC = () => {
         ]);
         if (!mounted) return;
 
-        const activeModels = modelsRes.filter((m) => m.status !== 'INACTIVE');
+        const activeModels = modelsRes.filter((m) => m.status !== 'INACTIVE' && m.category === 'VIDEO');
         setModels(activeModels);
         setPresets(presetsRes);
         setAvailableAssets(assetsRes);
@@ -228,332 +228,202 @@ export const CreateView: React.FC = () => {
   );
 
   const autoResolvedModel = useMemo(() => {
-    if (!autoCompatibleModels.length) return null;
-    const withCost = autoCompatibleModels
-      .map((model) => ({ model, price: estimateModelPrice(model.model_id) }))
-      .sort((a, b) => {
-        const ap = a.price ?? Number.MAX_SAFE_INTEGER;
-        const bp = b.price ?? Number.MAX_SAFE_INTEGER;
-        return ap - bp || a.model.name.localeCompare(b.model.name);
-      });
-    return withCost[0]?.model || null;
+    return [...autoCompatibleModels].sort((a, b) => {
+      const aPrice = estimateModelPrice(a.model_id) ?? Number.MAX_SAFE_INTEGER;
+      const bPrice = estimateModelPrice(b.model_id) ?? Number.MAX_SAFE_INTEGER;
+      return aPrice - bPrice || a.name.localeCompare(b.name);
+    })[0] || null;
   }, [autoCompatibleModels, estimateModelPrice]);
 
-  const activeModel = selectionMode === 'AUTO' ? autoResolvedModel : manualModel;
-  const uiCapabilities = selectionMode === 'AUTO' ? autoCapabilities : getModelCapabilities(activeModel);
-  const activeModelId = activeModel?.model_id || manualModel?.model_id || '';
+  const selectedModel = selectionMode === 'AUTO' ? autoResolvedModel : manualModel;
+  const activeCapabilities = useMemo(
+    () => selectionMode === 'AUTO' ? (autoResolvedModel ? getModelCapabilities(autoResolvedModel) : autoCapabilities) : getModelCapabilities(manualModel),
+    [selectionMode, autoResolvedModel, autoCapabilities, manualModel]
+  );
 
   useEffect(() => {
-    if (loading || selectionMode !== 'MANUAL' || !manualModel) return;
-    const caps = getModelCapabilities(manualModel);
-    if (!caps.supported_durations.includes(durationSeconds)) setDurationSeconds(caps.supported_durations[0] || 5);
-    if (!caps.supported_resolutions.includes(resolution)) setResolution(caps.supported_resolutions[0] || '720p');
-    if (!caps.supported_aspect_ratios.includes(aspectRatio)) {
-      setAspectRatio(
-        (manualModel.recommended_aspect_ratio && caps.supported_aspect_ratios.includes(manualModel.recommended_aspect_ratio)
-          ? manualModel.recommended_aspect_ratio
-          : caps.supported_aspect_ratios[0]) || '16:9'
-      );
-    }
-  }, [loading, selectionMode, manualModel, durationSeconds, resolution, aspectRatio]);
+    const durations = activeCapabilities.supported_durations;
+    if (durations.length && !durations.includes(durationSeconds)) setDurationSeconds(durations[0]);
+    const resolutions = activeCapabilities.supported_resolutions;
+    if (resolutions.length && !resolutions.includes(resolution)) setResolution(resolutions[0]);
+    const ratios = activeCapabilities.supported_aspect_ratios;
+    if (ratios.length && !ratios.includes(aspectRatio)) setAspectRatio(ratios[0]);
+  }, [activeCapabilities, durationSeconds, resolution, aspectRatio]);
 
-  useEffect(() => {
-    if (!uiCapabilities.supports_negative_prompt && negativePrompt) setNegativePrompt('');
-    if (!uiCapabilities.supports_seed && seed !== '') setSeed('');
-  }, [uiCapabilities.supports_negative_prompt, uiCapabilities.supports_seed]);
+  const refsWithFrames = useMemo(() => {
+    const output = references.filter((r) => !['START_FRAME', 'INITIAL_FRAME', 'END_FRAME'].includes(String(r.role || '').toUpperCase()));
+    const defaults = DEFAULT_PRESERVATION_RULES.GENERIC;
+    if (initialImage) output.unshift({ asset_id: initialImage.asset_id, alias_snapshot: 'start_frame', role: 'START_FRAME', priority: 'HIGH', preservation_rules: defaults.preserve, flexible_rules: defaults.flexible, asset: initialImage });
+    if (endImage) output.unshift({ asset_id: endImage.asset_id, alias_snapshot: 'end_frame', role: 'END_FRAME', priority: 'HIGH', preservation_rules: defaults.preserve, flexible_rules: defaults.flexible, asset: endImage });
+    return output;
+  }, [references, initialImage, endImage]);
 
-  useEffect(() => {
-    if (loading) return;
-    if (selectionMode === 'AUTO' && !autoResolvedModel) {
-      setValidationErrors([
-        'Nenhuma IA disponível atende esta combinação de mídia, duração, resolução e proporção. Ajuste um dos inputs para continuar.',
-      ]);
-      setValidationWarnings([]);
-      return;
-    }
-    if (!activeModel) return;
-
-    const validation = validateConfiguration(activeModel, {
+  const compatibility = useMemo(
+    () => validateConfiguration(selectedModel, {
       mode,
       duration_seconds: durationSeconds,
       resolution,
       aspect_ratio: aspectRatio,
-      references,
-      negative_prompt: negativePrompt || undefined,
+      references: refsWithFrames,
+      negative_prompt: negativePrompt,
       promptText: prompt,
       has_start_image: Boolean(initialImage),
       has_end_image: Boolean(endImage),
-    });
-    setValidationErrors(unique([...validation.errors, ...inferredIntent.errors]));
-    setValidationWarnings(unique([...validation.warnings, ...inferredIntent.warnings]));
-  }, [
-    loading,
-    selectionMode,
-    autoResolvedModel,
-    activeModel,
-    mode,
-    durationSeconds,
-    resolution,
-    aspectRatio,
-    references,
-    negativePrompt,
-    prompt,
-    initialImage,
-    endImage,
-    inferredIntent,
-  ]);
-
-  const triggerAutosave = useCallback(() => {
-    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
-    autosaveTimerRef.current = setTimeout(async () => {
-      try {
-        await workspaceService.saveDraft({
-          model_id: selectionMode === 'AUTO' ? 'AUTO' : manualModelId,
-          mode,
-          prompt,
-          negative_prompt: negativePrompt || undefined,
-          references,
-          settings: {
-            duration_seconds: durationSeconds,
-            resolution,
-            aspect_ratio: aspectRatio,
-            number_of_outputs: numberOfOutputs,
-            seed: typeof seed === 'number' ? seed : null,
-            motion_strength: uiCapabilities.supports_motion_strength ? motionStrength : undefined,
-          },
-        });
-        setLastSavedTime(
-          new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        );
-      } catch {
-        // Draft autosave must never block creation.
-      }
-    }, 1200);
-  }, [
-    selectionMode,
-    manualModelId,
-    mode,
-    prompt,
-    negativePrompt,
-    references,
-    durationSeconds,
-    resolution,
-    aspectRatio,
-    numberOfOutputs,
-    seed,
-    motionStrength,
-    uiCapabilities.supports_motion_strength,
-  ]);
+    }),
+    [selectedModel, mode, durationSeconds, resolution, aspectRatio, refsWithFrames, negativePrompt, prompt, initialImage, endImage]
+  );
 
   useEffect(() => {
-    if (!loading && (prompt || references.length > 0)) triggerAutosave();
-  }, [
-    loading,
-    prompt,
-    negativePrompt,
-    references,
-    selectionMode,
-    manualModelId,
-    durationSeconds,
-    resolution,
-    aspectRatio,
-    numberOfOutputs,
-    triggerAutosave,
-  ]);
+    setValidationErrors(compatibility.errors);
+    setValidationWarnings(compatibility.warnings);
+  }, [compatibility]);
 
-  const totalEstimatedCostCents = activeModel ? estimateModelPrice(activeModel.model_id) : null;
-  const unitPriceCents =
-    totalEstimatedCostCents == null ? null : Math.ceil(totalEstimatedCostCents / Math.max(1, numberOfOutputs));
+  const totalEstimatedCostCents = selectedModel ? estimateModelPrice(selectedModel.model_id) : null;
   const availableBalanceCents = wallet?.available_balance_cents || 0;
-  const hasSufficientFunds =
-    totalEstimatedCostCents == null ? true : availableBalanceCents >= totalEstimatedCostCents;
+  const hasSufficientFunds = totalEstimatedCostCents == null ? true : availableBalanceCents >= totalEstimatedCostCents;
 
-  const addOrUpdateReference = (asset: Asset, role: 'GENERAL' | 'START_FRAME' | 'END_FRAME' = 'GENERAL') => {
+  const removeAliasFromPrompt = (alias?: string) => {
+    if (!alias) return;
+    const pattern = new RegExp(`@${escapeRegex(alias)}\\b\\s*`, 'g');
+    setPrompt((prev) => prev.replace(pattern, '').replace(/[ \t]{2,}/g, ' '));
+  };
+
+  const addGeneralAsset = (asset: Asset) => {
     setReferences((prev) => {
-      const existing = prev.find((r) => r.asset_id === asset.asset_id);
-      if (existing) {
-        if (role === 'GENERAL') return prev;
-        return prev.map((r) => (r.asset_id === asset.asset_id ? { ...r, role, asset } : r));
-      }
-
-      const categoryKey = (asset.category || 'GENERIC') as keyof typeof DEFAULT_PRESERVATION_RULES;
-      const defaults = DEFAULT_PRESERVATION_RULES[categoryKey] || DEFAULT_PRESERVATION_RULES.GENERIC;
-      const newRef: WorkspaceReference = {
+      if (prev.some((r) => r.asset_id === asset.asset_id)) return prev;
+      const defaults = DEFAULT_PRESERVATION_RULES.GENERIC;
+      const alias = localAliasFor(asset, prev);
+      return [...prev, {
         asset_id: asset.asset_id,
-        alias_snapshot: localAliasFor(asset, prev),
-        role,
+        alias_snapshot: alias,
+        role: 'GENERAL',
         priority: 'HIGH',
         preservation_rules: defaults.preserve,
         flexible_rules: defaults.flexible,
         asset,
-      };
-      return [...prev, newRef];
+      }];
     });
-  };
-
-  const handleUpdateReference = (updated: WorkspaceReference) => {
-    setReferences((prev) => prev.map((r) => (r.asset_id === updated.asset_id ? updated : r)));
-  };
-
-  const handleRemoveReference = (assetId: string) => {
-    const existing = references.find((r) => r.asset_id === assetId);
-    setReferences((prev) => prev.filter((r) => r.asset_id !== assetId));
-    if (initialImage?.asset_id === assetId) setInitialImage(null);
-    if (endImage?.asset_id === assetId) setEndImage(null);
-    if (existing?.alias_snapshot) {
-      const token = new RegExp(`@${escapeRegex(existing.alias_snapshot)}\\b\\s*`, 'g');
-      setPrompt((prev) => prev.replace(token, '').replace(/[ \t]{2,}/g, ' '));
-    }
-  };
-
-  const handleRemoveSlot = (slot: 'INITIAL' | 'END') => {
-    const asset = slot === 'INITIAL' ? initialImage : endImage;
-    if (asset) handleRemoveReference(asset.asset_id);
-    else if (slot === 'INITIAL') setInitialImage(null);
-    else setEndImage(null);
-  };
-
-  const handleOpenPicker = (targetSlot: 'INITIAL' | 'END' | 'GENERAL' = 'GENERAL') => {
-    setPickerTargetSlot(targetSlot);
-    setIsAssetPickerOpen(true);
   };
 
   const handleAssetPicked = (asset: Asset) => {
     if (pickerTargetSlot === 'INITIAL') {
-      if (initialImage && initialImage.asset_id !== asset.asset_id) handleRemoveReference(initialImage.asset_id);
       setInitialImage(asset);
-      addOrUpdateReference(asset, 'START_FRAME');
+      if (endImage?.asset_id === asset.asset_id) setEndImage(null);
     } else if (pickerTargetSlot === 'END') {
-      if (endImage && endImage.asset_id !== asset.asset_id) handleRemoveReference(endImage.asset_id);
       setEndImage(asset);
-      addOrUpdateReference(asset, 'END_FRAME');
+      if (initialImage?.asset_id === asset.asset_id) setInitialImage(null);
     } else {
-      addOrUpdateReference(asset, 'GENERAL');
+      addGeneralAsset(asset);
     }
   };
 
-  const handleSelectModel = (model: ModelRegistryItem) => {
+  const handleRemoveReference = (assetId: string) => {
+    const ref = references.find((r) => r.asset_id === assetId);
+    if (ref) removeAliasFromPrompt(ref.alias_snapshot);
+    setReferences((prev) => prev.filter((r) => r.asset_id !== assetId));
+  };
+
+  const openPicker = (slot: 'INITIAL' | 'END' | 'GENERAL') => {
+    setPickerTargetSlot(slot);
+    setIsAssetPickerOpen(true);
+  };
+
+  const filteredPickerAssets = useMemo(() => {
+    const targetType: AssetType | undefined = pickerTargetSlot === 'INITIAL' || pickerTargetSlot === 'END' ? 'IMAGE' : undefined;
+    return targetType ? availableAssets.filter((a) => a.type === targetType) : availableAssets;
+  }, [availableAssets, pickerTargetSlot]);
+
+  const allowedPickerTypes = useMemo<AssetType[]>(() => {
+    if (pickerTargetSlot === 'INITIAL' || pickerTargetSlot === 'END') return ['IMAGE'];
+    const allowed: AssetType[] = [];
+    if (activeCapabilities.supports_image_reference) allowed.push('IMAGE');
+    if (activeCapabilities.supports_video_reference) allowed.push('VIDEO');
+    if (activeCapabilities.supports_audio_reference) allowed.push('AUDIO');
+    return allowed.length ? allowed : ['IMAGE'];
+  }, [pickerTargetSlot, activeCapabilities]);
+
+  const handleToggleFavorite = async (id: string) => {
+    const prefs = await workspaceService.toggleFavoriteModel(id);
+    setFavoriteModelIds(prefs.favorite_model_ids || []);
+  };
+
+  const handleSelectModel = async (model: ModelRegistryItem) => {
     setSelectionMode('MANUAL');
     setManualModelId(model.model_id);
-    workspaceService.trackRecentModel(model.model_id, mode).then((prefs) => {
-      setRecentModelIds(prefs.recent_model_ids || []);
-    });
+    const prefs = await workspaceService.trackRecentModel(model.model_id, mode).catch(() => null);
+    if (prefs) setRecentModelIds(prefs.recent_model_ids || []);
   };
 
-  const handleSelectAuto = () => setSelectionMode('AUTO');
-
-  const handleToggleFavorite = async (modelId: string) => {
-    const updated = await workspaceService.toggleFavoriteModel(modelId);
-    setFavoriteModelIds(updated.favorite_model_ids || []);
-  };
-
-  const handleApplyPreset = (preset: WorkspacePreset, applyMode: 'REPLACE' | 'MERGE' = 'REPLACE') => {
-    setPrompt((prev) =>
-      applyMode === 'REPLACE' ? preset.prompt_template : prev ? `${prev}\n${preset.prompt_template}` : preset.prompt_template
-    );
-    if (applyMode === 'REPLACE') setNegativePrompt(preset.negative_prompt_template || '');
-    if (preset.generation_settings?.model_id && models.some((m) => m.model_id === preset.generation_settings.model_id)) {
-      setSelectionMode('MANUAL');
-      setManualModelId(preset.generation_settings.model_id);
-    }
-    if (preset.generation_settings?.duration_seconds) setDurationSeconds(preset.generation_settings.duration_seconds);
-    if (preset.generation_settings?.resolution) setResolution(preset.generation_settings.resolution);
-    if (preset.generation_settings?.aspect_ratio) setAspectRatio(preset.generation_settings.aspect_ratio);
-  };
-
-  const handleSaveCurrentAsPreset = async (presetData: { name: string; description: string; category: string }) => {
-    const created = await workspaceService.createPreset({
-      ...presetData,
-      prompt_template: prompt,
-      negative_prompt_template: negativePrompt || undefined,
-      generation_settings: {
-        model_id: selectionMode === 'MANUAL' ? manualModelId : undefined,
-        mode,
-        duration_seconds: durationSeconds,
-        resolution,
-        aspect_ratio: aspectRatio,
-      },
-      included_asset_ids: references.map((r) => r.asset_id),
-    });
-    setPresets((prev) => [created, ...prev]);
-  };
-
-  const handleDeletePreset = async (presetId: string) => {
-    await workspaceService.deletePreset(presetId);
-    setPresets((prev) => prev.filter((p) => p.preset_id !== presetId));
-  };
-
-  const handleTriggerGenerate = async () => {
-    if (!prompt.trim()) {
-      setValidationErrors(['Descreva o vídeo antes de gerar.']);
-      return;
-    }
-    if (!activeModel) {
-      setValidationErrors(['O modo Auto não encontrou uma IA compatível com esta combinação.']);
-      return;
-    }
-    if (validationErrors.length > 0) return;
-
-    setValidating(true);
+  const persistDraft = useCallback(async () => {
     try {
-      const res = await workspaceService.validateAndPreview({
-        model_id: activeModel.model_id,
+      await workspaceService.saveDraft({
+        model_id: selectionMode === 'AUTO' ? 'AUTO' : manualModelId,
         mode,
         prompt,
-        negative_prompt: uiCapabilities.supports_negative_prompt ? negativePrompt || undefined : undefined,
-        references,
+        negative_prompt: negativePrompt,
+        references: refsWithFrames,
         settings: {
           duration_seconds: durationSeconds,
           resolution,
           aspect_ratio: aspectRatio,
           number_of_outputs: numberOfOutputs,
-          seed: uiCapabilities.supports_seed && typeof seed === 'number' ? seed : null,
-          motion_strength: uiCapabilities.supports_motion_strength ? motionStrength : undefined,
+          seed: seed === '' ? null : seed,
+          motion_strength: motionStrength,
         },
       });
-      setPreviewData(res.request_draft);
-      setPreviewNotice(
-        selectionMode === 'AUTO'
-          ? `Auto selecionou ${activeModel.name} para este pedido. ${res.notice}`
-          : res.notice
-      );
+      setLastSavedTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+    } catch {}
+  }, [selectionMode, manualModelId, mode, prompt, negativePrompt, refsWithFrames, durationSeconds, resolution, aspectRatio, numberOfOutputs, seed, motionStrength]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(persistDraft, 700);
+    return () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); };
+  }, [loading, persistDraft]);
+
+  const handlePreview = async () => {
+    if (!selectedModel || validationErrors.length) return;
+    setValidating(true);
+    try {
+      const result = await workspaceService.validateAndPreview({
+        model_id: selectedModel.model_id,
+        mode,
+        prompt,
+        negative_prompt: negativePrompt,
+        references: refsWithFrames,
+        settings: {
+          duration_seconds: durationSeconds,
+          resolution,
+          aspect_ratio: aspectRatio,
+          number_of_outputs: numberOfOutputs,
+          seed: seed === '' ? null : seed,
+          motion_strength: motionStrength,
+        },
+      });
+      setPreviewData(result.request_draft);
+      setPreviewNotice(result.notice);
       setIsPreviewModalOpen(true);
-      await refreshWallet();
     } catch (err: any) {
-      setValidationErrors([err.message || 'Falha ao validar os parâmetros da geração.']);
+      setValidationErrors([err?.message || 'Não foi possível validar esta geração.']);
     } finally {
       setValidating(false);
     }
   };
 
-  const allowedPickerTypes: AssetType[] = useMemo(() => {
-    if (pickerTargetSlot !== 'GENERAL') return ['IMAGE'];
-    const types: AssetType[] = [];
-    if (uiCapabilities.supports_image_reference) types.push('IMAGE');
-    if (uiCapabilities.supports_video_reference) types.push('VIDEO');
-    if (uiCapabilities.supports_audio_reference) types.push('AUDIO');
-    return types;
-  }, [pickerTargetSlot, uiCapabilities]);
-
   if (loading) {
-    return (
-      <div className="flex-1 h-full flex items-center justify-center bg-[#F7F7F8] text-zinc-500">
-        <div className="flex items-center gap-2 text-xs font-medium">
-          <Loader2 className="w-4 h-4 animate-spin" /> Preparando o estúdio...
-        </div>
-      </div>
-    );
+    return <div className="flex-1 h-full grid place-items-center bg-[#0b0e13]"><div className="flex items-center gap-2 text-[10px] text-zinc-600"><Loader2 className="w-4 h-4 animate-spin text-violet-400"/> Preparando studio...</div></div>;
   }
 
   return (
-    <div className="flex-1 h-full flex flex-col md:flex-row overflow-hidden bg-[#F7F7F8]">
+    <div className="flex h-full min-h-0 bg-[#0b0e13]">
       <CreatorPanel
         models={models}
         pricing={pricing}
         selectionMode={selectionMode}
-        selectedModelId={activeModelId}
+        selectedModelId={selectionMode === 'AUTO' ? autoResolvedModel?.model_id || '' : manualModelId}
         autoResolvedModel={autoResolvedModel}
-        onSelectAuto={handleSelectAuto}
+        onSelectAuto={() => setSelectionMode('AUTO')}
         onSelectModel={handleSelectModel}
         favoriteModelIds={favoriteModelIds}
         recentModelIds={recentModelIds}
@@ -561,8 +431,8 @@ export const CreateView: React.FC = () => {
         initialImage={initialImage}
         endImage={endImage}
         references={references}
-        onOpenPicker={handleOpenPicker}
-        onRemoveSlot={handleRemoveSlot}
+        onOpenPicker={openPicker}
+        onRemoveSlot={(slot) => slot === 'INITIAL' ? setInitialImage(null) : setEndImage(null)}
         onRemoveReference={handleRemoveReference}
         onConfigureReference={setSelectedRefForRules}
         resolvedMode={mode}
@@ -580,7 +450,7 @@ export const CreateView: React.FC = () => {
         onChangeResolution={setResolution}
         numberOfOutputs={numberOfOutputs}
         onChangeNumberOfOutputs={setNumberOfOutputs}
-        capabilities={uiCapabilities}
+        capabilities={activeCapabilities}
         showAdvanced={showAdvanced}
         onToggleAdvanced={() => setShowAdvanced((v) => !v)}
         seed={seed}
@@ -588,17 +458,13 @@ export const CreateView: React.FC = () => {
         motionStrength={motionStrength}
         onChangeMotionStrength={setMotionStrength}
         totalEstimatedCostCents={totalEstimatedCostCents}
-        unitPriceCents={unitPriceCents}
+        unitPriceCents={numberOfOutputs > 0 && totalEstimatedCostCents != null ? Math.ceil(totalEstimatedCostCents / numberOfOutputs) : null}
         availableBalanceCents={availableBalanceCents}
         hasSufficientFunds={hasSufficientFunds}
-        onNavigateToWallet={() => {
-          window.location.hash = '#wallet';
-        }}
-        onGenerate={handleTriggerGenerate}
+        onGenerate={handlePreview}
         validating={validating}
         validationErrors={validationErrors}
       />
-
       <ResultsCanvas
         lastSavedTime={lastSavedTime}
         validating={validating}
@@ -606,76 +472,55 @@ export const CreateView: React.FC = () => {
         validationWarnings={validationWarnings}
         onOpenPresets={() => setIsPresetModalOpen(true)}
         presets={presets}
-        onApplyPreset={(preset) => handleApplyPreset(preset, 'REPLACE')}
+        onApplyPreset={() => {}}
         prompt={prompt}
-        hasReferences={references.length > 0}
-      />
-
-      <AssetPickerModal
-        isOpen={isAssetPickerOpen}
-        onClose={() => setIsAssetPickerOpen(false)}
-        availableAssets={availableAssets}
-        onSelectAsset={handleAssetPicked}
-        onAssetUploaded={(newAsset) => setAvailableAssets((prev) => [newAsset, ...prev])}
-        attachedAssetIds={pickerTargetSlot === 'GENERAL' ? references.map((r) => r.asset_id) : []}
-        allowedTypes={allowedPickerTypes}
-        defaultTab="UPLOAD"
-        title={
-          pickerTargetSlot === 'INITIAL'
-            ? 'Adicionar imagem inicial'
-            : pickerTargetSlot === 'END'
-              ? 'Adicionar imagem final'
-              : 'Adicionar mídia ao vídeo'
-        }
-        subtitle={
-          pickerTargetSlot === 'GENERAL'
-            ? 'O arquivo entra neste vídeo imediatamente e depois fica disponível pelo @ no prompt.'
-            : 'Envie uma nova imagem ou escolha uma existente na sua Biblioteca de Assets.'
-        }
+        hasReferences={Boolean(refsWithFrames.length)}
       />
 
       <ImprovePromptModal
         isOpen={isImproveModalOpen}
         onClose={() => setIsImproveModalOpen(false)}
-        originalPrompt={prompt}
-        onApplyImproved={setPrompt}
-        modelName={selectionMode === 'AUTO' ? 'Auto' : activeModel?.name}
-        references={references.map((r) => ({
-          alias: r.alias_snapshot,
-          type: r.asset?.type,
-          category: r.asset?.category,
-        }))}
+        prompt={prompt}
+        references={references}
+        modelName={selectedModel?.name}
+        onApply={setPrompt}
       />
-
       <PresetModal
         isOpen={isPresetModalOpen}
         onClose={() => setIsPresetModalOpen(false)}
         presets={presets}
-        onApplyPreset={handleApplyPreset}
-        onSaveCurrentAsPreset={handleSaveCurrentAsPreset}
-        onDeletePreset={handleDeletePreset}
-        currentHasContent={Boolean(prompt.trim() || references.length > 0)}
+        onApply={(preset) => {
+          setPrompt(preset.prompt_template || '');
+          setNegativePrompt(preset.negative_prompt_template || '');
+          if (preset.generation_settings) {
+            setDurationSeconds(preset.generation_settings.duration_seconds || durationSeconds);
+            setResolution(preset.generation_settings.resolution || resolution);
+            setAspectRatio(preset.generation_settings.aspect_ratio || aspectRatio);
+          }
+          setIsPresetModalOpen(false);
+        }}
+        onDelete={async (id) => { await workspaceService.deletePreset(id); setPresets((prev) => prev.filter((p) => p.preset_id !== id)); }}
       />
-
-      {selectedRefForRules && (
-        <ReferenceRulesModal
-          reference={selectedRefForRules}
-          isOpen={Boolean(selectedRefForRules)}
-          onClose={() => setSelectedRefForRules(null)}
-          onSave={handleUpdateReference}
-        />
-      )}
-
+      <AssetPickerModal
+        isOpen={isAssetPickerOpen}
+        onClose={() => setIsAssetPickerOpen(false)}
+        availableAssets={filteredPickerAssets}
+        onSelectAsset={handleAssetPicked}
+        onAssetUploaded={(asset) => setAvailableAssets((prev) => [asset, ...prev.filter((item) => item.asset_id !== asset.asset_id)])}
+        attachedAssetIds={refsWithFrames.map((r) => r.asset_id)}
+        title={pickerTargetSlot === 'INITIAL' ? 'Selecionar imagem inicial' : pickerTargetSlot === 'END' ? 'Selecionar imagem final' : 'Adicionar mídia ao vídeo'}
+        subtitle={pickerTargetSlot === 'GENERAL' ? 'Upload rápido ou Biblioteca. Depois use @ no prompt para citar as referências.' : 'Escolha uma imagem da Biblioteca ou envie uma nova.'}
+        defaultTab="LIBRARY"
+        allowedTypes={allowedPickerTypes}
+      />
       <GenerationRequestPreviewModal
         isOpen={isPreviewModalOpen}
         onClose={() => setIsPreviewModalOpen(false)}
-        draftData={previewData}
+        requestDraft={previewData}
         notice={previewNotice}
-        onNavigateToWallet={() => {
-          setIsPreviewModalOpen(false);
-          window.location.hash = '#wallet';
-        }}
+        onConfirmed={async () => { setIsPreviewModalOpen(false); await refreshWallet(); }}
       />
+      <ReferenceRulesModal isOpen={Boolean(selectedRefForRules)} onClose={() => setSelectedRefForRules(null)} reference={selectedRefForRules} onApply={(next) => setReferences((prev) => prev.map((r) => r.asset_id === next.asset_id ? next : r))} />
     </div>
   );
 };
