@@ -1,226 +1,32 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Wallet,
-  ArrowDownLeft,
-  ArrowUpRight,
-  RotateCcw,
-  Info,
-  Clock,
-  CheckCircle2,
-  FileText,
-} from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Wallet, RotateCcw, FileText, Plus, Copy, CheckCircle2, X, Loader2, QrCode } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { walletService } from '../../services/walletService.js';
-import { WalletTransaction } from '../../types/index.js';
+import { paymentClient } from '../../services/paymentClient.js';
+import { WalletTransaction, PaymentRecord } from '../../types/index.js';
 import { formatCentsToBRL } from '../../config/constants.js';
-import { Card } from '../common/Card.js';
-import { Button } from '../common/Button.js';
-import { Badge } from '../common/Badge.js';
-import { EmptyState } from '../common/EmptyState.js';
 
-export const WalletView: React.FC = () => {
-  const { wallet, refreshWallet } = useAuth();
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+const presets=[2000,5000,10000,20000];
+const terminal=(status:string)=>['CONFIRMED','FAILED','EXPIRED'].includes(status);
 
-  const loadLedger = async () => {
-    try {
-      setLoading(true);
-      const res = await walletService.listTransactions(50, 0);
-      setTransactions(res.transactions);
-    } catch (err) {
-      console.error('Falha ao carregar transações:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadLedger();
-  }, []);
-
-  const handleManualRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([refreshWallet(), loadLedger()]);
-    setRefreshing(false);
-  };
-
-  const getTxTypeBadge = (type: string) => {
-    switch (type) {
-      case 'ADMIN_CREDIT':
-      case 'DEPOSIT':
-      case 'PROMOTIONAL_CREDIT':
-      case 'REFUND':
-        return <Badge variant="success">+{type.replace('_', ' ')}</Badge>;
-      case 'ADMIN_DEBIT':
-      case 'GENERATION_CAPTURE':
-        return <Badge variant="neutral">-{type.replace('_', ' ')}</Badge>;
-      case 'GENERATION_RESERVE':
-        return <Badge variant="warning">RESERVA</Badge>;
-      case 'GENERATION_RELEASE':
-        return <Badge variant="info">LIBERAÇÃO</Badge>;
-      default:
-        return <Badge variant="neutral">{type}</Badge>;
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 tracking-tight">
-            Carteira & Razão Contábil
-          </h1>
-          <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-            Controle financeiro de alta precisão baseado em ledger imutável
-          </p>
-        </div>
-
-        <Button
-          id="wallet-refresh-btn"
-          variant="outline"
-          size="sm"
-          onClick={handleManualRefresh}
-          isLoading={refreshing}
-          icon={<RotateCcw className="w-4 h-4 text-zinc-600" />}
-        >
-          Atualizar Saldo
-        </Button>
-      </div>
-
-      {/* Financial Snapshot */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card id="wallet-card-available" className="bg-white">
-          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
-            Saldo Disponível
-          </span>
-          <div className="text-2xl font-bold text-zinc-900 tabular-nums">
-            {formatCentsToBRL(wallet?.available_balance_cents || 0)}
-          </div>
-          <span className="text-[10px] text-emerald-600 font-medium mt-1 block">
-            Pronto para consumo imediato
-          </span>
-        </Card>
-
-        <Card id="wallet-card-reserved" className="bg-white">
-          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
-            Saldo Reservado
-          </span>
-          <div className="text-2xl font-bold text-zinc-900 tabular-nums">
-            {formatCentsToBRL(wallet?.reserved_balance_cents || 0)}
-          </div>
-          <span className="text-[10px] text-amber-600 font-medium mt-1 block">
-            Vinculado a jobs em andamento
-          </span>
-        </Card>
-
-        <Card id="wallet-card-total" className="bg-white">
-          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
-            Saldo Total
-          </span>
-          <div className="text-2xl font-bold text-zinc-900 tabular-nums">
-            {formatCentsToBRL(wallet?.total_balance_cents || 0)}
-          </div>
-          <span className="text-[10px] text-zinc-500 font-medium mt-1 block">
-            Disponível + Reservado
-          </span>
-        </Card>
-
-        <Card id="wallet-card-deposited" className="bg-white">
-          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
-            Total Depositado
-          </span>
-          <div className="text-2xl font-bold text-zinc-900 tabular-nums">
-            {formatCentsToBRL(wallet?.total_deposited_cents || 0)}
-          </div>
-          <span className="text-[10px] text-zinc-500 font-medium mt-1 block">
-            Histórico acumulado de depósitos
-          </span>
-        </Card>
-      </div>
-
-      {/* Clarification Banner */}
-      <div className="flex items-start gap-3 p-4 rounded-xl bg-zinc-100/80 border border-zinc-200/80 text-xs text-zinc-700">
-        <Info className="w-5 h-5 text-zinc-500 shrink-0 mt-0.5" />
-        <div className="leading-relaxed">
-          <strong className="font-semibold text-zinc-900 block mb-0.5">
-            Integridade Financeira e Ledger Imutável
-          </strong>
-          Toda a infraestrutura financeira, validações anti-duplicação por chave de idempotência e contabilidade em centavos inteiros estão ativas e auditáveis.
-        </div>
-      </div>
-
-      {/* Transactions Ledger Table */}
-      <Card
-        id="wallet-ledger-card"
-        title="Extrato de Transações (Ledger)"
-        subtitle="Registro estritamente imutável e auditável"
-      >
-        {loading ? (
-          <div className="py-12 text-center text-xs text-zinc-400">
-            Carregando transações do ledger...
-          </div>
-        ) : transactions.length === 0 ? (
-          <EmptyState
-            id="empty-transactions-state"
-            icon={<FileText className="w-6 h-6" />}
-            title="Nenhuma transação registrada"
-            description="Sua carteira está limpa. Quando houver créditos administrativos, recargas ou consumo de IA, cada movimentação aparecerá aqui como um lançamento contábil imutável."
-          />
-        ) : (
-          <div className="overflow-x-auto -mx-5 sm:-mx-6">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-zinc-100 bg-zinc-50/70 text-zinc-500 font-medium">
-                  <th className="py-3 px-4 sm:px-6">Data / Hora</th>
-                  <th className="py-3 px-4">Tipo</th>
-                  <th className="py-3 px-4">Descrição</th>
-                  <th className="py-3 px-4 text-right">Valor</th>
-                  <th className="py-3 px-4 sm:px-6 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {transactions.map((tx) => {
-                  const isCredit = [
-                    'DEPOSIT',
-                    'ADMIN_CREDIT',
-                    'PROMOTIONAL_CREDIT',
-                    'REFUND',
-                  ].includes(tx.type);
-
-                  return (
-                    <tr key={tx.transaction_id} className="hover:bg-zinc-50/50 transition-colors">
-                      <td className="py-3.5 px-4 sm:px-6 text-zinc-600 whitespace-nowrap tabular-nums">
-                        {new Date(tx.created_at).toLocaleString('pt-BR')}
-                      </td>
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        {getTxTypeBadge(tx.type)}
-                      </td>
-                      <td className="py-3.5 px-4 max-w-xs text-zinc-800 truncate" title={tx.description}>
-                        {tx.description || '—'}
-                      </td>
-                      <td
-                        className={`py-3.5 px-4 text-right font-semibold tabular-nums whitespace-nowrap ${
-                          isCredit ? 'text-emerald-700' : 'text-zinc-900'
-                        }`}
-                      >
-                        {isCredit ? '+' : '-'} {formatCentsToBRL(tx.amount_cents)}
-                      </td>
-                      <td className="py-3.5 px-4 sm:px-6 text-center whitespace-nowrap">
-                        <Badge variant={tx.status === 'COMPLETED' ? 'success' : 'warning'}>
-                          {tx.status}
-                        </Badge>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-    </div>
-  );
+export const WalletView:React.FC=()=>{
+ const {wallet,refreshWallet}=useAuth(); const [transactions,setTransactions]=useState<WalletTransaction[]>([]); const [loading,setLoading]=useState(true); const [refreshing,setRefreshing]=useState(false);
+ const [rechargeOpen,setRechargeOpen]=useState(false); const [amount,setAmount]=useState('50'); const [creating,setCreating]=useState(false); const [payment,setPayment]=useState<PaymentRecord|null>(null); const [error,setError]=useState(''); const [copied,setCopied]=useState(false); const pollRef=useRef<any>(null);
+ const loadLedger=async()=>{try{setLoading(true);const r=await walletService.listTransactions(50,0);setTransactions(r.transactions);}finally{setLoading(false);}};
+ useEffect(()=>{loadLedger().catch(console.error);return()=>{if(pollRef.current)clearTimeout(pollRef.current);};},[]);
+ const refresh=async()=>{setRefreshing(true);await Promise.all([refreshWallet(),loadLedger()]);setRefreshing(false);};
+ const closeRecharge=()=>{if(pollRef.current)clearTimeout(pollRef.current);setRechargeOpen(false);setPayment(null);setError('');setCopied(false);};
+ const poll=(id:string)=>{pollRef.current=setTimeout(async()=>{try{const p=await paymentClient.get(id);setPayment(p);if(p.status==='CONFIRMED'){await refresh();return;}if(!terminal(p.status))poll(id);}catch{}},2500);};
+ const createPix=async()=>{const cents=Math.round(Number(amount.replace(',','.'))*100);if(!Number.isFinite(cents)||cents<500){setError('A recarga mínima é R$ 5,00.');return;}setCreating(true);setError('');try{const p=await paymentClient.createPix(cents);setPayment(p);if(!terminal(p.status))poll(p.payment_id);else if(p.status==='CONFIRMED')await refresh();}catch(e:any){setError(e?.message||'Não foi possível criar o Pix.');}finally{setCreating(false);}};
+ const copyPix=async()=>{if(!payment?.pix_code)return;await navigator.clipboard.writeText(payment.pix_code);setCopied(true);setTimeout(()=>setCopied(false),1800);};
+ const credit=(t:string)=>['DEPOSIT','ADMIN_CREDIT','PROMOTIONAL_CREDIT','REFUND'].includes(t);
+ return <div className="space-y-5 text-zinc-100">
+  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4"><div><h1 className="text-xl font-bold text-white">Carteira</h1><p className="text-xs text-zinc-500 mt-1">Créditos para suas gerações e histórico de movimentações.</p></div><div className="flex gap-2"><button onClick={refresh} disabled={refreshing} className="h-9 px-3 rounded-xl border border-white/[0.08] bg-white/[0.035] text-[11px] text-zinc-300 hover:bg-white/[0.06] flex items-center gap-2"><RotateCcw className={`w-3.5 h-3.5 ${refreshing?'animate-spin':''}`}/>Atualizar</button><button onClick={()=>setRechargeOpen(true)} className="h-9 px-4 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-400 text-[#06100d] text-[11px] font-bold flex items-center gap-2"><Plus className="w-3.5 h-3.5"/>Adicionar saldo</button></div></div>
+  <div className="grid sm:grid-cols-3 gap-3"><div className="sm:col-span-2 p-5 rounded-2xl border border-emerald-400/15 bg-gradient-to-br from-emerald-400/[0.08] to-cyan-400/[0.025]"><div className="flex items-center gap-2 text-zinc-400 text-[10px] uppercase tracking-wider"><Wallet className="w-4 h-4 text-emerald-300"/>Saldo disponível</div><div className="text-3xl font-black mt-3 tabular-nums text-white">{formatCentsToBRL(wallet?.available_balance_cents||0)}</div><p className="text-[10px] text-zinc-500 mt-2">Disponível imediatamente para novas gerações.</p></div><div className="p-5 rounded-2xl border border-white/[0.07] bg-[#11151c]"><p className="text-[10px] text-zinc-500 uppercase tracking-wider">Reservado</p><p className="text-xl font-bold mt-3 tabular-nums">{formatCentsToBRL(wallet?.reserved_balance_cents||0)}</p><p className="text-[10px] text-zinc-600 mt-2">Jobs em processamento.</p></div></div>
+  <div className="rounded-2xl border border-white/[0.07] bg-[#11151c] overflow-hidden"><div className="px-5 py-4 border-b border-white/[0.06]"><h2 className="text-sm font-semibold">Movimentações</h2><p className="text-[10px] text-zinc-600 mt-0.5">Ledger da sua carteira</p></div>{loading?<div className="py-12 text-center text-xs text-zinc-600">Carregando...</div>:transactions.length===0?<div className="py-12 flex flex-col items-center text-zinc-600"><FileText className="w-5 h-5 mb-2"/><span className="text-xs">Nenhuma movimentação ainda.</span></div>:<div className="overflow-x-auto"><table className="w-full text-[11px]"><thead className="text-zinc-600 border-b border-white/[0.05]"><tr><th className="text-left font-medium px-5 py-3">Data</th><th className="text-left font-medium px-3 py-3">Descrição</th><th className="text-right font-medium px-5 py-3">Valor</th></tr></thead><tbody className="divide-y divide-white/[0.045]">{transactions.map(tx=><tr key={tx.transaction_id}><td className="px-5 py-3 text-zinc-500 whitespace-nowrap">{new Date(tx.created_at).toLocaleString('pt-BR')}</td><td className="px-3 py-3 text-zinc-300">{tx.description||tx.type}</td><td className={`px-5 py-3 text-right font-semibold tabular-nums ${credit(tx.type)?'text-emerald-300':'text-zinc-200'}`}>{credit(tx.type)?'+':'-'} {formatCentsToBRL(tx.amount_cents)}</td></tr>)}</tbody></table></div>}</div>
+  {rechargeOpen&&<div className="fixed inset-0 z-[120] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-md rounded-2xl border border-white/[0.09] bg-[#11151c] shadow-2xl overflow-hidden"><div className="px-5 py-4 border-b border-white/[0.06] flex justify-between items-center"><div><h2 className="text-sm font-semibold">Adicionar saldo</h2><p className="text-[10px] text-zinc-600 mt-0.5">Pagamento seguro via Pix</p></div><button onClick={closeRecharge} className="p-2 text-zinc-600 hover:text-white"><X className="w-4 h-4"/></button></div><div className="p-5 space-y-4">
+   {!payment?<><div className="grid grid-cols-4 gap-2">{presets.map(c=><button key={c} onClick={()=>setAmount(String(c/100))} className="py-2 rounded-xl border border-white/[0.07] bg-white/[0.025] hover:border-emerald-400/30 text-[10px] font-semibold">{formatCentsToBRL(c)}</button>)}</div><label className="block"><span className="text-[10px] text-zinc-500">Outro valor</span><div className="mt-1.5 flex items-center rounded-xl border border-white/[0.08] bg-[#0b0e13] px-3"><span className="text-xs text-zinc-500">R$</span><input value={amount} onChange={e=>setAmount(e.target.value.replace(/[^0-9,.]/g,''))} className="w-full bg-transparent outline-none p-3 text-sm text-white"/></div></label><button onClick={createPix} disabled={creating} className="w-full h-11 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-400 text-[#06100d] font-bold text-xs flex items-center justify-center gap-2">{creating?<Loader2 className="w-4 h-4 animate-spin"/>:<QrCode className="w-4 h-4"/>}Gerar Pix</button></>:payment.status==='CONFIRMED'?<div className="py-8 text-center"><CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto"/><h3 className="font-bold mt-3">Pagamento confirmado</h3><p className="text-xs text-zinc-500 mt-1">{formatCentsToBRL(payment.amount_cents)} já foi adicionado ao seu saldo.</p><button onClick={closeRecharge} className="mt-5 px-5 py-2.5 rounded-xl bg-white text-black text-xs font-bold">Concluir</button></div>:<div className="text-center space-y-3"><p className="text-xs text-zinc-400">Pague {formatCentsToBRL(payment.amount_cents)} pelo Pix abaixo.</p>{payment.pix_qr_code_base64&&<img src={`data:image/png;base64,${payment.pix_qr_code_base64}`} className="w-48 h-48 bg-white p-2 rounded-xl mx-auto" alt="QR Code Pix"/>}<button onClick={copyPix} className="w-full h-10 rounded-xl border border-white/[0.08] bg-white/[0.035] text-xs font-semibold flex items-center justify-center gap-2"><Copy className="w-3.5 h-3.5"/>{copied?'Código copiado':'Copiar Pix copia e cola'}</button><p className="text-[10px] text-zinc-600">Aguardando confirmação automática do pagamento...</p></div>}
+   {error&&<div className="p-3 rounded-xl bg-rose-500/[0.08] border border-rose-400/10 text-[10px] text-rose-300">{error}</div>}
+  </div></div></div>}
+ </div>;
 };
