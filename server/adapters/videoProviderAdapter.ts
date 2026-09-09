@@ -3,6 +3,8 @@ import { ResolvedAssetReference } from '../services/assetReferenceResolver.js';
 
 export interface ProviderGenerationReference extends ResolvedAssetReference {
   slot_type?: 'INITIAL' | 'END' | 'GENERAL';
+  /** Local alias visible inside the current video's prompt, e.g. img1/video1/audio1. */
+  prompt_alias?: string;
 }
 
 export interface ProviderGenerationParams {
