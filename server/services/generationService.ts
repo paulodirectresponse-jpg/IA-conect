@@ -32,7 +32,12 @@ interface StartParams {
   idToken?: string;
 }
 
-const IMAGE_MODEL_IDS = new Set(['flux-2-flash-image', 'flux-2-flex-image', 'qwen-image-2']);
+const IMAGE_MODEL_IDS = new Set([
+  'nano-banana-pro-image',
+  'nano-banana-2-image',
+  'seedream-5-pro-image',
+  'gpt-image-2',
+]);
 
 function isImageMode(mode?: GenerationMode) {
   return mode === 'TEXT_TO_IMAGE' || mode === 'IMAGE_TO_IMAGE';
@@ -186,9 +191,7 @@ export const generationService = {
       const compatible = [
         decision.selected,
         ...decision.candidates.filter(
-          (candidate) =>
-            candidate.provider_id !== decision.selected.provider_id &&
-            candidate.customer_price_cents <= reserveAmount
+          (candidate) => candidate.provider_id !== decision.selected.provider_id && candidate.customer_price_cents <= reserveAmount
         ),
       ];
       let lastError: any = null;
@@ -198,9 +201,8 @@ export const generationService = {
         const adapter = providerRegistry.getAdapter(candidate.provider_id);
         if (!adapter || !adapter.isConfigured()) continue;
 
-        const attemptId = `att_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
         const attempt: GenerationAttemptLog = {
-          attempt_id: attemptId,
+          attempt_id: `att_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
           generation_id: generationId,
           attempt_number: i + 1,
           provider_id: candidate.provider_id,
@@ -233,7 +235,6 @@ export const generationService = {
           attempt.provider_job_id = job.provider_job_id;
           attempt.updated_at = new Date().toISOString();
           await generationRepository.recordAttemptLog(attempt);
-
           generation.provider_job_id = job.provider_job_id;
           generation.status = 'SUBMITTED';
           generation.submitted_at = new Date().toISOString();
@@ -248,22 +249,15 @@ export const generationService = {
         }
       }
 
-      throw (
-        lastError ||
-        Object.assign(new Error('Todos os providers compatíveis falharam antes de aceitar o job.'), {
-          code: 'PROVIDER_SUBMISSION_FAILED',
-        })
-      );
+      throw lastError || Object.assign(new Error('Todos os providers compatíveis falharam antes de aceitar o job.'), { code: 'PROVIDER_SUBMISSION_FAILED' });
     } catch (err: any) {
-      await walletService
-        .releaseForGeneration({
-          userId: params.userId,
-          amount_cents: reserveAmount,
-          generation_id: generationId,
-          idempotency_key: `release:${generationId}:submit-failure`,
-          reason: 'Liberação por falha antes do processamento',
-        })
-        .catch(() => {});
+      await walletService.releaseForGeneration({
+        userId: params.userId,
+        amount_cents: reserveAmount,
+        generation_id: generationId,
+        idempotency_key: `release:${generationId}:submit-failure`,
+        reason: 'Liberação por falha antes do processamento',
+      }).catch(() => {});
       generation.status = 'FAILED';
       generation.error_code = err?.code || 'GENERATION_SUBMIT_FAILED';
       generation.error_message = err?.message || 'Falha ao iniciar geração';
@@ -295,15 +289,13 @@ export const generationService = {
     if (status.status === 'FAILED') {
       const reserved = generation.maximum_authorized_cost_cents || generation.estimated_cost_cents || 0;
       if (reserved > 0) {
-        await walletService
-          .releaseForGeneration({
-            userId: generation.user_id,
-            amount_cents: reserved,
-            generation_id: generation.generation_id,
-            idempotency_key: `release:${generation.generation_id}:provider-failure`,
-            reason: 'Provider finalizou com falha',
-          })
-          .catch(() => {});
+        await walletService.releaseForGeneration({
+          userId: generation.user_id,
+          amount_cents: reserved,
+          generation_id: generation.generation_id,
+          idempotency_key: `release:${generation.generation_id}:provider-failure`,
+          reason: 'Provider finalizou com falha',
+        }).catch(() => {});
       }
       generation.status = 'FAILED';
       generation.progress_percent = 0;
@@ -348,7 +340,7 @@ export const generationService = {
 
   async listUserGenerations(userId: string, limit = 50) {
     const list = await generationRepository.listUserGenerations(userId, limit);
-    return Promise.all(list.map((generation) => (terminal(generation.status) ? generation : this.refreshGenerationState(generation))));
+    return Promise.all(list.map((generation) => terminal(generation.status) ? generation : this.refreshGenerationState(generation)));
   },
 
   async cancelGeneration(id: string, userId: string) {
