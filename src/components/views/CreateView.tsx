@@ -80,7 +80,11 @@ export const CreateView: React.FC = () => {
   const [previewData, setPreviewData] = useState<any | null>(null);
   const [previewNotice, setPreviewNotice] = useState('');
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+  const [livePricesByModelId, setLivePricesByModelId] = useState<Record<string, number | null>>({});
+  const [priceLoadingModelIds, setPriceLoadingModelIds] = useState<string[]>([]);
   const autosaveTimerRef = useRef<any>(null);
+  const quoteSeqRef = useRef(0);
+  const quoteCacheRef = useRef(new Map<string, number>());
 
   useEffect(() => {
     let mounted = true;
@@ -217,11 +221,13 @@ export const CreateView: React.FC = () => {
 
   const autoResolvedModel = useMemo(() => {
     return [...autoCompatibleModels].sort((a, b) => {
-      const aPrice = estimateModelPrice(a.model_id) ?? Number.MAX_SAFE_INTEGER;
-      const bPrice = estimateModelPrice(b.model_id) ?? Number.MAX_SAFE_INTEGER;
+      const aLive = livePricesByModelId[a.model_id];
+      const bLive = livePricesByModelId[b.model_id];
+      const aPrice = aLive != null ? aLive : (estimateModelPrice(a.model_id) ?? Number.MAX_SAFE_INTEGER);
+      const bPrice = bLive != null ? bLive : (estimateModelPrice(b.model_id) ?? Number.MAX_SAFE_INTEGER);
       return aPrice - bPrice || a.name.localeCompare(b.name);
     })[0] || null;
-  }, [autoCompatibleModels, estimateModelPrice]);
+  }, [autoCompatibleModels, estimateModelPrice, livePricesByModelId]);
 
   const selectedModel = selectionMode === 'AUTO' ? autoResolvedModel : manualModel;
   const activeCapabilities = useMemo(
@@ -246,6 +252,54 @@ export const CreateView: React.FC = () => {
     return output;
   }, [references, initialImage, endImage]);
 
+  useEffect(() => {
+    const seq = ++quoteSeqRef.current;
+    const compatibleIds = new Set(autoCompatibleModels.map((m) => m.model_id));
+    const baseline: Record<string, number | null> = {};
+    models.forEach((model) => { baseline[model.model_id] = compatibleIds.has(model.model_id) ? (livePricesByModelId[model.model_id] ?? null) : null; });
+    setLivePricesByModelId(baseline);
+    const loadingIds = autoCompatibleModels.map((m) => m.model_id);
+    setPriceLoadingModelIds(loadingIds);
+
+    const timer = window.setTimeout(async () => {
+      const next = { ...baseline };
+      await Promise.all(autoCompatibleModels.map(async (model) => {
+        const key = `${model.model_id}|${mode}|${durationSeconds}|${resolution}|${aspectRatio}|${numberOfOutputs}|${refsWithFrames.length}`;
+        const cached = quoteCacheRef.current.get(key);
+        if (cached != null) { next[model.model_id] = cached; return; }
+        try {
+          const result = await workspaceService.validateAndPreview({
+            model_id: model.model_id,
+            mode,
+            prompt: prompt.trim() || 'pricing preview',
+            negative_prompt: negativePrompt,
+            references: refsWithFrames,
+            settings: {
+              duration_seconds: durationSeconds,
+              resolution,
+              aspect_ratio: aspectRatio,
+              number_of_outputs: numberOfOutputs,
+              seed: seed === '' ? null : seed,
+              motion_strength: motionStrength,
+            },
+          });
+          const price = result.request_draft.estimated_cost_cents;
+          if (price != null) {
+            quoteCacheRef.current.set(key, price);
+            next[model.model_id] = price;
+          } else next[model.model_id] = null;
+        } catch {
+          next[model.model_id] = null;
+        }
+      }));
+      if (seq !== quoteSeqRef.current) return;
+      setLivePricesByModelId(next);
+      setPriceLoadingModelIds([]);
+    }, 240);
+
+    return () => window.clearTimeout(timer);
+  }, [models, autoCompatibleModels, mode, durationSeconds, resolution, aspectRatio, numberOfOutputs, refsWithFrames.length, seed, motionStrength]);
+
   const compatibility = useMemo(
     () => validateConfiguration(selectedModel, {
       mode,
@@ -266,7 +320,7 @@ export const CreateView: React.FC = () => {
     setValidationWarnings(compatibility.warnings);
   }, [compatibility]);
 
-  const totalEstimatedCostCents = selectedModel ? estimateModelPrice(selectedModel.model_id) : null;
+  const totalEstimatedCostCents = selectedModel && Object.prototype.hasOwnProperty.call(livePricesByModelId, selectedModel.model_id) ? livePricesByModelId[selectedModel.model_id] : null;
   const availableBalanceCents = wallet?.available_balance_cents || 0;
   const hasSufficientFunds = totalEstimatedCostCents == null ? true : availableBalanceCents >= totalEstimatedCostCents;
 
@@ -391,6 +445,8 @@ export const CreateView: React.FC = () => {
       });
       setPreviewData(result.request_draft);
       setPreviewNotice(result.notice);
+      const exactPrice = result.request_draft.estimated_cost_cents;
+      if (exactPrice != null) setLivePricesByModelId((prev) => ({ ...prev, [selectedModel.model_id]: exactPrice }));
       setIsPreviewModalOpen(true);
     } catch (err: any) {
       setValidationErrors([err?.message || 'Não foi possível validar esta geração.']);
@@ -448,6 +504,8 @@ export const CreateView: React.FC = () => {
         onGenerate={handlePreview}
         validating={validating}
         validationErrors={validationErrors}
+        livePricesByModelId={livePricesByModelId}
+        priceLoadingModelIds={priceLoadingModelIds}
       />
       <ResultsCanvas
         lastSavedTime={lastSavedTime}
