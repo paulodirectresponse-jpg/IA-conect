@@ -2,12 +2,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny all access
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -32,7 +30,6 @@ service cloud.firestore {
       return id is string && id.size() > 0 && id.size() <= 128;
     }
 
-    // Users Collection
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow list: if isAdmin();
@@ -49,23 +46,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Wallet Accounts Collection
-    // Read-only for account owner; mutation strictly through server / Admin ledger adjustments
     match /wallet_accounts/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow list: if isAdmin();
       allow write: if isAdmin();
     }
 
-    // Wallet Transactions Collection (Immutable Ledger)
     match /wallet_transactions/{transactionId} {
       allow get: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
       allow create: if isAdmin();
-      allow update, delete: if false; // Immutable ledger guarantee
+      allow update, delete: if false;
     }
 
-    // Generations Collection
     match /generations/{generationId} {
       allow get: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
@@ -74,7 +67,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Assets Collection
     match /assets/{assetId} {
       allow get: if isSignedIn() && (resource.data.owner_user_id == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.owner_user_id == request.auth.uid || isAdmin());
@@ -82,7 +74,13 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && (resource.data.owner_user_id == request.auth.uid || isAdmin());
     }
 
-    // Workspace Drafts Collection
+    match /creative_entities/{entityId} {
+      allow get: if isSignedIn() && (resource.data.owner_user_id == request.auth.uid || isAdmin());
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.owner_user_id == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.owner_user_id == request.auth.uid || isAdmin());
+    }
+
     match /workspace_drafts/{draftId} {
       allow get: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
@@ -90,7 +88,6 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
     }
 
-    // Workspace Presets Collection
     match /workspace_presets/{presetId} {
       allow get: if isSignedIn() && (resource.data.user_id == 'system' || resource.data.user_id == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.user_id == 'system' || resource.data.user_id == request.auth.uid || isAdmin());
@@ -98,57 +95,48 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && resource.data.user_id != 'system' && (resource.data.user_id == request.auth.uid || isAdmin());
     }
 
-    // User Preferences Collection
     match /user_preferences/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow create, update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
     }
 
-    // Model Registry
     match /models/{modelId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Provider Registry
     match /providers/{providerId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Provider Model Mappings
     match /provider_models/{mappingId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Pricing Matrix
     match /pricing/{pricingId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Promotions Registry
     match /promotions/{promotionId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Feature Flags
     match /feature_flags/{flagKey} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Audit Logs (Immutable)
     match /audit_logs/{logId} {
       allow read: if isAdmin();
       allow create: if isAdmin();
-      allow update, delete: if false; // Immutable audit log
+      allow update, delete: if false;
     }
 
-    // Global App Configuration
     match /app_config/{configId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
