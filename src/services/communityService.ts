@@ -25,11 +25,10 @@ export interface CommunityItem {
   downloads_count:number;
   liked_by_me:boolean;
 }
-export interface CommunityRecreateSnapshot {model_id:string;mode:string;prompt:string;negative_prompt?:string;duration_seconds?:number;resolution?:string;aspect_ratio?:string;number_of_outputs?:number;seed?:number|null;motion_strength?:number|null;references?:Array<{asset_id:string;slot_type?:string;alias?:string}>}
 
 export const communityService={
   async feed(type:'ALL'|'IMAGE'|'VIDEO'='ALL',limit=48){return apiRequest<{items:CommunityItem[]}>(`community/feed?type=${type}&limit=${limit}`)},
   async toggleLike(generationId:string){return apiRequest<{liked:boolean;likes_count:number}>(`community/${encodeURIComponent(generationId)}/like`,{method:'POST',body:'{}'})},
   async registerDownload(generationId:string){return apiRequest<{url:string;downloads_count:number;media_type:CommunityMediaType}>(`community/${encodeURIComponent(generationId)}/download`,{method:'POST',body:'{}'})},
-  async prepareRecreate(generationId:string){return apiRequest<{snapshot:CommunityRecreateSnapshot;target:'create-image'|'create-video'}>(`community/${encodeURIComponent(generationId)}/recreate`,{method:'POST',body:'{}'})},
+  async prepareRecreate(generationId:string){return apiRequest<{generation_id:string;target:'create-image'|'create-video'}>(`community/${encodeURIComponent(generationId)}/recreate`,{method:'POST',body:'{}'})},
 };
