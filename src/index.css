@@ -43,18 +43,40 @@
 .ia-shell .bg-white { background-color: var(--panel) !important; }
 .ia-shell .bg-\[\#F7F7F8\],
 .ia-shell .bg-zinc-50,
-.ia-shell .bg-zinc-50\/60 { background-color: var(--panel-2) !important; }
-.ia-shell .bg-zinc-100 { background-color: rgba(255,255,255,.055) !important; }
+.ia-shell .bg-zinc-50\/50,
+.ia-shell .bg-zinc-50\/60,
+.ia-shell .bg-zinc-50\/70,
+.ia-shell .bg-zinc-100,
+.ia-shell .bg-zinc-100\/80 { background-color: var(--panel-2) !important; }
+.ia-shell .hover\:bg-zinc-50\/50:hover,
+.ia-shell .hover\:bg-zinc-50:hover,
+.ia-shell .hover\:bg-zinc-100:hover { background-color: rgba(255,255,255,.045) !important; }
 .ia-shell .border-zinc-100,
 .ia-shell .border-zinc-200,
 .ia-shell .border-zinc-200\/80,
-.ia-shell .border-zinc-200\/90 { border-color: var(--line) !important; }
+.ia-shell .border-zinc-200\/90,
+.ia-shell .border-zinc-300 { border-color: var(--line) !important; }
 .ia-shell .text-zinc-900,
 .ia-shell .text-zinc-800,
 .ia-shell .text-zinc-700 { color: #f3f4f6 !important; }
 .ia-shell .text-zinc-600,
 .ia-shell .text-zinc-500 { color: #8b909b !important; }
 .ia-shell .text-zinc-400 { color: #626873 !important; }
+.ia-shell .text-emerald-900,
+.ia-shell .text-emerald-800,
+.ia-shell .text-emerald-700,
+.ia-shell .text-emerald-600 { color: #67e8c8 !important; }
+.ia-shell .text-amber-800,
+.ia-shell .text-amber-700,
+.ia-shell .text-amber-600 { color: #fbbf24 !important; }
+.ia-shell .text-rose-800,
+.ia-shell .text-rose-700 { color: #fda4af !important; }
+.ia-shell .bg-emerald-50 { background: rgba(16,185,129,.07) !important; }
+.ia-shell .bg-amber-50 { background: rgba(245,158,11,.07) !important; }
+.ia-shell .bg-rose-50 { background: rgba(244,63,94,.07) !important; }
+.ia-shell .border-emerald-200 { border-color: rgba(52,211,153,.2) !important; }
+.ia-shell .border-amber-200 { border-color: rgba(251,191,36,.2) !important; }
+.ia-shell .border-rose-200 { border-color: rgba(251,113,133,.2) !important; }
 .ia-shell input,
 .ia-shell textarea,
 .ia-shell select {
@@ -85,12 +107,10 @@
 }
 .ia-shell .bg-emerald-600 { background: linear-gradient(90deg,#7c3aed,#06b6d4) !important; }
 .ia-shell .hover\:bg-emerald-500:hover { background: linear-gradient(90deg,#8b5cf6,#22d3ee) !important; }
-.ia-shell .text-emerald-600,
-.ia-shell .text-emerald-500 { color: #a78bfa !important; }
-.ia-shell .border-emerald-500 { border-color: #8b5cf6 !important; }
-.ia-shell .bg-emerald-50 { background: rgba(139,92,246,.09) !important; }
+.ia-shell .text-emerald-500 { color: #67e8c8 !important; }
+.ia-shell .border-emerald-500 { border-color: #34d399 !important; }
 .ia-shell .ring-emerald-100,
-.ia-shell .ring-emerald-200 { --tw-ring-color: rgba(139,92,246,.18) !important; }
+.ia-shell .ring-emerald-200 { --tw-ring-color: rgba(52,211,153,.18) !important; }
 
 /* Consistent cards and page chrome across Assets, Wallet, History, Settings and Admin. */
 .ia-shell main .rounded-xl.border,
