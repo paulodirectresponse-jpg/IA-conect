@@ -28,6 +28,7 @@ interface StartParams {
   references?: GenerationReferenceInput[];
   requested_provider_id?: string;
   client_request_id?: string;
+  maximum_authorized_cost_cents?: number;
   reqHost?: string;
   idToken?: string;
 }
@@ -119,13 +120,27 @@ export const generationService = {
       userId: params.userId,
       model_id: params.model_id,
       mode,
+      prompt: params.prompt.trim(),
+      negative_prompt: params.negative_prompt,
       duration_seconds: billDuration,
       resolution: params.resolution,
+      aspect_ratio: params.aspect_ratio,
       number_of_outputs: params.number_of_outputs,
+      seed: params.seed,
+      motion_strength: params.motion_strength,
       generation_id: generationId,
     });
 
     const reserveAmount = decision.selected.customer_price_cents;
+    const authorized = Number(params.maximum_authorized_cost_cents);
+    if (Number.isFinite(authorized) && authorized > 0 && reserveAmount > authorized) {
+      throw Object.assign(new Error('O preço mudou desde a estimativa. Atualize a cotação antes de gerar; nenhum saldo foi reservado.'), {
+        code: 'PRICE_CHANGED_REQUOTE_REQUIRED',
+        quoted_price_cents: authorized,
+        current_price_cents: reserveAmount,
+      });
+    }
+
     const now = new Date().toISOString();
     let generation: Generation = {
       generation_id: generationId,
