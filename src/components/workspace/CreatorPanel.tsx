@@ -1,5 +1,192 @@
 import React from 'react';
-import {ModelRegistryItem,PricingEntry,WorkspaceReference,Asset,GenerationMode,ModelCapabilities} from '../../types/index.js';
-import {CompactModelPicker} from './CompactModelPicker.js';import {ReferenceSlots} from './ReferenceSlots.js';import {PromptComposer} from './PromptComposer.js';import {GenerationQuickSettings} from './GenerationQuickSettings.js';import {AdvancedSettings} from './AdvancedSettings.js';import {PriceSummary} from './PriceSummary.js';import {Sparkles,RefreshCw} from 'lucide-react';
-interface Props{models:ModelRegistryItem[];pricing:PricingEntry[];selectedModelId:string;onSelectModel:(m:ModelRegistryItem)=>void;favoriteModelIds:string[];recentModelIds:string[];onToggleFavorite:(id:string)=>void;initialImage:Asset|null;endImage:Asset|null;references:WorkspaceReference[];onOpenPicker:(s:'INITIAL'|'END'|'GENERAL')=>void;onRemoveSlot:(s:'INITIAL'|'END')=>void;onRemoveReference:(id:string)=>void;onConfigureReference:(r:WorkspaceReference)=>void;supportsEndImage:boolean;resolvedMode:GenerationMode;modeExplanation?:string;prompt:string;onChangePrompt:(t:string)=>void;negativePrompt:string;onChangeNegativePrompt:(t:string)=>void;onOpenImproveModal:()=>void;aspectRatio:string;onChangeAspectRatio:(v:string)=>void;durationSeconds:number;onChangeDuration:(v:number)=>void;resolution:string;onChangeResolution:(v:string)=>void;numberOfOutputs:number;onChangeNumberOfOutputs:(v:number)=>void;capabilities:ModelCapabilities|null;showAdvanced:boolean;onToggleAdvanced:()=>void;seed:number|'';onChangeSeed:(v:number|'')=>void;motionStrength:number;onChangeMotionStrength:(v:number)=>void;totalEstimatedCostCents:number|null;unitPriceCents:number|null;availableBalanceCents:number;hasSufficientFunds:boolean;onNavigateToWallet?:()=>void;onGenerate:()=>void;validating:boolean;validationErrors:string[];}
-export const CreatorPanel:React.FC<Props>=(p)=>{const rows=p.pricing.filter(x=>x.active&&x.model_id===p.selectedModelId&&x.resolution.toLowerCase()===p.resolution.toLowerCase());const totals=rows.map(x=>Math.ceil(x.customer_price_cents*(p.durationSeconds/Math.max(1,x.duration_seconds||1))*Math.max(1,p.numberOfOutputs)));const total=totals.length?Math.min(...totals):p.totalEstimatedCostCents;const unit=total==null?null:Math.ceil(total/Math.max(1,p.numberOfOutputs));const enough=total==null?p.hasSufficientFunds:p.availableBalanceCents>=total;const can=p.prompt.trim().length>0&&enough&&!p.validating;const canImage=Boolean(p.capabilities?.supports_image_reference);return <div className="w-full md:w-[350px] lg:w-[360px] xl:w-[380px] h-full shrink-0 bg-white border-r border-zinc-200 flex flex-col z-10"><div className="flex-1 overflow-y-auto p-4 space-y-4"><CompactModelPicker models={p.models} pricing={p.pricing} selectedModelId={p.selectedModelId} onSelectModel={p.onSelectModel} favoriteModelIds={p.favoriteModelIds} recentModelIds={p.recentModelIds} onToggleFavorite={p.onToggleFavorite} currentResolution={p.resolution} currentMode={p.resolvedMode} currentDuration={p.durationSeconds} currentOutputs={p.numberOfOutputs}/>{canImage&&<ReferenceSlots initialImage={p.initialImage} endImage={p.endImage} references={p.references} onOpenPicker={p.onOpenPicker} onRemoveSlot={p.onRemoveSlot} onRemoveReference={p.onRemoveReference} onConfigureReference={p.onConfigureReference} supportsEndImage={p.supportsEndImage} resolvedMode={p.resolvedMode} modeExplanation={p.modeExplanation}/>}<PromptComposer prompt={p.prompt} onChangePrompt={p.onChangePrompt} negativePrompt={p.negativePrompt} onChangeNegativePrompt={p.onChangeNegativePrompt} onOpenImproveModal={p.onOpenImproveModal} references={p.references} supportsNegativePrompt={p.capabilities?.supports_negative_prompt!==false} maxChars={p.capabilities?.max_prompt_length||2000}/><GenerationQuickSettings aspectRatio={p.aspectRatio} onChangeAspectRatio={p.onChangeAspectRatio} durationSeconds={p.durationSeconds} onChangeDuration={p.onChangeDuration} resolution={p.resolution} onChangeResolution={p.onChangeResolution} numberOfOutputs={p.numberOfOutputs} onChangeNumberOfOutputs={p.onChangeNumberOfOutputs} capabilities={p.capabilities}/><AdvancedSettings isOpen={p.showAdvanced} onToggle={p.onToggleAdvanced} seed={p.seed} onChangeSeed={p.onChangeSeed} motionStrength={p.motionStrength} onChangeMotionStrength={p.onChangeMotionStrength}/></div><div className="p-4 bg-white border-t border-zinc-100 space-y-3"><PriceSummary totalEstimatedCostCents={total} unitPriceCents={unit} numberOfOutputs={p.numberOfOutputs} availableBalanceCents={p.availableBalanceCents} hasSufficientFunds={enough} onNavigateToWallet={p.onNavigateToWallet}/><button type="button" id="btn-generate-video" onClick={p.onGenerate} disabled={!can} className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed text-white font-semibold text-xs transition-all flex items-center justify-center gap-2">{p.validating?<><RefreshCw className="w-4 h-4 animate-spin"/>Validating...</>:<><Sparkles className="w-4 h-4"/>Generate video</>}</button></div></div>};
+import {
+  ModelRegistryItem,
+  PricingEntry,
+  WorkspaceReference,
+  Asset,
+  GenerationMode,
+  ModelCapabilities,
+} from '../../types/index.js';
+import { CompactModelPicker } from './CompactModelPicker.js';
+import { ReferenceSlots } from './ReferenceSlots.js';
+import { PromptComposer } from './PromptComposer.js';
+import { GenerationQuickSettings } from './GenerationQuickSettings.js';
+import { AdvancedSettings } from './AdvancedSettings.js';
+import { PriceSummary } from './PriceSummary.js';
+import { Sparkles, RefreshCw } from 'lucide-react';
+
+interface Props {
+  models: ModelRegistryItem[];
+  pricing: PricingEntry[];
+  selectionMode: 'AUTO' | 'MANUAL';
+  selectedModelId: string;
+  autoResolvedModel?: ModelRegistryItem | null;
+  onSelectAuto: () => void;
+  onSelectModel: (m: ModelRegistryItem) => void;
+  favoriteModelIds: string[];
+  recentModelIds: string[];
+  onToggleFavorite: (id: string) => void;
+  initialImage: Asset | null;
+  endImage: Asset | null;
+  references: WorkspaceReference[];
+  onOpenPicker: (s: 'INITIAL' | 'END' | 'GENERAL') => void;
+  onRemoveSlot: (s: 'INITIAL' | 'END') => void;
+  onRemoveReference: (id: string) => void;
+  onConfigureReference: (r: WorkspaceReference) => void;
+  resolvedMode: GenerationMode;
+  modeExplanation?: string;
+  prompt: string;
+  onChangePrompt: (t: string) => void;
+  negativePrompt: string;
+  onChangeNegativePrompt: (t: string) => void;
+  onOpenImproveModal: () => void;
+  aspectRatio: string;
+  onChangeAspectRatio: (v: string) => void;
+  durationSeconds: number;
+  onChangeDuration: (v: number) => void;
+  resolution: string;
+  onChangeResolution: (v: string) => void;
+  numberOfOutputs: number;
+  onChangeNumberOfOutputs: (v: number) => void;
+  capabilities: ModelCapabilities | null;
+  showAdvanced: boolean;
+  onToggleAdvanced: () => void;
+  seed: number | '';
+  onChangeSeed: (v: number | '') => void;
+  motionStrength: number;
+  onChangeMotionStrength: (v: number) => void;
+  totalEstimatedCostCents: number | null;
+  unitPriceCents: number | null;
+  availableBalanceCents: number;
+  hasSufficientFunds: boolean;
+  onNavigateToWallet?: () => void;
+  onGenerate: () => void;
+  validating: boolean;
+  validationErrors: string[];
+}
+
+export const CreatorPanel: React.FC<Props> = (p) => {
+  const rows = p.pricing.filter(
+    (x) =>
+      x.active &&
+      x.model_id === p.selectedModelId &&
+      (!x.resolution || x.resolution === 'ANY' || x.resolution.toLowerCase() === p.resolution.toLowerCase())
+  );
+  const totals = rows.map((x) =>
+    Math.ceil(
+      x.customer_price_cents *
+        (p.durationSeconds / Math.max(1, x.duration_seconds || 1)) *
+        Math.max(1, p.numberOfOutputs)
+    )
+  );
+  const total = totals.length ? Math.min(...totals) : p.totalEstimatedCostCents;
+  const unit = total == null ? null : Math.ceil(total / Math.max(1, p.numberOfOutputs));
+  const enough = total == null ? p.hasSufficientFunds : p.availableBalanceCents >= total;
+  const canGenerate = p.prompt.trim().length > 0 && enough && !p.validating && p.validationErrors.length === 0;
+  const canUseMedia = Boolean(
+    p.capabilities?.supports_image_reference ||
+      p.capabilities?.supports_video_reference ||
+      p.capabilities?.supports_audio_reference
+  );
+
+  return (
+    <div className="w-full md:w-[360px] lg:w-[380px] xl:w-[400px] h-full shrink-0 bg-white border-r border-zinc-200 flex flex-col z-10">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <CompactModelPicker
+          models={p.models}
+          pricing={p.pricing}
+          selectionMode={p.selectionMode}
+          selectedModelId={p.selectedModelId}
+          autoResolvedModel={p.autoResolvedModel}
+          onSelectAuto={p.onSelectAuto}
+          onSelectModel={p.onSelectModel}
+          favoriteModelIds={p.favoriteModelIds}
+          recentModelIds={p.recentModelIds}
+          onToggleFavorite={p.onToggleFavorite}
+          currentResolution={p.resolution}
+          currentDuration={p.durationSeconds}
+          currentOutputs={p.numberOfOutputs}
+        />
+
+        {canUseMedia && (
+          <ReferenceSlots
+            initialImage={p.initialImage}
+            endImage={p.endImage}
+            references={p.references}
+            onOpenPicker={p.onOpenPicker}
+            onRemoveSlot={p.onRemoveSlot}
+            onRemoveReference={p.onRemoveReference}
+            onConfigureReference={p.onConfigureReference}
+            capabilities={p.capabilities}
+            resolvedMode={p.resolvedMode}
+            modeExplanation={p.modeExplanation}
+            selectionMode={p.selectionMode}
+            resolvedModelName={p.autoResolvedModel?.name}
+          />
+        )}
+
+        <PromptComposer
+          prompt={p.prompt}
+          onChangePrompt={p.onChangePrompt}
+          negativePrompt={p.negativePrompt}
+          onChangeNegativePrompt={p.onChangeNegativePrompt}
+          onOpenImproveModal={p.onOpenImproveModal}
+          references={p.references}
+          onRequestAddMedia={() => p.onOpenPicker('GENERAL')}
+          supportsNegativePrompt={p.capabilities?.supports_negative_prompt !== false}
+          maxChars={p.capabilities?.max_prompt_length || 2000}
+        />
+
+        <GenerationQuickSettings
+          aspectRatio={p.aspectRatio}
+          onChangeAspectRatio={p.onChangeAspectRatio}
+          durationSeconds={p.durationSeconds}
+          onChangeDuration={p.onChangeDuration}
+          resolution={p.resolution}
+          onChangeResolution={p.onChangeResolution}
+          numberOfOutputs={p.numberOfOutputs}
+          onChangeNumberOfOutputs={p.onChangeNumberOfOutputs}
+          capabilities={p.capabilities}
+        />
+
+        <AdvancedSettings
+          isOpen={p.showAdvanced}
+          onToggle={p.onToggleAdvanced}
+          seed={p.seed}
+          onChangeSeed={p.onChangeSeed}
+          motionStrength={p.motionStrength}
+          onChangeMotionStrength={p.onChangeMotionStrength}
+          capabilities={p.capabilities}
+        />
+      </div>
+
+      <div className="p-4 bg-white border-t border-zinc-100 space-y-3">
+        <PriceSummary
+          totalEstimatedCostCents={total}
+          unitPriceCents={unit}
+          numberOfOutputs={p.numberOfOutputs}
+          availableBalanceCents={p.availableBalanceCents}
+          hasSufficientFunds={enough}
+          onNavigateToWallet={p.onNavigateToWallet}
+        />
+        <button
+          type="button"
+          id="btn-generate-video"
+          onClick={p.onGenerate}
+          disabled={!canGenerate}
+          className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed text-white font-semibold text-xs transition-all flex items-center justify-center gap-2"
+        >
+          {p.validating ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" /> Validando...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" /> Gerar vídeo
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
