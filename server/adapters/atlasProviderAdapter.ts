@@ -7,14 +7,20 @@ import {
 } from './videoProviderAdapter.js';
 import { compileProviderReferencePrompt } from './providerPromptReferences.js';
 
-const FAMILIES: Record<string, string> = {
+const VIDEO_FAMILIES: Record<string, string> = {
   'wan-3-0': 'alibaba/wan-3.0',
   'wan-3-0-prime': 'alibaba/wan-3.0-prime',
   'seedance-2-5': 'bytedance/seedance-2.5',
   'minimax-h3': 'minimax/h3',
 };
 
-function suffixFor(mode: GenerationMode) {
+const IMAGE_MODELS: Record<string, Partial<Record<GenerationMode, string>>> = {
+  'qwen-image-2': {
+    TEXT_TO_IMAGE: 'qwen/qwen-image-2.0/text-to-image',
+  },
+};
+
+function videoSuffixFor(mode: GenerationMode) {
   if (mode === 'TEXT_TO_VIDEO') return 'text-to-video';
   if (mode === 'IMAGE_TO_VIDEO') return 'image-to-video';
   if (mode === 'REFERENCE_TO_VIDEO') return 'reference-to-video';
@@ -39,6 +45,21 @@ function atlasResolution(modelId: string, res: string) {
   return res;
 }
 
+function imageSize(aspectRatio: string) {
+  const presets: Record<string, string> = {
+    '1:1': '1024*1024',
+    '16:9': '1536*864',
+    '9:16': '864*1536',
+    '4:3': '1365*1024',
+    '3:4': '1024*1365',
+    '3:2': '1536*1024',
+    '2:3': '1024*1536',
+    '4:5': '1024*1280',
+    '5:4': '1280*1024',
+  };
+  return presets[aspectRatio] || presets['1:1'];
+}
+
 export class AtlasProviderAdapter implements VideoProviderAdapter {
   readonly providerId = 'provider-atlas';
   readonly name = 'Atlas Cloud';
@@ -55,12 +76,25 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
   }
 
   supports(modelId: string, mode: GenerationMode) {
-    return Boolean(FAMILIES[modelId] && suffixFor(mode));
+    if (mode === 'TEXT_TO_IMAGE' || mode === 'IMAGE_TO_IMAGE') {
+      return Boolean(IMAGE_MODELS[modelId]?.[mode]);
+    }
+    return Boolean(VIDEO_FAMILIES[modelId] && videoSuffixFor(mode));
   }
 
   private modelName(modelId: string, mode: GenerationMode) {
-    const family = FAMILIES[modelId];
-    const suffix = suffixFor(mode);
+    if (mode === 'TEXT_TO_IMAGE' || mode === 'IMAGE_TO_IMAGE') {
+      const model = IMAGE_MODELS[modelId]?.[mode];
+      if (!model) {
+        throw Object.assign(new Error('Modelo/modo de imagem não suportado pela Atlas.'), {
+          code: 'PROVIDER_INCOMPATIBLE',
+        });
+      }
+      return model;
+    }
+
+    const family = VIDEO_FAMILIES[modelId];
+    const suffix = videoSuffixFor(mode);
     if (!family || !suffix) {
       throw Object.assign(new Error('Modelo/modo não suportado pela Atlas.'), {
         code: 'PROVIDER_INCOMPATIBLE',
@@ -73,6 +107,19 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
     const model = this.modelName(params.model_id, params.mode);
     const { images, videos, audios } = groups(params);
     const compiledPrompt = compileProviderReferencePrompt(params, 'atlas');
+
+    if (params.mode === 'TEXT_TO_IMAGE' || params.mode === 'IMAGE_TO_IMAGE') {
+      const imagePayload: any = {
+        model,
+        prompt: compiledPrompt,
+        size: imageSize(params.aspect_ratio),
+        enable_sync_mode: false,
+        enable_base64_output: false,
+      };
+      if (params.seed !== null && params.seed !== undefined) imagePayload.seed = params.seed;
+      return imagePayload;
+    }
+
     const base: any = {
       model,
       prompt: compiledPrompt,
@@ -119,7 +166,6 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
       return base;
     }
 
-    // Atlas WAN uses ratio/audio naming, not WaveSpeed's aspect_ratio/enable_audio fields.
     base.ratio = params.aspect_ratio;
     base.audio = true;
     if (params.mode === 'IMAGE_TO_VIDEO') {
@@ -146,7 +192,10 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 45000);
     try {
-      const res = await fetch(`${this.baseUrl}/api/v1/model/generateVideo`, {
+      const endpoint = params.mode === 'TEXT_TO_IMAGE' || params.mode === 'IMAGE_TO_IMAGE'
+        ? 'generateImage'
+        : 'generateVideo';
+      const res = await fetch(`${this.baseUrl}/api/v1/model/${endpoint}`, {
         method: 'POST',
         signal: controller.signal,
         headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
@@ -188,11 +237,15 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
     const data = body?.data ?? body;
     const raw = String(data?.status || '').toLowerCase();
     if (['completed', 'succeeded', 'success'].includes(raw)) {
+      const outputs = Array.isArray(data.outputs)
+        ? data.outputs.filter(Boolean)
+        : [data.output?.video_url || data.video_url || data.output?.image_url || data.image_url].filter(Boolean);
       return {
         provider_job_id: id,
         status: 'SUCCEEDED',
         progress_percent: 100,
-        result_video_url: Array.isArray(data.outputs) ? data.outputs[0] : data.output?.video_url || data.video_url,
+        result_video_url: outputs[0],
+        result_urls: outputs,
       };
     }
     if (['failed', 'error', 'timeout', 'cancelled', 'canceled'].includes(raw)) {
