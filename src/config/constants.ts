@@ -172,12 +172,12 @@ export const ASSET_UPLOAD_LIMITS = {
     allowed_extensions: ['jpg', 'jpeg', 'png', 'webp'],
   },
   VIDEO: {
-    max_bytes: 500 * 1024 * 1024, // 500 MB
+    max_bytes: 50 * 1024 * 1024, // 50 MB (Supabase Free limit)
     allowed_mimes: ['video/mp4', 'video/quicktime', 'video/webm'],
     allowed_extensions: ['mp4', 'mov', 'webm'],
   },
   AUDIO: {
-    max_bytes: 100 * 1024 * 1024, // 100 MB
+    max_bytes: 50 * 1024 * 1024, // 50 MB (Supabase Free limit)
     allowed_mimes: ['audio/mpeg', 'audio/wav', 'audio/x-m4a', 'audio/aac'],
     allowed_extensions: ['mp3', 'wav', 'm4a', 'aac'],
   },
