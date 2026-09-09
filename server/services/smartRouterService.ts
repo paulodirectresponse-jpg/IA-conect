@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
-import { getAdminDb } from '../repositories/firebaseAdminClient.js';
+import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
 import { providerFinanceService, ProviderFinanceSnapshot } from './providerFinanceService.js';
 import { quoteCacheService } from './quoteCacheService.js';
 import { GenerationMode, RoutingLogEntry, ProviderStatus, ProviderModelMapping } from '../../src/types/index.js';
@@ -75,8 +75,11 @@ export const smartRouterService={
   const selected=candidates[0];
   const reason=`${selected.provider_name} selecionado por cotação ao vivo, custo, disponibilidade, saldo e margem protegida.`;
   const log:RoutingLogEntry={log_id:`route_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,generation_id:params.generation_id,user_id:params.userId,model_id:params.model_id,selected_provider_id:selected.provider_id,strategy:'CHEAPEST_RELIABLE',candidate_providers:candidates.map(c=>({provider_id:c.provider_id,provider_cost_cents:c.provider_cost_cents,customer_price_cents:c.customer_price_cents,status:c.status,priority:c.priority,is_healthy:c.is_healthy})),reason,created_at:new Date().toISOString()};
-  const db=getAdminDb();if(db)await db.collection('routing_logs').doc(log.log_id).set({...log, pricing_snapshot:{selected_provider_id:selected.provider_id,provider_cost_usd:selected.provider_cost_usd,provider_cost_brl_cents:selected.provider_cost_cents,safe_cost_brl_cents:selected.safe_cost_cents,customer_price_cents:selected.customer_price_cents,margin_percent:selected.margin_percent,quoted_at:selected.quoted_at,quote_estimated:selected.quote_estimated},provider_balance_snapshot:candidates.map(c=>({provider_id:c.provider_id,balance_brl_cents:c.balance_brl_cents??null,low_balance:Boolean(c.low_balance)}))}).catch(()=>{});
+  await firestoreAdminRest.set(`routing_logs/${encodeURIComponent(log.log_id)}`,{...log,pricing_snapshot:{selected_provider_id:selected.provider_id,provider_cost_usd:selected.provider_cost_usd,provider_cost_brl_cents:selected.provider_cost_cents,safe_cost_brl_cents:selected.safe_cost_cents,customer_price_cents:selected.customer_price_cents,margin_percent:selected.margin_percent,quoted_at:selected.quoted_at,quote_estimated:selected.quote_estimated},provider_balance_snapshot:candidates.map(c=>({provider_id:c.provider_id,balance_brl_cents:c.balance_brl_cents??null,low_balance:Boolean(c.low_balance)}))}).catch(()=>{});
   return {selected,candidates,reason,strategy:'CHEAPEST_RELIABLE'};
  },
- async listRoutingLogs(limit=50){const db=getAdminDb();if(!db)return[];const snap=await db.collection('routing_logs').orderBy('created_at','desc').limit(limit).get();return snap.docs.map(d=>d.data() as RoutingLogEntry);}
+ async listRoutingLogs(limit=50){
+  const rows=await firestoreAdminRest.runQuery({from:[{collectionId:'routing_logs'}],orderBy:[{field:{fieldPath:'created_at'},direction:'DESCENDING'}],limit}).catch(()=>[] as any[]);
+  return rows.map((r:any)=>r.data as RoutingLogEntry);
+ }
 };
