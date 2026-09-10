@@ -33,6 +33,7 @@ function atlasResolution(modelId:string,res:string){
   if(modelId==='minimax-h3'&&res.toLowerCase()==='2k')return '2K';
   return res;
 }
+function audioEnabled(params:ProviderGenerationParams){return params.audio_enabled!==false;}
 
 export class AtlasProviderAdapter implements VideoProviderAdapter {
   readonly providerId='provider-atlas';
@@ -76,7 +77,7 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
     }
 
     if(params.model_id==='seedance-2-5'||params.model_id==='seedance-2-0'){
-      const base:any={model,prompt,duration:params.duration_seconds,resolution:params.resolution,generate_audio:true};
+      const base:any={model,prompt,duration:params.duration_seconds,resolution:params.resolution,generate_audio:audioEnabled(params)};
       if(params.seed!==null&&params.seed!==undefined)base.seed=params.seed;
       if(params.mode==='TEXT_TO_VIDEO')base.ratio=params.aspect_ratio;
       if(params.mode==='IMAGE_TO_VIDEO'){
@@ -96,7 +97,7 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
       return base;
     }
 
-    const base:any={model,prompt,duration:params.duration_seconds,resolution:params.resolution,ratio:params.aspect_ratio,audio:true};
+    const base:any={model,prompt,duration:params.duration_seconds,resolution:params.resolution,ratio:params.aspect_ratio,audio:audioEnabled(params)};
     if(params.seed!==null&&params.seed!==undefined)base.seed=params.seed;
     if(params.mode==='IMAGE_TO_VIDEO'){
       const initial=images.find((r)=>r.slot_type==='INITIAL')||images[0];
