@@ -20,7 +20,7 @@ interface Props {
   capabilities: ModelCapabilities | null; showAdvanced: boolean; onToggleAdvanced: () => void; seed: number | '';
   onChangeSeed: (v: number | '') => void; motionStrength: number; onChangeMotionStrength: (v: number) => void;
   totalEstimatedCostCents: number | null; unitPriceCents: number | null; availableBalanceCents: number; hasSufficientFunds: boolean;
-  onNavigateToWallet?: () => void; onGenerate: () => void; validating: boolean; validationErrors: string[];
+  onNavigateToWallet?: () => void; onGenerate: () => void; validating: boolean; generating?: boolean; validationErrors: string[];
   livePricesByModelId?: Record<string, number | null>; priceLoadingModelIds?: string[];
 }
 type OpenCard = 'duration' | 'ratio' | 'resolution' | 'outputs' | null;
@@ -30,7 +30,7 @@ export const CreatorPanel: React.FC<Props> = (p) => {
   const [openCard, setOpenCard] = useState<OpenCard>(null);
   const [dragTarget,setDragTarget]=useState<'INITIAL'|'END'|'GENERAL'|null>(null);
   const caps = p.capabilities;
-  const canGenerate = p.prompt.trim().length > 0 && p.hasSufficientFunds && !p.validating && p.validationErrors.length === 0;
+  const canGenerate = p.prompt.trim().length > 0 && p.hasSufficientFunds && !p.validating && !p.generating && p.validationErrors.length === 0;
   const durations = caps?.supported_durations?.length ? [...caps.supported_durations].sort((a,b)=>a-b) : [5, 10, 15, 30];
   const ratios = caps?.supported_aspect_ratios?.length ? caps.supported_aspect_ratios : ['16:9','9:16','1:1'];
   const resolutions = caps?.supported_resolutions?.length ? caps.supported_resolutions : ['720p','1080p'];
@@ -58,6 +58,6 @@ export const CreatorPanel: React.FC<Props> = (p) => {
       <section className="rounded-xl border border-white/[0.065] bg-white/[0.025] overflow-hidden"><button onClick={p.onToggleAdvanced} className="w-full h-10 px-3 flex items-center gap-2 text-[10px] font-semibold text-zinc-400"><Settings2 className="w-3.5 h-3.5"/> Configurações avançadas <ChevronDown className={`ml-auto w-3.5 h-3.5 transition-transform ${p.showAdvanced?'rotate-180':''}`}/></button>{p.showAdvanced&&<div className="px-3 pb-3 grid grid-cols-2 gap-2"><label className="text-[8px] text-zinc-600">Seed<input value={p.seed} onChange={(e)=>p.onChangeSeed(e.target.value===''?'':Number(e.target.value))} type="number" placeholder="Aleatório" className="mt-1 w-full h-8 px-2 rounded-lg bg-[#0b0e13] border border-white/[0.06] text-[9px] text-zinc-300 outline-none"/></label><label className="text-[8px] text-zinc-600">Movimento<input value={p.motionStrength} onChange={(e)=>p.onChangeMotionStrength(Number(e.target.value))} type="range" min="0" max="10" className="mt-2 w-full accent-cyan-400"/></label></div>}</section>
       {p.validationErrors.length>0&&<div className="rounded-xl border border-rose-400/15 bg-rose-500/[0.06] px-3 py-2 text-[9px] text-rose-300">{p.validationErrors[0]}</div>}
     </div>
-    <div className="shrink-0 p-3 border-t border-white/[0.06] bg-[#080b0f]"><div className="mb-2 flex items-center justify-between"><div><p className="text-[8px] uppercase tracking-wider text-zinc-700">Preço</p><p className="text-[11px] font-bold text-white">{costText}</p></div><div className="text-right"><p className="text-[8px] text-zinc-700">Saldo</p><p className={`text-[10px] font-semibold ${p.hasSufficientFunds?'text-zinc-400':'text-rose-400'}`}>{formatCredits(p.availableBalanceCents)}</p></div></div><button disabled={!canGenerate} onClick={p.onGenerate} className="w-full h-11 rounded-xl bg-gradient-to-r from-cyan-300 via-sky-300 to-blue-400 text-[#071015] text-[11px] font-black flex items-center justify-center gap-2 disabled:opacity-35 disabled:grayscale hover:brightness-110"><WandSparkles className="w-4 h-4"/>{p.validating?'Validando...':p.totalEstimatedCostCents==null?'Gerar vídeo':`Gerar • ${formatCredits(p.totalEstimatedCostCents)}`}</button></div>
+    <div className="shrink-0 p-3 border-t border-white/[0.06] bg-[#080b0f]"><div className="mb-2 flex items-center justify-between"><div><p className="text-[8px] uppercase tracking-wider text-zinc-700">Preço</p><p className="text-[11px] font-bold text-white">{costText}</p></div><div className="text-right"><p className="text-[8px] text-zinc-700">Saldo</p><p className={`text-[10px] font-semibold ${p.hasSufficientFunds?'text-zinc-400':'text-rose-400'}`}>{formatCredits(p.availableBalanceCents)}</p></div></div><button disabled={!canGenerate} onClick={p.onGenerate} className="w-full h-11 rounded-xl bg-gradient-to-r from-cyan-300 via-sky-300 to-blue-400 text-[#071015] text-[11px] font-black flex items-center justify-center gap-2 disabled:opacity-35 disabled:grayscale hover:brightness-110"><WandSparkles className="w-4 h-4"/>{p.generating?'Gerando...':p.validating?'Validando...':p.totalEstimatedCostCents==null?'Gerar vídeo':`Gerar • ${formatCredits(p.totalEstimatedCostCents)}`}</button></div>
   </aside>;
 };
