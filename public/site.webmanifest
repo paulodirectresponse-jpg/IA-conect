@@ -1,0 +1,19 @@
+{
+  "name": "IA Connect",
+  "short_name": "IA Connect",
+  "description": "Studio web para criação de imagens e vídeos com inteligência artificial.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050a10",
+  "theme_color": "#080a0f",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/brand/ia-connect-app-icon.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -6,11 +6,12 @@
   "scripts": {
     "dev": "vite dev",
     "dev:node": "tsx server.ts",
-    "build": "vite build",
+    "brand:materialize": "node scripts/materialize-brand-assets.mjs",
+    "build": "npm run brand:materialize && vite build",
     "preview": "npm run build && vite preview",
     "deploy": "npm run build && wrangler deploy",
     "test": "vitest run",
-    "clean": "rm -rf dist .wrangler",
+    "clean": "rm -rf dist .wrangler public/brand",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
