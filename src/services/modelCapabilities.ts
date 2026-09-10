@@ -15,6 +15,7 @@ export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
   supports_video_reference: false,
   supports_audio_reference: false,
   supports_audio_generation: false,
+  audio_generation_mode: 'NONE',
   default_audio_enabled: false,
   supports_negative_prompt: true,
   supports_seed: true,
@@ -34,6 +35,7 @@ type KnownCapabilityDefaults = Partial<ModelCapabilities>;
 const KNOWN_MODEL_DEFAULTS: Record<string, KnownCapabilityDefaults> = {
   'wan-3-0': {
     supports_audio_generation: true,
+    audio_generation_mode: 'OPTIONAL',
     default_audio_enabled: true,
     max_outputs: 1,
     supports_image_reference: true,
@@ -48,6 +50,7 @@ const KNOWN_MODEL_DEFAULTS: Record<string, KnownCapabilityDefaults> = {
   },
   'wan-3-0-prime': {
     supports_audio_generation: true,
+    audio_generation_mode: 'OPTIONAL',
     default_audio_enabled: true,
     max_outputs: 1,
     supports_image_reference: true,
@@ -62,6 +65,7 @@ const KNOWN_MODEL_DEFAULTS: Record<string, KnownCapabilityDefaults> = {
   },
   'seedance-2-5': {
     supports_audio_generation: true,
+    audio_generation_mode: 'OPTIONAL',
     default_audio_enabled: true,
     max_outputs: 1,
     supports_image_reference: true,
@@ -75,6 +79,7 @@ const KNOWN_MODEL_DEFAULTS: Record<string, KnownCapabilityDefaults> = {
   },
   'minimax-h3': {
     supports_audio_generation: true,
+    audio_generation_mode: 'ALWAYS',
     default_audio_enabled: true,
     max_outputs: 1,
     supports_image_reference: true,
@@ -86,9 +91,9 @@ const KNOWN_MODEL_DEFAULTS: Record<string, KnownCapabilityDefaults> = {
     max_reference_videos: 3,
     max_reference_audio: 3,
   },
-  'seedance-2-0': { supports_audio_generation:true, default_audio_enabled:true, max_outputs:1 },
-  'kling-3-0': { supports_audio_generation:true, default_audio_enabled:true, max_outputs:1 },
-  'google-omni-flash': { supports_audio_generation:true, default_audio_enabled:true, max_outputs:1 },
+  'seedance-2-0': { supports_audio_generation:true, audio_generation_mode:'OPTIONAL', default_audio_enabled:true, max_outputs:1 },
+  'kling-3-0': { supports_audio_generation:true, audio_generation_mode:'OPTIONAL', default_audio_enabled:true, max_outputs:1 },
+  'google-omni-flash': { supports_audio_generation:true, audio_generation_mode:'ALWAYS', default_audio_enabled:true, max_outputs:1 },
   'nano-banana-pro-image': { max_outputs:1 },
   'nano-banana-2-image': { max_outputs:1 },
   'nano-banana-2-lite-image': { max_outputs:1 },
@@ -131,6 +136,7 @@ export function getModelCapabilities(model?: Partial<ModelRegistryItem> | null):
     supports_video_reference: knownValue(model, 'supports_video_reference', DEFAULT_MODEL_CAPABILITIES.supports_video_reference),
     supports_audio_reference: knownValue(model, 'supports_audio_reference', DEFAULT_MODEL_CAPABILITIES.supports_audio_reference),
     supports_audio_generation: knownValue(model, 'supports_audio_generation', DEFAULT_MODEL_CAPABILITIES.supports_audio_generation),
+    audio_generation_mode: knownValue(model, 'audio_generation_mode', DEFAULT_MODEL_CAPABILITIES.audio_generation_mode),
     default_audio_enabled: knownValue(model, 'default_audio_enabled', DEFAULT_MODEL_CAPABILITIES.default_audio_enabled),
     supports_negative_prompt: model.supports_negative_prompt ?? DEFAULT_MODEL_CAPABILITIES.supports_negative_prompt,
     supports_seed: model.supports_seed ?? DEFAULT_MODEL_CAPABILITIES.supports_seed,
@@ -170,6 +176,7 @@ export function mergeModelCapabilities(models: ModelRegistryItem[]): ModelCapabi
     supports_video_reference: caps.some((c) => c.supports_video_reference),
     supports_audio_reference: caps.some((c) => c.supports_audio_reference),
     supports_audio_generation: caps.some((c) => c.supports_audio_generation),
+    audio_generation_mode: caps.some((c)=>c.audio_generation_mode==='ALWAYS')?'ALWAYS':caps.some((c)=>c.audio_generation_mode==='OPTIONAL')?'OPTIONAL':'NONE',
     default_audio_enabled: caps.some((c) => c.default_audio_enabled),
     supports_negative_prompt: caps.some((c) => c.supports_negative_prompt),
     supports_seed: caps.some((c) => c.supports_seed),
