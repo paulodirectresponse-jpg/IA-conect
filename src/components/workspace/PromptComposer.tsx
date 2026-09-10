@@ -16,7 +16,6 @@ interface PromptComposerProps {
 }
 
 const isFrameReference = (ref: WorkspaceReference) => ['START_FRAME','INITIAL_FRAME','INITIAL','END_FRAME','END'].includes(String(ref.role || '').toUpperCase());
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export const PromptComposer: React.FC<PromptComposerProps> = ({
   prompt,onChangePrompt,negativePrompt,onChangeNegativePrompt,onOpenImproveModal,references,onRequestAddMedia,supportsNegativePrompt=true,maxChars=2000,
