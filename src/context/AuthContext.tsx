@@ -7,7 +7,7 @@ import { UserProfile, WalletAccount } from '../types/index.js';
 
 interface AuthContextType {
   firebaseUser: FirebaseUser | null;
-  currentUser: FirebaseUser | null; // Alias for seamless consumption across components
+  currentUser: FirebaseUser | null;
   profile: UserProfile | null;
   wallet: WalletAccount | null;
   isAdmin: boolean;
@@ -38,16 +38,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       console.warn('[AuthContext] Failed to load user profile/wallet:', err.message);
       setAuthError(err.message || 'Falha ao sincronizar perfil ou carteira.');
-      // If user is suspended, we can reflect that in profile
       if (err.code === 'USER_SUSPENDED' || (err.message && err.message.toLowerCase().includes('suspens'))) {
         setProfile((prev) => prev ? { ...prev, status: 'SUSPENDED' } : ({
-          user_id: firebaseUser?.uid || '',
-          email: firebaseUser?.email || '',
-          display_name: firebaseUser?.displayName || '',
-          role: 'USER',
-          status: 'SUSPENDED',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          user_id: firebaseUser?.uid || '', email: firebaseUser?.email || '', display_name: firebaseUser?.displayName || '', role: 'USER', status: 'SUSPENDED', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         } as UserProfile));
       } else {
         setProfile(null);
@@ -57,78 +50,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshWallet = async () => {
-    try {
-      const w = await walletService.getSummary();
-      setWallet(w);
-    } catch (err) {
-      console.warn('[AuthContext] Failed to refresh wallet:', err);
-    }
+    try { setWallet(await walletService.getSummary()); }
+    catch (err) { console.warn('[AuthContext] Failed to refresh wallet:', err); }
   };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
-      if (user) {
-        await loadUserData();
-      } else {
-        setProfile(null);
-        setWallet(null);
-        setAuthError(null);
-      }
+      if (user) await loadUserData();
+      else { setProfile(null); setWallet(null); setAuthError(null); }
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
-  const refreshMe = async () => {
-    if (auth.currentUser) {
-      await loadUserData();
-    }
-  };
+  useEffect(() => {
+    const onGenerationUpdated = () => { if (auth.currentUser) void refreshWallet(); };
+    window.addEventListener('generation:updated', onGenerationUpdated);
+    return () => window.removeEventListener('generation:updated', onGenerationUpdated);
+  }, []);
 
-  const claimBootstrapAdmin = async (bootstrapSecret?: string) => {
-    await authService.claimBootstrapAdmin(bootstrapSecret);
-    await loadUserData();
-  };
-
-  const logout = async () => {
-    await authService.logout();
-    setFirebaseUser(null);
-    setProfile(null);
-    setWallet(null);
-    setAuthError(null);
-  };
-
+  const refreshMe = async () => { if (auth.currentUser) await loadUserData(); };
+  const claimBootstrapAdmin = async (bootstrapSecret?: string) => { await authService.claimBootstrapAdmin(bootstrapSecret); await loadUserData(); };
+  const logout = async () => { await authService.logout(); setFirebaseUser(null); setProfile(null); setWallet(null); setAuthError(null); };
   const isAdmin = profile?.role === 'ADMIN';
   const isSuspended = profile?.status === 'SUSPENDED';
 
-  return (
-    <AuthContext.Provider
-      value={{
-        firebaseUser,
-        currentUser: firebaseUser, // Alias
-        profile,
-        wallet,
-        isAdmin,
-        isSuspended,
-        loading,
-        authError,
-        refreshMe,
-        refreshWallet,
-        claimBootstrapAdmin,
-        logout,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{firebaseUser,currentUser:firebaseUser,profile,wallet,isAdmin,isSuspended,loading,authError,refreshMe,refreshWallet,claimBootstrapAdmin,logout}}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return ctx;
-};
+export const useAuth = () => { const ctx = useContext(AuthContext); if (!ctx) throw new Error('useAuth must be used within an AuthProvider'); return ctx; };
