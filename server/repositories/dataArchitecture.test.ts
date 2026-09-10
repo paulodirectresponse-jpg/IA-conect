@@ -54,9 +54,14 @@ describe('data architecture invariants',()=>{
   });
 
   it('does not use process memory as workspace persistence',()=>{
-    expect(read('server/repositories/draftRepository.ts')).not.toContain('new Map');
-    expect(read('server/repositories/presetRepository.ts')).not.toContain('new Map');
-    expect(read('server/repositories/userPreferencesRepository.ts')).not.toContain('new Map');
+    const persistentSources=[
+      read('server/repositories/draftRepository.ts'),
+      read('server/repositories/presetRepository.ts'),
+      read('server/repositories/userPreferencesRepository.ts'),
+    ].join('\n');
+    for(const legacyStore of['draftsMap','userLatestDraftMap','presetsMap','preferencesMap']){
+      expect(persistentSources).not.toContain(legacyStore);
+    }
   });
 
   it('keeps browser data services API-only',()=>{
