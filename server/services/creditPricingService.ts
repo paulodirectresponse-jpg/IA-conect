@@ -28,8 +28,8 @@ export const creditPricingService={
  async preview(input:CreditPricingInput){
   const catalogModel=await catalogRepository.getModel(input.model_id);
   if(!catalogModel)throw Object.assign(new Error('IA indisponível.'),{code:'MODEL_NOT_AVAILABLE'});
-  const caps=getModelCapabilities(catalogModel),image=isImageMode(input.mode);
-  const audio_enabled=Boolean(!image&&caps.supports_audio_generation&&(input.audio_enabled===undefined?(caps.default_audio_enabled??true):input.audio_enabled));
+  const caps=getModelCapabilities(catalogModel),image=isImageMode(input.mode),audioMode=caps.audio_generation_mode||(caps.supports_audio_generation?'OPTIONAL':'NONE');
+  const audio_enabled=Boolean(!image&&(audioMode==='ALWAYS'||(audioMode==='OPTIONAL'&&(input.audio_enabled===undefined?(caps.default_audio_enabled??true):input.audio_enabled))));
   const model_variant=input.model_variant||'default',pricing_options=input.pricing_options||{},normalizedInput={...input,audio_enabled,model_variant,pricing_options};
   await assertGenerationCapability({...input,audio_enabled});
   const signature=pricingSignatureService.create({model_id:input.model_id,mode:input.mode,resolution:input.resolution,duration_seconds:image?1:input.duration_seconds,aspect_ratio:input.aspect_ratio,number_of_outputs:input.number_of_outputs,audio_enabled,reference_mode:pricingReferenceMode(input.references),reference_count:(input.references||[]).length,model_variant,pricing_options});
