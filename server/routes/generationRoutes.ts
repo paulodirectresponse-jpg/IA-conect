@@ -150,9 +150,6 @@ generationRouter.post('/generations/quote', requireAuth, async (req:Authenticate
           pricing_signature_hash:q.signature.hash,
           retail_pricing_id:q.retail.retail_pricing_id,
           retail_pricing_version:q.retail.version,
-          estimated_cost_cents:price,
-          customer_balance_available_cents:available,
-          balance_after_generation_cents:available-price,
           created_at:new Date().toISOString(),
         },
         notice:`Preço confirmado: ${price.toLocaleString('pt-BR')} créditos.`,
@@ -192,9 +189,7 @@ generationRouter.post('/generations', requireAuth, async (req:AuthenticatedReque
       client_request_id:req.body.client_request_id,
       authorized_credit_price:Number.isFinite(Number(req.body.authorized_credit_price))
         ? Number(req.body.authorized_credit_price)
-        : Number.isFinite(Number(req.body.maximum_authorized_cost_cents))
-          ? Number(req.body.maximum_authorized_cost_cents)
-          : undefined,
+        : undefined,
       retail_pricing_id:req.body.retail_pricing_id,
       pricing_signature_hash:req.body.pricing_signature_hash,
       reqHost:host,
