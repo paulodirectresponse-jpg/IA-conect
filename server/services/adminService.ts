@@ -37,7 +37,7 @@ export const adminService = {
     let after;
     if(type==='ADMIN_CREDIT')after=await creditWalletService.issue({userId:targetUserId,credits:amount_credits,source:'COMPENSATION',idempotencyKey:idempotency_key,referenceId:`admin:${adminId}`,netCashBackingMicros:0,metadata:{admin_id:adminId,reason,transaction_type:'ADMIN_CREDIT'}});
     else after=await creditWalletService.adminDebit({userId:targetUserId,credits:amount_credits,idempotencyKey:idempotency_key,referenceId:`admin:${adminId}`,metadata:{admin_id:adminId,reason}});
-    await auditRepository.record({log_id:`aud_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,admin_id:adminId,admin_email:adminEmail,action:'CREDIT_ADJUSTMENT',entity_type:'WALLET',entity_id:targetUserId,before,after,reason,created_at:new Date().toISOString()});
+    await auditRepository.record({log_id:`aud_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,admin_id:adminId,admin_email:adminEmail,action:'CREDIT_ADJUSTMENT',entity_type:'CREDIT_ACCOUNT',entity_id:targetUserId,before,after,reason,created_at:new Date().toISOString()});
     return after;
   },
 

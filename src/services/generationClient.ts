@@ -22,18 +22,10 @@ export interface GenerationQuoteParams {
 
 export type PricedGenerationDraft = GenerationRequestDraft & {
   has_sufficient_funds:boolean;
-  balance_after_generation_cents:number;
-  retail_credit_price?:number;
   unit_credit_price?:number;
   pricing_unit?:string;
   base_duration_seconds?:number;
   billing_units?:number;
-  authorized_credit_price?:number;
-  credit_balance_available?:number;
-  balance_after_generation_credits?:number;
-  retail_pricing_id?:string;
-  retail_pricing_version?:number;
-  pricing_signature_hash?:string;
 };
 
 function normalizeReferences(draft:GenerationRequestDraft) {
@@ -77,9 +69,9 @@ export const generationClient = {
         pricing_options:s.pricing_options,
         references:normalizeReferences(draft),
         client_request_id:draft.request_id,
-        authorized_credit_price:d.authorized_credit_price ?? d.retail_credit_price ?? draft.estimated_cost_cents,
-        retail_pricing_id:d.retail_pricing_id,
-        pricing_signature_hash:d.pricing_signature_hash,
+        authorized_credit_price:draft.authorized_credit_price,
+        retail_pricing_id:draft.retail_pricing_id,
+        pricing_signature_hash:draft.pricing_signature_hash,
       }),
     });
   },

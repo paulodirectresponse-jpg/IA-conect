@@ -54,7 +54,6 @@ export interface ProviderJobStatusResult {
   thumbnail_url?: string;
   error_code?: string;
   error_message?: string;
-  final_cost_cents?: number;
 }
 
 export interface VideoProviderAdapter {

@@ -2,14 +2,15 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../config/firebase.js';
 import { authService } from '../services/authService.js';
-import { walletService } from '../services/walletService.js';
-import { UserProfile, WalletAccount } from '../types/index.js';
+import { creditService } from '../services/creditService.js';
+import { UserProfile } from '../types/index.js';
+import { CreditAccount } from '../types/credits.js';
 
 interface AuthContextType {
   firebaseUser: FirebaseUser | null;
   currentUser: FirebaseUser | null;
   profile: UserProfile | null;
-  wallet: WalletAccount | null;
+  wallet: CreditAccount | null;
   isAdmin: boolean;
   isSuspended: boolean;
   loading: boolean;
@@ -25,7 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [wallet, setWallet] = useState<WalletAccount | null>(null);
+  const [wallet, setWallet] = useState<CreditAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -50,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshWallet = async () => {
-    try { setWallet(await walletService.getSummary()); }
+    try { setWallet(await creditService.getAccount()); }
     catch (err) { console.warn('[AuthContext] Failed to refresh wallet:', err); }
   };
 

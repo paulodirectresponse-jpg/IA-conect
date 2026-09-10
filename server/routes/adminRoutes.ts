@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { adminService } from '../services/adminService.js';
-import { pricingService } from '../services/pricingService.js';
 import { featureFlagService } from '../services/featureFlagService.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { auditRepository } from '../repositories/auditRepository.js';
 import { assetReferenceResolver } from '../services/assetReferenceResolver.js';
 import { smartRouterService } from '../services/smartRouterService.js';
 import { generationRepository } from '../repositories/generationRepository.js';
+import { systemHealthService } from '../services/systemHealthService.js';
 
 export const adminRouter = Router();
 
@@ -17,6 +17,14 @@ adminRouter.get('/admin/dashboard-stats', requireAuth, requireAdmin, async (req:
     res.json({ success: true, data: stats });
   } catch (err: any) {
     res.status(500).json({ success: false, error: { code: 'ADMIN_STATS_ERROR', message: 'Erro ao carregar estatísticas do painel.' } });
+  }
+});
+
+adminRouter.get('/admin/system-health', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    res.json({ success:true, data:await systemHealthService.snapshot() });
+  } catch {
+    res.status(500).json({ success:false, error:{ code:'SYSTEM_HEALTH_ERROR', message:'Não foi possível carregar o diagnóstico operacional.' } });
   }
 });
 
@@ -97,7 +105,7 @@ adminRouter.post('/admin/providers', requireAuth, requireAdmin, async (req: Auth
   try {
     const saved = await catalogRepository.saveProvider({
       ...req.body,
-      is_configured: false, // Secrets never stored in registry!
+      is_configured: false, // Runtime adapter configuration is projected on reads; secrets are never stored here.
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
@@ -118,33 +126,12 @@ adminRouter.patch('/admin/providers/:providerId', requireAuth, requireAdmin, asy
     const updated = await catalogRepository.saveProvider({
       ...existing,
       ...allowedFields,
-      is_configured: false, // In Etapa 1, adapters/secrets do not exist
+      is_configured: false, // Runtime adapter configuration is projected on reads.
       updated_at: new Date().toISOString(),
     });
     res.json({ success: true, data: updated });
   } catch (err: any) {
     res.status(400).json({ success: false, error: { code: 'PROVIDER_UPDATE_ERROR', message: err.message } });
-  }
-});
-
-// Admin Pricing Matrix management
-adminRouter.post('/admin/pricing', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
-  try {
-    const { pricing, reason, confirmed_high_variation } = req.body;
-    const saved = await pricingService.savePricing({
-      adminId: req.user!.uid,
-      adminEmail: req.user!.email,
-      pricingData: pricing,
-      reason,
-      confirmed_high_variation: Boolean(confirmed_high_variation),
-    });
-    res.json({ success: true, data: saved });
-  } catch (err: any) {
-    const status = err.code === 'PRICE_VARIATION_HIGH' ? 409 : 400;
-    res.status(status).json({
-      success: false,
-      error: { code: err.code || 'PRICING_ERROR', message: err.message, diffPercent: err.diffPercent },
-    });
   }
 });
 

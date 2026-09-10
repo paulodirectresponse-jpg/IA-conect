@@ -55,9 +55,9 @@ export const AdminAuditLogs: React.FC = () => {
             className="p-2 text-xs bg-white border border-zinc-300 rounded-lg text-zinc-900"
           >
             <option value="">Todas as Entidades</option>
-            <option value="WALLET">WALLET (Ajustes de Saldo)</option>
+            <option value="CREDIT_ACCOUNT">CREDIT_ACCOUNT (Ajustes de créditos)</option>
             <option value="USER">USER (Status & Papéis)</option>
-            <option value="PRICING">PRICING (Matriz de Preços)</option>
+            <option value="PRICING">PRICING (Retail pricing)</option>
             <option value="FEATURE_FLAG">FEATURE_FLAG (Chaves)</option>
             <option value="PROVIDER">PROVIDER (Provedores)</option>
             <option value="MODEL">MODEL (Modelos)</option>

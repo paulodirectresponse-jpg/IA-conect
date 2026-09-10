@@ -2,14 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Edit2, Layers } from 'lucide-react';
 import { adminService } from '../../services/adminService.js';
 import { ModelRegistryItem, ModelStatus, ModelCategory } from '../../types/index.js';
-import { STUDIO_FALLBACK_MODELS } from '../../config/studioCatalog.js';
 import { Card } from '../common/Card.js';
 import { Button } from '../common/Button.js';
 import { Badge } from '../common/Badge.js';
 import { Modal } from '../common/Modal.js';
 
 export const AdminModels: React.FC = () => {
-  const [models, setModels] = useState<ModelRegistryItem[]>(STUDIO_FALLBACK_MODELS);
+  const [models, setModels] = useState<ModelRegistryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<ModelRegistryItem | null>(null);
@@ -27,10 +26,11 @@ export const AdminModels: React.FC = () => {
     try {
       setLoading(true);
       const res = await adminService.listModels();
-      setModels(res.length ? res : STUDIO_FALLBACK_MODELS);
-    } catch (err) {
+      setModels(res);
+    } catch (err: any) {
       console.error('Falha ao listar modelos:', err);
-      setModels(STUDIO_FALLBACK_MODELS);
+      setModels([]);
+      setError(err?.message || 'Falha ao carregar o catálogo persistente.');
     } finally {
       setLoading(false);
     }
@@ -62,7 +62,7 @@ export const AdminModels: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><div><h2 className="text-base font-semibold text-zinc-900 tracking-tight">Catálogo de Modelos</h2><p className="text-xs text-zinc-500">Mesmo catálogo premium usado pelos Studios de imagem e vídeo</p></div><Button id="btn-add-model" variant="primary" size="sm" onClick={handleOpenCreate} icon={<Plus className="w-3.5 h-3.5" />}>Cadastrar Modelo</Button></div>
-      <div className="flex items-start gap-2.5 p-3.5 rounded-lg bg-zinc-100 border border-zinc-200/80 text-xs text-zinc-700 leading-relaxed"><Layers className="w-4 h-4 text-zinc-600 shrink-0 mt-0.5"/><div><strong className="text-zinc-900 block mb-0.5">Catálogo ativo do Creative Studio</strong>Se o registro remoto estiver vazio ou indisponível, esta tela mostra o catálogo local oficial usado pelo app. Assim o Admin não fica em branco enquanto o Studio continua funcionando.</div></div>
+      <div className="flex items-start gap-2.5 p-3.5 rounded-lg bg-zinc-100 border border-zinc-200/80 text-xs text-zinc-700 leading-relaxed"><Layers className="w-4 h-4 text-zinc-600 shrink-0 mt-0.5"/><div><strong className="text-zinc-900 block mb-0.5">Catálogo ativo do Creative Studio</strong>Esta tela lê exatamente o mesmo catálogo persistente usado pelos Studios. Alterações salvas aqui são a fonte de verdade do runtime.</div></div>
       <Card id="admin-models-card">
         {loading ? <div className="py-8 text-center text-xs text-zinc-400">Sincronizando catálogo...</div> : <div className="overflow-x-auto -mx-5 sm:-mx-6"><table className="w-full text-left text-xs border-collapse"><thead><tr className="border-b border-zinc-100 bg-zinc-50/70 text-zinc-500 font-medium"><th className="py-3 px-4 sm:px-6">Modelo</th><th className="py-3 px-4">Slug</th><th className="py-3 px-4">Categoria</th><th className="py-3 px-4">Capacidade</th><th className="py-3 px-4">Status</th><th className="py-3 px-4 sm:px-6 text-right">Ação</th></tr></thead><tbody className="divide-y divide-zinc-100">{models.map((m)=><tr key={m.model_id} className="hover:bg-zinc-50/50 transition-colors"><td className="py-3 px-4 sm:px-6"><span className="font-semibold text-zinc-900 block">{m.name}</span><span className="text-[11px] text-zinc-500 line-clamp-1">{m.best_for || m.description}</span></td><td className="py-3 px-4 font-mono text-zinc-600">{m.slug}</td><td className="py-3 px-4"><Badge variant="neutral">{m.category}</Badge></td><td className="py-3 px-4 text-zinc-500">{m.category === 'VIDEO' && m.supported_durations?.length ? `até ${Math.max(...m.supported_durations)}s` : m.supported_resolutions?.join(' · ') || '—'}</td><td className="py-3 px-4">{getStatusBadge(m.status)}</td><td className="py-3 px-4 sm:px-6 text-right"><Button id={`btn-edit-model-${m.model_id}`} variant="secondary" size="sm" onClick={()=>handleOpenEdit(m)} icon={<Edit2 className="w-3.5 h-3.5"/>}>Editar</Button></td></tr>)}</tbody></table></div>}
       </Card>

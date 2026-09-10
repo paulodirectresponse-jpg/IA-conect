@@ -1,9 +1,10 @@
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updateProfile } from 'firebase/auth';
 import { auth } from '../config/firebase.js';
 import { apiRequest } from './apiClient.js';
-import { UserProfile, WalletAccount } from '../types/index.js';
+import { UserProfile } from '../types/index.js';
+import { CreditAccount } from '../types/credits.js';
 
-type SessionSnapshot={user:UserProfile;wallet:WalletAccount};
+type SessionSnapshot={user:UserProfile;wallet:CreditAccount};
 
 async function syncSession(displayName?:string):Promise<SessionSnapshot>{
   if(!auth.currentUser)throw new Error('Usuário não autenticado.');
