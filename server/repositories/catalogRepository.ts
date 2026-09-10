@@ -44,6 +44,11 @@ export const MODEL_MAPPINGS:ProviderModelMapping[]=[
   mapping('map-gptimg2-atlas','gpt-image-2','provider-atlas','openai/gpt-image-2'),
 ];
 const FEATURE_FLAG_SEED:FeatureFlag[]=INITIAL_FEATURE_FLAGS.map((flag)=>({...flag,updated_at:now()}));
+const MODEL_SEED_BY_ID=new Map(MODEL_CATALOG.map((model)=>[model.model_id,model]));
+function hydrateModel(row:ModelRegistryItem):ModelRegistryItem{
+  const seed=MODEL_SEED_BY_ID.get(row.model_id);
+  return seed?{...seed,...row}:row;
+}
 
 async function listCollection<T>(collectionId:string):Promise<T[]>{
   const rows=await firestoreAdminRest.runQuery({from:[{collectionId}],limit:500});
@@ -87,7 +92,7 @@ export const catalogRepository={
   async listModels(){
     const rows=await ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG);
     const seedOrder=new Map(MODEL_CATALOG.map((model,index)=>[model.model_id,index]));
-    return rows.filter((row)=>row.status!=='INACTIVE').sort((a,b)=>{
+    return rows.map(hydrateModel).filter((row)=>row.status!=='INACTIVE').sort((a,b)=>{
       const ai=seedOrder.get(a.model_id)??Number.MAX_SAFE_INTEGER;
       const bi=seedOrder.get(b.model_id)??Number.MAX_SAFE_INTEGER;
       return ai-bi||a.name.localeCompare(b.name);
@@ -97,7 +102,7 @@ export const catalogRepository={
     await ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG);
     const doc=await firestoreAdminRest.get(`models/${safe(id)}`);
     if(!doc.exists)return null;
-    const model=doc.data as ModelRegistryItem;
+    const model=hydrateModel(doc.data as ModelRegistryItem);
     return model.status!=='INACTIVE'?model:null;
   },
   async saveModel(value:ModelRegistryItem){
