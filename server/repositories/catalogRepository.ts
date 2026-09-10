@@ -2,13 +2,12 @@ import {
   ModelRegistryItem,
   ProviderRegistryItem,
   ProviderModelMapping,
-  PricingEntry,
   PromotionEntry,
   FeatureFlag,
 } from '../../src/types/index.js';
 import { firestoreAdminRest } from './firestoreAdminRest.js';
 import { INITIAL_FEATURE_FLAGS } from '../../src/config/constants.js';
-import { STUDIO_SEED_MODELS, STUDIO_SEED_PRICING } from '../../src/config/studioCatalog.js';
+import { STUDIO_SEED_MODELS } from '../../src/config/studioCatalog.js';
 
 const now=()=>new Date().toISOString();
 const safe=(value:string)=>encodeURIComponent(value);
@@ -44,7 +43,6 @@ export const MODEL_MAPPINGS:ProviderModelMapping[]=[
   mapping('map-seed5-atlas','seedream-5-pro-image','provider-atlas','bytedance/seedream-v5.0-pro'),
   mapping('map-gptimg2-atlas','gpt-image-2','provider-atlas','openai/gpt-image-2'),
 ];
-export const PRICING_CATALOG:PricingEntry[]=STUDIO_SEED_PRICING;
 const FEATURE_FLAG_SEED:FeatureFlag[]=INITIAL_FEATURE_FLAGS.map((flag)=>({...flag,updated_at:now()}));
 
 async function listCollection<T>(collectionId:string):Promise<T[]>{
@@ -124,18 +122,6 @@ export const catalogRepository={
   },
   async saveMapping(value:ProviderModelMapping){
     return save('provider_models',value.mapping_id,value);
-  },
-
-  async listPricing(){
-    return ensureSeed<PricingEntry>('pricing','pricing_id',PRICING_CATALOG);
-  },
-  async getPricing(id:string){
-    await ensureSeed<PricingEntry>('pricing','pricing_id',PRICING_CATALOG);
-    const doc=await firestoreAdminRest.get(`pricing/${safe(id)}`);
-    return doc.exists?doc.data as PricingEntry:null;
-  },
-  async savePricing(value:PricingEntry){
-    return save('pricing',value.pricing_id,value);
   },
 
   async listPromotions(){
