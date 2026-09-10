@@ -28,9 +28,18 @@ async function allUsers(limit=500):Promise<UserProfile[]> {
     from:[{collectionId:'users'}],
     limit:Math.min(500,Math.max(1,limit)),
   });
-  return rows
-    .map((row:any) => normalizeUser(row.data as any))
-    .sort((a,b) => dateValue(b.created_at)-dateValue(a.created_at));
+  const users:UserProfile[]=[];
+  for(const row of rows){
+    const raw=(row.data||{}) as Record<string,any>;
+    const documentId=decodeURIComponent(String(row.name||'').split('/').pop()||'');
+    const normalized=normalizeUser({...raw,user_id:String(raw.user_id||documentId)});
+    const required=['user_id','email','display_name','role','status','created_at','updated_at'];
+    if(required.some((key)=>raw[key]===undefined||raw[key]===null||raw[key]==='')){
+      await firestoreAdminRest.set(`users/${safe(normalized.user_id)}`,normalized);
+    }
+    users.push(normalized);
+  }
+  return users.sort((a,b)=>dateValue(b.created_at)-dateValue(a.created_at));
 }
 
 export const userRepository = {
