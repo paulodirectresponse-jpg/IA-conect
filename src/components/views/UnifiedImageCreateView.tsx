@@ -67,7 +67,18 @@ export const UnifiedImageCreateView:React.FC<Props>=({onUseImageForVideo,initial
   return()=>window.clearTimeout(timer);
  },[models,modelPlans]);
 
- const autoModel=useMemo(()=>[...strictCompatible].sort((a,b)=>(quotedPricesByModelId[a.model_id]??Number.MAX_SAFE_INTEGER)-(quotedPricesByModelId[b.model_id]??Number.MAX_SAFE_INTEGER)||a.name.localeCompare(b.name))[0]||null,[strictCompatible,quotedPricesByModelId]);
+ const autoModel=useMemo(()=>{
+  const exact=[...strictCompatible],candidates=exact.length?exact:models.filter(model=>modelPlans[model.model_id]?.valid);
+  return candidates.sort((a,b)=>{
+   if(!exact.length){const diff=(modelPlans[a.model_id]?.changes.length||0)-(modelPlans[b.model_id]?.changes.length||0);if(diff)return diff;}
+   return(quotedPricesByModelId[a.model_id]??Number.MAX_SAFE_INTEGER)-(quotedPricesByModelId[b.model_id]??Number.MAX_SAFE_INTEGER)||a.name.localeCompare(b.name);
+  })[0]||null;
+ },[strictCompatible,models,modelPlans,quotedPricesByModelId]);
+ useEffect(()=>{
+  if(selectionMode!=='AUTO'||!autoModel||strictCompatible.length)return;
+  const plan=modelPlans[autoModel.model_id];if(!plan?.valid||!plan.changes.length)return;
+  setResolution(plan.resolution);setAspectRatio(plan.aspectRatio);setReferences(plan.references);setSeed(plan.seed);setAdaptationNotice(plan.changes.map(item=>item.message).join(' '));
+ },[selectionMode,autoModel?.model_id,strictCompatible.length,modelPlans]);
  const activeModel=selectionMode==='AUTO'?autoModel:manualModel;
  const activeCaps=activeModel?getModelCapabilities(activeModel):null;
  const availableResolutions=useMemo(()=>{const values=selectionMode==='MANUAL'&&activeCaps?activeCaps.supported_resolutions:Array.from(new Set(strictCompatible.flatMap(model=>getModelCapabilities(model).supported_resolutions)));return[...values].sort((a,b)=>resolutionRank(a)-resolutionRank(b))},[selectionMode,activeCaps,strictCompatible]);
@@ -79,7 +90,7 @@ export const UnifiedImageCreateView:React.FC<Props>=({onUseImageForVideo,initial
  const addReference=(asset:Asset,role:SemanticRole=pickerRole)=>setReferences(prev=>{if(prev.some(ref=>ref.asset_id===asset.asset_id))return prev;const max=activeCaps?.max_reference_images||Math.max(1,...models.map(model=>getModelCapabilities(model).max_reference_images));if(role!=='GENERAL'){const withoutRole=prev.filter(ref=>String(ref.role||'GENERAL').toUpperCase()!==role);return[...withoutRole,referenceFor(asset,withoutRole,undefined,role)].slice(0,max)}if(prev.length>=max)return prev;return[...prev,referenceFor(asset,prev,undefined,'GENERAL')]});
  const handlePicked=(asset:Asset)=>addReference(asset,pickerRole);
  const removeReference=(id:string)=>setReferences(prev=>prev.filter(ref=>ref.asset_id!==id));
- const quickUpload=useCallback(async(files:File[])=>{const images=files.filter(file=>file.type.startsWith('image/'));if(!images.length)return;setUploadBusy(true);try{for(const file of images){const asset=await assetService.uploadAsset({file,category:'GENERIC'});setAssets(prev=>[asset,...prev.filter(row=>row.asset_id!==asset.asset_id)]);addReference(asset,'GENERAL')}}catch(e:any){setError(e?.message||'Não foi possível enviar a imagem.')}finally{setUploadBusy(false)}},[activeCaps,models]);
+ const quickUpload=useCallback(async(files:File[],role:SemanticRole='GENERAL')=>{const images=files.filter(file=>file.type.startsWith('image/'));if(!images.length)return;setUploadBusy(true);try{for(const file of images){const asset=await assetService.uploadAsset({file,category:'GENERIC'});setAssets(prev=>[asset,...prev.filter(row=>row.asset_id!==asset.asset_id)]);addReference(asset,role)}}catch(e:any){setError(e?.message||'Não foi possível enviar a imagem.')}finally{setUploadBusy(false)}},[activeCaps,models,pickerRole]);
  useEffect(()=>{const onPaste=(e:ClipboardEvent)=>{const files=Array.from(e.clipboardData?.files||[]).filter(file=>file.type.startsWith('image/'));if(files.length)void quickUpload(files)};window.addEventListener('paste',onPaste);return()=>window.removeEventListener('paste',onPaste)},[quickUpload]);
 
  const restoreGeneration=(saved:Generation)=>{setError('');setSelectionMode('MANUAL');setManualModelId(saved.model_id);setPrompt(saved.original_prompt||'');setAspectRatio(saved.aspect_ratio||'1:1');setResolution(saved.resolution||'1K');setSeed(saved.seed??'');const restored:WorkspaceReference[]=[];(saved.references||[]).forEach((snapshot,index)=>{const asset=assets.find(row=>row.asset_id===snapshot.asset_id);if(asset)restored.push(referenceFor(asset,restored,snapshot.alias||`img${index+1}`,'GENERAL'))});setReferences(restored);setAdaptationNotice('');window.scrollTo({top:0,behavior:'smooth'})};
