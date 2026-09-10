@@ -105,7 +105,7 @@ adminRouter.post('/admin/providers', requireAuth, requireAdmin, async (req: Auth
   try {
     const saved = await catalogRepository.saveProvider({
       ...req.body,
-      is_configured: false, // Secrets never stored in registry!
+      is_configured: false, // Runtime adapter configuration is projected on reads; secrets are never stored here.
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
@@ -126,7 +126,7 @@ adminRouter.patch('/admin/providers/:providerId', requireAuth, requireAdmin, asy
     const updated = await catalogRepository.saveProvider({
       ...existing,
       ...allowedFields,
-      is_configured: false, // In Etapa 1, adapters/secrets do not exist
+      is_configured: false, // Runtime adapter configuration is projected on reads.
       updated_at: new Date().toISOString(),
     });
     res.json({ success: true, data: updated });
