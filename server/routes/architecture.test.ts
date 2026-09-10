@@ -42,7 +42,7 @@ describe('API architecture invariants', () => {
     const seen = new Map<string,string>();
     const duplicates:string[] = [];
     const routerPattern = new RegExp(
-      `(?:${routerNames.join('|')})\\.(get|post|put|patch|delete)\\(\\s*['"`]([^'"`]+)['"`]`,
+      '(?:' + routerNames.join('|') + ")\\\\.(get|post|put|patch|delete)\\\\(\\\\s*['\\\"]([^'\\\"]+)['\\\"]",
       'g',
     );
 
