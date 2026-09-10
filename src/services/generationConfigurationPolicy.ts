@@ -111,6 +111,11 @@ export function planVideoConfiguration(model:ModelRegistryItem,input:VideoConfig
  if(filtered.length!==refs.length)change(changes,'references',refs.length,filtered.length,'Referências incompatíveis foram retiradas desta geração.');
  refs=filtered;
 
+ const hasVisualReference=refs.some((ref)=>typeOf(ref)==='IMAGE'||typeOf(ref)==='VIDEO');
+ if(refs.length&&!hasVisualReference){
+  return{valid:false,blockedReason:'Áudio de referência precisa de uma imagem ou vídeo de referência.',mode:'REFERENCE_TO_VIDEO',resolution:input.resolution,durationSeconds:input.durationSeconds,aspectRatio:input.aspectRatio,initialImage:initial,endImage:end,references:refs,audioEnabled:false,seed:input.seed,motionStrength:input.motionStrength,changes};
+ }
+
  if(initial&&!caps.supported_modes.includes('IMAGE_TO_VIDEO')){
   change(changes,'initialImage',initial.name,'','A imagem inicial foi retirada porque esta IA não aceita image-to-video.');
   initial=null;end=null;
@@ -160,8 +165,10 @@ export function planVideoConfiguration(model:ModelRegistryItem,input:VideoConfig
  change(changes,'duration',input.durationSeconds,durationSeconds,`Duração ajustada para ${durationSeconds}s.`);
  change(changes,'aspectRatio',input.aspectRatio,aspectRatio,`Proporção ajustada para ${aspectRatio}.`);
 
- const audioEnabled=Boolean(caps.supports_audio_generation&&(input.audioEnabled??caps.default_audio_enabled??true));
- if(Boolean(input.audioEnabled)&&!audioEnabled)change(changes,'audio','on','off','Áudio nativo desativado porque esta IA não oferece essa saída.');
+ const audioMode=caps.audio_generation_mode||(caps.supports_audio_generation?'OPTIONAL':'NONE');
+ const audioEnabled=audioMode==='ALWAYS'?true:audioMode==='OPTIONAL'?Boolean(input.audioEnabled??caps.default_audio_enabled??true):false;
+ if(Boolean(input.audioEnabled)&&audioMode==='NONE')change(changes,'audio','on','off','Áudio nativo desativado porque esta IA não oferece essa saída.');
+ if(input.audioEnabled===false&&audioMode==='ALWAYS')change(changes,'audio','off','on','Áudio nativo é incluído automaticamente por esta IA.');
  const seed=caps.supports_seed?input.seed:'';
  if(input.seed!==''&&seed==='')change(changes,'seed',input.seed,'','Seed removida porque esta IA não suporta seed.');
  const motionStrength=caps.supports_motion_strength?input.motionStrength:5;
