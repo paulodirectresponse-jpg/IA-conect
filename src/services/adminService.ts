@@ -4,6 +4,7 @@ import { CreditAccount, CreditTransaction } from '../types/credits.js';
 
 export interface ProviderFinanceSnapshot {provider_id:'provider-atlas'|'provider-wavespeed';provider_name:string;configured:boolean;balance_usd:number|null;balance_brl_cents:number|null;fx_rate_usd_brl:number;low_balance_threshold_brl_cents:number;low_balance:boolean;status:'OPERATIONAL'|'LOW_BALANCE'|'UNAVAILABLE'|'NOT_CONFIGURED';fetched_at:string;source:'LIVE_API'|'UNAVAILABLE';error?:string;}
 export interface PricingSettings { gross_margin_percent:number; target_margin_percent?:number; normal_floor_margin_percent?:number; emergency_floor_margin_percent?:number; updated_at:string; updated_by?:string; }
+export interface CouponAdminEntry {coupon_id:string;code:string;version:number;name:string;active:boolean;starts_at:string;expires_at:string|null;benefit_type:'BONUS_PERCENT'|'BONUS_FIXED'|'BRL_PERCENT'|'BRL_FIXED';benefit_value:number;eligible_pack_ids:string[];min_purchase_cents:number;max_purchase_cents:number|null;max_global_redemptions:number|null;max_redemptions_per_user:number;first_purchase_only:boolean;bonus_expires_days:number|null;budget_max_credits:number|null;created_at:string;created_by:string;notes:string;usage?:{reserved:number;redeemed:number;reversed:number;bonus_credits_committed:number};}
 
 export const adminService = {
   async getDashboardStats(){return apiRequest<any>('/api/admin/dashboard-stats');},
@@ -25,6 +26,9 @@ export const adminService = {
   async listPromotions(){return apiRequest<PromotionEntry[]>('/api/catalog/promotions');},
   async savePromotion(data:Partial<PromotionEntry>){return apiRequest<PromotionEntry>('/api/admin/promotions',{method:'POST',body:JSON.stringify(data)});},
   async updatePromotion(promotionId:string,data:Partial<PromotionEntry>){return apiRequest<PromotionEntry>(`/api/admin/promotions/${promotionId}`,{method:'PATCH',body:JSON.stringify(data)});},
+  async listCoupons(){return apiRequest<CouponAdminEntry[]>('/api/admin/coupons');},
+  async saveCoupon(data:any){return apiRequest<CouponAdminEntry>('/api/admin/coupons',{method:'POST',body:JSON.stringify(data)});},
+  async setCouponStatus(code:string,active:boolean){return apiRequest<CouponAdminEntry>(`/api/admin/coupons/${encodeURIComponent(code)}/status`,{method:'POST',body:JSON.stringify({active})});},
   async listFeatureFlags(){return apiRequest<FeatureFlag[]>('/api/admin/feature-flags');},
   async toggleFeatureFlag(flag_key:string,is_enabled:boolean,reason:string){return apiRequest<FeatureFlag>('/api/admin/feature-flags/toggle',{method:'POST',body:JSON.stringify({flag_key,is_enabled,reason})});},
   async listAuditLogs(entity_type='',limit=20,offset=0){const q=entity_type?`&entity_type=${encodeURIComponent(entity_type)}`:'';return apiRequest<{logs:AuditLog[];total:number}>(`/api/admin/audit-logs?limit=${limit}&offset=${offset}${q}`);},
