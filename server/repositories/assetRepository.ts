@@ -9,6 +9,63 @@ export function sanitizeAlias(nameOrAlias:string):string {
   return nameOrAlias.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]/g,'_').replace(/^_+|_+$/g,'').replace(/_+/g,'_');
 }
 
+export function generatedAssetId(generationId:string,outputIndex:number):string {
+  const digest=crypto.createHash('sha256').update(`${generationId}:${Math.max(0,Math.floor(outputIndex))}`).digest('hex').slice(0,32);
+  return `ast_gen_${digest}`;
+}
+
+export function generatedAssetOutputIndex(asset:Pick<Asset,'storage_path'|'source_output_index'>):number|null {
+  if(Number.isInteger(asset.source_output_index)&&Number(asset.source_output_index)>=0)return Number(asset.source_output_index);
+  const match=String(asset.storage_path||'').match(/\/(\d+)$/);
+  if(!match)return null;
+  const oneBased=Number(match[1]);
+  return Number.isInteger(oneBased)&&oneBased>0?oneBased-1:null;
+}
+
+export function generatedAssetIdentity(asset:Pick<Asset,'asset_id'|'storage_path'|'public_url'|'source_generation_id'|'source_output_index'>):string {
+  const generationId=String(asset.source_generation_id||'');
+  const index=generatedAssetOutputIndex(asset);
+  if(generationId&&index!==null)return `${generationId}:${index}`;
+  if(generationId&&asset.storage_path)return `${generationId}:path:${asset.storage_path}`;
+  return String(asset.public_url||asset.asset_id);
+}
+
+async function dedupeGeneratedAssets(rows:Asset[]):Promise<Asset[]> {
+  const groups=new Map<string,Asset[]>();
+  for(const asset of rows){
+    if(asset.deleted_at||!asset.source_generation_id)continue;
+    const index=generatedAssetOutputIndex(asset);
+    if(index===null)continue;
+    const key=`${asset.source_generation_id}:${index}`;
+    const bucket=groups.get(key)||[];
+    bucket.push(asset);
+    groups.set(key,bucket);
+  }
+
+  const duplicateIds=new Set<string>();
+  for(const [key,bucket] of groups){
+    if(bucket.length<2)continue;
+    const [generationId,indexRaw]=key.split(':');
+    const index=Number(indexRaw);
+    const deterministicId=generatedAssetId(generationId,index);
+    const keeper=bucket.find((asset)=>asset.asset_id===deterministicId)
+      || [...bucket].sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at))[0];
+    const now=new Date().toISOString();
+    for(const asset of bucket){
+      if(asset.asset_id===keeper.asset_id)continue;
+      duplicateIds.add(asset.asset_id);
+      await firestoreAdminRest.set(`assets/${safe(asset.asset_id)}`,{
+        ...asset,
+        deleted_at:now,
+        updated_at:now,
+        duplicate_of_asset_id:keeper.asset_id,
+        deduplicated_at:now,
+      });
+    }
+  }
+  return rows.filter((asset)=>!duplicateIds.has(asset.asset_id));
+}
+
 export interface CreateAssetParams {
   asset_id?:string;
   owner_user_id:string;
@@ -27,6 +84,7 @@ export interface CreateAssetParams {
   status?:AssetStatus;
   origin?:AssetOrigin;
   source_generation_id?:string|null;
+  source_output_index?:number|null;
   source_model_id?:string|null;
   source_provider_id?:string|null;
 }
@@ -43,7 +101,8 @@ async function userAssets(userId:string):Promise<Asset[]> {
 export const assetRepository={
   async listUserAssets(userId:string,filters?:{type?:AssetType;category?:AssetCategory;search?:string}):Promise<Asset[]> {
     const search=filters?.search?.toLowerCase().trim();
-    return (await userAssets(userId)).filter((asset)=>{
+    const deduped=await dedupeGeneratedAssets(await userAssets(userId));
+    return deduped.filter((asset)=>{
       if(asset.deleted_at)return false;
       if(filters?.type&&asset.type!==filters.type)return false;
       if(filters?.category&&asset.category!==filters.category)return false;
@@ -89,6 +148,7 @@ export const assetRepository={
     const asset:Asset&{
       origin:AssetOrigin;
       source_generation_id:string|null;
+      source_output_index:number|null;
       source_model_id:string|null;
       source_provider_id:string|null;
     }={
@@ -109,6 +169,7 @@ export const assetRepository={
       status:params.status||'READY',
       origin:params.origin||'UPLOAD',
       source_generation_id:params.source_generation_id??null,
+      source_output_index:params.source_output_index??null,
       source_model_id:params.source_model_id??null,
       source_provider_id:params.source_provider_id??null,
       created_at:now,
