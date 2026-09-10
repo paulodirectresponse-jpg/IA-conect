@@ -1,6 +1,7 @@
 /**
- * Core Types & Interfaces for AI Generation Platform (Stage 1)
- * All financial values represent integer cents (e.g. R$ 10,50 = 1050).
+ * Core IA Connect domain contracts.
+ * Customer generation billing is expressed only in integer credits.
+ * BRL cents remain restricted to payment/provider/economic records.
  */
 
 export type UserRole = 'USER' | 'ADMIN';
@@ -32,7 +33,6 @@ export interface UserPreferences {user_id:string;favorite_model_ids:string[];rec
 export type ProviderStatus='ACTIVE'|'INACTIVE'|'DEGRADED';
 export interface ProviderRegistryItem {provider_id:string;name:string;slug:string;status:ProviderStatus;priority:number;is_configured:boolean;created_at:string;updated_at:string;}
 export interface ProviderModelMapping {mapping_id:string;model_id:string;provider_id:string;provider_model_identifier:string;status:'ACTIVE'|'INACTIVE';capabilities?:string[];updated_at:string;}
-export interface PricingEntry {pricing_id:string;provider_id:string;model_id:string;resolution:string;duration_seconds?:number;mode?:GenerationMode;unit:string;provider_cost_cents:number;customer_price_cents:number;currency:'BRL';effective_from:string;effective_until?:string|null;active:boolean;updated_at:string;}
 export type DiscountType='PERCENTAGE'|'FIXED_AMOUNT'; export interface PromotionEntry {promotion_id:string;provider_id:string;model_id:string;name:string;discount_type:DiscountType;discount_value:number;starts_at:string;expires_at:string;verified_at?:string;source_note?:string;active:boolean;}
 export interface FeatureFlag {flag_key:string;name:string;description:string;is_enabled:boolean;is_private:boolean;updated_at:string;}
 export interface AuditLog {log_id:string;admin_id:string;admin_email:string;action:string;entity_type:'USER'|'PRICING'|'PROVIDER'|'MODEL'|'PROMOTION'|'FEATURE_FLAG'|'WALLET';entity_id:string;before?:Record<string,any>|null;after?:Record<string,any>|null;reason:string;created_at:string;}
