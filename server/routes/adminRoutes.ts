@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { adminService } from '../services/adminService.js';
-import { pricingService } from '../services/pricingService.js';
 import { featureFlagService } from '../services/featureFlagService.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { auditRepository } from '../repositories/auditRepository.js';
@@ -124,27 +123,6 @@ adminRouter.patch('/admin/providers/:providerId', requireAuth, requireAdmin, asy
     res.json({ success: true, data: updated });
   } catch (err: any) {
     res.status(400).json({ success: false, error: { code: 'PROVIDER_UPDATE_ERROR', message: err.message } });
-  }
-});
-
-// Admin Pricing Matrix management
-adminRouter.post('/admin/pricing', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
-  try {
-    const { pricing, reason, confirmed_high_variation } = req.body;
-    const saved = await pricingService.savePricing({
-      adminId: req.user!.uid,
-      adminEmail: req.user!.email,
-      pricingData: pricing,
-      reason,
-      confirmed_high_variation: Boolean(confirmed_high_variation),
-    });
-    res.json({ success: true, data: saved });
-  } catch (err: any) {
-    const status = err.code === 'PRICE_VARIATION_HIGH' ? 409 : 400;
-    res.status(status).json({
-      success: false,
-      error: { code: err.code || 'PRICING_ERROR', message: err.message, diffPercent: err.diffPercent },
-    });
   }
 });
 
