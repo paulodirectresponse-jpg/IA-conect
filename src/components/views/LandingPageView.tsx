@@ -1,4 +1,4 @@
-import Reactfrom'react';
+import React from'react';
 import{ArrowRight,BookOpen,Image as ImageIcon,Layers3,Sparkles,Video,Wallet,Zap}from'lucide-react';
 import{BrandMark}from'../common/BrandMark.js';
 import{ModelShowcase,ShowcaseItem,showcaseVideo}from'../workspace/ModelShowcase.js';
