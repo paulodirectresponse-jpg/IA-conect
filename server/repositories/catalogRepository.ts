@@ -60,11 +60,23 @@ async function ensureSeed<T extends Record<string,any>>(
   const rows=await listCollection<T>(collectionId);
   const existing=new Set(rows.map((row)=>String(row[idField]||'')));
   const missing=seed.filter((row)=>!existing.has(String(row[idField]||'')));
-  for(const row of missing){
-    const id=String(row[idField]||'');
-    if(id)await firestoreAdminRest.set(`${collectionId}/${safe(id)}`,row);
+  if(!missing.length)return rows;
+  const writes=missing
+    .map((row)=>{
+      const id=String(row[idField]||'');
+      return id?{
+        update:{name:firestoreAdminRest.docName(`${collectionId}/${safe(id)}`),fields:firestoreAdminRest.fields(row)},
+        currentDocument:{exists:false},
+      }:null;
+    })
+    .filter(Boolean);
+  try{
+    if(writes.length)await firestoreAdminRest.commit(writes as any[]);
+    return [...rows,...missing];
+  }catch{
+    // Another cold start may have seeded concurrently; re-read instead of overwriting.
+    return listCollection<T>(collectionId);
   }
-  return missing.length?[...rows,...missing]:rows;
 }
 
 async function save<T extends Record<string,any>>(collectionId:string,id:string,value:T):Promise<T>{
