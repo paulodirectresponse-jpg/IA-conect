@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient.js';
-import { UserProfile, ModelRegistryItem, ProviderRegistryItem, PricingEntry, PromotionEntry, FeatureFlag, AuditLog } from '../types/index.js';
+import { UserProfile, ModelRegistryItem, ProviderRegistryItem, PromotionEntry, FeatureFlag, AuditLog } from '../types/index.js';
 import { CreditAccount, CreditTransaction } from '../types/credits.js';
 
 export interface ProviderFinanceSnapshot {provider_id:'provider-atlas'|'provider-wavespeed';provider_name:string;configured:boolean;balance_usd:number|null;balance_brl_cents:number|null;fx_rate_usd_brl:number;low_balance_threshold_brl_cents:number;low_balance:boolean;status:'OPERATIONAL'|'LOW_BALANCE'|'UNAVAILABLE'|'NOT_CONFIGURED';fetched_at:string;source:'LIVE_API'|'UNAVAILABLE';error?:string;}
@@ -20,8 +20,6 @@ export const adminService = {
   async getProviderFinance(refresh=false){return apiRequest<{providers:ProviderFinanceSnapshot[];total_brl_cents:number;fx_rate_usd_brl:number;updated_at:string}>(`/api/admin/provider-finance${refresh?'?refresh=1':''}`);},
   async saveProvider(data:Partial<ProviderRegistryItem>){return apiRequest<ProviderRegistryItem>('/api/admin/providers',{method:'POST',body:JSON.stringify(data)});},
   async updateProvider(providerId:string,data:Partial<ProviderRegistryItem>){return apiRequest<ProviderRegistryItem>(`/api/admin/providers/${providerId}`,{method:'PATCH',body:JSON.stringify(data)});},
-  async listPricing(){return apiRequest<PricingEntry[]>('/api/catalog/pricing');},
-  async savePricing(pricing:Partial<PricingEntry>,reason:string,confirmed_high_variation=false){return apiRequest<PricingEntry>('/api/admin/pricing',{method:'POST',body:JSON.stringify({pricing,reason,confirmed_high_variation})});},
   async getPricingSettings(){return apiRequest<PricingSettings>('/api/admin/pricing/settings');},
   async updatePricingSettings(gross_margin_percent:number){return apiRequest<{settings:PricingSettings;snapshot:any}>('/api/admin/pricing/settings',{method:'POST',body:JSON.stringify({gross_margin_percent})});},
   async listPromotions(){return apiRequest<PromotionEntry[]>('/api/catalog/promotions');},
