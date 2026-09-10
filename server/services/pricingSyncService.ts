@@ -4,6 +4,7 @@ import { quoteCacheService } from './quoteCacheService.js';
 import { providerFinanceService } from './providerFinanceService.js';
 import { fxRateService } from './fxRateService.js';
 import { GenerationMode } from '../../src/types/index.js';
+import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
 
 export interface PricingHealthRow {
   key:string;
@@ -24,6 +25,7 @@ export interface PricingHealthRow {
 }
 
 export interface PricingHealthSnapshot {
+  snapshot_id?:string;
   checked_at:string|null;
   checked:number;
   healthy:number;
@@ -35,6 +37,8 @@ export interface PricingHealthSnapshot {
   rows:PricingHealthRow[];
 }
 
+const LATEST_DOC='app_config/pricing_health_latest';
+const HISTORY_COLLECTION='pricing_health_snapshots';
 let latestSnapshot:PricingHealthSnapshot={
   checked_at:null,checked:0,healthy:0,failed:0,fx_rate:null,fx_source:null,
   cache_ttl_minutes:30,provider_finance:[],rows:[],
@@ -62,8 +66,25 @@ async function mapWithConcurrency<T,R>(items:T[],limit:number,fn:(item:T)=>Promi
   return out;
 }
 
+async function persistSnapshot(snapshot:PricingHealthSnapshot){
+  const snapshotId=`phs_${String(snapshot.checked_at||new Date().toISOString()).replace(/[^0-9]/g,'')}`;
+  const stored={...snapshot,snapshot_id:snapshotId};
+  await Promise.all([
+    firestoreAdminRest.set(LATEST_DOC,stored),
+    firestoreAdminRest.set(`${HISTORY_COLLECTION}/${snapshotId}`,stored),
+  ]);
+  return stored;
+}
+
 export const pricingSyncService={
-  async getLatestSnapshot(){return latestSnapshot;},
+  async getLatestSnapshot(){
+    if(latestSnapshot.rows.length)return latestSnapshot;
+    try{
+      const doc=await firestoreAdminRest.get(LATEST_DOC);
+      if(doc.exists&&Array.isArray((doc.data as any)?.rows))latestSnapshot=doc.data as PricingHealthSnapshot;
+    }catch(err:any){console.warn('[PricingHealthLoad]',err?.message||err);}
+    return latestSnapshot;
+  },
 
   async runHourlySync(){
     const checkedAt=new Date().toISOString();
@@ -112,6 +133,7 @@ export const pricingSyncService={
       failed:rows.filter(r=>r.status==='FAILED').length,fx_rate:fx.rate,fx_source:fx.source,
       cache_ttl_minutes:Math.round(quoteCacheService.ttl_ms()/60000),provider_finance:providerFinance,rows,
     };
+    try{latestSnapshot=await persistSnapshot(latestSnapshot);}catch(err:any){console.error('[PricingHealthPersist]',err?.message||err);}
     return latestSnapshot;
   },
 };
