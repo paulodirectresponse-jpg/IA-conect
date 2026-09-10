@@ -3,96 +3,17 @@ import { VideoProviderAdapter, ProviderGenerationParams, ProviderGenerationRefer
 import { fxRateService } from './fxRateService.js';
 import { pricingSettingsService } from './pricingSettingsService.js';
 
-const bufferRate = () => Math.min(0.25, Math.max(0, Number(process.env.PRICING_SAFETY_BUFFER_PERCENT || 5) / 100));
-
-function fakeReference(type:'IMAGE'|'VIDEO'|'AUDIO',slot_type:'INITIAL'|'END'|'GENERAL'='GENERAL'):ProviderGenerationReference{
-  return {
-    asset_id:`pricing-${type.toLowerCase()}`,
-    owner_user_id:'pricing-engine',
-    type,
-    category:'GENERIC',
-    name:`pricing-${type.toLowerCase()}`,
-    alias:`pricing_${type.toLowerCase()}`,
-    storage_path:'pricing://placeholder',
-    public_url:`https://example.com/pricing-${type.toLowerCase()}`,
-    thumbnail_url:'',
-    mime_type:type==='IMAGE'?'image/jpeg':type==='VIDEO'?'video/mp4':'audio/mpeg',
-    size_bytes:0,
-    status:'READY',
-    origin:'UPLOAD',
-    created_at:new Date(0).toISOString(),
-    updated_at:new Date(0).toISOString(),
-    provider_accessible_url:`https://example.com/pricing-${type.toLowerCase()}`,
-    slot_type,
-    prompt_alias:`pricing_${type.toLowerCase()}`,
-  } as ProviderGenerationReference;
-}
-
-export interface PricingGuardInput {
-  userId:string;
-  model_id:string;
-  mode:GenerationMode;
-  prompt?:string;
-  negative_prompt?:string;
-  duration_seconds:number;
-  resolution:string;
-  aspect_ratio:string;
-  number_of_outputs:number;
-  seed?:number|null;
-  motion_strength?:number|null;
-}
-
-export interface SafeProviderQuote {
-  provider_cost_usd:number;
-  provider_cost_brl_cents:number;
-  safe_cost_brl_cents:number;
-  customer_price_cents:number;
-  target_margin:number;
-  minimum_margin:number;
-  effective_margin:number;
-  fx_rate:number;
-  fx_source:'LIVE_API'|'ENV_FALLBACK';
-  safety_buffer_rate:number;
-  estimated:boolean;
-  quoted_at:string;
-}
-
-function syntheticReferences(mode:GenerationMode):ProviderGenerationReference[]{
-  if(mode==='IMAGE_TO_IMAGE') return [fakeReference('IMAGE','GENERAL')];
-  if(mode==='IMAGE_TO_VIDEO') return [fakeReference('IMAGE','INITIAL')];
-  if(mode==='REFERENCE_TO_VIDEO') return [fakeReference('IMAGE','GENERAL')];
-  return [];
-}
-
+function fakeReference(type:'IMAGE'|'VIDEO'|'AUDIO',slot_type:'INITIAL'|'END'|'GENERAL'='GENERAL'):ProviderGenerationReference{return{asset_id:`pricing-${type.toLowerCase()}`,owner_user_id:'pricing-engine',type,category:'GENERIC',name:`pricing-${type.toLowerCase()}`,alias:`pricing_${type.toLowerCase()}`,storage_path:'pricing://placeholder',public_url:`https://example.com/pricing-${type.toLowerCase()}`,thumbnail_url:'',mime_type:type==='IMAGE'?'image/jpeg':type==='VIDEO'?'video/mp4':'audio/mpeg',size_bytes:0,status:'READY',origin:'UPLOAD',created_at:new Date(0).toISOString(),updated_at:new Date(0).toISOString(),provider_accessible_url:`https://example.com/pricing-${type.toLowerCase()}`,slot_type,prompt_alias:`pricing_${type.toLowerCase()}`} as ProviderGenerationReference;}
+export interface PricingGuardInput{userId:string;model_id:string;mode:GenerationMode;prompt?:string;negative_prompt?:string;duration_seconds:number;resolution:string;aspect_ratio:string;number_of_outputs:number;seed?:number|null;motion_strength?:number|null;}
+export interface SafeProviderQuote{provider_cost_usd:number;provider_cost_brl_cents:number;safe_cost_brl_cents:number;fully_loaded_safe_cogs_cents:number;customer_price_cents:number;target_margin:number;minimum_margin:number;effective_margin:number;fx_rate:number;fx_source:'LIVE_API'|'ENV_FALLBACK';safety_buffer_rate:number;variable_overhead_rate:number;estimated:boolean;quoted_at:string;billing_policy:'CHARGE_ON_SUCCESS'|'CHARGE_ON_SUBMISSION'|'CHARGE_ON_PROCESSING'|'UNKNOWN';}
+function syntheticReferences(mode:GenerationMode){if(mode==='IMAGE_TO_IMAGE')return[fakeReference('IMAGE','GENERAL')];if(mode==='IMAGE_TO_VIDEO')return[fakeReference('IMAGE','INITIAL')];if(mode==='REFERENCE_TO_VIDEO')return[fakeReference('IMAGE','GENERAL')];return[];}
 export const pricingGuardService={
-  async quote(adapter:VideoProviderAdapter,input:PricingGuardInput):Promise<SafeProviderQuote>{
-    if(!adapter.quoteCostUsd) throw Object.assign(new Error(`${adapter.name} não oferece cotação programática.`),{code:'LIVE_QUOTE_UNAVAILABLE'});
-    const params:ProviderGenerationParams={
-      generation_id:'pricing-preview',user_id:input.userId,model_id:input.model_id,mode:input.mode,
-      prompt:input.prompt?.trim()||'pricing preview',negative_prompt:input.negative_prompt,
-      duration_seconds:Math.max(1,input.duration_seconds),resolution:input.resolution,aspect_ratio:input.aspect_ratio,
-      number_of_outputs:Math.max(1,input.number_of_outputs),seed:input.seed,motion_strength:input.motion_strength,
-      references:syntheticReferences(input.mode),
-    };
-    const [providerQuote, fxSnapshot, settings] = await Promise.all([
-      adapter.quoteCostUsd(params),
-      fxRateService.get(false),
-      pricingSettingsService.get(false),
-    ]);
-    const providerUsd=Number(providerQuote.effective_price_usd);
-    if(!Number.isFinite(providerUsd)||providerUsd<0) throw Object.assign(new Error('Cotação do provider inválida.'),{code:'LIVE_QUOTE_INVALID'});
-    const fxRate=fxSnapshot.rate;
-    const providerCost=Math.max(1,Math.ceil(providerUsd*fxRate*100));
-    const safetyBuffer=bufferRate();
-    const safeCost=Math.max(providerCost,Math.ceil(providerCost*(1+safetyBuffer)));
-    const margin=Math.min(0.80,Math.max(0.10,settings.gross_margin_percent/100));
-    const customer=Math.max(safeCost+1,Math.ceil(safeCost/(1-margin)));
-    const effectiveMargin=1-(safeCost/customer);
-    if(effectiveMargin+1e-9<margin) throw Object.assign(new Error('Margem calculada abaixo do mínimo operacional.'),{code:'MARGIN_BELOW_MINIMUM'});
-    return {
-      provider_cost_usd:providerUsd,provider_cost_brl_cents:providerCost,safe_cost_brl_cents:safeCost,
-      customer_price_cents:customer,target_margin:margin,minimum_margin:margin,effective_margin:effectiveMargin,
-      fx_rate:fxRate,fx_source:fxSnapshot.source,safety_buffer_rate:safetyBuffer,estimated:Boolean(providerQuote.estimated),quoted_at:new Date().toISOString(),
-    };
-  },
+ async quote(adapter:VideoProviderAdapter,input:PricingGuardInput):Promise<SafeProviderQuote>{
+  if(!adapter.quoteCostUsd)throw Object.assign(new Error(`${adapter.name} não oferece cotação programática.`),{code:'LIVE_QUOTE_UNAVAILABLE'});
+  const params:ProviderGenerationParams={generation_id:'pricing-preview',user_id:input.userId,model_id:input.model_id,mode:input.mode,prompt:input.prompt?.trim()||'pricing preview',negative_prompt:input.negative_prompt,duration_seconds:Math.max(1,input.duration_seconds),resolution:input.resolution,aspect_ratio:input.aspect_ratio,number_of_outputs:Math.max(1,input.number_of_outputs),seed:input.seed,motion_strength:input.motion_strength,references:syntheticReferences(input.mode)};
+  const[providerQuote,fxSnapshot,settings]=await Promise.all([adapter.quoteCostUsd(params),fxRateService.get(false),pricingSettingsService.get(false)]);const providerUsd=Number(providerQuote.effective_price_usd);if(!Number.isFinite(providerUsd)||providerUsd<0)throw Object.assign(new Error('Cotação do provider inválida.'),{code:'LIVE_QUOTE_INVALID'});const providerCost=Math.max(1,Math.ceil(providerUsd*fxSnapshot.rate*100));const safetyBuffer=Math.min(.25,Math.max(0,settings.safety_buffer_percent/100));const safeCost=Math.max(providerCost,Math.ceil(providerCost*(1+safetyBuffer)));const overhead=Math.min(.5,Math.max(0,settings.variable_overhead_percent/100));const fullyLoaded=Math.max(safeCost,Math.ceil(safeCost*(1+overhead)));
+  // Deprecated compatibility price: never used as retail authority by credit billing.
+  const margin=Math.min(.8,Math.max(.1,settings.target_margin_percent/100));const compatibilityCustomer=Math.max(fullyLoaded+1,Math.ceil(fullyLoaded/(1-margin)));const effectiveMargin=1-(fullyLoaded/compatibilityCustomer);
+  return{provider_cost_usd:providerUsd,provider_cost_brl_cents:providerCost,safe_cost_brl_cents:safeCost,fully_loaded_safe_cogs_cents:fullyLoaded,customer_price_cents:compatibilityCustomer,target_margin:margin,minimum_margin:settings.normal_floor_margin_percent/100,effective_margin:effectiveMargin,fx_rate:fxSnapshot.rate,fx_source:fxSnapshot.source,safety_buffer_rate:safetyBuffer,variable_overhead_rate:overhead,estimated:Boolean(providerQuote.estimated),quoted_at:new Date().toISOString(),billing_policy:'UNKNOWN'};
+ }
 };
