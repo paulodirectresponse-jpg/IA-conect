@@ -1,14 +1,13 @@
-import React,{useState}from 'react';
+import React,{useEffect,useRef,useState}from 'react';
 import { ArrowRight } from 'lucide-react';
 
-const imageMedia=(key:string)=>`https://hzjyhhenajbjxkwkmzdg.supabase.co/functions/v1/showcase-media?key=${key}`;
+const SHOWCASE_STORAGE_BASE='https://hzjyhhenajbjxkwkmzdg.supabase.co/storage/v1/object/public/ia-conect-assets/showcase';
+export const showcaseVideo=(fileName:string)=>`${SHOWCASE_STORAGE_BASE}/${encodeURIComponent(fileName)}`;
 export interface ShowcaseItem {
   modelId:string;
   name:string;
   mode:'VIDEO'|'IMAGE';
   videoSrc:string;
-  youtubeId?:string;
-  fallbackImage:string;
   sourceLabel:string;
   headline:string;
   description:string;
@@ -17,18 +16,18 @@ export interface ShowcaseItem {
 }
 
 export const SHOWCASE_MODELS:ShowcaseItem[]=[
-  {modelId:'kling-3.0',name:'Kling 3.0',mode:'VIDEO',videoSrc:'/media/showcase/kling-3.mp4',youtubeId:'BOlFslVqujg',fallbackImage:imageMedia('character'),sourceLabel:'IA Connect showcase',headline:'Personagens, acting e movimento cinematográfico',description:'Movimento natural, direção de câmera e takes com acabamento cinematográfico.',badges:['cinematográfico','personagens','vídeo'],availableInStudio:true},
-  {modelId:'gemini-omni-flash',name:'Omni Flash',mode:'VIDEO',videoSrc:'/media/showcase/omni-flash.mp4',youtubeId:'KUyRq7szZsM',fallbackImage:imageMedia('cgi'),sourceLabel:'IA Connect showcase',headline:'Vídeo multimodal com velocidade e qualidade',description:'Transforme texto, imagem e referências em um fluxo de criação multimodal.',badges:['multimodal','áudio','vídeo'],availableInStudio:true},
-  {modelId:'seedance-2.5',name:'Seedance 2.5',mode:'VIDEO',videoSrc:'/media/showcase/seedance-2-5.mp4',youtubeId:'PSIjAlK_5to',fallbackImage:imageMedia('toy'),sourceLabel:'IA Connect showcase',headline:'Cenas longas e consistência visual',description:'Demonstração selecionada para comparar linguagem, ritmo e continuidade.',badges:['consistência','cenas','vídeo'],availableInStudio:false},
-  {modelId:'wan-3.0',name:'WAN 3.0',mode:'VIDEO',videoSrc:'/media/showcase/wan-3.mp4',fallbackImage:imageMedia('anime'),sourceLabel:'IA Connect showcase',headline:'Realismo cinematográfico e referências',description:'Exemplo de geração para comparar textura, composição e movimento.',badges:['realismo','referências','vídeo'],availableInStudio:false},
-  {modelId:'wan-3.0-prime',name:'WAN 3.0 Prime',mode:'VIDEO',videoSrc:'/media/showcase/wan-3-prime.mp4',fallbackImage:imageMedia('scifi'),sourceLabel:'IA Connect showcase',headline:'Uma variação premium para comparação',description:'Um segundo resultado do ecossistema WAN para ampliar a descoberta visual.',badges:['premium','comparação','vídeo'],availableInStudio:false},
+  {modelId:'kling-3.0',name:'Kling 3.0',mode:'VIDEO',videoSrc:showcaseVideo('Kling.mp4'),sourceLabel:'IA Connect showcase',headline:'Personagens, acting e movimento cinematográfico',description:'Movimento natural, direção de câmera e takes com acabamento cinematográfico.',badges:['cinematográfico','personagens','vídeo'],availableInStudio:true},
+  {modelId:'gemini-omni-flash',name:'Omni Flash',mode:'VIDEO',videoSrc:showcaseVideo('Omni flash.mp4'),sourceLabel:'IA Connect showcase',headline:'Vídeo multimodal com velocidade e qualidade',description:'Transforme texto, imagem e referências em um fluxo de criação multimodal.',badges:['multimodal','áudio','vídeo'],availableInStudio:true},
+  {modelId:'seedance-2.5',name:'Seedance 2.5',mode:'VIDEO',videoSrc:showcaseVideo('Seedance 2.5.mp4'),sourceLabel:'IA Connect showcase',headline:'Cenas longas e consistência visual',description:'Demonstração selecionada para comparar linguagem, ritmo e continuidade.',badges:['consistência','cenas','vídeo'],availableInStudio:false},
+  {modelId:'wan-3.0',name:'WAN 3.0',mode:'VIDEO',videoSrc:showcaseVideo('Wan 3.0.mp4'),sourceLabel:'IA Connect showcase',headline:'Realismo cinematográfico e referências',description:'Exemplo de geração para comparar textura, composição e movimento.',badges:['realismo','referências','vídeo'],availableInStudio:false},
+  {modelId:'wan-3.0-prime',name:'WAN 3.0 Prime',mode:'VIDEO',videoSrc:showcaseVideo('Wan 3.0 prime.mp4'),sourceLabel:'IA Connect showcase',headline:'Uma variação premium para comparação',description:'Um segundo resultado do ecossistema WAN para ampliar a descoberta visual.',badges:['premium','comparação','vídeo'],availableInStudio:false},
 ];
 
 const AutoLoopPreview:React.FC<{item:ShowcaseItem}>=({item})=>{
- const[failed,setFailed]=useState(false);
- if(!failed)return <video className="absolute inset-0 w-full h-full object-cover scale-[1.01]" src={item.videoSrc} autoPlay muted loop playsInline preload="metadata" disablePictureInPicture onError={()=>setFailed(true)}/>;
- if(item.youtubeId)return <iframe title={`${item.name} demo`} className="absolute inset-0 w-full h-full scale-[1.18] pointer-events-none" src={`https://www.youtube-nocookie.com/embed/${item.youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${item.youtubeId}&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1`} allow="autoplay; encrypted-media" referrerPolicy="strict-origin-when-cross-origin"/>;
- return <img src={item.fallbackImage} alt="" className="absolute inset-0 w-full h-full object-cover motion-safe:animate-[pulse_6s_ease-in-out_infinite]"/>;
+ const ref=useRef<HTMLVideoElement|null>(null),[failed,setFailed]=useState(false);
+ useEffect(()=>{const video=ref.current;if(!video)return;video.muted=true;video.defaultMuted=true;const tryPlay=()=>void video.play().catch(()=>{});tryPlay();video.addEventListener('canplay',tryPlay);return()=>video.removeEventListener('canplay',tryPlay)},[item.videoSrc]);
+ if(failed)return <div className="absolute inset-0 grid place-items-center bg-[#050b12] px-4 text-center"><p className="text-[9px] font-semibold text-zinc-600">Prévia temporariamente indisponível</p></div>;
+ return <video ref={ref} className="absolute inset-0 w-full h-full object-cover scale-[1.01]" src={item.videoSrc} autoPlay muted loop playsInline preload="auto" disablePictureInPicture onError={()=>setFailed(true)}/>;
 };
 
 export const ModelShowcase:React.FC<{compact?:boolean;onTry?:(item:ShowcaseItem)=>void;title?:string;subtitle?:string}> = ({compact=false,onTry,title='Modelos em destaque',subtitle='Veja os resultados em movimento e entre direto no modelo certo.'}) => <section>
