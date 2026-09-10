@@ -37,7 +37,7 @@ function normalizeReferences(draft:GenerationRequestDraft) {
     if(!hasExplicitRoles&&draft.mode==='IMAGE_TO_VIDEO'){
       slot_type=index===0?'INITIAL':index===1?'END':'GENERAL';
     }
-    return{asset_id:r.asset_id,slot_type,alias:r.alias_snapshot};
+    return{asset_id:r.asset_id,slot_type,alias:r.alias_snapshot,type:r.asset?.type};
   });
 }
 
