@@ -20,6 +20,10 @@ export interface ProviderGenerationParams {
   number_of_outputs: number;
   seed?: number | null;
   motion_strength?: number | null;
+  /** Cost-affecting dimensions must be forwarded identically to quote and execution. */
+  audio_enabled?: boolean;
+  model_variant?: string;
+  pricing_options?: Record<string,string|number|boolean|null|undefined>;
   references: ProviderGenerationReference[];
   callback_url?: string;
 }
@@ -44,11 +48,8 @@ export interface ProviderJobStatusResult {
   provider_job_id: string;
   status: 'QUEUED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';
   progress_percent?: number;
-  /** First/primary video URL for video generations. */
   result_video_url?: string;
-  /** One or more image URLs for image generations. */
   result_image_urls?: string[];
-  /** Generic media outputs when a provider does not distinguish type. */
   result_urls?: string[];
   thumbnail_url?: string;
   error_code?: string;
@@ -56,16 +57,11 @@ export interface ProviderJobStatusResult {
   final_cost_cents?: number;
 }
 
-/**
- * Historical name kept to avoid a breaking import migration. The contract now
- * supports both image and video generation modes.
- */
 export interface VideoProviderAdapter {
   readonly providerId: string;
   readonly name: string;
   isConfigured(): boolean;
   supports(modelId: string, mode: GenerationMode): boolean;
-  /** Exact/pre-flight provider quote. Absence means the provider cannot be used in anti-loss routing. */
   quoteCostUsd?(params: ProviderGenerationParams): Promise<ProviderCostQuote>;
   submitGeneration(params: ProviderGenerationParams): Promise<ProviderJobResult>;
   checkStatus(providerJobId: string): Promise<ProviderJobStatusResult>;
