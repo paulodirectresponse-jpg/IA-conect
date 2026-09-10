@@ -1,4 +1,5 @@
 import { GenerationMode, ModelCapabilities, WorkspaceReference, Asset } from '../types/index.js';
+import { getModelCapabilities } from './modelCapabilities.js';
 
 export interface IntentResolverInput {
   prompt?: string;
@@ -210,7 +211,7 @@ export const GenerationIntentResolver = {
       }
 
       // Check end frame capability
-      if (hasEnd && !model_capabilities.supports_multiple_images) {
+      if (hasEnd && !model_capabilities.supports_start_end_image) {
         validation_errors.push(
           'Este modelo não suporta imagem final (apenas imagem inicial). Remova a imagem final ou selecione um modelo com suporte a start/end frame.'
         );
@@ -261,7 +262,7 @@ export const GenerationIntentResolver = {
     errors: string[];
     warnings: string[];
   } {
-    const caps = options.model ? (options.model.supported_modes ? options.model : null) : null;
+    const caps = options.model ? getModelCapabilities(options.model) : null;
     const res = this.resolve({
       prompt: options.prompt,
       references: options.references,
