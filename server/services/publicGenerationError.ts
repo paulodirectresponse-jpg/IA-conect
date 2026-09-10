@@ -45,6 +45,10 @@ export function publicGenerationError(err:any,fallback='A geração não pôde s
     };
   }
 
+  if(code==='MODEL_CONFIGURATION_UNSUPPORTED'||code==='MODEL_NOT_AVAILABLE'){
+    return{code,message:String(err?.message||'Esta IA não suporta a configuração selecionada.')};
+  }
+
   if(code==='REFERENCE_NOT_FOUND')return{code,message:'Uma das referências não está mais disponível.'};
   if(code==='REFERENCE_NOT_READY')return{code,message:'Uma das referências ainda está sendo processada.'};
   if(code==='REFERENCE_REQUIRED')return{code,message:'Adicione a referência necessária para esta geração.'};

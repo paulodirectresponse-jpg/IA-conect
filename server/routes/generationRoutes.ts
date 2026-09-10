@@ -74,7 +74,10 @@ generationRouter.post('/generations/quote', requireAuth, async (req:Authenticate
     const duration = imageMode ? 1 : Math.max(1, Number(settings.duration_seconds || 5));
     const resolution = String(settings.resolution || (imageMode ? '1K' : '720p'));
     const aspectRatio = String(settings.aspect_ratio || '16:9');
-    const outputs = Math.max(1, Math.min(4, Number(settings.number_of_outputs || 1)));
+    const outputs = Number(settings.number_of_outputs || 1);
+    if (outputs !== 1) {
+      return res.status(400).json({success:false,error:{code:'VALIDATION_ERROR',message:'A geração atual suporta uma saída por vez.'}});
+    }
     const references = req.body.references || [];
 
     const q = await creditPricingService.preview({

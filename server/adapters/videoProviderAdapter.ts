@@ -5,6 +5,7 @@ export interface ProviderGenerationReference extends ResolvedAssetReference {
   slot_type?: 'INITIAL' | 'END' | 'GENERAL';
   /** Local alias visible inside the current job prompt, e.g. img1/video1/audio1. */
   prompt_alias?: string;
+  semantic_role?: 'CHARACTER'|'PRODUCT'|'STYLE'|'GENERAL';
 }
 
 export interface ProviderGenerationParams {

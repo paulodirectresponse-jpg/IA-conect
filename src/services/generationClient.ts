@@ -37,7 +37,9 @@ function normalizeReferences(draft:GenerationRequestDraft) {
     if(!hasExplicitRoles&&draft.mode==='IMAGE_TO_VIDEO'){
       slot_type=index===0?'INITIAL':index===1?'END':'GENERAL';
     }
-    return{asset_id:r.asset_id,slot_type,alias:r.alias_snapshot};
+    const role=String(r.role||'GENERAL').toUpperCase();
+    const semantic_role=(['CHARACTER','PRODUCT','STYLE'].includes(role)?role:'GENERAL') as 'CHARACTER'|'PRODUCT'|'STYLE'|'GENERAL';
+    return{asset_id:r.asset_id,slot_type,alias:r.alias_snapshot,type:r.asset?.type,semantic_role};
   });
 }
 
