@@ -6,22 +6,22 @@ import {
   PromotionEntry,
   FeatureFlag,
 } from '../../src/types/index.js';
-import { getAdminDb } from './firebaseAdminClient.js';
+import { firestoreAdminRest } from './firestoreAdminRest.js';
 import { INITIAL_FEATURE_FLAGS } from '../../src/config/constants.js';
 import { STUDIO_FALLBACK_MODELS, STUDIO_FALLBACK_PRICING } from '../../src/config/studioCatalog.js';
 
 const now=()=>new Date().toISOString();
+const safe=(value:string)=>encodeURIComponent(value);
 
-/** One code-backed catalog keeps UI, validation, routing and pricing health in sync. */
+/** Seeds only. Runtime source of truth is Firestore. */
 export const MODEL_CATALOG:ModelRegistryItem[]=STUDIO_FALLBACK_MODELS;
-
 export const PROVIDER_CATALOG:ProviderRegistryItem[]=[
   {provider_id:'provider-wavespeed',name:'WaveSpeed AI',slug:'wavespeed',status:'ACTIVE',priority:110,is_configured:false,created_at:now(),updated_at:now()},
   {provider_id:'provider-atlas',name:'Atlas Cloud',slug:'atlas',status:'ACTIVE',priority:100,is_configured:false,created_at:now(),updated_at:now()},
 ];
-
-const mapping=(id:string,model_id:string,provider_id:string,provider_model_identifier:string):ProviderModelMapping=>({mapping_id:id,model_id,provider_id,provider_model_identifier,status:'ACTIVE',updated_at:now()});
-
+const mapping=(id:string,model_id:string,provider_id:string,provider_model_identifier:string):ProviderModelMapping=>({
+  mapping_id:id,model_id,provider_id,provider_model_identifier,status:'ACTIVE',updated_at:now(),
+});
 export const MODEL_MAPPINGS:ProviderModelMapping[]=[
   mapping('map-wan3p-atlas','wan-3-0-prime','provider-atlas','alibaba/wan-3.0-prime'),
   mapping('map-wan3p-wave','wan-3-0-prime','provider-wavespeed','alibaba/wan-3.0-prime'),
@@ -44,30 +44,107 @@ export const MODEL_MAPPINGS:ProviderModelMapping[]=[
   mapping('map-seed5-atlas','seedream-5-pro-image','provider-atlas','bytedance/seedream-v5.0-pro'),
   mapping('map-gptimg2-atlas','gpt-image-2','provider-atlas','openai/gpt-image-2'),
 ];
-
 export const PRICING_CATALOG:PricingEntry[]=STUDIO_FALLBACK_PRICING;
-const promotions:PromotionEntry[]=[];
-const flags:FeatureFlag[]=INITIAL_FEATURE_FLAGS.map(f=>({...f,updated_at:now()}));
+const FEATURE_FLAG_SEED:FeatureFlag[]=INITIAL_FEATURE_FLAGS.map((flag)=>({...flag,updated_at:now()}));
 
-async function bestEffortWrite(collection:string,id:string,value:any){const db=getAdminDb();if(!db)throw new Error('Firestore Admin indisponível para alteração administrativa.');await db.collection(collection).doc(id).set(value,{merge:true});return value;}
+async function listCollection<T>(collectionId:string):Promise<T[]>{
+  const rows=await firestoreAdminRest.runQuery({from:[{collectionId}],limit:500});
+  return rows.map((row:any)=>row.data as T);
+}
+
+async function ensureSeed<T extends Record<string,any>>(
+  collectionId:string,
+  idField:keyof T,
+  seed:T[],
+):Promise<T[]>{
+  const rows=await listCollection<T>(collectionId);
+  const existing=new Set(rows.map((row)=>String(row[idField]||'')));
+  const missing=seed.filter((row)=>!existing.has(String(row[idField]||'')));
+  for(const row of missing){
+    const id=String(row[idField]||'');
+    if(id)await firestoreAdminRest.set(`${collectionId}/${safe(id)}`,row);
+  }
+  return missing.length?[...rows,...missing]:rows;
+}
+
+async function save<T extends Record<string,any>>(collectionId:string,id:string,value:T):Promise<T>{
+  const next={...value,updated_at:now()};
+  await firestoreAdminRest.set(`${collectionId}/${safe(id)}`,next);
+  return next as T;
+}
 
 export const catalogRepository={
-  async listModels(){return MODEL_CATALOG.filter(x=>x.status!=='INACTIVE');},
-  async getModel(id:string){return MODEL_CATALOG.find(x=>x.model_id===id&&x.status!=='INACTIVE')||null;},
-  async saveModel(x:ModelRegistryItem){x.updated_at=now();return bestEffortWrite('models',x.model_id,x);},
-  async listProviders(){return[...PROVIDER_CATALOG].sort((a,b)=>b.priority-a.priority);},
-  async getProvider(id:string){return PROVIDER_CATALOG.find(x=>x.provider_id===id)||null;},
-  async saveProvider(x:ProviderRegistryItem){x.updated_at=now();return bestEffortWrite('providers',x.provider_id,x);},
-  async listMappings(){return MODEL_MAPPINGS;},
-  async saveMapping(x:ProviderModelMapping){x.updated_at=now();return bestEffortWrite('provider_models',x.mapping_id,x);},
-  async listPricing(){return PRICING_CATALOG;},
-  async getPricing(id:string){return PRICING_CATALOG.find(x=>x.pricing_id===id)||null;},
-  async savePricing(x:PricingEntry){x.updated_at=now();return bestEffortWrite('pricing',x.pricing_id,x);},
-  async listPromotions(){return promotions;},
-  async getPromotion(id:string){return promotions.find(x=>x.promotion_id===id)||null;},
-  async savePromotion(x:PromotionEntry){return bestEffortWrite('promotions',x.promotion_id,x);},
-  async listFeatureFlags(){return flags;},
-  async getFeatureFlag(id:string){return flags.find(x=>x.flag_key===id)||null;},
-  async saveFeatureFlag(x:FeatureFlag){x.updated_at=now();return bestEffortWrite('feature_flags',x.flag_key,x);},
+  async listModels(){
+    const rows=await ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG);
+    return rows.filter((row)=>row.status!=='INACTIVE').sort((a,b)=>a.name.localeCompare(b.name));
+  },
+  async getModel(id:string){
+    await ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG);
+    const doc=await firestoreAdminRest.get(`models/${safe(id)}`);
+    if(!doc.exists)return null;
+    const model=doc.data as ModelRegistryItem;
+    return model.status!=='INACTIVE'?model:null;
+  },
+  async saveModel(value:ModelRegistryItem){
+    return save('models',value.model_id,value);
+  },
+
+  async listProviders(){
+    const rows=await ensureSeed<ProviderRegistryItem>('providers','provider_id',PROVIDER_CATALOG);
+    return rows.sort((a,b)=>b.priority-a.priority);
+  },
+  async getProvider(id:string){
+    await ensureSeed<ProviderRegistryItem>('providers','provider_id',PROVIDER_CATALOG);
+    const doc=await firestoreAdminRest.get(`providers/${safe(id)}`);
+    return doc.exists?doc.data as ProviderRegistryItem:null;
+  },
+  async saveProvider(value:ProviderRegistryItem){
+    return save('providers',value.provider_id,value);
+  },
+
+  async listMappings(){
+    return ensureSeed<ProviderModelMapping>('provider_models','mapping_id',MODEL_MAPPINGS);
+  },
+  async saveMapping(value:ProviderModelMapping){
+    return save('provider_models',value.mapping_id,value);
+  },
+
+  async listPricing(){
+    return ensureSeed<PricingEntry>('pricing','pricing_id',PRICING_CATALOG);
+  },
+  async getPricing(id:string){
+    await ensureSeed<PricingEntry>('pricing','pricing_id',PRICING_CATALOG);
+    const doc=await firestoreAdminRest.get(`pricing/${safe(id)}`);
+    return doc.exists?doc.data as PricingEntry:null;
+  },
+  async savePricing(value:PricingEntry){
+    return save('pricing',value.pricing_id,value);
+  },
+
+  async listPromotions(){
+    return listCollection<PromotionEntry>('promotions');
+  },
+  async getPromotion(id:string){
+    const doc=await firestoreAdminRest.get(`promotions/${safe(id)}`);
+    return doc.exists?doc.data as PromotionEntry:null;
+  },
+  async savePromotion(value:PromotionEntry){
+    const next={...value,verified_at:value.verified_at||now()};
+    await firestoreAdminRest.set(`promotions/${safe(value.promotion_id)}`,next);
+    return next;
+  },
+
+  async listFeatureFlags(){
+    return ensureSeed<FeatureFlag>('feature_flags','flag_key',FEATURE_FLAG_SEED);
+  },
+  async getFeatureFlag(id:string){
+    await ensureSeed<FeatureFlag>('feature_flags','flag_key',FEATURE_FLAG_SEED);
+    const doc=await firestoreAdminRest.get(`feature_flags/${safe(id)}`);
+    return doc.exists?doc.data as FeatureFlag:null;
+  },
+  async saveFeatureFlag(value:FeatureFlag){
+    return save('feature_flags',value.flag_key,value);
+  },
+
   clearForTesting(){},
 };
