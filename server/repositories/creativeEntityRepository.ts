@@ -20,8 +20,45 @@ export interface CreativeEntity {
 }
 
 const safe=(value:string)=>encodeURIComponent(value);
+const migratedUsers=new Set<string>();
+
+async function migrateLegacy(userId:string){
+  if(migratedUsers.has(userId))return;
+  const prefPath=`user_preferences/${safe(userId)}`;
+  const pref=await firestoreAdminRest.get(prefPath);
+  const data=(pref.exists?pref.data:{}) as Record<string,any>;
+  const legacy=Array.isArray(data.creative_entities)?data.creative_entities:[];
+  for(const row of legacy){
+    const entityId=String(row?.entity_id||`ent_migrated_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`);
+    const existing=await firestoreAdminRest.get(`creative_entities/${safe(entityId)}`);
+    if(existing.exists)continue;
+    const now=new Date().toISOString();
+    const entity:CreativeEntity={
+      entity_id:entityId,
+      owner_user_id:userId,
+      kind:(['CHARACTER','PRODUCT','STYLE','PROJECT'].includes(String(row?.kind))?row.kind:'PROJECT') as CreativeEntityKind,
+      name:String(row?.name||'Entidade migrada'),
+      description:String(row?.description||''),
+      cover_asset_id:row?.cover_asset_id??null,
+      cover_url:row?.cover_url??null,
+      asset_ids:Array.isArray(row?.asset_ids)?row.asset_ids:[],
+      asset_roles:row?.asset_roles||{},
+      project_id:row?.kind==='PROJECT'?null:(row?.project_id??null),
+      status:row?.status==='ARCHIVED'?'ARCHIVED':'ACTIVE',
+      created_at:String(row?.created_at||now),
+      updated_at:String(row?.updated_at||now),
+    };
+    await firestoreAdminRest.set(`creative_entities/${safe(entityId)}`,entity);
+  }
+  if(legacy.length){
+    const {creative_entities:_legacy,...rest}=data;
+    await firestoreAdminRest.set(prefPath,{...rest,user_id:userId,updated_at:new Date().toISOString()});
+  }
+  migratedUsers.add(userId);
+}
 
 async function listOwned(userId:string):Promise<CreativeEntity[]>{
+  await migrateLegacy(userId);
   const rows=await firestoreAdminRest.runQuery({
     from:[{collectionId:'creative_entities'}],
     where:{fieldFilter:{field:{fieldPath:'owner_user_id'},op:'EQUAL',value:{stringValue:userId}}},
@@ -40,6 +77,7 @@ export const creativeEntityRepository={
   },
 
   async get(entityId:string,userId:string):Promise<CreativeEntity|null>{
+    await migrateLegacy(userId);
     const doc=await firestoreAdminRest.get(`creative_entities/${safe(entityId)}`);
     if(!doc.exists)return null;
     const entity=doc.data as CreativeEntity;
@@ -47,8 +85,9 @@ export const creativeEntityRepository={
   },
 
   async save(userId:string,input:Partial<CreativeEntity>&{kind:CreativeEntityKind;name:string}):Promise<CreativeEntity>{
+    await migrateLegacy(userId);
     const entityId=input.entity_id||`ent_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-    const previous=await this.get(entityId,userId);
+    const previous=input.entity_id?await this.get(entityId,userId):null;
     if(input.entity_id&&!previous)throw new Error('Entidade não encontrada ou sem permissão.');
     const now=new Date().toISOString();
     const value:CreativeEntity={
