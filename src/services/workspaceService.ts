@@ -8,7 +8,6 @@ import {
   WorkspaceReference,
   GenerationMode,
   PromptImproveObjective,
-  PricingEntry,
 } from '../types/index.js';
 
 export const workspaceService={
@@ -23,12 +22,6 @@ export const workspaceService={
     const model=models.find((item)=>item.model_id===modelId);
     if(!model)throw new Error('Modelo não encontrado.');
     return model;
-  },
-
-  async listPricing():Promise<PricingEntry[]>{
-    const rows=await apiRequest<PricingEntry[]>('/api/catalog/pricing');
-    if(!Array.isArray(rows))throw new Error('Catálogo de preços indisponível.');
-    return rows;
   },
 
   listPresets():Promise<WorkspacePreset[]>{
