@@ -6,6 +6,7 @@ import { creditWalletService } from './creditWalletService.js';
 import { pricingSettingsService } from './pricingSettingsService.js';
 import { pricingSyncService } from './pricingSyncService.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
+import { generationExecutionEconomics } from './generationEconomicsPolicy.js';
 
 export interface CreditPricingInput{
  userId:string;model_id:string;mode:GenerationMode;prompt?:string;negative_prompt?:string;duration_seconds:number;resolution:string;aspect_ratio:string;number_of_outputs:number;seed?:number|null;motion_strength?:number|null;references?:Array<{asset_id:string;slot_type?:string;role?:string}>;force_live_quote?:boolean;audio_enabled?:boolean;model_variant?:string;pricing_options?:Record<string,string|number|boolean|null|undefined>;
@@ -47,8 +48,8 @@ export const creditPricingService={
   const unitCreditPrice=image?retailVersion.retail_credit_price:Math.max(1,Math.ceil(retailVersion.retail_credit_price/retailBaseDuration));
   const billingUnits=image?Math.max(1,input.number_of_outputs):Math.max(1,input.duration_seconds)*Math.max(1,input.number_of_outputs),totalCreditPrice=unitCreditPrice*billingUnits;
   const retail={...retailVersion,retail_credit_price:totalCreditPrice,unit_credit_price:unitCreditPrice,pricing_unit:image?'PER_OUTPUT':'PER_SECOND',base_duration_seconds:retailBaseDuration,billing_units:billingUnits};
-  const account=await creditWalletService.getAccount(input.userId),simulation=await creditWalletService.simulateReserve(input.userId,totalCreditPrice),fallbackBacking=totalCreditPrice*settings.conservative_credit_value_micros,backingMicros=simulation.has_sufficient_credits?simulation.authorized_net_backing_micros:fallbackBacking,backingCents=Math.max(0,Math.floor(backingMicros/10000)),normalFloor=Math.max(retailVersion.normal_floor_margin_percent,settings.normal_floor_margin_percent)/100,maxAllowed=Math.max(0,Math.floor(backingCents*(1-normalFloor)));
+  const account=await creditWalletService.getAccount(input.userId),simulation=await creditWalletService.simulateReserve(input.userId,totalCreditPrice),fallbackBacking=totalCreditPrice*settings.conservative_credit_value_micros,backingMicros=simulation.has_sufficient_credits?simulation.authorized_net_backing_micros:fallbackBacking,economics=generationExecutionEconomics(totalCreditPrice,backingMicros),backingCents=economics.cash_backing_cents,maxAllowed=economics.execution_cogs_cap_cents;
   const routed:any=useLive?await smartRouterService.selectProvider({...normalizedInput,max_allowed_cogs_cents:maxAllowed,incurred_cogs_cents:0,force_live_quote:true}):preliminary,realizedPreview=backingCents>0?Math.max(-999,100*(1-Number(routed.selected.fully_loaded_safe_cogs_cents||0)/backingCents)):0;
-  return{signature,unit_signature:unitSignature,retail,settings,account,simulation,authorized_net_backing_micros:backingMicros,conservative_net_revenue_cents:backingCents,max_allowed_cogs_cents:maxAllowed,decision:routed,margin_percent:realizedPreview,health:realizedPreview>=retailVersion.normal_floor_margin_percent?'GREEN':realizedPreview>=retailVersion.emergency_floor_margin_percent?'YELLOW':'RED'};
+  return{signature,unit_signature:unitSignature,retail,settings,account,simulation,authorized_net_backing_micros:backingMicros,conservative_net_revenue_cents:backingCents,max_allowed_cogs_cents:maxAllowed,subsidy_gap_cents:economics.subsidy_gap_cents,decision:routed,margin_percent:realizedPreview,health:realizedPreview>=retailVersion.normal_floor_margin_percent?'GREEN':realizedPreview>=retailVersion.emergency_floor_margin_percent?'YELLOW':'RED'};
  }
 };
