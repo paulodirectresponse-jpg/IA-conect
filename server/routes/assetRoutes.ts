@@ -4,9 +4,6 @@ import crypto from 'crypto';
 import { requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { assetRepository } from '../repositories/assetRepository.js';
 import { assetService } from '../services/assetService.js';
-import { assetReferenceResolver } from '../services/assetReferenceResolver.js';
-import { getAdminStorage } from '../repositories/firebaseAdminClient.js';
-import { getFirebaseConfig } from '../repositories/firestoreClient.js';
 import { ASSET_UPLOAD_LIMITS } from '../../src/config/constants.js';
 import { AssetType } from '../../src/types/index.js';
 
@@ -97,6 +94,7 @@ assetRouter.post('/assets', requireAuth, async (req: AuthenticatedRequest, res) 
   try {
     const uid = req.user!.uid;
     const {
+      asset_id,
       name,
       alias,
       category,
@@ -112,6 +110,7 @@ assetRouter.post('/assets', requireAuth, async (req: AuthenticatedRequest, res) 
 
     const asset = await assetService.registerAsset({
       userId: uid,
+      assetId: asset_id,
       name,
       alias,
       category,
@@ -166,41 +165,6 @@ assetRouter.delete('/assets/:assetId', requireAuth, async (req: AuthenticatedReq
 // ==========================================
 // STAGE 2: PRESETS
 // ==========================================
-
-assetRouter.get('/assets/stream/:token', async (req, res) => {
-  try {
-    const verified = assetReferenceResolver.verifyStreamToken(req.params.token);
-    if (!verified) {
-      return res.status(403).json({ error: 'Token de acesso ao asset expirado ou inválido.' });
-    }
-
-    const asset = await assetRepository.getAsset(verified.assetId, verified.userId);
-    if (!asset || asset.status !== 'READY') {
-      return res.status(404).json({ error: 'Asset não encontrado ou indisponível.' });
-    }
-
-    const storage = getAdminStorage();
-    const config = getFirebaseConfig();
-
-    if (storage && config.storageBucket && asset.storage_path) {
-      const bucket = storage.bucket(config.storageBucket);
-      const file = bucket.file(asset.storage_path);
-      const [exists] = await file.exists();
-
-      if (exists) {
-        res.setHeader('Content-Type', asset.mime_type || 'application/octet-stream');
-        res.setHeader('Cache-Control', 'private, max-age=1800');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        return file.createReadStream().pipe(res);
-      }
-    }
-
-    // If file in storage does not exist or storage unavailable, return 404
-    res.status(404).json({ error: 'Arquivo do asset não encontrado no storage.' });
-  } catch (err: any) {
-    res.status(500).json({ error: 'Erro ao processar stream do asset.' });
-  }
-});
 
 // ==========================================
 // ETAPA 3: REAL PAYMENTS & DEPOSITS (PIX & CARD)

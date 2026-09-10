@@ -23,7 +23,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
   const url = endpoint.startsWith('/') ? endpoint : `/api/${endpoint}`;
   const ownController = !options.signal ? new AbortController() : null;
   const signal = options.signal || ownController?.signal;
-  const timeoutMs = endpoint.startsWith('/api/catalog/') ? 900 : 45000;
+  const timeoutMs = endpoint.startsWith('/api/catalog/') ? 8000 : 45000;
   const timer = ownController ? window.setTimeout(() => ownController.abort(), timeoutMs) : null;
 
   let response: Response;

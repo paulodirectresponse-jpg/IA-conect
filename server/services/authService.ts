@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { userRepository } from '../repositories/userRepository.js';
-import { walletRepository } from '../repositories/walletRepository.js';
+import { creditWalletService } from './creditWalletService.js';
 import { auditRepository } from '../repositories/auditRepository.js';
 import { UserProfile, UserRole, UserStatus } from '../../src/types/index.js';
 
@@ -18,16 +18,18 @@ export const authService = {
 
     let user = await userRepository.getById(userId);
     if (user) {
-      user.last_login_at = new Date().toISOString();
-      if (displayName && displayName !== user.display_name) {
-        user.display_name = displayName;
-      }
-      if (avatarUrl) {
-        user.avatar_url = avatarUrl;
-      }
-      user.updated_at = new Date().toISOString();
-      await userRepository.save(user);
-      return { user, isNew: false };
+      const now = new Date().toISOString();
+      user.email = normalizedEmail || user.email || '';
+      user.display_name = displayName || user.display_name || normalizedEmail.split('@')[0] || 'Usuário';
+      user.avatar_url = avatarUrl || user.avatar_url || '';
+      user.role = user.role === 'ADMIN' ? 'ADMIN' : 'USER';
+      user.status = user.status === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE';
+      user.created_at = user.created_at || user.last_login_at || user.updated_at || now;
+      user.last_login_at = now;
+      user.updated_at = now;
+      const saved = await userRepository.save(user);
+      await creditWalletService.getAccount(userId);
+      return { user:saved, isNew:false };
     }
 
     // Determine initial role securely
@@ -55,8 +57,8 @@ export const authService = {
 
     const savedUser = await userRepository.save(newUser);
 
-    // Initialize clean wallet account
-    await walletRepository.getAccount(userId);
+    // Credits V2 is the only operational wallet.
+    await creditWalletService.getAccount(userId);
 
     // If assigned ADMIN on creation, record audit log
     if (initialRole === 'ADMIN') {

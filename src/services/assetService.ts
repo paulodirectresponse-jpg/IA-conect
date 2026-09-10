@@ -1,56 +1,65 @@
-import { collection, doc, getDocs, setDoc, updateDoc, query, where } from 'firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, db } from '../config/firebase.js';
 import { apiRequest } from './apiClient.js';
 import { Asset, AssetType, AssetCategory } from '../types/index.js';
 import { ASSET_UPLOAD_LIMITS } from '../config/constants.js';
 
-export interface UploadAssetParams { file:File; name?:string; alias?:string; category?:AssetCategory; onProgress?:(percent:number)=>void; onTaskReady?:(task:{cancel:()=>void})=>void; timeoutMs?:number; }
-export interface RegisterGeneratedAssetParams { generationId:string; modelId:string; providerId:string; url:string; type:AssetType; index?:number; name?:string; }
-export type AssetOriginFilter = 'ALL' | 'UPLOAD' | 'GENERATED';
-export function sanitizeAlias(v:string){return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]/g,'_').replace(/^_+|_+$/g,'').replace(/_+/g,'_');}
+export interface UploadAssetParams {
+  file:File;
+  name?:string;
+  alias?:string;
+  category?:AssetCategory;
+  onProgress?:(percent:number)=>void;
+  onTaskReady?:(task:{cancel:()=>void})=>void;
+  timeoutMs?:number;
+}
+export interface RegisterGeneratedAssetParams {
+  generationId:string;
+  modelId:string;
+  providerId:string;
+  url:string;
+  type:AssetType;
+  index?:number;
+  name?:string;
+}
+export type AssetOriginFilter='ALL'|'UPLOAD'|'GENERATED';
 
-async function getAuthenticatedUser(): Promise<User | null> {
-  if (auth.currentUser) return auth.currentUser;
-  const ready = (auth as any).authStateReady;
-  if (typeof ready === 'function') {
-    await ready.call(auth);
-    return auth.currentUser;
-  }
-  return new Promise<User | null>((resolve) => {
-    let unsubscribe: (() => void) | undefined;
-    const timer = setTimeout(() => {
-      unsubscribe?.();
-      resolve(auth.currentUser);
-    }, 4000);
-    unsubscribe = onAuthStateChanged(auth, (user) => {
-      clearTimeout(timer);
-      unsubscribe?.();
-      resolve(user);
-    });
-  });
+export function sanitizeAlias(v:string){
+  return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]/g,'_').replace(/^_+|_+$/g,'').replace(/_+/g,'_');
 }
 
-async function uniqueAlias(baseValue:string,userId:string){
-  const base=sanitizeAlias(baseValue)||`asset_${Date.now().toString().slice(-6)}`;
-  const existing=await getDocs(query(collection(db,'assets'),where('owner_user_id','==',userId)));
-  const used=new Set(existing.docs.map(d=>String((d.data() as any).alias||'')));
-  if(!used.has(base)) return base;
-  let i=1; while(used.has(`${base}_${i}`)) i++; return `${base}_${i}`;
+interface SignedUploadResponse {
+  asset_id:string;
+  type:AssetType;
+  storage_path:string;
+  signed_url:string;
+  token:string;
+  public_url:string;
+  bucket:string;
 }
 
-interface SignedUploadResponse { asset_id:string; type:AssetType; storage_path:string; signed_url:string; token:string; public_url:string; bucket:string; }
-
-function uploadToSignedUrl(url:string,file:File,onProgress?:(percent:number)=>void,onTaskReady?:(task:{cancel:()=>void})=>void,timeoutMs=120000){
+function uploadToSignedUrl(
+  url:string,
+  file:File,
+  onProgress?:(percent:number)=>void,
+  onTaskReady?:(task:{cancel:()=>void})=>void,
+  timeoutMs=120000,
+){
   return new Promise<void>((resolve,reject)=>{
     const xhr=new XMLHttpRequest();
     xhr.open('PUT',url,true);
     xhr.timeout=timeoutMs;
-    xhr.upload.onprogress=(event)=>{if(event.lengthComputable){const pct=Math.round((event.loaded/event.total)*90);onProgress?.(Math.max(5,Math.min(95,pct)));}};
-    xhr.onerror=()=>reject(new Error('Falha de rede ao enviar o arquivo para o Supabase Storage.'));
+    xhr.upload.onprogress=(event)=>{
+      if(event.lengthComputable){
+        const pct=Math.round((event.loaded/event.total)*90);
+        onProgress?.(Math.max(5,Math.min(95,pct)));
+      }
+    };
+    xhr.onerror=()=>reject(new Error('Falha de rede ao enviar o arquivo para o armazenamento.'));
     xhr.ontimeout=()=>reject(new Error('Upload excedeu o tempo limite.'));
     xhr.onabort=()=>reject(new Error('Upload cancelado.'));
-    xhr.onload=()=>{if(xhr.status>=200&&xhr.status<300)resolve();else reject(new Error(`Supabase Storage recusou o upload (${xhr.status}): ${xhr.responseText||'erro desconhecido'}`));};
+    xhr.onload=()=>{
+      if(xhr.status>=200&&xhr.status<300)resolve();
+      else reject(new Error(`O armazenamento recusou o upload (${xhr.status}).`));
+    };
     const form=new FormData();
     form.append('cacheControl','3600');
     form.append('',file);
@@ -61,79 +70,71 @@ function uploadToSignedUrl(url:string,file:File,onProgress?:(percent:number)=>vo
 
 export const assetService={
   async listAssets(filters?:{type?:AssetType;category?:AssetCategory;search?:string;origin?:AssetOriginFilter}):Promise<Asset[]>{
-    const user=await getAuthenticatedUser();
-    if(!user) return [];
-    const snap=await getDocs(query(collection(db,'assets'),where('owner_user_id','==',user.uid)));
-    const search=filters?.search?.toLowerCase().trim();
-    return snap.docs.map(d=>d.data() as Asset).filter(a=>{
-      const origin=String((a as any).origin||'UPLOAD').toUpperCase();
-      return !a.deleted_at&&(!filters?.type||a.type===filters.type)&&(!filters?.category||a.category===filters.category)&&(!filters?.origin||filters.origin==='ALL'||origin===filters.origin)&&(!search||a.name.toLowerCase().includes(search)||a.alias.toLowerCase().includes(search));
-    }).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at));
+    const params=new URLSearchParams();
+    if(filters?.type)params.set('type',filters.type);
+    if(filters?.category)params.set('category',filters.category);
+    if(filters?.search)params.set('search',filters.search);
+    const rows=await apiRequest<Asset[]>(`/api/assets${params.size?`?${params.toString()}`:''}`);
+    if(!filters?.origin||filters.origin==='ALL')return rows;
+    return rows.filter((asset)=>String(asset.origin||'UPLOAD').toUpperCase()===filters.origin);
   },
 
   async uploadAsset(params:UploadAssetParams):Promise<Asset>{
     const {file,name,alias,category='PRODUCT',onProgress,onTaskReady,timeoutMs=120000}=params;
-    const user=await getAuthenticatedUser();
-    if(!user) throw new Error('Usuário não autenticado.');
-    const ext=file.name.split('.').pop()?.toLowerCase() || '';
+    const ext=file.name.split('.').pop()?.toLowerCase()||'';
     let type:AssetType='IMAGE';
-    if(file.type.startsWith('video/')||ASSET_UPLOAD_LIMITS.VIDEO.allowed_extensions.includes(ext)) type='VIDEO';
-    else if(file.type.startsWith('audio/')||ASSET_UPLOAD_LIMITS.AUDIO.allowed_extensions.includes(ext)) type='AUDIO';
-    if(file.size>ASSET_UPLOAD_LIMITS[type].max_bytes) throw new Error('Arquivo excede o limite máximo permitido.');
-    const cleanAlias=await uniqueAlias(alias||name||file.name.replace(/\.[^.]+$/,''),user.uid);
+    if(file.type.startsWith('video/')||ASSET_UPLOAD_LIMITS.VIDEO.allowed_extensions.includes(ext))type='VIDEO';
+    else if(file.type.startsWith('audio/')||ASSET_UPLOAD_LIMITS.AUDIO.allowed_extensions.includes(ext))type='AUDIO';
+    if(file.size>ASSET_UPLOAD_LIMITS[type].max_bytes)throw new Error('Arquivo excede o limite máximo permitido.');
+
     onProgress?.(5);
-    const signed=await apiRequest<SignedUploadResponse>('assets/signed-upload',{method:'POST',body:JSON.stringify({filename:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size})});
+    const signed=await apiRequest<SignedUploadResponse>('/api/assets/signed-upload',{
+      method:'POST',
+      body:JSON.stringify({filename:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size}),
+    });
+
     await uploadToSignedUrl(signed.signed_url,file,onProgress,onTaskReady,timeoutMs);
-    const now=new Date().toISOString();
-    const asset={asset_id:signed.asset_id,owner_user_id:user.uid,type:signed.type||type,category,name:(name||file.name).trim(),alias:cleanAlias,storage_path:signed.storage_path,public_url:signed.public_url,thumbnail_url:type==='IMAGE'?signed.public_url:'',mime_type:file.type||'application/octet-stream',size_bytes:file.size,width:null,height:null,duration_seconds:null,status:'READY',origin:'UPLOAD',source_generation_id:null,source_model_id:null,source_provider_id:null,created_at:now,updated_at:now,deleted_at:null} as Asset;
-    await setDoc(doc(db,'assets',asset.asset_id),asset);
+
+    const asset=await apiRequest<Asset>('/api/assets',{
+      method:'POST',
+      body:JSON.stringify({
+        asset_id:signed.asset_id,
+        name:(name||file.name).trim(),
+        alias:alias?sanitizeAlias(alias):undefined,
+        category,
+        mime_type:file.type||'application/octet-stream',
+        size_bytes:file.size,
+        filename:file.name,
+        storage_path:signed.storage_path,
+        public_url:signed.public_url,
+      }),
+    });
+
     onProgress?.(100);
     return asset;
   },
 
   async registerGeneratedAsset(params:RegisterGeneratedAssetParams):Promise<Asset>{
-    const user=await getAuthenticatedUser();
-    if(!user) throw new Error('Usuário não autenticado.');
-    const existing=await this.listAssets();
-    const already=existing.find(a=>String((a as any).source_generation_id||'')===params.generationId&&String((a as any).public_url||'')===params.url);
-    if(already) return already;
-    const index=params.index||1;
-    const suffix=params.generationId.slice(-6);
-    const baseName=params.name||`${params.type==='IMAGE'?'Imagem':'Vídeo'} gerado ${suffix}${index>1?` ${index}`:''}`;
-    const alias=await uniqueAlias(`${params.type==='IMAGE'?'generated_image':'generated_video'}_${suffix}${index>1?`_${index}`:''}`,user.uid);
-    const now=new Date().toISOString();
-    const assetId=`ast_generated_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-    const asset={
-      asset_id:assetId,
-      owner_user_id:user.uid,
-      type:params.type,
-      category:'GENERIC',
-      name:baseName,
-      alias,
-      storage_path:`provider://${params.providerId}/${params.generationId}/${index}`,
-      public_url:params.url,
-      thumbnail_url:params.type==='IMAGE'?params.url:'',
-      mime_type:params.type==='IMAGE'?'image/jpeg':'video/mp4',
-      size_bytes:0,
-      width:null,
-      height:null,
-      duration_seconds:null,
-      status:'READY',
-      origin:'GENERATED',
-      source_generation_id:params.generationId,
-      source_model_id:params.modelId,
-      source_provider_id:params.providerId,
-      created_at:now,
-      updated_at:now,
-      deleted_at:null,
-    } as unknown as Asset;
-    await setDoc(doc(db,'assets',assetId),asset);
-    return asset;
+    for(let attempt=0;attempt<4;attempt++){
+      const rows=await this.listAssets({origin:'GENERATED'});
+      const found=rows.find((asset)=>
+        String(asset.source_generation_id||'')===params.generationId &&
+        String(asset.public_url||'')===params.url
+      );
+      if(found)return found;
+      if(attempt<3)await new Promise((resolve)=>window.setTimeout(resolve,300));
+    }
+    throw new Error('O resultado foi gerado, mas o asset ainda não terminou de ser registrado.');
   },
 
-  async updateAsset(assetId:string,updates:{name?:string;alias?:string;category?:AssetCategory;public_url?:string}):Promise<Asset>{
-    const now=new Date().toISOString(); const payload:any={...updates,updated_at:now}; if(updates.alias) payload.alias=sanitizeAlias(updates.alias);
-    await updateDoc(doc(db,'assets',assetId),payload); const list=await this.listAssets(); const found=list.find(a=>a.asset_id===assetId); if(!found) throw new Error('Asset não encontrado após atualização.'); return found;
+  updateAsset(assetId:string,updates:{name?:string;alias?:string;category?:AssetCategory;public_url?:string}):Promise<Asset>{
+    return apiRequest<Asset>(`/api/assets/${encodeURIComponent(assetId)}`,{
+      method:'PATCH',
+      body:JSON.stringify({...updates,alias:updates.alias?sanitizeAlias(updates.alias):undefined}),
+    });
   },
-  async deleteAsset(assetId:string):Promise<void>{ const now=new Date().toISOString(); await updateDoc(doc(db,'assets',assetId),{deleted_at:now,updated_at:now}); }
+
+  async deleteAsset(assetId:string):Promise<void>{
+    await apiRequest(`/api/assets/${encodeURIComponent(assetId)}`,{method:'DELETE'});
+  },
 };

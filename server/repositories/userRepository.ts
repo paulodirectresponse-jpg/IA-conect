@@ -1,79 +1,108 @@
 import { UserProfile, UserStatus } from '../../src/types/index.js';
-import { getAdminDb } from './firebaseAdminClient.js';
+import { firestoreAdminRest } from './firestoreAdminRest.js';
 
-function db() {
-  const database = getAdminDb();
-  if (!database) throw new Error('Firestore Admin indisponível.');
-  return database;
+const safe = (value:string) => encodeURIComponent(value);
+const dateValue = (value?:string) => {
+  const ms = value ? Date.parse(value) : NaN;
+  return Number.isFinite(ms) ? ms : 0;
+};
+
+function normalizeUser(input:Partial<UserProfile> & {user_id:string}):UserProfile {
+  const now = new Date().toISOString();
+  const email = String(input.email || '').trim().toLowerCase();
+  return {
+    user_id:input.user_id,
+    email,
+    display_name:String(input.display_name || email.split('@')[0] || 'Usuário'),
+    avatar_url:String(input.avatar_url || ''),
+    role:input.role === 'ADMIN' ? 'ADMIN' : 'USER',
+    status:input.status === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE',
+    created_at:input.created_at || input.last_login_at || input.updated_at || now,
+    updated_at:input.updated_at || now,
+    last_login_at:input.last_login_at || input.updated_at || input.created_at || now,
+  };
+}
+
+async function allUsers(limit=500):Promise<UserProfile[]> {
+  const rows = await firestoreAdminRest.runQuery({
+    from:[{collectionId:'users'}],
+    limit:Math.min(500,Math.max(1,limit)),
+  });
+  const users:UserProfile[]=[];
+  for(const row of rows){
+    const raw=(row.data||{}) as Record<string,any>;
+    const documentId=decodeURIComponent(String(row.name||'').split('/').pop()||'');
+    const normalized=normalizeUser({...raw,user_id:String(raw.user_id||documentId)});
+    const required=['user_id','email','display_name','role','status','created_at','updated_at'];
+    if(required.some((key)=>raw[key]===undefined||raw[key]===null||raw[key]==='')){
+      await firestoreAdminRest.set(`users/${safe(normalized.user_id)}`,normalized);
+    }
+    users.push(normalized);
+  }
+  return users.sort((a,b)=>dateValue(b.created_at)-dateValue(a.created_at));
 }
 
 export const userRepository = {
-  async getById(userId: string): Promise<UserProfile | null> {
-    const snap = await db().collection('users').doc(userId).get();
-    return snap.exists ? (snap.data() as UserProfile) : null;
+  async getById(userId:string):Promise<UserProfile|null> {
+    const doc = await firestoreAdminRest.get(`users/${safe(userId)}`);
+    return doc.exists ? normalizeUser(doc.data as any) : null;
   },
 
-  async getByEmail(email: string): Promise<UserProfile | null> {
+  async getByEmail(email:string):Promise<UserProfile|null> {
     const normalized = email.trim().toLowerCase();
-    const snap = await db().collection('users').where('email', '==', normalized).limit(1).get();
-    return snap.empty ? null : (snap.docs[0].data() as UserProfile);
+    if (!normalized) return null;
+    const rows = await firestoreAdminRest.runQuery({
+      from:[{collectionId:'users'}],
+      where:{fieldFilter:{field:{fieldPath:'email'},op:'EQUAL',value:{stringValue:normalized}}},
+      limit:1,
+    });
+    return rows[0] ? normalizeUser(rows[0].data as any) : null;
   },
 
-  async save(user: UserProfile): Promise<UserProfile> {
-    const normalized: UserProfile = {
+  async save(user:UserProfile):Promise<UserProfile> {
+    const existing = await firestoreAdminRest.get(`users/${safe(user.user_id)}`);
+    const normalized = normalizeUser({
+      ...(existing.exists ? existing.data as any : {}),
       ...user,
-      email: user.email.trim().toLowerCase(),
-      updated_at: user.updated_at || new Date().toISOString(),
-    };
-    await db().collection('users').doc(normalized.user_id).set(normalized, { merge: true });
+      user_id:user.user_id,
+      email:user.email,
+      updated_at:user.updated_at || new Date().toISOString(),
+    });
+    await firestoreAdminRest.set(`users/${safe(user.user_id)}`, normalized);
     return normalized;
   },
 
-  async updateStatus(userId: string, status: UserStatus): Promise<UserProfile | null> {
-    const ref = db().collection('users').doc(userId);
-    const snap = await ref.get();
-    if (!snap.exists) return null;
-    const updated_at = new Date().toISOString();
-    await ref.set({ status, updated_at }, { merge: true });
-    return { ...(snap.data() as UserProfile), status, updated_at };
+  async updateStatus(userId:string,status:UserStatus):Promise<UserProfile|null> {
+    const current = await this.getById(userId);
+    if (!current) return null;
+    return this.save({...current,status,updated_at:new Date().toISOString()});
   },
 
-  async list(options: { search?: string; limit?: number; offset?: number } = {}): Promise<{ users: UserProfile[]; total: number }> {
-    // Admin lists are intentionally bounded. Offset is applied in memory because
-    // the existing UI uses numeric offsets; cursor pagination can replace this later.
-    const requestedLimit = Math.min(100, Math.max(1, options.limit || 20));
-    const offset = Math.max(0, options.offset || 0);
-    const fetchLimit = Math.min(500, Math.max(requestedLimit + offset, 100));
-    const snap = await db().collection('users').orderBy('created_at', 'desc').limit(fetchLimit).get();
-    let users = snap.docs.map((d) => d.data() as UserProfile);
+  async list(options:{search?:string;limit?:number;offset?:number}={}):Promise<{users:UserProfile[];total:number}> {
+    const requestedLimit = Math.min(100,Math.max(1,options.limit || 20));
+    const offset = Math.max(0,options.offset || 0);
+    let users = await allUsers(500);
 
     if (options.search?.trim()) {
       const q = options.search.trim().toLowerCase();
-      users = users.filter((u) =>
-        u.email.toLowerCase().includes(q) ||
-        (u.display_name || '').toLowerCase().includes(q)
+      users = users.filter((user) =>
+        String(user.email || '').toLowerCase().includes(q) ||
+        String(user.display_name || '').toLowerCase().includes(q)
       );
     }
 
-    const total = users.length;
-    return { users: users.slice(offset, offset + requestedLimit), total };
+    return {users:users.slice(offset,offset+requestedLimit),total:users.length};
   },
 
-  async count(): Promise<{ total: number; active: number; suspended: number; admins: number }> {
-    const snap = await db().collection('users').get();
-    let active = 0;
-    let suspended = 0;
-    let admins = 0;
-    for (const doc of snap.docs) {
-      const user = doc.data() as UserProfile;
-      if (user.status === 'ACTIVE') active++;
-      if (user.status === 'SUSPENDED') suspended++;
-      if (user.role === 'ADMIN') admins++;
-    }
-    return { total: snap.size, active, suspended, admins };
+  async count():Promise<{total:number;active:number;suspended:number;admins:number}> {
+    const users = await allUsers(500);
+    return {
+      total:users.length,
+      active:users.filter((u)=>u.status==='ACTIVE').length,
+      suspended:users.filter((u)=>u.status==='SUSPENDED').length,
+      admins:users.filter((u)=>u.role==='ADMIN').length,
+    };
   },
 
-  clearForTesting() {
-    // Production source of truth is Firestore; tests should use an emulator/test project.
-  },
+  clearForTesting() {},
 };
