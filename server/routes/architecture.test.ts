@@ -41,14 +41,16 @@ describe('API architecture invariants', () => {
   it('registers each METHOD + PATH only once', () => {
     const seen = new Map<string,string>();
     const duplicates:string[] = [];
-    const routerPattern = new RegExp(
-      '(?:' + routerNames.join('|') + ")\\\\.(get|post|put|patch|delete)\\\\(\\\\s*['\\\"]([^'\\\"]+)['\\\"]",
-      'g',
-    );
+    const routePattern = /\.(get|post|put|patch|delete)\(\s*['"]([^'"]+)['"]/;
 
     for (const file of routeFiles) {
       const source = read(file);
-      for (const match of source.matchAll(routerPattern)) {
+      for (const line of source.split('\n')) {
+        const routerName = routerNames.find((name) => line.includes(`${name}.`));
+        if (!routerName) continue;
+        const match = line.match(routePattern);
+        if (!match) continue;
+
         const key = `${String(match[1]).toUpperCase()} ${match[2]}`;
         const previous = seen.get(key);
         if (previous) duplicates.push(`${key}: ${previous} + ${file}`);
