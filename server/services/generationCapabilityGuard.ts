@@ -23,7 +23,9 @@ export async function assertGenerationCapability(input:GenerationCapabilityInput
  if(model.category==='VIDEO'&&!caps.supported_durations.includes(Number(input.duration_seconds)))errors.push(`${model.name} não suporta ${input.duration_seconds}s.`);
  if(!caps.supported_aspect_ratios.includes(String(input.aspect_ratio)))errors.push(`${model.name} não suporta proporção ${input.aspect_ratio}.`);
  if(Number(input.number_of_outputs)!==1)errors.push('A geração atual suporta uma saída por vez.');
- if(input.audio_enabled===true&&!caps.supports_audio_generation)errors.push(`${model.name} não gera áudio nativo.`);
+ const audioMode=caps.audio_generation_mode||(caps.supports_audio_generation?'OPTIONAL':'NONE');
+ if(input.audio_enabled===true&&audioMode==='NONE')errors.push(`${model.name} não gera áudio nativo.`);
+ if(input.audio_enabled===false&&audioMode==='ALWAYS')errors.push(`${model.name} sempre inclui áudio nativo.`);
  const refs=input.references||[];
  const hasEnd=refs.some((ref)=>['END','END_FRAME'].includes(String(ref.slot_type||ref.role||'').toUpperCase()));
  if(hasEnd&&!caps.supports_start_end_image)errors.push(`${model.name} não suporta quadro final.`);
