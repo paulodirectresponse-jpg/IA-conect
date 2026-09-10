@@ -41,6 +41,7 @@ export const assetService = {
 
   async registerAsset(params: {
     userId: string;
+    assetId?: string;
     name: string;
     alias?: string;
     category?: AssetCategory;
@@ -62,6 +63,7 @@ export const assetService = {
     const category: AssetCategory = params.category || (validation.type === 'AUDIO' ? 'AUDIO_REFERENCE' : 'PRODUCT');
 
     return assetRepository.createAsset({
+      asset_id: params.assetId,
       owner_user_id: params.userId,
       type: validation.type,
       category,
