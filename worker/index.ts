@@ -6,6 +6,7 @@ import { generationRuntimeRouter } from '../server/routes/generationRuntimeRoute
 import { providerFinanceRouter } from '../server/routes/providerFinanceRoutes.js';
 import { pricingRuntimeRouter } from '../server/routes/pricingRuntimeRoutes.js';
 import { adminPricingRuntimeRouter } from '../server/routes/adminPricingRuntimeRoutes.js';
+import { communityRouter } from '../server/routes/communityRoutes.js';
 import { pricingSyncService } from '../server/services/pricingSyncService.js';
 
 const app = express();
@@ -21,6 +22,10 @@ app.use('/api', adminPricingRuntimeRouter);
 
 // Live pricing preview must win over the legacy catalog-based preview route.
 app.use('/api', pricingRuntimeRouter);
+
+// Community reuses the same generation/assets data as the studio. It must be
+// mounted in the Worker too (server.ts already mounts it for local Node).
+app.use('/api', communityRouter);
 
 // Generation dispatch is mounted before the legacy API router so IMAGE/VIDEO
 // mode reaches the engine explicitly and reference semantics remain intact.
