@@ -28,7 +28,7 @@ export const assetReferenceResolver={
     throw Object.assign(new Error('Asset sem URL acessível ao provedor.'),{code:'REFERENCE_URL_UNAVAILABLE'});
   },
 
-  async resolveReferenceAssetUrls(userId:string,assetIds:string[]) {
+  async resolveReferenceAssetUrls(userId:string,assetIds:string[],_reqHost?:string,_idToken?:string) {
     const out:ResolvedAssetReference[]=[];
     for(const id of Array.from(new Set(assetIds||[]))){
       const asset=await assetRepository.getAsset(id,userId);
