@@ -1,127 +1,31 @@
 import crypto from 'crypto';
-import { PaymentRecord, PaymentMethod, WalletAccount, WalletTransaction } from '../../src/types/index.js';
+import { PaymentRecord, PaymentMethod } from '../../src/types/index.js';
 import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
+import { packCatalogService } from './packCatalogService.js';
+import { creditWalletService } from './creditWalletService.js';
 
-function cfg(){
- const token=process.env.MERCADOPAGO_ACCESS_TOKEN?.trim();
- if(!token){const e:any=new Error('Mercado Pago ainda não configurado.');e.code='PAYMENTS_NOT_CONFIGURED';throw e;}
- const explicit=String(process.env.MERCADOPAGO_ENVIRONMENT||process.env.MERCADOPAGO_MODE||'').trim().toLowerCase();
- const inferred=token.startsWith('TEST-')?'test':'production';
- const mode=explicit==='production'||explicit==='prod'?'production':explicit==='test'||explicit==='sandbox'?'test':inferred;
- return{
-  token,
-  base:(process.env.MERCADOPAGO_BASE_URL||'https://api.mercadopago.com').replace(/\/$/,''),
-  mode
- } as const;
-}
-function amountString(c:number){return (c/100).toFixed(2);}
-function mapOrderStatus(status:string,statusDetail?:string){
- const s=String(status||'').toLowerCase();const d=String(statusDetail||'').toLowerCase();
- if((s==='processed'&&d==='accredited')||s==='approved')return'CONFIRMED' as const;
- if(['failed','canceled','cancelled','refunded','charged_back'].includes(s))return'FAILED' as const;
- if(s==='expired')return'EXPIRED' as const;
- return'PENDING' as const;
-}
+function cfg(){const token=process.env.MERCADOPAGO_ACCESS_TOKEN?.trim();if(!token){const e:any=new Error('Mercado Pago ainda não configurado.');e.code='PAYMENTS_NOT_CONFIGURED';throw e;}const explicit=String(process.env.MERCADOPAGO_ENVIRONMENT||process.env.MERCADOPAGO_MODE||'').trim().toLowerCase(),inferred=token.startsWith('TEST-')?'test':'production',mode=explicit==='production'||explicit==='prod'?'production':explicit==='test'||explicit==='sandbox'?'test':inferred;return{token,base:(process.env.MERCADOPAGO_BASE_URL||'https://api.mercadopago.com').replace(/\/$/,''),mode}as const;}
+function amountString(c:number){return(c/100).toFixed(2);}
+function mapOrderStatus(status:string,statusDetail?:string){const s=String(status||'').toLowerCase(),d=String(statusDetail||'').toLowerCase();if((s==='processed'&&d==='accredited')||s==='approved')return'CONFIRMED' as const;if(['failed','canceled','cancelled','refunded','charged_back'].includes(s))return'FAILED' as const;if(s==='expired')return'EXPIRED' as const;return'PENDING' as const;}
 function parseSig(v:string){const out:Record<string,string>={};v.split(',').forEach(part=>{const[k,val]=part.trim().split('=');if(k&&val)out[k]=val;});return out;}
-function emptyWallet(userId:string):WalletAccount{return{account_id:userId,user_id:userId,currency:'BRL',available_balance_cents:0,reserved_balance_cents:0,total_balance_cents:0,total_deposited_cents:0,total_used_cents:0,updated_at:new Date().toISOString()};}
-function idemId(key:string){return crypto.createHash('sha256').update(key).digest('hex');}
-
-async function getUserEmail(userId:string){const u=await firestoreAdminRest.get(`users/${encodeURIComponent(userId)}`);const email=String(u.data?.email||'').trim();if(!email)throw new Error('E-mail do usuário não encontrado.');return email;}
-
-async function depositWalletOnce(userId:string,amount_cents:number,paymentInternalId:string,gatewayReference:string){
- const idempotencyKey=`mp-deposit:${gatewayReference}`;const idemPath=`wallet_idempotency/${idemId(idempotencyKey)}`;const existing=await firestoreAdminRest.get(idemPath);if(existing.exists)return{already:true};
- for(let attempt=0;attempt<3;attempt++){
-  const accountPath=`wallet_accounts/${encodeURIComponent(userId)}`;const accountDoc=await firestoreAdminRest.get(accountPath);const current=(accountDoc.exists?accountDoc.data:emptyWallet(userId)) as WalletAccount;const now=new Date().toISOString();
-  const next:WalletAccount={...current,available_balance_cents:Number(current.available_balance_cents||0)+amount_cents,total_balance_cents:Number(current.total_balance_cents||0)+amount_cents,total_deposited_cents:Number(current.total_deposited_cents||0)+amount_cents,reserved_balance_cents:Number(current.reserved_balance_cents||0),total_used_cents:Number(current.total_used_cents||0),updated_at:now};
-  const txId=`tx_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;const tx:WalletTransaction={transaction_id:txId,user_id:userId,type:'DEPOSIT',amount_cents,status:'COMPLETED',description:`Recarga Pix Mercado Pago #${String(gatewayReference).slice(-6)}`,reference_type:'SYSTEM',reference_id:paymentInternalId,idempotency_key:idempotencyKey,created_at:now,created_by:'system'};
-  const writes:any[]=[
-   {update:{name:firestoreAdminRest.docName(accountPath),fields:firestoreAdminRest.fields(next)},currentDocument:accountDoc.exists?{updateTime:accountDoc.updateTime}:{exists:false}},
-   {update:{name:firestoreAdminRest.docName(`wallet_transactions/${txId}`),fields:firestoreAdminRest.fields(tx)},currentDocument:{exists:false}},
-   {update:{name:firestoreAdminRest.docName(idemPath),fields:firestoreAdminRest.fields({transaction_id:txId,user_id:userId,created_at:now})},currentDocument:{exists:false}},
-  ];
-  try{await firestoreAdminRest.commit(writes);return{already:false};}catch(e:any){const idem=await firestoreAdminRest.get(idemPath);if(idem.exists)return{already:true};if(attempt===2)throw e;}
- }
- return{already:false};
-}
-
-async function fetchOrder(orderId:string){
- const {token,base}=cfg();const r=await fetch(`${base}/v1/orders/${encodeURIComponent(orderId)}`,{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'}});const text=await r.text();let body:any={};try{body=JSON.parse(text);}catch{}
- if(!r.ok)throw Object.assign(new Error(body?.message||body?.error||`Mercado Pago Orders HTTP ${r.status}`),{code:`MERCADOPAGO_ORDERS_HTTP_${r.status}`});
- return body;
-}
-
-async function applyOrderToPayment(order:any,payment:any){
- const internalId=String(order?.external_reference||payment.payment_id||'');if(!internalId)return payment;
- if(payment.gateway_order_id&&String(payment.gateway_order_id)!==String(order?.id||''))return payment;
- const tx=order?.transactions?.payments?.[0]||{};const nextStatus=mapOrderStatus(String(order?.status||tx?.status||''),String(order?.status_detail||tx?.status_detail||''));
- if(nextStatus==='CONFIRMED'&&payment.status!=='CONFIRMED'){
-  await depositWalletOnce(payment.user_id,payment.amount_cents,internalId,String(tx?.id||order?.id||internalId));
-  payment.confirmed_at=new Date().toISOString();
- }
- if(nextStatus==='FAILED')payment.failed_at=payment.failed_at||new Date().toISOString();
- payment.status=nextStatus;payment.gateway_status=String(order?.status||tx?.status||'');payment.gateway_status_detail=String(order?.status_detail||tx?.status_detail||'');payment.gateway_order_id=String(order?.id||payment.gateway_order_id||'');payment.gateway_payment_id=String(tx?.id||payment.gateway_payment_id||'');
- await firestoreAdminRest.set(`payments/${encodeURIComponent(internalId)}`,payment);return payment;
-}
-
-function mercadoPagoError(body:any,status:number){
- const message=String(body?.message||body?.error||body?.cause?.[0]?.description||`Mercado Pago Orders HTTP ${status}`);
- if(message.toLowerCase().includes('unauthorized use of live credentials')){
-  return Object.assign(new Error('As credenciais do Mercado Pago não correspondem ao ambiente configurado. Confira o Access Token e a variável MERCADOPAGO_ENVIRONMENT.'),{code:'MERCADOPAGO_CREDENTIAL_ENV_MISMATCH'});
- }
- return Object.assign(new Error(message),{code:`MERCADOPAGO_ORDERS_HTTP_${status}`});
-}
+async function getUserEmail(userId:string){const u=await firestoreAdminRest.get(`users/${encodeURIComponent(userId)}`),email=String(u.data?.email||'').trim();if(!email)throw new Error('E-mail do usuário não encontrado.');return email;}
+async function fetchOrder(orderId:string){const{token,base}=cfg();const r=await fetch(`${base}/v1/orders/${encodeURIComponent(orderId)}`,{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'}}),text=await r.text();let body:any={};try{body=JSON.parse(text);}catch{}if(!r.ok)throw Object.assign(new Error(body?.message||body?.error||`Mercado Pago Orders HTTP ${r.status}`),{code:`MERCADOPAGO_ORDERS_HTTP_${r.status}`});return body;}
+async function recordCashEventOnce(payment:any,type:'CASH_RECEIVED'|'CASH_REVERSAL'){const key=`${type}:${payment.payment_id}`,path=`cash_ledger/${crypto.createHash('sha256').update(key).digest('hex')}`;const d=await firestoreAdminRest.get(path);if(d.exists)return;await firestoreAdminRest.commit([{update:{name:firestoreAdminRest.docName(path),fields:firestoreAdminRest.fields({cash_event_id:path.split('/')[1],user_id:payment.user_id,payment_id:payment.payment_id,type,amount_cents:payment.amount_cents,currency:'BRL',gateway:'MERCADOPAGO',created_at:new Date().toISOString()})},currentDocument:{exists:false}}]).catch(async()=>{if(!(await firestoreAdminRest.get(path)).exists)throw new Error('Falha ao registrar evento financeiro.');});}
+async function issueCreditsForPayment(payment:any,gatewayReference:string){if(payment.credit_issue_status==='COMPLETED')return;const pack=packCatalogService.get(String(payment.pack_id),Number(payment.pack_version));if(!pack)throw Object.assign(new Error('Versão do pack comprado não está disponível.'),{code:'PACK_VERSION_NOT_FOUND'});await recordCashEventOnce(payment,'CASH_RECEIVED');const reservePct=Math.min(.5,Math.max(0,Number(process.env.CREDIT_CASH_RESERVE_PERCENT||8)/100)),netBackingMicros=Math.floor(payment.amount_cents*10000*(1-reservePct));await creditWalletService.issue({userId:payment.user_id,credits:pack.total_credits,source:'PURCHASE',idempotencyKey:`payment-credit-issue:${payment.payment_id}`,referenceId:payment.payment_id,paymentId:payment.payment_id,packId:pack.pack_id,packVersion:pack.version,netCashBackingMicros,metadata:{gateway_reference:gatewayReference,gross_amount_cents:payment.amount_cents,base_credits:pack.base_credits,bonus_credits:pack.bonus_credits,cash_reserve_percent:reservePct*100}});payment.credit_issue_status='COMPLETED';payment.issued_credits=pack.total_credits;payment.credit_issue_completed_at=new Date().toISOString();}
+async function reversePaymentCredits(payment:any){await recordCashEventOnce(payment,'CASH_REVERSAL');await creditWalletService.revokePayment(payment.user_id,payment.payment_id);payment.credit_reversal_status='COMPLETED';payment.credit_reversal_at=new Date().toISOString();}
+async function applyOrderToPayment(order:any,payment:any){const internalId=String(order?.external_reference||payment.payment_id||'');if(!internalId)return payment;if(payment.gateway_order_id&&String(payment.gateway_order_id)!==String(order?.id||''))return payment;const tx=order?.transactions?.payments?.[0]||{},nextStatus=mapOrderStatus(String(order?.status||tx?.status||''),String(order?.status_detail||tx?.status_detail||'')),wasConfirmed=payment.status==='CONFIRMED';if(nextStatus==='CONFIRMED'){await issueCreditsForPayment(payment,String(tx?.id||order?.id||internalId));payment.confirmed_at=payment.confirmed_at||new Date().toISOString();}else if(nextStatus==='FAILED'){payment.failed_at=payment.failed_at||new Date().toISOString();if(wasConfirmed||payment.credit_issue_status==='COMPLETED')await reversePaymentCredits(payment);}payment.status=nextStatus;payment.gateway_status=String(order?.status||tx?.status||'');payment.gateway_status_detail=String(order?.status_detail||tx?.status_detail||'');payment.gateway_order_id=String(order?.id||payment.gateway_order_id||'');payment.gateway_payment_id=String(tx?.id||payment.gateway_payment_id||'');await firestoreAdminRest.set(`payments/${encodeURIComponent(internalId)}`,payment);return payment;}
+function mercadoPagoError(body:any,status:number){const message=String(body?.message||body?.error||body?.cause?.[0]?.description||`Mercado Pago Orders HTTP ${status}`);if(message.toLowerCase().includes('unauthorized use of live credentials'))return Object.assign(new Error('As credenciais do Mercado Pago não correspondem ao ambiente configurado.'),{code:'MERCADOPAGO_CREDENTIAL_ENV_MISMATCH'});return Object.assign(new Error(message),{code:`MERCADOPAGO_ORDERS_HTTP_${status}`});}
 
 export const paymentService={
  isConfigured(){return Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN?.trim());},
- async createPayment(params:{userId:string;amount_cents:number;method:PaymentMethod}):Promise<PaymentRecord>{
-  if(params.method!=='PIX')throw Object.assign(new Error('Neste MVP, recargas online estão habilitadas apenas via Pix.'),{code:'PAYMENT_METHOD_UNSUPPORTED'});
-  if(!Number.isInteger(params.amount_cents)||params.amount_cents<500)throw new Error('Recarga mínima: R$ 5,00.');
-  if(params.amount_cents>1000000)throw new Error('Recarga máxima por transação: R$ 10.000,00.');
-  const {token,base,mode}=cfg();const realEmail=await getUserEmail(params.userId);
-
-  if(mode==='test'&&params.amount_cents!==5000){
-   throw Object.assign(new Error('O Access Token atual é de teste. Para Pix real a partir de R$ 5,00, configure o Access Token de produção e MERCADOPAGO_ENVIRONMENT=production no Cloudflare.'),{code:'MERCADOPAGO_TEST_PIX_AMOUNT'});
-  }
-
-  const paymentId=`pay_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,idem=`mp-order:${paymentId}`;const amount=amountString(params.amount_cents);
-  const payload:any=mode==='test'
-   ? {
-      type:'online',
-      external_reference:paymentId,
-      total_amount:'50.00',
-      payer:{email:'test_user_br@testuser.com',first_name:'APRO'},
-      transactions:{payments:[{amount:'50.00',payment_method:{id:'pix',type:'bank_transfer'}}]}
-     }
-   : {
-      type:'online',
-      total_amount:amount,
-      external_reference:paymentId,
-      processing_mode:'automatic',
-      transactions:{payments:[{amount,payment_method:{id:'pix',type:'bank_transfer'},expiration_time:'PT30M'}]},
-      payer:{email:realEmail}
-     };
-
-  const response=await fetch(`${base}/v1/orders`,{method:'POST',headers:{Authorization:`Bearer ${token}`,Accept:'application/json','Content-Type':'application/json','X-Idempotency-Key':idem},body:JSON.stringify(payload)});const text=await response.text();let body:any={};try{body=JSON.parse(text);}catch{}
-  if(!response.ok)throw mercadoPagoError(body,response.status);
-
-  const tx=body?.transactions?.payments?.[0]||{};const method=tx?.payment_method||{};const now=new Date().toISOString();const status=mapOrderStatus(String(body?.status||tx?.status||''),String(body?.status_detail||tx?.status_detail||''));
-  const payment:any={payment_id:paymentId,user_id:params.userId,amount_cents:params.amount_cents,method:'PIX',status,pix_code:method.qr_code,pix_qr_code_base64:method.qr_code_base64,checkout_url:method.ticket_url,description:'Recarga de saldo via Pix',idempotency_key:`deposit:${paymentId}`,created_at:body?.created_date||now,expires_at:new Date(Date.now()+30*60000).toISOString(),confirmed_at:null,failed_at:null,gateway:'MERCADOPAGO',gateway_order_id:String(body?.id||''),gateway_payment_id:String(tx?.id||''),gateway_status:String(body?.status||tx?.status||'pending'),gateway_status_detail:String(body?.status_detail||tx?.status_detail||''),gateway_mode:mode};
-  await firestoreAdminRest.set(`payments/${paymentId}`,payment);
-  if(status==='CONFIRMED')return await applyOrderToPayment(body,payment) as PaymentRecord;
-  return payment as PaymentRecord;
+ async createPayment(params:{userId:string;amount_cents:number;method:PaymentMethod;pack_id?:string}):Promise<PaymentRecord>{
+  if(params.method!=='PIX')throw Object.assign(new Error('Recargas online estão habilitadas apenas via Pix.'),{code:'PAYMENT_METHOD_UNSUPPORTED'});const pack=params.pack_id?packCatalogService.get(params.pack_id):packCatalogService.byAmount(Number(params.amount_cents));if(!pack)throw Object.assign(new Error('Escolha um pack de créditos válido.'),{code:'PACK_REQUIRED'});const amountCents=pack.price_brl_cents,{token,base,mode}=cfg(),realEmail=await getUserEmail(params.userId);if(mode==='test'&&amountCents!==5000)throw Object.assign(new Error('O Access Token atual é de teste e o fluxo Pix sandbox está validado no pack de R$ 50.'),{code:'MERCADOPAGO_TEST_PIX_AMOUNT'});
+  const paymentId=`pay_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,idem=`mp-order:${paymentId}`,amount=amountString(amountCents);const payload:any=mode==='test'?{type:'online',external_reference:paymentId,total_amount:'50.00',payer:{email:'test_user_br@testuser.com',first_name:'APRO'},transactions:{payments:[{amount:'50.00',payment_method:{id:'pix',type:'bank_transfer'}}]}}:{type:'online',total_amount:amount,external_reference:paymentId,processing_mode:'automatic',transactions:{payments:[{amount,payment_method:{id:'pix',type:'bank_transfer'},expiration_time:'PT30M'}]},payer:{email:realEmail}};const response=await fetch(`${base}/v1/orders`,{method:'POST',headers:{Authorization:`Bearer ${token}`,Accept:'application/json','Content-Type':'application/json','X-Idempotency-Key':idem},body:JSON.stringify(payload)}),text=await response.text();let body:any={};try{body=JSON.parse(text);}catch{}if(!response.ok)throw mercadoPagoError(body,response.status);
+  const tx=body?.transactions?.payments?.[0]||{},method=tx?.payment_method||{},now=new Date().toISOString(),status=mapOrderStatus(String(body?.status||tx?.status||''),String(body?.status_detail||tx?.status_detail||''));const payment:any={payment_id:paymentId,user_id:params.userId,amount_cents:amountCents,method:'PIX',status,pix_code:method.qr_code,pix_qr_code_base64:method.qr_code_base64,checkout_url:method.ticket_url,description:`Compra de ${pack.total_credits.toLocaleString('pt-BR')} créditos`,idempotency_key:`payment:${paymentId}`,pack_id:pack.pack_id,pack_version:pack.version,pack_snapshot:pack,credit_issue_status:'PENDING',created_at:body?.created_date||now,expires_at:new Date(Date.now()+30*60000).toISOString(),confirmed_at:null,failed_at:null,gateway:'MERCADOPAGO',gateway_order_id:String(body?.id||''),gateway_payment_id:String(tx?.id||''),gateway_status:String(body?.status||tx?.status||'pending'),gateway_status_detail:String(body?.status_detail||tx?.status_detail||''),gateway_mode:mode};await firestoreAdminRest.set(`payments/${paymentId}`,payment);return(status==='CONFIRMED'?await applyOrderToPayment(body,payment):payment)as PaymentRecord;
  },
- async getPayment(paymentId:string,userId:string):Promise<PaymentRecord|null>{
-  const d=await firestoreAdminRest.get(`payments/${encodeURIComponent(paymentId)}`);if(!d.exists)return null;let p:any=d.data;if(p.user_id!==userId)return null;
-  if(p.status==='PENDING'&&p.gateway_order_id){try{const order=await fetchOrder(String(p.gateway_order_id));p=await applyOrderToPayment(order,p);}catch(e:any){console.warn('[MercadoPagoOrdersPoll]',e?.message||e);}}
-  return p as PaymentRecord;
- },
- async listUserPayments(userId:string):Promise<PaymentRecord[]>{const rows=await firestoreAdminRest.runQuery({from:[{collectionId:'payments'}],where:{fieldFilter:{field:{fieldPath:'user_id'},op:'EQUAL',value:{stringValue:userId}}},orderBy:[{field:{fieldPath:'created_at'},direction:'DESCENDING'}],limit:50});return rows.map((r:any)=>r.data as PaymentRecord);},
- async confirmPayment(_paymentId?:string,_userId?:string){const e:any=new Error('Confirmação manual proibida. Aguarde o webhook verificado do Mercado Pago.');e.code='PAYMENT_CONFIRM_FORBIDDEN';throw e;},
- verifyWebhookSignature(headers:Record<string,any>,dataId:string){const secret=process.env.MERCADOPAGO_WEBHOOK_SECRET?.trim();if(!secret)return false;const sig=String(headers['x-signature']||''),requestId=String(headers['x-request-id']||'');const parsed=parseSig(sig),ts=parsed.ts,v1=parsed.v1;if(!ts||!v1)return false;const manifest=`id:${dataId};request-id:${requestId};ts:${ts};`;const expected=crypto.createHmac('sha256',secret).update(manifest).digest('hex');try{return crypto.timingSafeEqual(Buffer.from(expected,'hex'),Buffer.from(v1,'hex'));}catch{return false;}},
- async processWebhook(params:{headers:Record<string,any>;dataId:string;eventType?:string;action?:string}){
-  if(!this.verifyWebhookSignature(params.headers,params.dataId))throw Object.assign(new Error('Assinatura de webhook inválida.'),{code:'INVALID_WEBHOOK_SIGNATURE'});
-  const eventType=String(params.eventType||'').toLowerCase();
-  if(eventType&&eventType!=='order')return{ignored:true,reason:`unsupported_event:${eventType}`};
-  const order=await fetchOrder(params.dataId);const internalId=String(order?.external_reference||'');if(!internalId)return{ignored:true};const doc=await firestoreAdminRest.get(`payments/${encodeURIComponent(internalId)}`);if(!doc.exists)return{ignored:true};const payment:any=doc.data;if(payment.gateway_order_id&&String(payment.gateway_order_id)!==String(order.id))return{ignored:true};const updated=await applyOrderToPayment(order,payment);return{ignored:false,status:updated.status};
- }
+ async getPayment(paymentId:string,userId:string):Promise<PaymentRecord|null>{const d=await firestoreAdminRest.get(`payments/${encodeURIComponent(paymentId)}`);if(!d.exists)return null;let p:any=d.data;if(p.user_id!==userId)return null;if(p.status==='PENDING'&&p.gateway_order_id){try{p=await applyOrderToPayment(await fetchOrder(String(p.gateway_order_id)),p);}catch(e:any){console.warn('[MercadoPagoOrdersPoll]',e?.message||e);}}return p as PaymentRecord;},
+ async listUserPayments(userId:string):Promise<PaymentRecord[]>{const rows=await firestoreAdminRest.runQuery({from:[{collectionId:'payments'}],where:{fieldFilter:{field:{fieldPath:'user_id'},op:'EQUAL',value:{stringValue:userId}}},limit:50});return rows.map((r:any)=>r.data as PaymentRecord).sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime());},
+ async confirmPayment(){const e:any=new Error('Confirmação manual proibida. Aguarde o webhook verificado do Mercado Pago.');e.code='PAYMENT_CONFIRM_FORBIDDEN';throw e;},
+ verifyWebhookSignature(headers:Record<string,any>,dataId:string){const secret=process.env.MERCADOPAGO_WEBHOOK_SECRET?.trim();if(!secret)return false;const sig=String(headers['x-signature']||''),requestId=String(headers['x-request-id']||''),parsed=parseSig(sig),ts=parsed.ts,v1=parsed.v1;if(!ts||!v1)return false;const expected=crypto.createHmac('sha256',secret).update(`id:${dataId};request-id:${requestId};ts:${ts};`).digest('hex');try{return crypto.timingSafeEqual(Buffer.from(expected,'hex'),Buffer.from(v1,'hex'));}catch{return false;}},
+ async processWebhook(params:{headers:Record<string,any>;dataId:string;eventType?:string;action?:string}){if(!this.verifyWebhookSignature(params.headers,params.dataId))throw Object.assign(new Error('Assinatura de webhook inválida.'),{code:'INVALID_WEBHOOK_SIGNATURE'});const eventType=String(params.eventType||'').toLowerCase();if(eventType&&eventType!=='order')return{ignored:true,reason:`unsupported_event:${eventType}`};const order=await fetchOrder(params.dataId),internalId=String(order?.external_reference||'');if(!internalId)return{ignored:true};const doc=await firestoreAdminRest.get(`payments/${encodeURIComponent(internalId)}`);if(!doc.exists)return{ignored:true};const payment:any=doc.data;if(payment.gateway_order_id&&String(payment.gateway_order_id)!==String(order.id))return{ignored:true};const updated=await applyOrderToPayment(order,payment);return{ignored:false,status:updated.status};}
 };
