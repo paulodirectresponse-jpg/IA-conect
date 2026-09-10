@@ -1,5 +1,4 @@
 import { GenerationMode } from '../../src/types/index.js';
-import { STUDIO_FALLBACK_MODELS } from '../../src/config/studioCatalog.js';
 import { smartRouterService } from './smartRouterService.js';
 import { pricingSignatureService, PricingSignature } from './pricingSignatureService.js';
 import { retailPricingService, RetailPricingVersion } from './retailPricingService.js';
@@ -15,7 +14,6 @@ const DEFAULT_AUDIO_MODELS=new Set(['wan-3-0','wan-3-0-prime','seedance-2-5','se
 function referenceMode(refs:CreditPricingInput['references']){const r=refs||[];if(!r.length)return'none';if(r.some(x=>String(x.slot_type||x.role||'').toUpperCase().includes('INITIAL')))return r.some(x=>String(x.slot_type||x.role||'').toUpperCase().includes('END'))?'initial_end':'initial';return r.length>1?'multi_ref':'reference';}
 function effectiveAudio(input:CreditPricingInput){return input.audio_enabled===undefined?DEFAULT_AUDIO_MODELS.has(input.model_id):Boolean(input.audio_enabled);}
 function isImageMode(mode:GenerationMode){return mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE';}
-function baseDuration(modelId:string,requested:number){const model=STUDIO_FALLBACK_MODELS.find(m=>m.model_id===modelId),values=(model?.supported_durations||[]).map(Number).filter(v=>Number.isFinite(v)&&v>0);return values.length?Math.min(...values):Math.max(1,Math.round(requested||1));}
 function cachedCandidate(row:any){return{provider_id:String(row?.provider_id||'persisted-pricing'),provider_name:String(row?.provider_name||'Snapshot persistido'),provider_cost_usd:Number(row?.provider_cost_usd||0),provider_cost_cents:Number(row?.provider_cost_brl_cents||0),safe_cost_cents:Number(row?.safe_cost_brl_cents||row?.provider_cost_brl_cents||0),fully_loaded_safe_cogs_cents:Number(row?.fully_loaded_safe_cogs_cents||row?.safe_cost_brl_cents||row?.provider_cost_brl_cents||0),billing_policy:'UNKNOWN',quoted_at:String(row?.checked_at||new Date(0).toISOString()),quote_estimated:true,is_healthy:row?.status==='OK'};}
 async function persistedDecision(input:CreditPricingInput,unitSignature:PricingSignature){
  const snapshot=await pricingSyncService.getLatestSnapshot();
@@ -38,7 +36,9 @@ export const creditPricingService={
  async preview(input:CreditPricingInput){
   const audio_enabled=effectiveAudio(input),model_variant=input.model_variant||'default',pricing_options=input.pricing_options||{},image=isImageMode(input.mode),normalizedInput={...input,audio_enabled,model_variant,pricing_options};
   const signature=pricingSignatureService.create({model_id:input.model_id,mode:input.mode,resolution:input.resolution,duration_seconds:image?1:input.duration_seconds,aspect_ratio:input.aspect_ratio,number_of_outputs:input.number_of_outputs,audio_enabled,reference_mode:referenceMode(input.references),reference_count:(input.references||[]).length,model_variant,pricing_options});
-  const retailBaseDuration=image?1:baseDuration(input.model_id,input.duration_seconds);
+  const model=image?null:await catalogRepository.getModel(input.model_id);
+  const supportedDurations=(model?.supported_durations||[]).map(Number).filter((value)=>Number.isFinite(value)&&value>0);
+  const retailBaseDuration=image?1:(supportedDurations.length?Math.min(...supportedDurations):Math.max(1,Math.round(input.duration_seconds||1)));
   const unitSignature=pricingSignatureService.create({model_id:input.model_id,mode:input.mode,resolution:input.resolution,duration_seconds:retailBaseDuration,aspect_ratio:input.aspect_ratio,number_of_outputs:1,audio_enabled,reference_mode:referenceMode(input.references),reference_count:(input.references||[]).length,model_variant,pricing_options});
   const settings=await pricingSettingsService.get(false),useLive=input.force_live_quote===true;
   const unitInput={...normalizedInput,duration_seconds:retailBaseDuration,number_of_outputs:1};
