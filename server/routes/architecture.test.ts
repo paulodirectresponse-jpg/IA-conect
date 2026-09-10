@@ -4,25 +4,35 @@ import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
 const routeFiles = [
-  'server/routes/runtimeRoutes.ts',
-  'server/routes/creditRuntimeRoutes.ts',
-  'server/routes/generationRuntimeRoutes.ts',
-  'server/routes/apiRoutes.ts',
-  'server/routes/adminPricingRuntimeRoutes.ts',
-  'server/routes/adminEconomicsRoutes.ts',
-  'server/routes/providerFinanceRoutes.ts',
+  'server/routes/systemRoutes.ts',
+  'server/routes/authRoutes.ts',
+  'server/routes/creditRoutes.ts',
+  'server/routes/paymentRoutes.ts',
+  'server/routes/catalogRoutes.ts',
+  'server/routes/assetRoutes.ts',
+  'server/routes/workspaceRoutes.ts',
+  'server/routes/generationRoutes.ts',
   'server/routes/communityRoutes.ts',
+  'server/routes/adminRoutes.ts',
+  'server/routes/providerFinanceRoutes.ts',
+  'server/routes/adminPricingRoutes.ts',
+  'server/routes/adminEconomicsRoutes.ts',
 ];
 
 const routerNames = [
-  'runtimeRouter',
-  'creditRuntimeRouter',
-  'generationRuntimeRouter',
-  'apiRouter',
-  'adminPricingRuntimeRouter',
-  'adminEconomicsRouter',
-  'providerFinanceRouter',
+  'systemRouter',
+  'authRouter',
+  'creditRouter',
+  'paymentRouter',
+  'catalogRouter',
+  'assetRouter',
+  'workspaceRouter',
+  'generationRouter',
   'communityRouter',
+  'adminRouter',
+  'providerFinanceRouter',
+  'adminPricingRouter',
+  'adminEconomicsRouter',
 ];
 
 const read = (file:string) => fs.readFileSync(path.join(root, file), 'utf8');
@@ -57,13 +67,21 @@ describe('API architecture invariants', () => {
     expect(source).not.toContain('/admin/users/:userId/adjust-balance');
   });
 
-  it('keeps generation quote payload free of internal economics', () => {
-    const source = read('server/routes/generationRuntimeRoutes.ts');
+  it('keeps the generation quote payload free of internal economics', () => {
+    const source = read('server/routes/generationRoutes.ts');
     expect(source).not.toContain('provider_cost_brl_cents');
     expect(source).not.toContain('fully_loaded_safe_cogs_cents');
     expect(source).not.toContain('margin_percent:');
     expect(source).not.toContain('max_allowed_cogs_cents:');
     expect(source).not.toContain('authorized_net_backing_micros:');
+  });
+
+  it('has no monolithic or runtime-named route modules left', () => {
+    expect(fs.existsSync(path.join(root, 'server/routes/apiRoutes.ts'))).toBe(false);
+    expect(fs.existsSync(path.join(root, 'server/routes/runtimeRoutes.ts'))).toBe(false);
+    expect(fs.existsSync(path.join(root, 'server/routes/pricingRuntimeRoutes.ts'))).toBe(false);
+    expect(fs.existsSync(path.join(root, 'server/routes/generationRuntimeRoutes.ts'))).toBe(false);
+    expect(fs.existsSync(path.join(root, 'server/routes/creditRuntimeRoutes.ts'))).toBe(false);
   });
 
   it('uses one shared route composition in Node and Cloudflare', () => {
