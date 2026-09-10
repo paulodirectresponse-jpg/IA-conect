@@ -22,15 +22,6 @@ catalogRouter.get('/catalog/providers', requireAuth, async (req, res) => {
   }
 });
 
-catalogRouter.get('/catalog/pricing', requireAuth, async (req, res) => {
-  try {
-    const pricing = await catalogRepository.listPricing();
-    res.json({ success: true, data: pricing });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'CATALOG_ERROR', message: 'Erro ao listar precificação.' } });
-  }
-});
-
 catalogRouter.get('/catalog/promotions', requireAuth, async (req, res) => {
   try {
     const promotions = await catalogRepository.listPromotions();
