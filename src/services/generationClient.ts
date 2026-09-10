@@ -1,5 +1,6 @@
 import { apiRequest } from './apiClient.js';
 import { Generation, GenerationMode, GenerationRequestDraft, WorkspaceReference } from '../types/index.js';
+import { canonicalReferenceSlot } from '../utils/generationReferenceMode.js';
 
 export interface GenerationQuoteParams {
   model_id:string;
@@ -29,17 +30,14 @@ export type PricedGenerationDraft = GenerationRequestDraft & {
 };
 
 function normalizeReferences(draft:GenerationRequestDraft) {
-  const refs = draft.references || [];
-  const hasExplicitRoles = refs.some(r => Boolean(r.role));
-  return refs.map((r,index) => {
-    const role = String(r.role || '').toUpperCase();
-    let slot_type:'INITIAL'|'END'|'GENERAL' = 'GENERAL';
-    if (['START_FRAME','INITIAL_FRAME','INITIAL'].includes(role)) slot_type = 'INITIAL';
-    else if (['END_FRAME','END'].includes(role)) slot_type = 'END';
-    else if (!hasExplicitRoles && draft.mode === 'IMAGE_TO_VIDEO') {
-      slot_type = index === 0 ? 'INITIAL' : index === 1 ? 'END' : 'GENERAL';
+  const refs=draft.references||[];
+  const hasExplicitRoles=refs.some((r)=>canonicalReferenceSlot(r)!=='GENERAL');
+  return refs.map((r,index)=>{
+    let slot_type=canonicalReferenceSlot(r);
+    if(!hasExplicitRoles&&draft.mode==='IMAGE_TO_VIDEO'){
+      slot_type=index===0?'INITIAL':index===1?'END':'GENERAL';
     }
-    return {asset_id:r.asset_id,slot_type,alias:r.alias_snapshot};
+    return{asset_id:r.asset_id,slot_type,alias:r.alias_snapshot};
   });
 }
 
