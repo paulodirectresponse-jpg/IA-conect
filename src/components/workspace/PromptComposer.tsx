@@ -16,7 +16,6 @@ interface PromptComposerProps {
 }
 
 const isFrameReference = (ref: WorkspaceReference) => ['START_FRAME','INITIAL_FRAME','INITIAL','END_FRAME','END'].includes(String(ref.role || '').toUpperCase());
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export const PromptComposer: React.FC<PromptComposerProps> = ({
   prompt,onChangePrompt,negativePrompt,onChangeNegativePrompt,onOpenImproveModal,references,onRequestAddMedia,supportsNegativePrompt=true,maxChars=2000,
@@ -26,19 +25,10 @@ export const PromptComposer: React.FC<PromptComposerProps> = ({
   const [mentionQuery,setMentionQuery]=useState('');
   const [mentionStart,setMentionStart]=useState<number|null>(null);
   const textareaRef=useRef<HTMLTextAreaElement>(null);
-  const highlightRef=useRef<HTMLDivElement>(null);
   const promptReferences=useMemo(()=>references.filter(ref=>!isFrameReference(ref)),[references]);
   const visibleReferences=useMemo(()=>{const q=mentionQuery.trim().toLowerCase();return promptReferences.filter(ref=>!q||ref.alias_snapshot.toLowerCase().includes(q)||(ref.asset?.name||'').toLowerCase().includes(q));},[promptReferences,mentionQuery]);
-  const highlightedPrompt=useMemo(()=>{
-    const aliases=promptReferences.map(ref=>ref.alias_snapshot).filter(Boolean).sort((a,b)=>b.length-a.length);
-    if(!aliases.length||!prompt)return <span className="text-transparent">{prompt}</span>;
-    const regex=new RegExp(`(@(?:${aliases.map(escapeRegExp).join('|')}))(?=\\b|\\s|$|[.,;:!?])`,'gi');
-    const active=new Set(aliases.map(alias=>`@${alias.toLowerCase()}`));
-    return prompt.split(regex).map((part,index)=>active.has(part.toLowerCase())?<span key={`${part}-${index}`} className="rounded-[5px] border border-cyan-300/55 bg-[#0a2530] px-[2px] py-[1px] font-bold text-cyan-200 box-decoration-clone">{part}</span>:<span key={`text-${index}`} className="text-transparent">{part}</span>);
-  },[prompt,promptReferences]);
-  const syncScroll=()=>{if(!textareaRef.current||!highlightRef.current)return;highlightRef.current.scrollTop=textareaRef.current.scrollTop;highlightRef.current.scrollLeft=textareaRef.current.scrollLeft;};
   const detectMention=(value:string,caret:number)=>{const before=value.slice(0,caret);const match=before.match(/(?:^|\s)@([a-zA-Z0-9_-]*)$/);if(!match){setMentionOpen(false);setMentionStart(null);return;}const q=match[1]||'';setMentionQuery(q);setMentionStart(caret-q.length-1);setMentionOpen(true);};
-  const insertReference=(ref:WorkspaceReference)=>{const textarea=textareaRef.current;const caret=textarea?.selectionStart??prompt.length;const start=mentionStart??caret;const token=`@${ref.alias_snapshot} `;onChangePrompt(prompt.slice(0,start)+token+prompt.slice(caret));setMentionOpen(false);setMentionQuery('');setMentionStart(null);requestAnimationFrame(()=>{const pos=start+token.length;textarea?.focus();textarea?.setSelectionRange(pos,pos);syncScroll();});};
+  const insertReference=(ref:WorkspaceReference)=>{const textarea=textareaRef.current;const caret=textarea?.selectionStart??prompt.length;const start=mentionStart??caret;const token=`@${ref.alias_snapshot} `;onChangePrompt(prompt.slice(0,start)+token+prompt.slice(caret));setMentionOpen(false);setMentionQuery('');setMentionStart(null);requestAnimationFrame(()=>{const pos=start+token.length;textarea?.focus();textarea?.setSelectionRange(pos,pos);});};
   const mediaIcon=(type?:string)=>type==='VIDEO'?<Video className="w-4 h-4"/>:type==='AUDIO'?<Music className="w-4 h-4"/>:<ImageIcon className="w-4 h-4"/>;
   const activeRefs=promptReferences.filter(ref=>prompt.toLowerCase().includes(`@${ref.alias_snapshot.toLowerCase()}`));
   const openLibrary=(section:LibrarySection)=>{setMentionOpen(false);onRequestAddMedia(section);};
@@ -46,8 +36,7 @@ export const PromptComposer: React.FC<PromptComposerProps> = ({
   return <div className="space-y-2">
     <div className="flex items-center justify-between"><label className="text-[10px] font-bold text-zinc-300">Prompt</label><span className="text-[8px] font-mono text-zinc-700">{prompt.length}/{maxChars}</span></div>
     <div className="relative rounded-[14px] border border-white/[0.075] bg-[#0a0d12] focus-within:border-cyan-400/25 transition-colors overflow-visible">
-      <textarea ref={textareaRef} id="workspace-prompt-input" value={prompt} onChange={e=>{onChangePrompt(e.target.value);detectMention(e.target.value,e.target.selectionStart);}} onClick={e=>detectMention(prompt,(e.target as HTMLTextAreaElement).selectionStart)} onScroll={syncScroll} onKeyUp={e=>{if(!['Enter','Escape'].includes(e.key))detectMention(prompt,(e.target as HTMLTextAreaElement).selectionStart);}} onKeyDown={e=>{if(!mentionOpen)return;if(e.key==='Escape'){e.preventDefault();setMentionOpen(false);}else if(e.key==='Enter'&&visibleReferences[0]){e.preventDefault();insertReference(visibleReferences[0]);}}} placeholder="Descreva exatamente o que você quer gerar... Digite @ para usar uma referência." rows={5} maxLength={maxChars} className="relative z-10 w-full min-h-[120px] p-3 pb-10 bg-transparent border-0 text-[11px] font-medium leading-relaxed text-white caret-cyan-300 placeholder:text-zinc-600 outline-none resize-none selection:bg-cyan-300/20" style={{WebkitTextFillColor:'#ffffff'}}/>
-      <div ref={highlightRef} aria-hidden="true" className="absolute z-20 left-0 right-0 top-0 bottom-10 p-3 text-[11px] font-medium leading-relaxed whitespace-pre-wrap break-words overflow-hidden pointer-events-none">{highlightedPrompt}{prompt.endsWith('\n')?'\u200b':null}</div>
+      <textarea ref={textareaRef} id="workspace-prompt-input" value={prompt} onChange={e=>{onChangePrompt(e.target.value);detectMention(e.target.value,e.target.selectionStart);}} onClick={e=>detectMention(prompt,(e.target as HTMLTextAreaElement).selectionStart)} onKeyUp={e=>{if(!['Enter','Escape'].includes(e.key))detectMention(prompt,(e.target as HTMLTextAreaElement).selectionStart);}} onKeyDown={e=>{if(!mentionOpen)return;if(e.key==='Escape'){e.preventDefault();setMentionOpen(false);}else if(e.key==='Enter'&&visibleReferences[0]){e.preventDefault();insertReference(visibleReferences[0]);}}} placeholder="Descreva exatamente o que você quer gerar... Digite @ para usar uma referência." rows={5} maxLength={maxChars} className="relative z-10 w-full min-h-[120px] p-3 pb-10 bg-transparent border-0 text-[11px] font-medium leading-relaxed text-white caret-cyan-300 placeholder:text-zinc-600 outline-none resize-none selection:bg-cyan-300/20" style={{WebkitTextFillColor:'#ffffff'}}/>
       <div className="absolute z-30 left-2.5 right-2.5 bottom-2 flex items-center justify-between gap-2 pointer-events-none"><div className="flex items-center gap-1.5 pointer-events-auto"><button type="button" onClick={()=>onRequestAddMedia('ASSETS')} className="h-7 px-2 rounded-lg border border-white/[0.07] bg-white/[0.035] hover:bg-white/[0.06] text-[8px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1"><Plus className="w-3 h-3"/> Referência</button><button type="button" onClick={onOpenImproveModal} disabled={!prompt.trim()} className="h-7 px-2 rounded-lg border border-white/[0.07] bg-white/[0.035] hover:bg-white/[0.06] disabled:opacity-30 text-[8px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1"><Sparkles className="w-3 h-3 text-cyan-300"/> Melhorar</button></div><span className="text-[8px] text-zinc-700">@ para mencionar</span></div>
 
       {mentionOpen&&<div className="absolute z-[100] left-2 top-full mt-1.5 w-[330px] max-w-[calc(100%-16px)] overflow-hidden rounded-2xl border border-white/[0.1] bg-[#171719] shadow-[0_24px_70px_rgba(0,0,0,.72)]">

@@ -6,12 +6,13 @@ import { billingControlService } from '../services/billingControlService.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { promptCompilerService } from '../services/promptCompilerService.js';
 import { GenerationMode } from '../../src/types/index.js';
+import { publicGenerationError } from '../services/publicGenerationError.js';
 
 export const generationRouter = Router();
 
 function publicGeneration(g:any) {
   const publicFailure = g.error_code || g.error_message
-    ? publicOperationalError({code:g.error_code,message:g.error_message}, 'A geração não pôde ser concluída.')
+    ? publicGenerationError({code:g.error_code,message:g.error_message}, 'A geração não pôde ser concluída.')
     : null;
   return {
     generation_id:g.generation_id,
@@ -50,24 +51,6 @@ function publicGeneration(g:any) {
     completed_at:g.completed_at,
     failed_at:g.failed_at,
   };
-}
-
-function publicOperationalError(err:any, fallback:string) {
-  const code = String(err?.code || 'GENERATION_ERROR');
-  if (code === 'CREDIT_INSUFFICIENT_FUNDS') {
-    return { code, message:'Créditos insuficientes para esta geração.', missing_credits:err?.missing_credits };
-  }
-  if (code === 'PRICE_CHANGED_REQUOTE_REQUIRED') {
-    return { code, message:'O preço desta configuração foi atualizado. Revise o valor e tente novamente.' };
-  }
-  if (['NO_SAFE_PROVIDER_AVAILABLE','COGS_BUDGET_EXHAUSTED','PROVIDER_NOT_CONFIGURED','LIVE_QUOTE_UNAVAILABLE','LIVE_QUOTE_INVALID'].includes(code)) {
-    return { code:'GENERATION_TEMPORARILY_UNAVAILABLE', message:'Esta configuração está temporariamente indisponível. Tente outra configuração ou modelo.' };
-  }
-  if (code === 'REFERENCE_NOT_FOUND') return { code, message:'Uma das referências não está mais disponível.' };
-  if (code === 'REFERENCE_NOT_READY') return { code, message:'Uma das referências ainda está sendo processada.' };
-  if (code === 'REFERENCE_REQUIRED') return { code, message:'Adicione a referência necessária para esta geração.' };
-  if (code === 'VALIDATION_ERROR') return { code, message:String(err?.message || fallback) };
-  return { code, message:fallback };
 }
 
 generationRouter.post('/generations/quote', requireAuth, async (req:AuthenticatedRequest, res) => {
@@ -176,7 +159,7 @@ generationRouter.post('/generations/quote', requireAuth, async (req:Authenticate
       },
     });
   } catch (err:any) {
-    const error = publicOperationalError(err, 'Não foi possível confirmar o preço desta configuração.');
+    const error = publicGenerationError(err, 'Não foi possível confirmar o preço desta configuração.');
     const status = err?.code === 'CREDIT_INSUFFICIENT_FUNDS' ? 402 : err?.code === 'NO_SAFE_PROVIDER_AVAILABLE' ? 503 : 400;
     return res.status(status).json({success:false,error});
   }
@@ -206,7 +189,6 @@ generationRouter.post('/generations', requireAuth, async (req:AuthenticatedReque
       model_variant:req.body.model_variant,
       pricing_options:req.body.pricing_options,
       references:req.body.references || [],
-      requested_provider_id:req.body.requested_provider_id,
       client_request_id:req.body.client_request_id,
       authorized_credit_price:Number.isFinite(Number(req.body.authorized_credit_price))
         ? Number(req.body.authorized_credit_price)
@@ -221,7 +203,7 @@ generationRouter.post('/generations', requireAuth, async (req:AuthenticatedReque
 
     return res.json({success:true,data:publicGeneration(g)});
   } catch (err:any) {
-    const error = publicOperationalError(err, 'Não foi possível iniciar a geração.');
+    const error = publicGenerationError(err, 'Não foi possível iniciar a geração.');
     const status = err?.code === 'CREDIT_INSUFFICIENT_FUNDS'
       ? 402
       : err?.code === 'PRICE_CHANGED_REQUOTE_REQUIRED'
