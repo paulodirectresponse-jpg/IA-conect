@@ -7,52 +7,20 @@ import { providerFinanceRouter } from '../server/routes/providerFinanceRoutes.js
 import { pricingRuntimeRouter } from '../server/routes/pricingRuntimeRoutes.js';
 import { adminPricingRuntimeRouter } from '../server/routes/adminPricingRuntimeRoutes.js';
 import { communityRouter } from '../server/routes/communityRoutes.js';
+import { creditRuntimeRouter } from '../server/routes/creditRuntimeRoutes.js';
 import { pricingSyncService } from '../server/services/pricingSyncService.js';
 
-const app = express();
-
-// Binary/runtime routes must be mounted before the global JSON parser so
-// asset uploads keep their raw request body intact.
-app.use('/api', runtimeRouter);
-app.use(express.json({ limit: '4mb' }));
-
-// Operational/admin routes are isolated from the legacy catalog endpoints.
-app.use('/api', providerFinanceRouter);
-app.use('/api', adminPricingRuntimeRouter);
-
-// Live pricing preview must win over the legacy catalog-based preview route.
-app.use('/api', pricingRuntimeRouter);
-
-// Community reuses the same generation/assets data as the studio. It must be
-// mounted in the Worker too (server.ts already mounts it for local Node).
-app.use('/api', communityRouter);
-
-// Generation dispatch is mounted before the legacy API router so IMAGE/VIDEO
-// mode reaches the engine explicitly and reference semantics remain intact.
-app.use('/api', generationRuntimeRouter);
-app.use('/api', apiRouter);
-
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'ia-conect', runtime: 'cloudflare-workers', stage: 4 });
-});
-
+const app=express();
+app.use('/api',runtimeRouter);
+app.use(express.json({limit:'4mb'}));
+app.use('/api',creditRuntimeRouter);
+app.use('/api',providerFinanceRouter);
+app.use('/api',adminPricingRuntimeRouter);
+app.use('/api',pricingRuntimeRouter);
+app.use('/api',communityRouter);
+app.use('/api',generationRuntimeRouter);
+app.use('/api',apiRouter);
+app.get('/health',(_req,res)=>res.json({status:'ok',service:'ia-conect',runtime:'cloudflare-workers',stage:'credits-v2'}));
 app.listen(3000);
-
-const httpHandler = httpServerHandler({ port: 3000 }) as any;
-
-export default {
-  fetch: httpHandler.fetch.bind(httpHandler),
-  async scheduled(_controller: any, _env: unknown, ctx: any) {
-    ctx.waitUntil(
-      pricingSyncService.runHourlySync().then((result) => {
-        console.log('[PricingSync]', JSON.stringify({
-          checked_at: result.checked_at,
-          checked: result.checked,
-          healthy: result.healthy,
-          failed: result.failed,
-          fx_rate: result.fx_rate,
-        }));
-      })
-    );
-  },
-};
+const httpHandler=httpServerHandler({port:3000}) as any;
+export default{fetch:httpHandler.fetch.bind(httpHandler),async scheduled(_controller:any,_env:unknown,ctx:any){ctx.waitUntil(pricingSyncService.runHourlySync().then(result=>console.log('[PricingSync]',JSON.stringify({checked_at:result.checked_at,checked:result.checked,healthy:result.healthy,failed:result.failed,fx_rate:result.fx_rate}))));}};
