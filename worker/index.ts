@@ -8,12 +8,14 @@ import { pricingRuntimeRouter } from '../server/routes/pricingRuntimeRoutes.js';
 import { adminPricingRuntimeRouter } from '../server/routes/adminPricingRuntimeRoutes.js';
 import { communityRouter } from '../server/routes/communityRoutes.js';
 import { creditRuntimeRouter } from '../server/routes/creditRuntimeRoutes.js';
+import { adminEconomicsRouter } from '../server/routes/adminEconomicsRoutes.js';
 import { pricingSyncService } from '../server/services/pricingSyncService.js';
 
 const app=express();
 app.use('/api',runtimeRouter);
 app.use(express.json({limit:'4mb'}));
 app.use('/api',creditRuntimeRouter);
+app.use('/api',adminEconomicsRouter);
 app.use('/api',providerFinanceRouter);
 app.use('/api',adminPricingRuntimeRouter);
 app.use('/api',pricingRuntimeRouter);
