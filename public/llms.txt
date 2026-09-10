@@ -1,0 +1,18 @@
+# IA Connect
+
+IA Connect is a web-based creative AI studio for generating images and videos with different artificial intelligence models in one interface.
+
+Official site: https://ia-conect.paulo-direct-response.workers.dev/
+Language: Portuguese (Brazil)
+
+## Primary capabilities
+- AI image generation and image editing workflows.
+- AI video generation from prompts and image references.
+- Multiple supported AI models in one studio.
+- Credit-based usage with the price shown before generation.
+- Reusable creative assets, references, history and library workflows.
+
+## Public page
+- https://ia-conect.paulo-direct-response.workers.dev/
+
+This file is a supplemental machine-readable description of the public IA Connect product. Product behavior, availability and pricing shown by the application are authoritative.
