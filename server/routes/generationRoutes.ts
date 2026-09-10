@@ -10,6 +10,9 @@ import { GenerationMode } from '../../src/types/index.js';
 export const generationRouter = Router();
 
 function publicGeneration(g:any) {
+  const publicFailure = g.error_code || g.error_message
+    ? publicOperationalError({code:g.error_code,message:g.error_message}, 'A geração não pôde ser concluída.')
+    : null;
   return {
     generation_id:g.generation_id,
     user_id:g.user_id,
@@ -38,8 +41,8 @@ function publicGeneration(g:any) {
     result_url:g.result_url,
     result_urls:g.result_urls,
     thumbnail_url:g.thumbnail_url,
-    error_code:g.error_code,
-    error_message:g.error_message,
+    error_code:publicFailure?.code ?? null,
+    error_message:publicFailure?.message ?? null,
     attempt_count:g.attempt_count,
     references_count:g.references_count,
     created_at:g.created_at,
