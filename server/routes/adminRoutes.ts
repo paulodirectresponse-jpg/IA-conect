@@ -7,6 +7,7 @@ import { auditRepository } from '../repositories/auditRepository.js';
 import { assetReferenceResolver } from '../services/assetReferenceResolver.js';
 import { smartRouterService } from '../services/smartRouterService.js';
 import { generationRepository } from '../repositories/generationRepository.js';
+import { systemHealthService } from '../services/systemHealthService.js';
 
 export const adminRouter = Router();
 
@@ -16,6 +17,14 @@ adminRouter.get('/admin/dashboard-stats', requireAuth, requireAdmin, async (req:
     res.json({ success: true, data: stats });
   } catch (err: any) {
     res.status(500).json({ success: false, error: { code: 'ADMIN_STATS_ERROR', message: 'Erro ao carregar estatísticas do painel.' } });
+  }
+});
+
+adminRouter.get('/admin/system-health', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    res.json({ success:true, data:await systemHealthService.snapshot() });
+  } catch {
+    res.status(500).json({ success:false, error:{ code:'SYSTEM_HEALTH_ERROR', message:'Não foi possível carregar o diagnóstico operacional.' } });
   }
 });
 
