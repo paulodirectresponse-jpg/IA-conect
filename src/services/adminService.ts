@@ -2,6 +2,7 @@ import { apiRequest } from './apiClient.js';
 import { UserProfile, ModelRegistryItem, ProviderRegistryItem, PromotionEntry, FeatureFlag, AuditLog } from '../types/index.js';
 import { CreditAccount, CreditTransaction } from '../types/credits.js';
 
+export interface SystemHealthSnapshot {status:'OK'|'DEGRADED'|'ERROR';checked_at:string;checks:Array<{key:string;label:string;status:'OK'|'DEGRADED'|'ERROR';detail:string}>;}
 export interface ProviderFinanceSnapshot {provider_id:'provider-atlas'|'provider-wavespeed';provider_name:string;configured:boolean;balance_usd:number|null;balance_brl_cents:number|null;fx_rate_usd_brl:number;low_balance_threshold_brl_cents:number;low_balance:boolean;status:'OPERATIONAL'|'LOW_BALANCE'|'UNAVAILABLE'|'NOT_CONFIGURED';fetched_at:string;source:'LIVE_API'|'UNAVAILABLE';error?:string;}
 export interface PricingSettings { gross_margin_percent:number; target_margin_percent?:number; normal_floor_margin_percent?:number; emergency_floor_margin_percent?:number; updated_at:string; updated_by?:string; }
 export interface CouponAdminEntry {coupon_id:string;code:string;version:number;name:string;active:boolean;redemption_mode:'CHECKOUT'|'DIRECT_CREDIT';starts_at:string;expires_at:string|null;benefit_type:'BONUS_PERCENT'|'BONUS_FIXED'|'BRL_PERCENT'|'BRL_FIXED'|'DIRECT_CREDITS';benefit_value:number;eligible_pack_ids:string[];min_purchase_cents:number;max_purchase_cents:number|null;max_global_redemptions:number|null;max_redemptions_per_user:number;first_purchase_only:boolean;bonus_expires_days:number|null;budget_max_credits:number|null;campaign_id:string|null;created_at:string;created_by:string;notes:string;usage?:{reserved:number;redeemed:number;reversed:number;bonus_credits_committed:number};}
@@ -9,6 +10,7 @@ export interface EconomicCampaign {campaign_id:string;name:string;type:'BETA'|'F
 
 export const adminService = {
   async getDashboardStats(){return apiRequest<any>('/api/admin/dashboard-stats');},
+  async getSystemHealth(){return apiRequest<SystemHealthSnapshot>('/api/admin/system-health');},
   async listUsers(search='',limit=20,offset=0){const q=encodeURIComponent(search);return apiRequest<{users:UserProfile[];total:number}>(`/api/admin/users?search=${q}&limit=${limit}&offset=${offset}`);},
   async getUserDetails(userId:string){return apiRequest<{user:UserProfile;wallet:CreditAccount;recent_transactions:CreditTransaction[]}>(`/api/admin/users/${userId}`);},
   async updateUserStatus(userId:string,status:'ACTIVE'|'SUSPENDED',reason:string){return apiRequest<UserProfile>(`/api/admin/users/${userId}/status`,{method:'POST',body:JSON.stringify({status,reason})});},
