@@ -76,7 +76,12 @@ async function save<T extends Record<string,any>>(collectionId:string,id:string,
 export const catalogRepository={
   async listModels(){
     const rows=await ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG);
-    return rows.filter((row)=>row.status!=='INACTIVE').sort((a,b)=>a.name.localeCompare(b.name));
+    const seedOrder=new Map(MODEL_CATALOG.map((model,index)=>[model.model_id,index]));
+    return rows.filter((row)=>row.status!=='INACTIVE').sort((a,b)=>{
+      const ai=seedOrder.get(a.model_id)??Number.MAX_SAFE_INTEGER;
+      const bi=seedOrder.get(b.model_id)??Number.MAX_SAFE_INTEGER;
+      return ai-bi||a.name.localeCompare(b.name);
+    });
   },
   async getModel(id:string){
     await ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG);
