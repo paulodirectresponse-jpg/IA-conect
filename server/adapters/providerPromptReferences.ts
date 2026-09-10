@@ -53,6 +53,7 @@ export function compileProviderReferencePrompt(
 ) {
   let prompt = params.prompt;
   const counters: Record<ReferenceType, number> = { IMAGE: 0, VIDEO: 0, AUDIO: 0 };
+  const semanticInstructions:string[] = [];
 
   for (const ref of params.references) {
     if ((ref.slot_type || 'GENERAL') !== 'GENERAL') continue;
@@ -60,6 +61,10 @@ export function compileProviderReferencePrompt(
     if (!['IMAGE', 'VIDEO', 'AUDIO'].includes(type)) continue;
     const index = ++counters[type];
     const token = providerToken(params.model_id, provider, type, index);
+    const semanticRole=String(ref.semantic_role||'GENERAL').toUpperCase();
+    if(semanticRole==='CHARACTER')semanticInstructions.push(`Keep the person/character identity from ${token} consistent in the result.`);
+    else if(semanticRole==='PRODUCT')semanticInstructions.push(`Preserve the product/object identity, shape, colors and defining details from ${token}.`);
+    else if(semanticRole==='STYLE')semanticInstructions.push(`Use ${token} only as a visual style reference for lighting, palette, texture and art direction; do not copy its subject.`);
 
     for (const alias of localAliases(ref)) {
       const rx = new RegExp(`@${escapeRegex(alias)}\\b`, 'g');
@@ -67,5 +72,5 @@ export function compileProviderReferencePrompt(
     }
   }
 
-  return prompt;
+  return semanticInstructions.length?`${semanticInstructions.join(' ')}\n${prompt}`:prompt;
 }
