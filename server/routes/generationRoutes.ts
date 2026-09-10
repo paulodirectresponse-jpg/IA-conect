@@ -6,12 +6,13 @@ import { billingControlService } from '../services/billingControlService.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { promptCompilerService } from '../services/promptCompilerService.js';
 import { GenerationMode } from '../../src/types/index.js';
+import { publicGenerationError } from '../services/publicGenerationError.js';
 
 export const generationRouter = Router();
 
 function publicGeneration(g:any) {
   const publicFailure = g.error_code || g.error_message
-    ? publicOperationalError({code:g.error_code,message:g.error_message}, 'A geração não pôde ser concluída.')
+    ? publicGenerationError({code:g.error_code,message:g.error_message}, 'A geração não pôde ser concluída.')
     : null;
   return {
     generation_id:g.generation_id,
@@ -52,7 +53,7 @@ function publicGeneration(g:any) {
   };
 }
 
-function publicOperationalError(err:any, fallback:string) {
+function publicGenerationError(err:any, fallback:string) {
   const code = String(err?.code || 'GENERATION_ERROR');
   if (code === 'CREDIT_INSUFFICIENT_FUNDS') {
     return { code, message:'Créditos insuficientes para esta geração.', missing_credits:err?.missing_credits };
@@ -176,7 +177,7 @@ generationRouter.post('/generations/quote', requireAuth, async (req:Authenticate
       },
     });
   } catch (err:any) {
-    const error = publicOperationalError(err, 'Não foi possível confirmar o preço desta configuração.');
+    const error = publicGenerationError(err, 'Não foi possível confirmar o preço desta configuração.');
     const status = err?.code === 'CREDIT_INSUFFICIENT_FUNDS' ? 402 : err?.code === 'NO_SAFE_PROVIDER_AVAILABLE' ? 503 : 400;
     return res.status(status).json({success:false,error});
   }
@@ -221,7 +222,7 @@ generationRouter.post('/generations', requireAuth, async (req:AuthenticatedReque
 
     return res.json({success:true,data:publicGeneration(g)});
   } catch (err:any) {
-    const error = publicOperationalError(err, 'Não foi possível iniciar a geração.');
+    const error = publicGenerationError(err, 'Não foi possível iniciar a geração.');
     const status = err?.code === 'CREDIT_INSUFFICIENT_FUNDS'
       ? 402
       : err?.code === 'PRICE_CHANGED_REQUOTE_REQUIRED'
