@@ -1,0 +1,47 @@
+import React,{useMemo,useState}from'react';
+import{ChevronDown,Image as ImageIcon,Layers3,Plus,Ratio,Settings2,SlidersHorizontal,Sparkles,UploadCloud,X}from'lucide-react';
+import{Asset,ModelRegistryItem,PricingEntry,WorkspaceReference}from'../../types/index.js';
+import{CompactModelPicker}from'./CompactModelPicker.js';
+import{PromptComposer}from'./PromptComposer.js';
+import{formatCredits}from'../../utils/creditFormat.js';
+import{getModelCapabilities}from'../../services/modelCapabilities.js';
+
+interface Props{
+ models:ModelRegistryItem[];pricing:PricingEntry[];selectionMode:'AUTO'|'MANUAL';selectedModelId:string;autoResolvedModel?:ModelRegistryItem|null;
+ onSelectAuto:()=>void;onSelectModel:(m:ModelRegistryItem)=>void;favoriteModelIds:string[];recentModelIds:string[];onToggleFavorite:(id:string)=>void;
+ references:WorkspaceReference[];onOpenPicker:()=>void;onRemoveReference:(id:string)=>void;onQuickUpload:(files:File[])=>void;uploadBusy:boolean;
+ prompt:string;onChangePrompt:(v:string)=>void;aspectRatio:string;onChangeAspectRatio:(v:string)=>void;resolution:string;onChangeResolution:(v:string)=>void;
+ numberOfOutputs:number;onChangeNumberOfOutputs:(v:number)=>void;availableResolutions:string[];activeModel:ModelRegistryItem|null;
+ showAdvanced:boolean;onToggleAdvanced:()=>void;seed:number|'';onChangeSeed:(v:number|'')=>void;
+ totalPrice:number|null;unitPrice:number|null;balance:number;hasBalance:boolean;generating:boolean;priceLoading:boolean;onGenerate:()=>void;error?:string;
+ livePricesByModelId:Record<string,number|null>;priceLoadingModelIds:string[];
+}
+type OpenCard='ratio'|'resolution'|'outputs'|null;
+const filesFromDrop=(e:React.DragEvent)=>Array.from(e.dataTransfer.files||[]);
+
+export const UnifiedImageCreatorPanel:React.FC<Props>=(p)=>{
+ const[openCard,setOpenCard]=useState<OpenCard>(null),[dragging,setDragging]=useState(false);
+ const caps=p.activeModel?getModelCapabilities(p.activeModel):null;
+ const ratios=p.activeModel?.supported_aspect_ratios?.length?p.activeModel.supported_aspect_ratios:['1:1','16:9','9:16','4:3','3:4'];
+ const activeAliases=useMemo(()=>new Set(p.references.filter(r=>p.prompt.toLowerCase().includes(`@${r.alias_snapshot.toLowerCase()}`)).map(r=>r.asset_id)),[p.references,p.prompt]);
+ const optionGrid=(values:Array<string|number>,current:string|number,select:(v:any)=>void)=><div className="flex flex-wrap gap-1.5">{values.map(value=><button key={String(value)} type="button" onClick={()=>select(value)} className={`min-w-12 px-2.5 py-1.5 rounded-lg border text-[9px] font-semibold ${String(current)===String(value)?'border-cyan-300/35 bg-cyan-300/10 text-cyan-200':'border-white/[0.06] bg-black/15 text-zinc-500 hover:text-zinc-200'}`}>{value}</button>)}</div>;
+ const settingRow=(id:Exclude<OpenCard,null>,icon:any,label:string,value:string,body:React.ReactNode)=>{const Icon=icon,opened=openCard===id;return <div className={`rounded-xl border transition-colors ${opened?'border-cyan-300/20 bg-cyan-300/[0.035]':'border-white/[0.065] bg-white/[0.025]'}`}><button type="button" onClick={()=>setOpenCard(opened?null:id)} className="h-10 w-full px-3 flex items-center gap-2"><Icon className="w-3.5 h-3.5 text-zinc-500"/><span className="text-[10px] font-semibold text-zinc-300">{label}</span><span className="ml-auto text-[10px] font-bold text-white">{value}</span><ChevronDown className={`w-3.5 h-3.5 text-zinc-600 transition-transform ${opened?'rotate-180':''}`}/></button>{opened&&<div className="px-2.5 pb-2.5 pt-0.5">{body}</div>}</div>};
+ return <aside className="w-full md:w-[344px] xl:w-[356px] h-full shrink-0 bg-[#090c11] border-r border-white/[0.06] flex flex-col">
+  <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
+   <CompactModelPicker models={p.models} pricing={p.pricing} selectionMode={p.selectionMode} selectedModelId={p.selectedModelId} autoResolvedModel={p.autoResolvedModel} onSelectAuto={p.onSelectAuto} onSelectModel={p.onSelectModel} favoriteModelIds={p.favoriteModelIds} recentModelIds={p.recentModelIds} onToggleFavorite={p.onToggleFavorite} currentResolution={p.resolution} currentDuration={1} currentOutputs={p.numberOfOutputs} livePricesByModelId={p.livePricesByModelId} priceLoadingModelIds={p.priceLoadingModelIds}/>
+   <section onDragEnter={e=>{e.preventDefault();setDragging(true)}} onDragOver={e=>e.preventDefault()} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);const files=filesFromDrop(e);if(files.length)p.onQuickUpload(files)}} className={`rounded-xl border p-2.5 transition-colors ${dragging?'border-cyan-300/50 bg-cyan-300/[0.06]':'border-white/[0.065] bg-white/[0.025]'}`}>
+    <div className="flex items-center justify-between"><div><p className="text-[10px] font-semibold text-zinc-300">Referências</p><p className="text-[8px] text-zinc-700">Cole, arraste ou escolha uma imagem</p></div><button disabled={!caps?.supports_image_reference} onClick={p.onOpenPicker} className="w-7 h-7 rounded-lg border border-white/[0.07] bg-white/[0.035] grid place-items-center text-zinc-400 hover:text-white disabled:opacity-30"><Plus className="w-3.5 h-3.5"/></button></div>
+    {p.references.length?<div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5">{p.references.map(ref=><div key={ref.asset_id} className={`relative w-12 h-12 shrink-0 rounded-lg overflow-hidden border-2 ${activeAliases.has(ref.asset_id)?'border-cyan-300 ring-2 ring-cyan-300/10':'border-white/[0.07]'}`}>{ref.asset?.public_url?<img src={ref.asset.thumbnail_url||ref.asset.public_url} className="w-full h-full object-cover" alt=""/>:<div className="w-full h-full grid place-items-center"><ImageIcon className="w-4 h-4 text-zinc-700"/></div>}<button onClick={()=>p.onRemoveReference(ref.asset_id)} className="absolute top-0.5 right-0.5 w-4 h-4 rounded bg-black/70 grid place-items-center"><X className="w-2.5 h-2.5"/></button>{activeAliases.has(ref.asset_id)&&<span className="absolute left-1 bottom-1 px-1 py-0.5 rounded bg-cyan-300 text-[6.5px] font-black uppercase text-[#071015]">em uso</span>}</div>)}</div>:<div className="mt-2 h-9 rounded-lg border border-dashed border-white/[0.07] flex items-center justify-center gap-1.5 text-[8px] text-zinc-700"><UploadCloud className="w-3.5 h-3.5"/>{p.uploadBusy?'Enviando mídia...':'Arraste uma imagem aqui'}</div>}
+   </section>
+   <PromptComposer prompt={p.prompt} onChangePrompt={p.onChangePrompt} negativePrompt="" onChangeNegativePrompt={()=>{}} onOpenImproveModal={()=>{}} references={p.references} onRequestAddMedia={p.onOpenPicker} supportsNegativePrompt={false} maxChars={caps?.max_prompt_length||10000}/>
+   <div className="space-y-1.5">
+    {settingRow('ratio',Ratio,'Proporção',p.aspectRatio,optionGrid(ratios,p.aspectRatio,p.onChangeAspectRatio))}
+    {settingRow('resolution',SlidersHorizontal,'Resolução',p.resolution,optionGrid(p.availableResolutions,p.resolution,p.onChangeResolution))}
+    {settingRow('outputs',Layers3,'Quantidade',String(p.numberOfOutputs),<div>{optionGrid([1,2,3,4],p.numberOfOutputs,p.onChangeNumberOfOutputs)}{p.unitPrice!=null&&<p className="mt-2 text-[8px] text-zinc-600">{formatCredits(p.unitPrice)} por imagem · preço fixo × quantidade</p>}</div>)}
+   </div>
+   <section className="rounded-xl border border-white/[0.065] bg-white/[0.025] overflow-hidden"><button onClick={p.onToggleAdvanced} className="w-full h-10 px-3 flex items-center gap-2 text-[10px] font-semibold text-zinc-400"><Settings2 className="w-3.5 h-3.5"/> Configurações avançadas <ChevronDown className={`ml-auto w-3.5 h-3.5 transition-transform ${p.showAdvanced?'rotate-180':''}`}/></button>{p.showAdvanced&&<div className="px-3 pb-3"><label className="text-[8px] text-zinc-600">Seed<input value={p.seed} onChange={e=>p.onChangeSeed(e.target.value===''?'':Number(e.target.value))} type="number" placeholder="Aleatório" className="mt-1 w-full h-8 px-2 rounded-lg bg-[#0b0e13] border border-white/[0.06] text-[9px] text-zinc-300 outline-none"/></label></div>}</section>
+   {p.error&&<div className="rounded-xl border border-rose-400/15 bg-rose-500/[0.06] px-3 py-2 text-[9px] text-rose-300">{p.error}</div>}
+  </div>
+  <div className="shrink-0 p-3 border-t border-white/[0.06] bg-[#080b0f]"><div className="mb-2 flex items-center justify-between"><div><p className="text-[8px] uppercase tracking-wider text-zinc-700">Preço</p><p className="text-[11px] font-bold text-white">{p.totalPrice==null?'Preço indisponível':formatCredits(p.totalPrice)}</p></div><div className="text-right"><p className="text-[8px] text-zinc-700">Saldo</p><p className={`text-[10px] font-semibold ${p.hasBalance?'text-zinc-400':'text-rose-400'}`}>{formatCredits(p.balance)}</p></div></div><button disabled={p.generating||p.priceLoading||!p.prompt.trim()||p.totalPrice==null||!p.hasBalance} onClick={p.onGenerate} className="w-full h-11 rounded-xl bg-gradient-to-r from-cyan-300 via-sky-300 to-blue-400 text-[#071015] text-[11px] font-black flex items-center justify-center gap-2 disabled:opacity-35 disabled:grayscale hover:brightness-110"><Sparkles className="w-4 h-4"/>{p.generating?'Gerando...':p.totalPrice==null?'Gerar imagem':`Gerar imagem • ${formatCredits(p.totalPrice)}`}</button></div>
+ </aside>;
+};
