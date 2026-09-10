@@ -23,7 +23,6 @@ import {
   WorkspaceReference,
   GenerationMode,
   PromptImproveObjective,
-  GenerationRequestDraft,
   PricingEntry,
 } from '../types/index.js';
 
@@ -237,13 +236,4 @@ export const workspaceService = {
     return apiRequest('/api/workspace/improve-prompt', { method: 'POST', body: JSON.stringify(params) });
   },
 
-  async validateAndPreview(params: {
-    model_id: string; mode: GenerationMode; prompt: string; negative_prompt?: string; references: WorkspaceReference[];
-    settings: { duration_seconds: number; resolution: string; aspect_ratio: string; number_of_outputs: number; seed?: number | null; motion_strength?: number; };
-  }): Promise<{
-    request_draft: GenerationRequestDraft & { has_sufficient_funds: boolean; balance_after_generation_cents: number };
-    notice: string;
-  }> {
-    return apiRequest('/api/workspace/validate-and-preview', { method: 'POST', body: JSON.stringify(params) });
-  },
 };

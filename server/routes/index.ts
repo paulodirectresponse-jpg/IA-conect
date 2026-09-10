@@ -1,0 +1,31 @@
+import { Router, json } from 'express';
+import { systemRouter } from './systemRoutes.js';
+import { authRouter } from './authRoutes.js';
+import { creditRouter } from './creditRoutes.js';
+import { paymentRouter } from './paymentRoutes.js';
+import { catalogRouter } from './catalogRoutes.js';
+import { assetRouter } from './assetRoutes.js';
+import { workspaceRouter } from './workspaceRoutes.js';
+import { generationRouter } from './generationRoutes.js';
+import { communityRouter } from './communityRoutes.js';
+import { adminRouter } from './adminRoutes.js';
+import { providerFinanceRouter } from './providerFinanceRoutes.js';
+import { adminPricingRouter } from './adminPricingRoutes.js';
+import { adminEconomicsRouter } from './adminEconomicsRoutes.js';
+
+export const apiRootRouter = Router();
+
+apiRootRouter.use(json({ limit: '4mb' }));
+apiRootRouter.use(systemRouter);
+apiRootRouter.use(authRouter);
+apiRootRouter.use(creditRouter);
+apiRootRouter.use(paymentRouter);
+apiRootRouter.use(catalogRouter);
+apiRootRouter.use(assetRouter);
+apiRootRouter.use(workspaceRouter);
+apiRootRouter.use(generationRouter);
+apiRootRouter.use(communityRouter);
+apiRootRouter.use(adminRouter);
+apiRootRouter.use(providerFinanceRouter);
+apiRootRouter.use(adminPricingRouter);
+apiRootRouter.use(adminEconomicsRouter);
