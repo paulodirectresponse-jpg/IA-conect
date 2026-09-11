@@ -7,6 +7,7 @@ import { catalogRepository } from '../repositories/catalogRepository.js';
 import { promptCompilerService } from '../services/promptCompilerService.js';
 import { GenerationMode } from '../../src/types/index.js';
 import { publicGenerationError } from '../services/publicGenerationError.js';
+import { validateConfiguration } from '../../src/services/modelCapabilities.js';
 
 export const generationRouter = Router();
 
@@ -74,8 +75,26 @@ generationRouter.post('/generations/quote', requireAuth, async (req:Authenticate
     const duration = imageMode ? 1 : Math.max(1, Number(settings.duration_seconds || 5));
     const resolution = String(settings.resolution || (imageMode ? '1K' : '720p'));
     const aspectRatio = String(settings.aspect_ratio || '16:9');
-    const outputs = Math.max(1, Math.min(4, Number(settings.number_of_outputs || 1)));
-    const references = req.body.references || [];
+    const requestedOutputs = Math.max(1, Math.min(4, Number(settings.number_of_outputs || 1)));
+    const outputs = imageMode ? requestedOutputs : 1;
+    const references = Array.isArray(req.body.references) ? req.body.references : [];
+    const roleOf = (reference:any) => String(reference?.role || reference?.slot_type || '').toUpperCase();
+    const hasStartImage = references.some((reference:any) => ['START_FRAME','INITIAL_FRAME','INITIAL'].includes(roleOf(reference)));
+    const hasEndImage = references.some((reference:any) => ['END_FRAME','END'].includes(roleOf(reference)));
+    const compatibility = validateConfiguration(model, {
+      mode,
+      duration_seconds:duration,
+      resolution,
+      aspect_ratio:aspectRatio,
+      references,
+      negative_prompt:req.body.negative_prompt,
+      promptText:prompt,
+      has_start_image:hasStartImage,
+      has_end_image:hasEndImage,
+    });
+    if (!compatibility.valid) {
+      return res.status(400).json({success:false,error:{code:'VALIDATION_ERROR',message:compatibility.errors[0]}});
+    }
 
     const q = await creditPricingService.preview({
       userId:uid,
