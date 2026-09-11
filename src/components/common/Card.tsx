@@ -18,20 +18,20 @@ export const Card: React.FC<CardProps> = ({
   className = '',
 }) => {
   return (
-    <div
+    <section
       id={id}
-      className={`bg-white rounded-xl border border-zinc-200/80 p-5 sm:p-6 shadow-xs ${className}`}
+      className={`ia-surface p-5 sm:p-6 ${className}`}
     >
       {(title || subtitle || action) && (
-        <div className="flex items-start justify-between gap-4 pb-4 mb-4 border-b border-zinc-100">
-          <div>
-            {title && <h3 className="text-base font-semibold text-zinc-900 tracking-tight">{title}</h3>}
-            {subtitle && <p className="text-xs text-zinc-500 mt-0.5">{subtitle}</p>}
+        <div className="flex items-start justify-between gap-4 pb-4 mb-4 border-b border-[var(--ia-line)]">
+          <div className="min-w-0">
+            {title && <h3 className="ia-section-title">{title}</h3>}
+            {subtitle && <p className="ia-compact mt-1">{subtitle}</p>}
           </div>
           {action && <div className="shrink-0">{action}</div>}
         </div>
       )}
       <div>{children}</div>
-    </div>
+    </section>
   );
 };
