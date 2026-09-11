@@ -71,3 +71,143 @@
 .ia-primary:hover{filter:brightness(1.08)}
 
 @media(max-width:1023px){.ia-shell main{background:#06101a}}
+
+
+/* Authenticated studio light theme. Kept as a visual layer so product logic stays untouched. */
+html[data-theme="light"]{
+  --app-bg:#eef3f8;
+  --surface:#ffffff;
+  --surface-secondary:#f6f8fb;
+  --border:rgba(15,23,42,.10);
+  --border-hover:rgba(14,165,233,.28);
+  --text-primary:#0f172a;
+  --text-secondary:#475569;
+  --text-muted:#64748b;
+  color-scheme:light;
+  background:#eef3f8;
+}
+html[data-theme="light"] body{background:#eef3f8;color:#0f172a}
+html[data-theme="light"] ::selection{background:rgba(14,165,233,.20);color:#0f172a}
+html[data-theme="light"] *{scrollbar-color:#cbd5e1 transparent}
+html[data-theme="light"] *::-webkit-scrollbar-thumb{background:#cbd5e1}
+
+.ia-shell[data-theme="light"]{
+  --panel:#ffffff;
+  --panel-2:#f6f8fb;
+  --line:rgba(15,23,42,.09);
+  --line-strong:rgba(14,165,233,.22);
+  --muted:#64748b;
+  --blue:#0284c7;
+  --blue-2:#4f46e5;
+  color:#172033!important;
+  background:radial-gradient(circle at 78% -10%,rgba(14,165,233,.09),transparent 34%),#eef3f8!important;
+}
+
+/* Core surfaces */
+.ia-shell[data-theme="light"] > aside,
+.ia-shell[data-theme="light"] > div,
+.ia-shell[data-theme="light"] header,
+.ia-shell[data-theme="light"] main{border-color:var(--line)!important}
+.ia-shell[data-theme="light"] > div.flex.flex-col.flex-1{
+  background:radial-gradient(circle at 78% -8%,rgba(14,165,233,.07),transparent 32%),linear-gradient(180deg,#f8fbff 0%,#eef3f8 100%)!important;
+}
+.ia-shell[data-theme="light"] aside{background:#f8fbff!important}
+.ia-shell[data-theme="light"] header{background:rgba(248,251,255,.92)!important}
+.ia-shell[data-theme="light"] main,
+.ia-shell[data-theme="light"] main>.flex-1.h-full,
+.ia-shell[data-theme="light"] main>.flex-1.min-h-0{background:transparent!important}
+
+/* Existing dark arbitrary backgrounds used by studio cards, panels, dropdowns and modals */
+.ia-shell[data-theme="light"] [class*="bg-[#050"],
+.ia-shell[data-theme="light"] [class*="bg-[#060"],
+.ia-shell[data-theme="light"] [class*="bg-[#070"],
+.ia-shell[data-theme="light"] [class*="bg-[#080"],
+.ia-shell[data-theme="light"] [class*="bg-[#090"],
+.ia-shell[data-theme="light"] [class*="bg-[#0a"],
+.ia-shell[data-theme="light"] [class*="bg-[#0b"],
+.ia-shell[data-theme="light"] [class*="bg-[#101"],
+.ia-shell[data-theme="light"] [class*="bg-[#111"]{
+  background-color:#ffffff!important;
+}
+.ia-shell[data-theme="light"] [class*="bg-[radial-gradient"],
+.ia-shell[data-theme="light"] [class*="bg-[linear-gradient"]{
+  background:linear-gradient(145deg,#ffffff,#f4f8fc)!important;
+}
+
+/* Typography */
+.ia-shell[data-theme="light"] .text-white,
+.ia-shell[data-theme="light"] .text-zinc-100,
+.ia-shell[data-theme="light"] .text-zinc-200,
+.ia-shell[data-theme="light"] .text-zinc-300,
+.ia-shell[data-theme="light"] .text-zinc-800,
+.ia-shell[data-theme="light"] .text-zinc-900{color:#172033!important}
+.ia-shell[data-theme="light"] .text-zinc-400,
+.ia-shell[data-theme="light"] .text-zinc-500{color:#64748b!important}
+.ia-shell[data-theme="light"] .text-zinc-600,
+.ia-shell[data-theme="light"] .text-zinc-700{color:#7b8798!important}
+.ia-shell[data-theme="light"] .ia-primary,
+.ia-shell[data-theme="light"] .ia-primary *{color:#fff!important}
+
+/* Cards, tables and controls */
+.ia-shell[data-theme="light"] .bg-white{background-color:#ffffff!important}
+.ia-shell[data-theme="light"] .bg-white\/\[0\.025\],
+.ia-shell[data-theme="light"] .bg-white\/\[0\.03\],
+.ia-shell[data-theme="light"] .bg-white\/\[0\.035\],
+.ia-shell[data-theme="light"] .bg-white\/\[0\.04\],
+.ia-shell[data-theme="light"] .bg-white\/\[0\.05\],
+.ia-shell[data-theme="light"] .bg-white\/\[0\.06\]{
+  background-color:rgba(15,23,42,.025)!important;
+}
+.ia-shell[data-theme="light"] [class*="border-white"]{border-color:rgba(15,23,42,.10)!important}
+.ia-shell[data-theme="light"] input,
+.ia-shell[data-theme="light"] textarea,
+.ia-shell[data-theme="light"] select{
+  color:#172033!important;
+  background:#fff!important;
+  border-color:rgba(15,23,42,.11)!important;
+}
+.ia-shell[data-theme="light"] input::placeholder,
+.ia-shell[data-theme="light"] textarea::placeholder{color:#94a3b8!important}
+.ia-shell[data-theme="light"] option{background:#fff;color:#172033}
+.ia-shell[data-theme="light"] main table{color:#334155}
+.ia-shell[data-theme="light"] main thead{color:#64748b}
+.ia-shell[data-theme="light"] main tr{border-color:rgba(15,23,42,.08)!important}
+.ia-shell[data-theme="light"] main .rounded-xl.border,
+.ia-shell[data-theme="light"] main .rounded-2xl.border{
+  border-color:rgba(15,23,42,.09)!important;
+  box-shadow:0 12px 34px rgba(15,23,42,.045)!important;
+}
+
+/* Specific reusable studio surfaces */
+.ia-shell[data-theme="light"] .ia-media-card{
+  border-color:rgba(15,23,42,.10);
+  background:#fff;
+  box-shadow:0 20px 55px rgba(15,23,42,.08);
+}
+.ia-shell[data-theme="light"] .ia-media-card:after{background:linear-gradient(180deg,transparent 62%,rgba(15,23,42,.36) 100%)}
+.ia-shell[data-theme="light"] .ia-glow-card{
+  border-color:rgba(14,165,233,.16);
+  background:linear-gradient(180deg,#ffffff,#f7fafc);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 16px 45px rgba(15,23,42,.06);
+}
+.ia-shell[data-theme="light"] [class*="shadow-black"]{--tw-shadow-color:rgba(15,23,42,.16)!important}
+
+/* Keep semantic/brand treatments legible in light mode. */
+.ia-shell[data-theme="light"] .text-sky-300,
+.ia-shell[data-theme="light"] .text-cyan-200,
+.ia-shell[data-theme="light"] .text-cyan-300,
+.ia-shell[data-theme="light"] .text-cyan-400{color:#0284c7!important}
+.ia-shell[data-theme="light"] .text-emerald-200,
+.ia-shell[data-theme="light"] .text-emerald-300{color:#059669!important}
+.ia-shell[data-theme="light"] .text-rose-300,
+.ia-shell[data-theme="light"] .text-red-300{color:#e11d48!important}
+.ia-shell[data-theme="light"] .text-amber-200,
+.ia-shell[data-theme="light"] .text-amber-300{color:#b45309!important}
+
+/* Menus and hover states */
+.ia-shell[data-theme="light"] button:not(.ia-primary):hover{background-color:rgba(14,165,233,.055)}
+.ia-shell[data-theme="light"] .hover\:text-white:hover{color:#0f172a!important}
+
+@media(max-width:1023px){
+  .ia-shell[data-theme="light"] main{background:#eef3f8!important}
+}
