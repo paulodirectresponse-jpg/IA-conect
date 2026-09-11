@@ -168,10 +168,10 @@ export const PromptComposer:React.FC<PromptComposerProps>=({
   renderHighlighted(prompt,caret);
  },[aliasKey]);
 
- return <div className="space-y-2">
-  <div className="flex items-center justify-between"><label htmlFor="workspace-prompt-input" className="text-[10px] font-bold text-zinc-300">Prompt</label><span className="text-[8px] font-mono text-zinc-700">{prompt.length}/{maxChars}</span></div>
+ return <div className="ia-prompt-composer space-y-2.5">
+  <div className="flex items-center justify-between"><label htmlFor="workspace-prompt-input" className="text-[11px] font-bold text-zinc-300">Prompt</label><span className="text-[9px] font-mono text-zinc-600">{prompt.length}/{maxChars}</span></div>
   <div className="relative rounded-[14px] border border-white/[0.075] bg-[#0a0d12] focus-within:border-cyan-400/25 transition-colors overflow-visible">
-   {!prompt&&!focused&&<div className="absolute left-3 right-3 top-3 pointer-events-none text-[11px] font-medium leading-relaxed text-zinc-600">{supportsReferences?'Descreva exatamente o que você quer gerar... Digite @ para usar uma referência.':'Descreva exatamente o que você quer gerar...'}</div>}
+   {!prompt&&!focused&&<div className="absolute left-3 right-3 top-3 pointer-events-none text-[12px] font-medium leading-relaxed text-zinc-600">{supportsReferences?'Descreva exatamente o que você quer gerar... Digite @ para usar uma referência.':'Descreva exatamente o que você quer gerar...'}</div>}
    <div
     ref={editorRef}
     id="workspace-prompt-input"
@@ -190,7 +190,7 @@ export const PromptComposer:React.FC<PromptComposerProps>=({
     onCompositionStart={()=>{composingRef.current=true}}
     onCompositionEnd={()=>{composingRef.current=false;syncInput()}}
     onPaste={e=>{e.preventDefault();const text=e.clipboardData.getData('text/plain');document.execCommand('insertText',false,text)}}
-    className="relative z-10 w-full min-h-[120px] max-h-[260px] overflow-y-auto p-3 pb-10 bg-transparent border-0 text-[11px] font-medium leading-relaxed text-white caret-cyan-300 outline-none whitespace-pre-wrap break-words selection:bg-cyan-300/20"
+    className="relative z-10 w-full min-h-[120px] max-h-[260px] overflow-y-auto p-3 pb-10 bg-transparent border-0 text-[12px] font-medium leading-[1.6] text-white caret-cyan-300 outline-none whitespace-pre-wrap break-words selection:bg-cyan-300/20"
    />
    <div className="absolute z-30 left-2.5 right-2.5 bottom-2 flex items-center justify-between gap-2 pointer-events-none">
     <div className="flex items-center gap-1.5 pointer-events-auto">
