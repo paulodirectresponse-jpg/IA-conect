@@ -1176,3 +1176,84 @@ html[data-theme="light"] .ia-creation-gallery>header{
 @media(prefers-reduced-motion:reduce){
   .ia-dashboard-create-card,.ia-dashboard-arrow,.ia-dashboard-recent-media,.ia-history-row{transition-duration:1ms!important}
 }
+
+
+/* Operate surfaces — Phase 5 */
+.ia-operate-panel{
+  border:1px solid var(--ia-line);
+  background:color-mix(in srgb,var(--ia-surface-1) 96%,transparent);
+  box-shadow:none;
+}
+.ia-settings .ia-operate-panel>div.rounded-xl{
+  background:var(--ia-surface-soft)!important;
+  border-color:var(--ia-line)!important;
+  box-shadow:none!important;
+}
+.ia-wallet>div[class*="rounded-2xl"][class*="border"]{
+  border-color:var(--ia-line)!important;
+  background:var(--ia-surface-1)!important;
+  box-shadow:none!important;
+}
+.ia-wallet>div.grid>div:first-child{
+  background:
+    linear-gradient(145deg,color-mix(in srgb,var(--ia-brand) 7%,var(--ia-surface-1)),var(--ia-surface-1))!important;
+  border-color:var(--ia-line-strong)!important;
+}
+.ia-wallet-pack{
+  box-shadow:none!important;
+  transition-duration:var(--ia-motion-standard);
+  transition-timing-function:var(--ia-ease-standard);
+}
+.ia-wallet-pack:hover{border-color:var(--ia-line-strong)!important}
+.ia-wallet .fixed [class*="shadow-[0_32px_100px"]{
+  box-shadow:var(--ia-shadow-overlay)!important;
+}
+.ia-admin .ia-surface,
+.ia-admin>div.rounded-2xl{
+  box-shadow:none!important;
+}
+.ia-admin-tab{
+  border:1px solid transparent;
+}
+.ia-admin-tab:hover{
+  border-color:var(--ia-line);
+}
+.ia-admin-tab[class*="bg-white"]{
+  border-color:var(--ia-line-strong);
+}
+.ia-auth{
+  background:
+    radial-gradient(circle at 50% -10%,color-mix(in srgb,var(--ia-brand) 10%,transparent),transparent 34%),
+    var(--ia-canvas)!important;
+}
+.ia-auth-card{
+  border:1px solid var(--ia-line);
+  background:color-mix(in srgb,var(--ia-surface-1) 96%,transparent);
+  box-shadow:0 28px 70px -34px rgba(0,0,0,.66);
+  backdrop-filter:blur(16px);
+}
+.ia-auth-card input{
+  background:var(--ia-surface-2)!important;
+  border-color:var(--ia-line)!important;
+  color:var(--ia-text-1)!important;
+}
+.ia-auth-card input:focus{
+  border-color:var(--ia-line-focus)!important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--ia-brand) 9%,transparent)!important;
+}
+html[data-theme="light"] .ia-operate-panel{
+  background:#fff!important;
+}
+html[data-theme="light"] .ia-auth{
+  background:
+    radial-gradient(circle at 50% -10%,rgba(14,165,233,.075),transparent 34%),
+    #f2f5f9!important;
+}
+html[data-theme="light"] .ia-auth-card{
+  background:rgba(255,255,255,.96)!important;
+  border-color:var(--ia-line)!important;
+  box-shadow:0 28px 70px -38px rgba(15,23,42,.34)!important;
+}
+@media(prefers-reduced-motion:reduce){
+  .ia-wallet-pack{transition-duration:1ms!important}
+}
