@@ -20,29 +20,27 @@ export const Button: React.FC<ButtonProps> = ({
   ...rest
 }) => {
   const sizeStyles = {
-    sm: 'py-1.5 px-3 text-xs min-h-[36px]',
-    md: 'py-2 px-4 text-sm min-h-[40px] sm:min-h-[44px]',
-    lg: 'py-2.5 px-5 text-base min-h-[44px] sm:min-h-[48px]',
+    sm: 'h-9 px-3 text-[11px]',
+    md: 'h-10 sm:h-11 px-4 text-xs',
+    lg: 'h-11 sm:h-12 px-5 text-sm',
   };
 
   const variantStyles = {
-    primary:
-      'bg-zinc-900 text-zinc-50 hover:bg-zinc-800 active:bg-zinc-950 border border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2',
-    secondary:
-      'bg-zinc-100 text-zinc-900 hover:bg-zinc-200 active:bg-zinc-300 border border-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2',
+    primary: 'ia-button-primary',
+    secondary: 'ia-control',
     outline:
-      'bg-transparent text-zinc-800 hover:bg-zinc-100 border border-zinc-300 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2',
+      'border border-[var(--ia-line)] bg-transparent text-[var(--ia-text-2)] hover:border-[var(--ia-line-strong)] hover:bg-[var(--ia-surface-hover)] hover:text-[var(--ia-text-1)]',
     danger:
-      'bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 border border-rose-600 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2',
+      'border border-rose-400/15 bg-rose-500/[0.07] text-rose-300 hover:bg-rose-500/[0.11] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/20',
     ghost:
-      'bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 border border-transparent focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2',
+      'border border-transparent bg-transparent text-[var(--ia-text-2)] hover:bg-[var(--ia-surface-hover)] hover:text-[var(--ia-text-1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/15',
   };
 
   return (
     <button
       id={id}
       disabled={disabled || isLoading}
-      className={`inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none ${sizeStyles[size]} ${variantStyles[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-[var(--ia-radius-md)] font-semibold whitespace-nowrap select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${sizeStyles[size]} ${variantStyles[variant]} ${className}`}
       {...rest}
     >
       {isLoading ? (

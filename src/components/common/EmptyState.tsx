@@ -14,20 +14,18 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   title,
   description,
   action,
-}) => {
-  return (
-    <div
-      id={id}
-      className="flex flex-col items-center justify-center text-center p-8 sm:p-12 border border-dashed border-zinc-200 rounded-xl bg-zinc-50/50"
-    >
-      {icon && (
-        <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 mb-3">
-          {icon}
-        </div>
-      )}
-      <h4 className="text-sm font-semibold text-zinc-900 tracking-tight">{title}</h4>
-      <p className="text-xs text-zinc-500 max-w-sm mt-1 mb-4 leading-relaxed">{description}</p>
-      {action && <div>{action}</div>}
-    </div>
-  );
-};
+}) => (
+  <div
+    id={id}
+    className="flex flex-col items-center justify-center text-center p-8 sm:p-12 border border-dashed border-[var(--ia-line)] rounded-[var(--ia-radius-lg)] bg-[var(--ia-surface-soft)]"
+  >
+    {icon && (
+      <div className="w-11 h-11 rounded-[var(--ia-radius-md)] border border-[var(--ia-line)] bg-[var(--ia-surface-2)] flex items-center justify-center text-[var(--ia-text-3)] mb-3">
+        {icon}
+      </div>
+    )}
+    <h4 className="text-sm font-semibold text-[var(--ia-text-1)] tracking-[-.01em]">{title}</h4>
+    <p className="ia-compact max-w-sm mt-1 mb-4">{description}</p>
+    {action && <div>{action}</div>}
+  </div>
+);
