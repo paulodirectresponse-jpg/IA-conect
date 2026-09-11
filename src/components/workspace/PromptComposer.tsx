@@ -171,7 +171,7 @@ export const PromptComposer:React.FC<PromptComposerProps>=({
  return <div className="space-y-2">
   <div className="flex items-center justify-between"><label htmlFor="workspace-prompt-input" className="text-[10px] font-bold text-zinc-300">Prompt</label><span className="text-[8px] font-mono text-zinc-700">{prompt.length}/{maxChars}</span></div>
   <div className="relative rounded-[14px] border border-white/[0.075] bg-[#0a0d12] focus-within:border-cyan-400/25 transition-colors overflow-visible">
-   {!prompt&&!focused&&<div className="absolute left-3 right-3 top-3 pointer-events-none text-[11px] font-medium leading-relaxed text-zinc-600">Descreva exatamente o que você quer gerar... Digite @ para usar uma referência.</div>}
+   {!prompt&&!focused&&<div className="absolute left-3 right-3 top-3 pointer-events-none text-[11px] font-medium leading-relaxed text-zinc-600">{supportsReferences?'Descreva exatamente o que você quer gerar... Digite @ para usar uma referência.':'Descreva exatamente o que você quer gerar...'}</div>}
    <div
     ref={editorRef}
     id="workspace-prompt-input"
