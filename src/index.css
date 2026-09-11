@@ -737,3 +737,206 @@ html[data-theme="light"] *::-webkit-scrollbar-thumb:hover{background:#aebdcd;bac
 @media (prefers-reduced-motion:reduce){
   .ia-control,.ia-button-primary{transition-duration:1ms!important}
 }
+
+
+/* IA Connect premium application shell — Phase 2 */
+.ia-shell-workspace{
+  background:
+    radial-gradient(circle at 82% -14%,color-mix(in srgb,var(--ia-brand) 8%,transparent),transparent 31%),
+    linear-gradient(180deg,var(--ia-surface-1) 0%,var(--ia-canvas) 100%);
+}
+.ia-shell-sidebar{
+  background:color-mix(in srgb,var(--ia-canvas) 94%,var(--ia-surface-1));
+  border-color:var(--ia-line);
+  box-shadow:10px 0 30px -30px rgba(0,0,0,.5);
+  transition:transform var(--ia-motion-emphasized) var(--ia-ease-out);
+}
+.ia-shell-sidebar>div:first-child{
+  border-bottom:1px solid var(--ia-line);
+}
+.ia-shell-nav-item{
+  color:var(--ia-text-3);
+  border:1px solid transparent;
+  transition:
+    background-color var(--ia-motion-standard) var(--ia-ease-standard),
+    border-color var(--ia-motion-standard) var(--ia-ease-standard),
+    color var(--ia-motion-standard) var(--ia-ease-standard);
+}
+.ia-shell-nav-item svg{color:var(--ia-text-4);transition:color var(--ia-motion-standard) var(--ia-ease-standard)}
+.ia-shell-nav-item:hover{
+  background:var(--ia-surface-hover);
+  color:var(--ia-text-1);
+}
+.ia-shell-nav-item:hover svg{color:var(--ia-text-2)}
+.ia-shell-nav-item.is-active{
+  background:color-mix(in srgb,var(--ia-brand) 8%,var(--ia-surface-1));
+  border-color:color-mix(in srgb,var(--ia-brand) 14%,transparent);
+  color:var(--ia-text-1);
+}
+.ia-shell-nav-item.is-active:before{
+  content:"";
+  position:absolute;
+  left:-1px;
+  top:10px;
+  bottom:10px;
+  width:2px;
+  border-radius:999px;
+  background:var(--ia-brand);
+}
+.ia-shell-nav-item.is-active svg{color:var(--ia-brand)}
+
+.ia-shell-navbar{
+  background:color-mix(in srgb,var(--ia-surface-1) 88%,transparent);
+  border-color:var(--ia-line);
+  backdrop-filter:blur(18px);
+  box-shadow:0 12px 28px -28px rgba(0,0,0,.65);
+}
+.ia-shell-icon-button{
+  display:grid;
+  width:36px;
+  height:36px;
+  place-items:center;
+  border:1px solid transparent;
+  border-radius:var(--ia-radius-md);
+  color:var(--ia-text-3);
+  transition:
+    background-color var(--ia-motion-standard) var(--ia-ease-standard),
+    border-color var(--ia-motion-standard) var(--ia-ease-standard),
+    color var(--ia-motion-standard) var(--ia-ease-standard);
+}
+.ia-shell-icon-button:hover{
+  background:var(--ia-surface-hover);
+  border-color:var(--ia-line);
+  color:var(--ia-text-1);
+}
+.ia-shell-icon-button:focus-visible,
+.ia-shell-nav-item:focus-visible,
+.ia-shell-wallet:focus-visible,
+.ia-shell-account-trigger:focus-visible,
+.ia-shell-account-item:focus-visible,
+.ia-shell-menu-item:focus-visible{
+  outline:0;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--ia-brand) 12%,transparent);
+}
+
+.ia-shell-wallet{
+  display:flex;
+  height:36px;
+  align-items:center;
+  gap:.45rem;
+  padding:0 .7rem;
+  border:1px solid var(--ia-line);
+  border-radius:var(--ia-radius-md);
+  background:color-mix(in srgb,var(--ia-surface-2) 78%,transparent);
+  color:var(--ia-brand);
+  transition:
+    background-color var(--ia-motion-standard) var(--ia-ease-standard),
+    border-color var(--ia-motion-standard) var(--ia-ease-standard);
+}
+.ia-shell-wallet:hover{
+  background:var(--ia-surface-hover);
+  border-color:var(--ia-line-strong);
+}
+
+.ia-shell-account-trigger{
+  display:flex;
+  height:36px;
+  align-items:center;
+  gap:.4rem;
+  padding:0 .45rem 0 .25rem;
+  border:1px solid transparent;
+  border-radius:var(--ia-radius-md);
+  transition:
+    background-color var(--ia-motion-standard) var(--ia-ease-standard),
+    border-color var(--ia-motion-standard) var(--ia-ease-standard);
+}
+.ia-shell-account-trigger:hover,
+.ia-shell-account-trigger.is-open{
+  background:var(--ia-surface-hover);
+  border-color:var(--ia-line);
+}
+
+.ia-shell-popover{
+  border:1px solid var(--ia-line);
+  border-radius:var(--ia-radius-lg);
+  background:color-mix(in srgb,var(--ia-surface-2) 96%,transparent);
+  box-shadow:var(--ia-shadow-overlay);
+  backdrop-filter:blur(20px);
+}
+.ia-shell-menu-item{
+  display:flex;
+  width:100%;
+  align-items:center;
+  gap:.7rem;
+  border-radius:10px;
+  padding:.65rem .7rem;
+  color:var(--ia-text-2);
+  text-align:left;
+  transition:
+    background-color var(--ia-motion-standard) var(--ia-ease-standard),
+    color var(--ia-motion-standard) var(--ia-ease-standard);
+}
+.ia-shell-menu-item:hover{
+  background:var(--ia-surface-hover);
+  color:var(--ia-text-1);
+}
+.ia-shell-menu-item>svg{color:var(--ia-brand)}
+.ia-shell-menu-item>span{display:flex;min-width:0;flex-direction:column}
+.ia-shell-menu-item strong{font-size:11px;font-weight:700;color:var(--ia-text-1)}
+.ia-shell-menu-item small{margin-top:2px;font-size:9px;color:var(--ia-text-4)}
+
+.ia-shell-account-item{
+  display:flex;
+  width:100%;
+  align-items:center;
+  gap:.65rem;
+  border-radius:10px;
+  padding:.6rem .7rem;
+  color:var(--ia-text-2);
+  font-size:11px;
+  text-align:left;
+  transition:
+    background-color var(--ia-motion-standard) var(--ia-ease-standard),
+    color var(--ia-motion-standard) var(--ia-ease-standard);
+}
+.ia-shell-account-item:hover{
+  background:var(--ia-surface-hover);
+  color:var(--ia-text-1);
+}
+.ia-shell-account-item svg{color:var(--ia-text-4)}
+
+html[data-theme="light"] .ia-shell-workspace{
+  background:
+    radial-gradient(circle at 82% -14%,rgba(14,165,233,.07),transparent 31%),
+    linear-gradient(180deg,#f8fafc 0%,var(--ia-canvas) 100%)!important;
+}
+html[data-theme="light"] .ia-shell-sidebar{
+  background:rgba(251,253,255,.97)!important;
+  border-color:var(--ia-line)!important;
+  box-shadow:10px 0 30px -30px rgba(15,23,42,.38)!important;
+}
+html[data-theme="light"] .ia-shell-navbar{
+  background:rgba(251,253,255,.86)!important;
+  border-color:var(--ia-line)!important;
+}
+html[data-theme="light"] .ia-shell-popover{
+  background:rgba(255,255,255,.98)!important;
+  border-color:var(--ia-line)!important;
+}
+html[data-theme="light"] .ia-shell-nav-item.is-active{
+  background:rgba(14,165,233,.07)!important;
+  border-color:rgba(14,165,233,.14)!important;
+}
+
+@media(max-width:639px){
+  .ia-shell-wallet{padding:0 .55rem}
+}
+@media (prefers-reduced-motion:reduce){
+  .ia-shell-sidebar,
+  .ia-shell-nav-item,
+  .ia-shell-icon-button,
+  .ia-shell-wallet,
+  .ia-shell-account-trigger,
+  .ia-shell-account-item,
+  .ia-shell-menu-item{transition-duration:1ms!important}
+}
