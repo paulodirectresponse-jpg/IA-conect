@@ -48,7 +48,45 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
   }
   private payload(params:ProviderGenerationParams){return params.mode==='TEXT_TO_IMAGE'||params.mode==='IMAGE_TO_IMAGE'?this.imagePayload(params):this.videoPayload(params);}
   async quoteCostUsd(params:ProviderGenerationParams):Promise<ProviderCostQuote>{if(!this.apiKey)throw Object.assign(new Error('WaveSpeed não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});const model=this.modelName(params.model_id,params.mode),single={...params,number_of_outputs:1},controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);try{const res=await fetch(`${this.baseUrl}/api/v3/model/price`,{method:'POST',signal:controller.signal,headers:{Authorization:`Bearer ${this.apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({model_id:model,inputs:this.payload(single)})});const text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}if(!res.ok)throw Object.assign(new Error(body?.message||body?.error||`WaveSpeed pricing HTTP ${res.status}`),{code:`WAVESPEED_PRICE_HTTP_${res.status}`});const data=body?.data??body,unit=Number(data?.discounted_price??data?.price);if(!Number.isFinite(unit)||unit<0)throw Object.assign(new Error('WaveSpeed retornou preço inválido.'),{code:'PROVIDER_PRICE_INVALID'});return{effective_price_usd:unit*Math.max(1,params.number_of_outputs),list_price_usd:Number.isFinite(Number(data?.price))?Number(data.price)*Math.max(1,params.number_of_outputs):null,discount_rate:Number.isFinite(Number(data?.discount_rate))?Number(data.discount_rate):null,estimated:false,source:'LIVE_API'};}finally{clearTimeout(timer);}}
-  async submitGeneration(params:ProviderGenerationParams):Promise<ProviderJobResult>{if(!this.apiKey)throw Object.assign(new Error('WaveSpeed não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});const model=this.modelName(params.model_id,params.mode),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);try{const res=await fetch(`${this.baseUrl}/api/v3/${model}`,{method:'POST',signal:controller.signal,headers:{Authorization:`Bearer ${this.apiKey}`,'Content-Type':'application/json'},body:JSON.stringify(this.payload(params))});const text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}if(!res.ok)throw Object.assign(new Error(body?.message||body?.error||`WaveSpeed HTTP ${res.status}`),{code:`WAVESPEED_HTTP_${res.status}`});const data=body?.data??body;if(!data?.id)throw Object.assign(new Error('WaveSpeed não retornou prediction id.'),{code:'PROVIDER_INVALID_RESPONSE'});return{provider_job_id:data.id,provider_id:this.providerId,status:'QUEUED'};}finally{clearTimeout(timer);}}
-  async checkStatus(id:string):Promise<ProviderJobStatusResult>{if(!this.apiKey)throw Object.assign(new Error('WaveSpeed não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});const res=await fetch(`${this.baseUrl}/api/v3/predictions/${encodeURIComponent(id)}/result`,{headers:{Authorization:`Bearer ${this.apiKey}`}}),text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}if(!res.ok)throw Object.assign(new Error(body?.message||`WaveSpeed status HTTP ${res.status}`),{code:`WAVESPEED_HTTP_${res.status}`});const data=body?.data??body,raw=String(data?.status||'').toLowerCase();if(raw==='completed'){const outputs=Array.isArray(data.outputs)?data.outputs.filter(Boolean):[data.output?.video_url,data.video_url,data.output?.image_url,data.image_url].filter(Boolean);return{provider_job_id:id,status:'SUCCEEDED',progress_percent:100,result_video_url:outputs[0],result_urls:outputs};}if(['failed','cancelled','canceled','timeout','deleted'].includes(raw))return{provider_job_id:id,status:'FAILED',error_message:String(data?.error||data?.message||'Falha na WaveSpeed.')};return{provider_job_id:id,status:raw==='pending'||raw==='queued'?'QUEUED':'PROCESSING',progress_percent:typeof data?.progress==='number'?data.progress:undefined};}
+  private encodeBatchJobIds(ids:string[]){return ids.length===1?ids[0]:`batch:${Buffer.from(JSON.stringify(ids),'utf8').toString('base64url')}`;}
+  private decodeBatchJobIds(id:string){if(!id.startsWith('batch:'))return[id];try{const decoded=JSON.parse(Buffer.from(id.slice(6),'base64url').toString('utf8'));return Array.isArray(decoded)&&decoded.every(v=>typeof v==='string'&&v)?decoded:[id];}catch{return[id];}}
+  private async submitSingle(params:ProviderGenerationParams){
+    const model=this.modelName(params.model_id,params.mode),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
+    try{
+      const res=await fetch(`${this.baseUrl}/api/v3/${model}`,{method:'POST',signal:controller.signal,headers:{Authorization:`Bearer ${this.apiKey}`,'Content-Type':'application/json'},body:JSON.stringify(this.payload({...params,number_of_outputs:1}))});
+      const text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}
+      if(!res.ok)throw Object.assign(new Error(body?.message||body?.error||`WaveSpeed HTTP ${res.status}`),{code:`WAVESPEED_HTTP_${res.status}`});
+      const data=body?.data??body;if(!data?.id)throw Object.assign(new Error('WaveSpeed não retornou prediction id.'),{code:'PROVIDER_INVALID_RESPONSE'});
+      return String(data.id);
+    }finally{clearTimeout(timer);}
+  }
+  private async checkSingleStatus(id:string):Promise<ProviderJobStatusResult>{
+    const res=await fetch(`${this.baseUrl}/api/v3/predictions/${encodeURIComponent(id)}/result`,{headers:{Authorization:`Bearer ${this.apiKey}`}}),text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}
+    if(!res.ok)throw Object.assign(new Error(body?.message||`WaveSpeed status HTTP ${res.status}`),{code:`WAVESPEED_HTTP_${res.status}`});
+    const data=body?.data??body,raw=String(data?.status||'').toLowerCase();
+    if(raw==='completed'){const outputs=Array.isArray(data.outputs)?data.outputs.filter(Boolean):[data.output?.video_url,data.video_url,data.output?.image_url,data.image_url].filter(Boolean);return{provider_job_id:id,status:'SUCCEEDED',progress_percent:100,result_video_url:outputs[0],result_urls:outputs};}
+    if(['failed','cancelled','canceled','timeout','deleted'].includes(raw))return{provider_job_id:id,status:'FAILED',error_message:String(data?.error||data?.message||'Falha na WaveSpeed.')};
+    return{provider_job_id:id,status:raw==='pending'||raw==='queued'?'QUEUED':'PROCESSING',progress_percent:typeof data?.progress==='number'?data.progress:undefined};
+  }
+  async submitGeneration(params:ProviderGenerationParams):Promise<ProviderJobResult>{
+    if(!this.apiKey)throw Object.assign(new Error('WaveSpeed não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});
+    const imageJob=params.mode==='TEXT_TO_IMAGE'||params.mode==='IMAGE_TO_IMAGE';
+    const requested=imageJob?Math.max(1,Math.min(4,Number(params.number_of_outputs||1))):1;
+    const ids:string[]=[];
+    for(let i=0;i<requested;i++)ids.push(await this.submitSingle(params));
+    return{provider_job_id:this.encodeBatchJobIds(ids),provider_id:this.providerId,status:'QUEUED'};
+  }
+  async checkStatus(id:string):Promise<ProviderJobStatusResult>{
+    if(!this.apiKey)throw Object.assign(new Error('WaveSpeed não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});
+    const ids=this.decodeBatchJobIds(id),statuses=await Promise.all(ids.map(jobId=>this.checkSingleStatus(jobId)));
+    const failed=statuses.find(s=>s.status==='FAILED');
+    if(failed)return{provider_job_id:id,status:'FAILED',error_message:failed.error_message||'Uma das saídas falhou na WaveSpeed.'};
+    if(statuses.every(s=>s.status==='SUCCEEDED')){
+      const outputs=statuses.flatMap(s=>s.result_urls||s.result_image_urls||[s.result_video_url].filter(Boolean) as string[]).filter(Boolean);
+      return{provider_job_id:id,status:'SUCCEEDED',progress_percent:100,result_video_url:outputs[0],result_urls:outputs};
+    }
+    const progress=Math.round(statuses.reduce((sum,s)=>sum+Number(s.progress_percent??(s.status==='SUCCEEDED'?100:8)),0)/Math.max(1,statuses.length));
+    return{provider_job_id:id,status:statuses.some(s=>s.status==='PROCESSING'||s.status==='SUCCEEDED')?'PROCESSING':'QUEUED',progress_percent:progress};
+  }
   async cancelJob(){return false;}
 }
