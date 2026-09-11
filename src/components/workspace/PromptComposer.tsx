@@ -13,6 +13,7 @@ interface PromptComposerProps{
  references:WorkspaceReference[];
  onRequestAddMedia:(section?:LibrarySection)=>void;
  supportsNegativePrompt?:boolean;
+ supportsReferences?:boolean;
  maxChars?:number;
 }
 
@@ -53,7 +54,7 @@ function restoreCaret(root:HTMLElement,offset:number){
 }
 
 export const PromptComposer:React.FC<PromptComposerProps>=({
- prompt,onChangePrompt,negativePrompt,onChangeNegativePrompt,onOpenImproveModal,references,onRequestAddMedia,supportsNegativePrompt=true,maxChars=2000,
+ prompt,onChangePrompt,negativePrompt,onChangeNegativePrompt,onOpenImproveModal,references,onRequestAddMedia,supportsNegativePrompt=true,supportsReferences=true,maxChars=2000,
 })=>{
  const[showNegative,setShowNegative]=useState(Boolean(negativePrompt));
  const[mentionOpen,setMentionOpen]=useState(false);
@@ -104,6 +105,7 @@ export const PromptComposer:React.FC<PromptComposerProps>=({
  },[promptReferences]);
 
  const detectMention=(value:string,caret:number)=>{
+  if(!supportsReferences){setMentionOpen(false);setMentionStart(null);return}
   const before=value.slice(0,caret),match=before.match(/(?:^|\s)@([a-zA-Z0-9_-]*)$/);
   if(!match){setMentionOpen(false);setMentionStart(null);return}
   const q=match[1]||'';
@@ -192,13 +194,13 @@ export const PromptComposer:React.FC<PromptComposerProps>=({
    />
    <div className="absolute z-30 left-2.5 right-2.5 bottom-2 flex items-center justify-between gap-2 pointer-events-none">
     <div className="flex items-center gap-1.5 pointer-events-auto">
-     <button type="button" onClick={()=>onRequestAddMedia('ASSETS')} className="h-7 px-2 rounded-lg border border-white/[0.07] bg-white/[0.035] hover:bg-white/[0.06] text-[8px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1"><Plus className="w-3 h-3"/> Referência</button>
+     {supportsReferences&&<button type="button" onClick={()=>onRequestAddMedia('ASSETS')} className="h-7 px-2 rounded-lg border border-white/[0.07] bg-white/[0.035] hover:bg-white/[0.06] text-[8px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1"><Plus className="w-3 h-3"/> Referência</button>}
      <button type="button" onClick={onOpenImproveModal} disabled={!prompt.trim()} className="h-7 px-2 rounded-lg border border-white/[0.07] bg-white/[0.035] hover:bg-white/[0.06] disabled:opacity-30 text-[8px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1"><Sparkles className="w-3 h-3 text-cyan-300"/> Melhorar</button>
     </div>
-    <span className="text-[8px] text-zinc-700">@ para mencionar</span>
+    {supportsReferences&&<span className="text-[8px] text-zinc-700">@ para mencionar</span>}
    </div>
 
-   {mentionOpen&&<div className="absolute z-[100] left-2 top-full mt-1.5 w-[330px] max-w-[calc(100%-16px)] overflow-hidden rounded-2xl border border-white/[0.1] bg-[#171719] shadow-[0_24px_70px_rgba(0,0,0,.72)]">
+   {supportsReferences&&mentionOpen&&<div className="absolute z-[100] left-2 top-full mt-1.5 w-[330px] max-w-[calc(100%-16px)] overflow-hidden rounded-2xl border border-white/[0.1] bg-[#171719] shadow-[0_24px_70px_rgba(0,0,0,.72)]">
     <div className="p-2 border-b border-white/[0.055]"><div className="h-9 px-2.5 rounded-xl bg-[#111214] border border-white/[0.06] flex items-center gap-2"><Search className="w-3.5 h-3.5 text-zinc-600"/><span className="text-[10px] flex-1 truncate text-zinc-500">{mentionQuery?'Buscar: '+mentionQuery:'Referências desta geração'}</span></div></div>
     <div className="max-h-48 overflow-y-auto p-1.5">
      {visibleReferences.map(ref=>{const asset=ref.asset,imageUrl=asset?.thumbnail_url||asset?.public_url;return <button key={ref.asset_id} type="button" onMouseDown={e=>{e.preventDefault();insertReference(ref)}} className="w-full flex items-center gap-2 p-2 rounded-xl text-left hover:bg-white/[0.07]"><div className="w-10 h-10 rounded-lg bg-[#0b0e13] overflow-hidden shrink-0 flex items-center justify-center text-zinc-500 border border-white/[0.06]">{asset?.type==='IMAGE'&&imageUrl?<img src={imageUrl} className="w-full h-full object-cover" alt=""/>:mediaIcon(asset?.type)}</div><div className="min-w-0 flex-1"><p className="text-[9px] font-semibold text-white truncate">{asset?.name||ref.alias_snapshot}</p><span className="text-[8px] font-mono font-bold text-cyan-300">@{ref.alias_snapshot}</span></div></button>})}
