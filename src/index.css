@@ -310,9 +310,20 @@ html[data-theme="light"] *::-webkit-scrollbar-thumb:hover{background:#aebdcd;bac
 .ia-shell[data-theme="light"] .text-cyan-400{color:#0284c7!important}
 .ia-shell[data-theme="light"] .text-blue-300,
 .ia-shell[data-theme="light"] .text-blue-400{color:#4f46e5!important}
+.ia-shell[data-theme="light"] .text-violet-300,
+.ia-shell[data-theme="light"] .text-violet-400,
+.ia-shell[data-theme="light"] .text-violet-500,
+.ia-shell[data-theme="light"] .text-fuchsia-300,
+.ia-shell[data-theme="light"] .text-fuchsia-400,
+.ia-shell[data-theme="light"] .text-fuchsia-500{color:#6366f1!important}
 .ia-shell[data-theme="light"] .text-emerald-200,
 .ia-shell[data-theme="light"] .text-emerald-300,
-.ia-shell[data-theme="light"] .text-emerald-400{color:#059669!important}
+.ia-shell[data-theme="light"] .text-emerald-400,
+.ia-shell[data-theme="light"] .text-emerald-500,
+.ia-shell[data-theme="light"] .text-emerald-600,
+.ia-shell[data-theme="light"] .text-emerald-700,
+.ia-shell[data-theme="light"] .text-emerald-800,
+.ia-shell[data-theme="light"] .text-emerald-900{color:#059669!important}
 .ia-shell[data-theme="light"] .text-rose-300,
 .ia-shell[data-theme="light"] .text-red-300{color:#e11d48!important}
 .ia-shell[data-theme="light"] .text-amber-200,
@@ -326,9 +337,39 @@ html[data-theme="light"] *::-webkit-scrollbar-thumb:hover{background:#aebdcd;bac
 .ia-shell[data-theme="light"] [class*="border-emerald-5"]{border-color:rgba(5,150,105,.18)!important}
 
 /* Selected states and subtle brand tint */
-.ia-shell[data-theme="light"] [class*="bg-sky-300/["],
-.ia-shell[data-theme="light"] [class*="bg-sky-400/["]{
-  --light-accent-fill:rgba(14,165,233,.075);
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.02\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.03\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.035\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.04\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.05\\]{
+  background-color:rgba(14,165,233,.045)!important;
+}
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.06\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.07\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.08\\],
+.ia-shell[data-theme="light"] .bg-sky-400\\/10{
+  background-color:rgba(14,165,233,.075)!important;
+}
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.09\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/10,
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.11\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.12\\],
+.ia-shell[data-theme="light"] .bg-sky-400\\/\\[0\\.11\\]{
+  background-color:rgba(14,165,233,.095)!important;
+}
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.07\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.08\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.09\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.1\\],
+.ia-shell[data-theme="light"] .border-sky-400\\/15{
+  border-color:rgba(2,132,199,.15)!important;
+}
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.11\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.12\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.15\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.18\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.2\\]{
+  border-color:rgba(2,132,199,.20)!important;
 }
 .ia-shell[data-theme="light"] .ia-primary{
   background:linear-gradient(90deg,#0ea5e9 0%,#4f6ff1 100%)!important;
