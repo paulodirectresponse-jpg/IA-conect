@@ -5,7 +5,7 @@ import{Check,ChevronDown,Clock3,Gauge,Images,Search,Sparkles,Star,Video}from'luc
 interface Props{
  models:ModelRegistryItem[];selectionMode:'AUTO'|'MANUAL';selectedModelId:string;autoResolvedModel?:ModelRegistryItem|null;
  onSelectAuto:()=>void;onSelectModel:(m:ModelRegistryItem)=>void;favoriteModelIds:string[];recentModelIds:string[];onToggleFavorite:(id:string)=>void;
- unitPricesByModelId?:Record<string,number|null>;priceLoadingModelIds?:string[];
+ unitPricesByModelId?:Record<string,number|null>;priceLoadingModelIds?:string[];selectedCoverUrl?:string|null;
 }
 const accentFor=(id?:string)=>{if(!id)return'from-violet-500/35 via-fuchsia-500/15 to-cyan-400/25';if(id.includes('seedance'))return'from-rose-500/35 via-orange-400/15 to-fuchsia-500/25';if(id.includes('wan'))return'from-cyan-500/30 via-blue-500/15 to-violet-500/25';if(id.includes('minimax'))return'from-amber-500/25 via-rose-500/15 to-violet-500/25';return'from-violet-500/30 via-fuchsia-500/15 to-cyan-400/20';};
 const initials=(name?:string)=>(name||'AI').split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase();
@@ -24,10 +24,10 @@ export const CompactModelPicker:React.FC<Props>=(p)=>{
  };
  const filtered=useMemo(()=>{const q=search.trim().toLowerCase();return p.models.filter(m=>m.status!=='INACTIVE'&&(!q||`${m.name} ${m.description} ${m.best_for||''}`.toLowerCase().includes(q)))},[p.models,search]);
  const sorted=[...filtered].sort((a,b)=>Number(p.favoriteModelIds.includes(b.model_id))-Number(p.favoriteModelIds.includes(a.model_id))||Number(p.recentModelIds.includes(b.model_id))-Number(p.recentModelIds.includes(a.model_id))||a.name.localeCompare(b.name));
- const autoSelected=p.selectionMode==='AUTO',displayModel=autoSelected?null:selected,maxDuration=displayModel?.supported_durations?.length?Math.max(...displayModel.supported_durations):null;
+ const autoSelected=p.selectionMode==='AUTO',displayModel=autoSelected?null:selected,maxDuration=displayModel?.supported_durations?.length?Math.max(...displayModel.supported_durations):null,coverUrl=!autoSelected?p.selectedCoverUrl:null;
  return <div className="relative" ref={ref}>
-  <button type="button" onClick={()=>setOpen(v=>!v)} className={`group relative w-full min-h-[112px] overflow-hidden rounded-[16px] border border-white/[0.08] bg-gradient-to-br ${accentFor(displayModel?.model_id)} text-left shadow-[0_16px_45px_rgba(0,0,0,.2)]`}>
-   <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_25%,rgba(255,255,255,.12),transparent_28%),linear-gradient(to_top,rgba(4,6,10,.92),rgba(4,6,10,.18))]"/>
+  <button type="button" onClick={()=>setOpen(v=>!v)} className={`group relative w-full ${coverUrl?'ia-model-cover-card min-h-[148px]':'min-h-[112px]'} overflow-hidden rounded-[16px] border border-white/[0.08] bg-gradient-to-br ${accentFor(displayModel?.model_id)} text-left shadow-[0_16px_45px_rgba(0,0,0,.2)]`}>
+   {coverUrl?<><img src={coverUrl} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover object-center scale-[1.01]"/><div className="absolute inset-0" style={{background:'linear-gradient(180deg,rgba(3,7,18,.18) 0%,rgba(3,7,18,.34) 44%,rgba(3,7,18,.92) 100%)'}}/></>:<div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_25%,rgba(255,255,255,.12),transparent_28%),linear-gradient(to_top,rgba(4,6,10,.92),rgba(4,6,10,.18))]"/>}
    <div className="relative h-full p-3 flex flex-col justify-between gap-6">
     <div className="flex items-start justify-between gap-3">
      <div className="flex items-center gap-2 min-w-0"><div className="w-9 h-9 rounded-xl border border-white/10 bg-black/30 backdrop-blur grid place-items-center text-[11px] font-black text-white">{autoSelected?'AI':initials(displayModel?.name)}</div><div className="min-w-0"><p className="text-[13px] font-black text-white truncate">{autoSelected?'Auto':(selected?.name||'Escolher IA')}</p><p className="text-[8px] text-white/55 truncate">{autoSelected?'Escolha automática do melhor modelo':displayModel?.best_for||'Modelo manual'}</p></div></div>
