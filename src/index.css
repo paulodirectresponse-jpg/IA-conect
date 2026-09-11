@@ -131,15 +131,16 @@ html[data-theme="light"] *::-webkit-scrollbar-thumb{background:#cbd5e1}
 }
 .ia-shell[data-theme="light"] [class*="bg-[radial-gradient"],
 .ia-shell[data-theme="light"] [class*="bg-[linear-gradient"]{
-  --tw-gradient-from:#ffffff var(--tw-gradient-from-position)!important;
-  --tw-gradient-to:#f6f8fb var(--tw-gradient-to-position)!important;
+  background:linear-gradient(145deg,#ffffff,#f4f8fc)!important;
 }
 
 /* Typography */
 .ia-shell[data-theme="light"] .text-white,
 .ia-shell[data-theme="light"] .text-zinc-100,
 .ia-shell[data-theme="light"] .text-zinc-200,
-.ia-shell[data-theme="light"] .text-zinc-300{color:#172033!important}
+.ia-shell[data-theme="light"] .text-zinc-300,
+.ia-shell[data-theme="light"] .text-zinc-800,
+.ia-shell[data-theme="light"] .text-zinc-900{color:#172033!important}
 .ia-shell[data-theme="light"] .text-zinc-400,
 .ia-shell[data-theme="light"] .text-zinc-500{color:#64748b!important}
 .ia-shell[data-theme="light"] .text-zinc-600,
@@ -157,8 +158,7 @@ html[data-theme="light"] *::-webkit-scrollbar-thumb{background:#cbd5e1}
 .ia-shell[data-theme="light"] .bg-white\/\[0\.06\]{
   background-color:rgba(15,23,42,.025)!important;
 }
-.ia-shell[data-theme="light"] [class*="border-white"],
-.ia-shell[data-theme="light"] [class*="border-sky"]{border-color:rgba(15,23,42,.10)!important}
+.ia-shell[data-theme="light"] [class*="border-white"]{border-color:rgba(15,23,42,.10)!important}
 .ia-shell[data-theme="light"] input,
 .ia-shell[data-theme="light"] textarea,
 .ia-shell[data-theme="light"] select{
