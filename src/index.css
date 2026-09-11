@@ -1381,3 +1381,22 @@ html[data-theme="light"] .ia-auth-card{
   .ia-landing-gallery-card img{transition-duration:1ms!important}
   .ia-landing-gallery-card:hover img{transform:none}
 }
+
+
+/* Final motion and accessibility QA — Phase 7 */
+:where(button,a,input,textarea,select,[role="button"]):focus-visible{
+  outline:0;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--ia-brand) 14%,transparent);
+}
+@media(max-width:767px){
+  .ia-generator-panel{max-height:56dvh}
+  .ia-generator-actionbar{position:sticky;bottom:0;z-index:8}
+}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto!important}
+  .animate-spin,.animate-pulse,.animate-bounce{animation:none!important}
+  .ia-primary,.ia-dashboard-create-card,.ia-dashboard-arrow,.ia-dashboard-recent-media,.ia-generator-generate,.ia-wallet-pack,.ia-landing-gallery-card img{
+    transition-duration:1ms!important;
+    transform:none!important;
+  }
+}

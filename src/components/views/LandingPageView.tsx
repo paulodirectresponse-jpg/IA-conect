@@ -1,4 +1,5 @@
 import React from'react';
+import{useReducedMotion}from'motion/react';
 import{ArrowRight,BookOpen,Image as ImageIcon,Layers3,Sparkles,Video,Wallet,Zap}from'lucide-react';
 import{BrandMark}from'../common/BrandMark.js';
 import{ModelShowcase,ShowcaseItem,showcaseVideo}from'../workspace/ModelShowcase.js';
@@ -25,6 +26,7 @@ const Feature:React.FC<{icon:any;title:string;text:string}>=({icon:Icon,title,te
 </article>;
 
 export const LandingPageView:React.FC<Props>=({onLogin,onStart})=>{
+ const reduceMotion=useReducedMotion();
  const startFromModel=(item:ShowcaseItem)=>{sessionStorage.setItem('ia-connect:last-showcase-model',item.modelId);onStart()};
  return <div className="ia-landing min-h-screen overflow-x-hidden text-white">
   <header className="ia-landing-header fixed inset-x-0 top-0 z-50">
@@ -45,7 +47,7 @@ export const LandingPageView:React.FC<Props>=({onLogin,onStart})=>{
   <main>
    <section className="px-4 pt-20 sm:px-5 sm:pt-24">
     <div className="ia-landing-hero relative mx-auto max-w-7xl overflow-hidden">
-     <video src={heroVideo} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover object-center"/>
+     <video src={heroVideo} autoPlay={!reduceMotion} muted loop={!reduceMotion} playsInline preload="metadata" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover object-center"/>
      <div className="ia-landing-hero-overlay absolute inset-0"/>
      <div className="relative z-10 flex min-h-[600px] sm:min-h-[660px] items-end">
       <div className="w-full px-5 pb-8 pt-24 sm:px-8 sm:pb-10 lg:px-12 lg:pb-12">
@@ -55,7 +57,7 @@ export const LandingPageView:React.FC<Props>=({onLogin,onStart})=>{
         <p className="mt-5 max-w-2xl text-[14px] leading-relaxed text-white/82 sm:text-base">Escolha modelos, use referências, veja o preço antes de gerar e mantenha tudo organizado em um único studio.</p>
         <div className="mt-7 flex flex-wrap gap-3">
          <button onClick={onStart} className="ia-primary h-12 rounded-xl px-6 text-sm font-black inline-flex items-center gap-2">Começar agora<ArrowRight className="w-4 h-4"/></button>
-         <button onClick={()=>document.getElementById('models')?.scrollIntoView({behavior:'smooth'})} className="ia-landing-secondary h-12 rounded-xl px-5 text-[12px] font-bold">Explorar modelos</button>
+         <button onClick={()=>document.getElementById('models')?.scrollIntoView({behavior:reduceMotion?'auto':'smooth'})} className="ia-landing-secondary h-12 rounded-xl px-5 text-[12px] font-bold">Explorar modelos</button>
         </div>
        </div>
        <div className="mt-10 flex flex-wrap gap-x-6 gap-y-3 border-t border-white/10 pt-5 text-[10px] font-semibold text-white/60">

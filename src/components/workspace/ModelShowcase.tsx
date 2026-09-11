@@ -1,4 +1,5 @@
 import React,{useEffect,useRef,useState}from 'react';
+import { useReducedMotion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
 
 const SHOWCASE_STORAGE_BASE='https://hzjyhhenajbjxkwkmzdg.supabase.co/storage/v1/object/public/ia-conect-assets/showcase';
@@ -24,10 +25,10 @@ export const SHOWCASE_MODELS:ShowcaseItem[]=[
 ];
 
 const AutoLoopPreview:React.FC<{item:ShowcaseItem}>=({item})=>{
- const ref=useRef<HTMLVideoElement|null>(null),[failed,setFailed]=useState(false);
- useEffect(()=>{const video=ref.current;if(!video)return;video.muted=true;video.defaultMuted=true;const tryPlay=()=>void video.play().catch(()=>{});tryPlay();video.addEventListener('canplay',tryPlay);return()=>video.removeEventListener('canplay',tryPlay)},[item.videoSrc]);
+ const ref=useRef<HTMLVideoElement|null>(null),[failed,setFailed]=useState(false),reduceMotion=useReducedMotion();
+ useEffect(()=>{const video=ref.current;if(!video)return;video.muted=true;video.defaultMuted=true;if(reduceMotion){video.pause();return}const tryPlay=()=>void video.play().catch(()=>{});tryPlay();video.addEventListener('canplay',tryPlay);return()=>video.removeEventListener('canplay',tryPlay)},[item.videoSrc,reduceMotion]);
  if(failed)return <div className="absolute inset-0 grid place-items-center bg-[#050b12] px-4 text-center"><p className="text-[9px] font-semibold text-zinc-600">Prévia temporariamente indisponível</p></div>;
- return <video ref={ref} className="absolute inset-0 w-full h-full object-cover" src={item.videoSrc} autoPlay muted loop playsInline preload="metadata" disablePictureInPicture onError={()=>setFailed(true)}/>;
+ return <video ref={ref} className="absolute inset-0 w-full h-full object-cover" src={item.videoSrc} autoPlay={!reduceMotion} muted loop={!reduceMotion} playsInline preload="metadata" disablePictureInPicture onError={()=>setFailed(true)}/>;
 };
 
 export const ModelShowcase:React.FC<{compact?:boolean;onTry?:(item:ShowcaseItem)=>void;title?:string;subtitle?:string}> = ({compact=false,onTry,title='Modelos em destaque',subtitle='Veja os resultados em movimento e entre direto no modelo certo.'}) => <section className="ia-model-showcase">
