@@ -169,11 +169,12 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
     const q = search.trim().toLowerCase();
     return scopedAssets.filter((asset) =>
       !asset.deleted_at &&
+      allowedTypes.includes(asset.type) &&
       (typeFilter === 'ALL' || asset.type === typeFilter) &&
       (originFilter === 'ALL' || originOf(asset) === originFilter) &&
       (!q || asset.name.toLowerCase().includes(q) || asset.alias.toLowerCase().includes(q)),
     );
-  }, [scopedAssets, search, typeFilter, originFilter]);
+  }, [scopedAssets, search, typeFilter, originFilter, allowedTypes]);
 
   const entitySource = contentView === 'CHARACTERS' ? characters : contentView === 'PRODUCTS' ? products : styles;
   const visibleEntities = useMemo(() => {
