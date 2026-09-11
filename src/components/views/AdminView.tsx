@@ -29,9 +29,9 @@ export const AdminView:React.FC=()=>{
   {id:'coupons'as const,label:'Cupons',icon:<Tag className="w-4 h-4"/>},
   {id:'economics'as const,label:'Economia',icon:<ChartNoAxesCombined className="w-4 h-4"/>},
  ];
- return <div className="space-y-5">
+ return <div className="ia-admin space-y-6">
   <div><div className="flex items-center gap-2"><h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Admin</h1><Badge variant="neutral">Operacional</Badge></div><p className="mt-1 text-xs text-zinc-500">Créditos, retail pricing, cupons, provedores e economia do IA Connect.</p></div>
-  <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-white/[0.06]">{tabs.map(t=><button key={t.id} onClick={()=>setActiveTab(t.id)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-semibold whitespace-nowrap ${activeTab===t.id?'bg-white/[0.08] text-white':'text-zinc-500 hover:text-white hover:bg-white/[0.035]'}`}>{t.icon}{t.label}</button>)}</div>
+  <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-white/[0.06]">{tabs.map(t=><button key={t.id} onClick={()=>setActiveTab(t.id)} className={`ia-admin-tab flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-semibold whitespace-nowrap ${activeTab===t.id?'bg-white/[0.08] text-white':'text-zinc-500 hover:text-white hover:bg-white/[0.035]'}`}>{t.icon}{t.label}</button>)}</div>
   {activeTab==='overview'&&<div className="space-y-4">
    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
     <Card id="admin-stat-users"><span className="text-[9px] uppercase tracking-wider text-zinc-600">Usuários</span><div className="mt-1 text-xl font-black text-white">{stats?.total_users??'—'}</div><span className="text-[9px] text-zinc-600">{stats?.active_users??0} ativos</span></Card>
