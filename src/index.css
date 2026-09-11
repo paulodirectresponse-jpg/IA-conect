@@ -73,141 +73,372 @@
 @media(max-width:1023px){.ia-shell main{background:#06101a}}
 
 
-/* Authenticated studio light theme. Kept as a visual layer so product logic stays untouched. */
+/* Authenticated studio light theme. Dark theme rules above remain untouched. */
 html[data-theme="light"]{
-  --app-bg:#eef3f8;
+  --app-bg:#f2f5f9;
   --surface:#ffffff;
-  --surface-secondary:#f6f8fb;
-  --border:rgba(15,23,42,.10);
-  --border-hover:rgba(14,165,233,.28);
-  --text-primary:#0f172a;
+  --surface-secondary:#f7f9fc;
+  --border:rgba(15,23,42,.09);
+  --border-hover:rgba(14,165,233,.30);
+  --text-primary:#142033;
   --text-secondary:#475569;
-  --text-muted:#64748b;
+  --text-muted:#7a8899;
   color-scheme:light;
-  background:#eef3f8;
+  background:#f2f5f9;
 }
-html[data-theme="light"] body{background:#eef3f8;color:#0f172a}
-html[data-theme="light"] ::selection{background:rgba(14,165,233,.20);color:#0f172a}
+html[data-theme="light"] body{
+  background:#f2f5f9;
+  color:#142033;
+}
+html[data-theme="light"] ::selection{background:rgba(14,165,233,.18);color:#0f172a}
 html[data-theme="light"] *{scrollbar-color:#cbd5e1 transparent}
-html[data-theme="light"] *::-webkit-scrollbar-thumb{background:#cbd5e1}
+html[data-theme="light"] *::-webkit-scrollbar-thumb{
+  background:#cbd5e1;
+  border:2px solid transparent;
+  background-clip:padding-box;
+}
+html[data-theme="light"] *::-webkit-scrollbar-thumb:hover{background:#aebdcd;background-clip:padding-box}
 
 .ia-shell[data-theme="light"]{
   --panel:#ffffff;
-  --panel-2:#f6f8fb;
-  --line:rgba(15,23,42,.09);
-  --line-strong:rgba(14,165,233,.22);
-  --muted:#64748b;
+  --panel-2:#f7f9fc;
+  --line:rgba(15,23,42,.085);
+  --line-strong:rgba(14,165,233,.24);
+  --muted:#748295;
   --blue:#0284c7;
   --blue-2:#4f46e5;
-  color:#172033!important;
-  background:radial-gradient(circle at 78% -10%,rgba(14,165,233,.09),transparent 34%),#eef3f8!important;
+  --light-canvas:#f2f5f9;
+  --light-surface:#ffffff;
+  --light-surface-soft:#f8fafc;
+  --light-surface-muted:#f1f5f9;
+  --light-ink:#142033;
+  --light-subtle:#475569;
+  --light-muted:#7b899a;
+  --light-hairline:rgba(15,23,42,.075);
+  color:#142033!important;
+  background:
+    radial-gradient(circle at 80% -16%,rgba(56,189,248,.11),transparent 31%),
+    radial-gradient(circle at 8% 108%,rgba(99,102,241,.055),transparent 28%),
+    #f2f5f9!important;
 }
 
-/* Core surfaces */
-.ia-shell[data-theme="light"] > aside,
-.ia-shell[data-theme="light"] > div,
-.ia-shell[data-theme="light"] header,
-.ia-shell[data-theme="light"] main{border-color:var(--line)!important}
+/* Shell hierarchy */
 .ia-shell[data-theme="light"] > div.flex.flex-col.flex-1{
-  background:radial-gradient(circle at 78% -8%,rgba(14,165,233,.07),transparent 32%),linear-gradient(180deg,#f8fbff 0%,#eef3f8 100%)!important;
+  background:
+    radial-gradient(circle at 80% -14%,rgba(14,165,233,.075),transparent 30%),
+    linear-gradient(180deg,#f8fafc 0%,#f2f5f9 100%)!important;
 }
-.ia-shell[data-theme="light"] aside{background:#f8fbff!important}
-.ia-shell[data-theme="light"] header{background:rgba(248,251,255,.92)!important}
+.ia-shell[data-theme="light"] aside{
+  background:linear-gradient(180deg,#fbfdff 0%,#f7f9fc 100%)!important;
+  border-color:rgba(15,23,42,.075)!important;
+  box-shadow:8px 0 26px -26px rgba(15,23,42,.45);
+}
+.ia-shell[data-theme="light"] header{
+  background:rgba(251,253,255,.88)!important;
+  border-color:rgba(15,23,42,.075)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,.9),0 12px 34px -30px rgba(15,23,42,.45);
+}
 .ia-shell[data-theme="light"] main,
 .ia-shell[data-theme="light"] main>.flex-1.h-full,
 .ia-shell[data-theme="light"] main>.flex-1.min-h-0{background:transparent!important}
 
-/* Existing dark arbitrary backgrounds used by studio cards, panels, dropdowns and modals */
-.ia-shell[data-theme="light"] [class*="bg-[#050"],
-.ia-shell[data-theme="light"] [class*="bg-[#060"],
-.ia-shell[data-theme="light"] [class*="bg-[#070"],
-.ia-shell[data-theme="light"] [class*="bg-[#080"],
-.ia-shell[data-theme="light"] [class*="bg-[#090"],
-.ia-shell[data-theme="light"] [class*="bg-[#0a"],
-.ia-shell[data-theme="light"] [class*="bg-[#0b"],
-.ia-shell[data-theme="light"] [class*="bg-[#101"],
-.ia-shell[data-theme="light"] [class*="bg-[#111"]{
+/* Dark studio surfaces become intentional light surfaces. Media canvases are restored below. */
+.ia-shell[data-theme="light"] [class*="bg-[#05"]:not([class*="#030"]),
+.ia-shell[data-theme="light"] [class*="bg-[#06"]:not([class*="#030"]),
+.ia-shell[data-theme="light"] [class*="bg-[#07"]:not([class*="#030"]),
+.ia-shell[data-theme="light"] [class*="bg-[#08"]:not([class*="#030"]),
+.ia-shell[data-theme="light"] [class*="bg-[#09"]:not([class*="#030"]),
+.ia-shell[data-theme="light"] [class*="bg-[#0a"]:not([class*="#030"]),
+.ia-shell[data-theme="light"] [class*="bg-[#0b"]:not([class*="#030"]),
+.ia-shell[data-theme="light"] [class*="bg-[#0d"]:not([class*="#030"]),
+.ia-shell[data-theme="light"] [class*="bg-[#11151c"]{
   background-color:#ffffff!important;
 }
-.ia-shell[data-theme="light"] [class*="bg-[radial-gradient"],
-.ia-shell[data-theme="light"] [class*="bg-[linear-gradient"]{
-  background:linear-gradient(145deg,#ffffff,#f4f8fc)!important;
+.ia-shell[data-theme="light"] [class*="radial-gradient"][class*="#07121d"]{
+  background:
+    radial-gradient(circle at 82% 14%,rgba(14,165,233,.15),transparent 32%),
+    linear-gradient(145deg,#ffffff 0%,#f7fbff 58%,#f2f7fc 100%)!important;
+}
+.ia-shell[data-theme="light"] [class*="radial-gradient"][class*="#08131e"]{
+  background:
+    radial-gradient(circle at 84% 24%,rgba(14,165,233,.11),transparent 34%),
+    linear-gradient(145deg,#ffffff 0%,#f7fafc 100%)!important;
+}
+.ia-shell[data-theme="light"] [class*="radial-gradient"][class*="#07111b"]{
+  background:
+    radial-gradient(circle at 82% 18%,rgba(14,165,233,.10),transparent 34%),
+    #ffffff!important;
 }
 
-/* Typography */
+/* Keep visual media on a neutral dark stage for better perceived contrast. */
+.ia-shell[data-theme="light"] .bg-black,
+.ia-shell[data-theme="light"] [class*="bg-[#05"]:has(>img),
+.ia-shell[data-theme="light"] [class*="bg-[#05"]:has(>video),
+.ia-shell[data-theme="light"] [class*="bg-[#07"]:has(>img),
+.ia-shell[data-theme="light"] [class*="bg-[#07"]:has(>video),
+.ia-shell[data-theme="light"] [class*="bg-[#08"]:has(>img),
+.ia-shell[data-theme="light"] [class*="bg-[#08"]:has(>video){
+  background-color:#0b1119!important;
+}
+.ia-shell[data-theme="light"] .bg-black\/15,
+.ia-shell[data-theme="light"] .bg-black\/20{
+  background-color:rgba(15,23,42,.035)!important;
+}
+
+/* Text hierarchy */
 .ia-shell[data-theme="light"] .text-white,
 .ia-shell[data-theme="light"] .text-zinc-100,
 .ia-shell[data-theme="light"] .text-zinc-200,
 .ia-shell[data-theme="light"] .text-zinc-300,
 .ia-shell[data-theme="light"] .text-zinc-800,
-.ia-shell[data-theme="light"] .text-zinc-900{color:#172033!important}
-.ia-shell[data-theme="light"] .text-zinc-400,
+.ia-shell[data-theme="light"] .text-zinc-900{color:#142033!important}
+.ia-shell[data-theme="light"] .text-zinc-400{color:#475569!important}
 .ia-shell[data-theme="light"] .text-zinc-500{color:#64748b!important}
-.ia-shell[data-theme="light"] .text-zinc-600,
-.ia-shell[data-theme="light"] .text-zinc-700{color:#7b8798!important}
+.ia-shell[data-theme="light"] .text-zinc-600{color:#8190a2!important}
+.ia-shell[data-theme="light"] .text-zinc-700{color:#97a4b3!important}
 .ia-shell[data-theme="light"] .ia-primary,
 .ia-shell[data-theme="light"] .ia-primary *{color:#fff!important}
+.ia-shell[data-theme="light"] [class*="bg-black/"].text-white,
+.ia-shell[data-theme="light"] [class*="bg-black/"] .text-white,
+.ia-shell[data-theme="light"] [class*="#03080d"].text-white,
+.ia-shell[data-theme="light"] [class*="#03080d"] .text-white{color:#fff!important}
 
-/* Cards, tables and controls */
-.ia-shell[data-theme="light"] .bg-white{background-color:#ffffff!important}
+/* Neutral fills */
+.ia-shell[data-theme="light"] .bg-white{background-color:#fff!important}
+.ia-shell[data-theme="light"] .bg-white\/\[0\.02\],
+.ia-shell[data-theme="light"] .bg-white\/\[0\.022\],
 .ia-shell[data-theme="light"] .bg-white\/\[0\.025\],
 .ia-shell[data-theme="light"] .bg-white\/\[0\.03\],
-.ia-shell[data-theme="light"] .bg-white\/\[0\.035\],
+.ia-shell[data-theme="light"] .bg-white\/\[0\.035\]{
+  background-color:#f8fafc!important;
+}
 .ia-shell[data-theme="light"] .bg-white\/\[0\.04\],
 .ia-shell[data-theme="light"] .bg-white\/\[0\.05\],
-.ia-shell[data-theme="light"] .bg-white\/\[0\.06\]{
-  background-color:rgba(15,23,42,.025)!important;
+.ia-shell[data-theme="light"] .bg-white\/\[0\.06\],
+.ia-shell[data-theme="light"] .bg-white\/\[0\.07\],
+.ia-shell[data-theme="light"] .bg-white\/\[0\.08\],
+.ia-shell[data-theme="light"] .bg-white\/10{
+  background-color:#f1f5f9!important;
 }
-.ia-shell[data-theme="light"] [class*="border-white"]{border-color:rgba(15,23,42,.10)!important}
+.ia-shell[data-theme="light"] .bg-zinc-50,
+.ia-shell[data-theme="light"] .bg-zinc-50\/50,
+.ia-shell[data-theme="light"] .bg-zinc-50\/60,
+.ia-shell[data-theme="light"] .bg-zinc-50\/70,
+.ia-shell[data-theme="light"] .bg-zinc-100,
+.ia-shell[data-theme="light"] .bg-zinc-100\/80{
+  background-color:#f8fafc!important;
+}
+
+/* Hairlines and borders */
+.ia-shell[data-theme="light"] .border-white\/\[0\.045\],
+.ia-shell[data-theme="light"] .border-white\/\[0\.05\],
+.ia-shell[data-theme="light"] .border-white\/\[0\.06\],
+.ia-shell[data-theme="light"] .border-white\/\[0\.065\],
+.ia-shell[data-theme="light"] .border-white\/\[0\.07\],
+.ia-shell[data-theme="light"] .border-white\/\[0\.08\],
+.ia-shell[data-theme="light"] .border-white\/\[0\.09\],
+.ia-shell[data-theme="light"] .border-white\/\[0\.1\],
+.ia-shell[data-theme="light"] .border-white\/10,
+.ia-shell[data-theme="light"] .divide-white\/\[0\.045\]>*+*{
+  border-color:rgba(15,23,42,.085)!important;
+}
+.ia-shell[data-theme="light"] .border-zinc-100,
+.ia-shell[data-theme="light"] .border-zinc-200,
+.ia-shell[data-theme="light"] .border-zinc-200\/80,
+.ia-shell[data-theme="light"] .border-zinc-200\/90,
+.ia-shell[data-theme="light"] .border-zinc-300{
+  border-color:rgba(15,23,42,.09)!important;
+}
+
+/* Cards get soft depth; controls stay crisp and flat. */
+.ia-shell[data-theme="light"] main :is(section,article,div).rounded-xl.border,
+.ia-shell[data-theme="light"] main :is(section,article,div).rounded-2xl.border{
+  border-color:rgba(15,23,42,.085)!important;
+  box-shadow:
+    0 1px 2px rgba(15,23,42,.025),
+    0 10px 28px -22px rgba(15,23,42,.32)!important;
+}
+.ia-shell[data-theme="light"] main button.rounded-xl.border,
+.ia-shell[data-theme="light"] main button.rounded-2xl.border,
+.ia-shell[data-theme="light"] main input.rounded-xl,
+.ia-shell[data-theme="light"] main select.rounded-xl{
+  box-shadow:none!important;
+}
+.ia-shell[data-theme="light"] [class*="shadow-[0_18px_"]{
+  box-shadow:0 1px 2px rgba(15,23,42,.03),0 14px 34px -24px rgba(15,23,42,.30)!important;
+}
+.ia-shell[data-theme="light"] [class*="shadow-[0_32px_100px"]{
+  box-shadow:0 28px 80px -28px rgba(15,23,42,.42),0 10px 28px -18px rgba(15,23,42,.24)!important;
+}
+.ia-shell[data-theme="light"] [class*="shadow-black"]{--tw-shadow-color:rgba(15,23,42,.14)!important}
+
+/* Inputs and editors */
 .ia-shell[data-theme="light"] input,
 .ia-shell[data-theme="light"] textarea,
 .ia-shell[data-theme="light"] select{
-  color:#172033!important;
+  color:#142033!important;
+  background:#fbfdff!important;
+  border-color:rgba(15,23,42,.105)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8)!important;
+}
+.ia-shell[data-theme="light"] input:focus,
+.ia-shell[data-theme="light"] textarea:focus,
+.ia-shell[data-theme="light"] select:focus{
   background:#fff!important;
-  border-color:rgba(15,23,42,.11)!important;
+  border-color:rgba(14,165,233,.42)!important;
+  box-shadow:0 0 0 3px rgba(14,165,233,.10)!important;
 }
 .ia-shell[data-theme="light"] input::placeholder,
-.ia-shell[data-theme="light"] textarea::placeholder{color:#94a3b8!important}
-.ia-shell[data-theme="light"] option{background:#fff;color:#172033}
+.ia-shell[data-theme="light"] textarea::placeholder{color:#9aa7b6!important}
+.ia-shell[data-theme="light"] option{background:#fff;color:#142033}
+
+/* Tables */
 .ia-shell[data-theme="light"] main table{color:#334155}
-.ia-shell[data-theme="light"] main thead{color:#64748b}
-.ia-shell[data-theme="light"] main tr{border-color:rgba(15,23,42,.08)!important}
-.ia-shell[data-theme="light"] main .rounded-xl.border,
-.ia-shell[data-theme="light"] main .rounded-2xl.border{
-  border-color:rgba(15,23,42,.09)!important;
-  box-shadow:0 12px 34px rgba(15,23,42,.045)!important;
+.ia-shell[data-theme="light"] main thead{
+  color:#64748b;
+  background:rgba(248,250,252,.78);
 }
+.ia-shell[data-theme="light"] main tr{border-color:rgba(15,23,42,.07)!important}
+.ia-shell[data-theme="light"] main tbody tr:hover{background:rgba(14,165,233,.025)}
 
-/* Specific reusable studio surfaces */
-.ia-shell[data-theme="light"] .ia-media-card{
-  border-color:rgba(15,23,42,.10);
-  background:#fff;
-  box-shadow:0 20px 55px rgba(15,23,42,.08);
-}
-.ia-shell[data-theme="light"] .ia-media-card:after{background:linear-gradient(180deg,transparent 62%,rgba(15,23,42,.36) 100%)}
-.ia-shell[data-theme="light"] .ia-glow-card{
-  border-color:rgba(14,165,233,.16);
-  background:linear-gradient(180deg,#ffffff,#f7fafc);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 16px 45px rgba(15,23,42,.06);
-}
-.ia-shell[data-theme="light"] [class*="shadow-black"]{--tw-shadow-color:rgba(15,23,42,.16)!important}
-
-/* Keep semantic/brand treatments legible in light mode. */
+/* Brand and semantic colors */
+.ia-shell[data-theme="light"] .text-sky-200,
 .ia-shell[data-theme="light"] .text-sky-300,
+.ia-shell[data-theme="light"] .text-sky-400,
 .ia-shell[data-theme="light"] .text-cyan-200,
 .ia-shell[data-theme="light"] .text-cyan-300,
 .ia-shell[data-theme="light"] .text-cyan-400{color:#0284c7!important}
+.ia-shell[data-theme="light"] .text-blue-300,
+.ia-shell[data-theme="light"] .text-blue-400{color:#4f46e5!important}
+.ia-shell[data-theme="light"] .text-violet-300,
+.ia-shell[data-theme="light"] .text-violet-400,
+.ia-shell[data-theme="light"] .text-violet-500,
+.ia-shell[data-theme="light"] .text-fuchsia-300,
+.ia-shell[data-theme="light"] .text-fuchsia-400,
+.ia-shell[data-theme="light"] .text-fuchsia-500{color:#6366f1!important}
 .ia-shell[data-theme="light"] .text-emerald-200,
-.ia-shell[data-theme="light"] .text-emerald-300{color:#059669!important}
+.ia-shell[data-theme="light"] .text-emerald-300,
+.ia-shell[data-theme="light"] .text-emerald-400,
+.ia-shell[data-theme="light"] .text-emerald-500,
+.ia-shell[data-theme="light"] .text-emerald-600,
+.ia-shell[data-theme="light"] .text-emerald-700,
+.ia-shell[data-theme="light"] .text-emerald-800,
+.ia-shell[data-theme="light"] .text-emerald-900{color:#059669!important}
 .ia-shell[data-theme="light"] .text-rose-300,
 .ia-shell[data-theme="light"] .text-red-300{color:#e11d48!important}
 .ia-shell[data-theme="light"] .text-amber-200,
-.ia-shell[data-theme="light"] .text-amber-300{color:#b45309!important}
+.ia-shell[data-theme="light"] .text-amber-300,
+.ia-shell[data-theme="light"] .text-amber-400{color:#b45309!important}
+.ia-shell[data-theme="light"] [class*="bg-emerald-3"],
+.ia-shell[data-theme="light"] [class*="bg-emerald-4"],
+.ia-shell[data-theme="light"] [class*="bg-emerald-5"]{background-color:rgba(16,185,129,.075)!important}
+.ia-shell[data-theme="light"] [class*="border-emerald-3"],
+.ia-shell[data-theme="light"] [class*="border-emerald-4"],
+.ia-shell[data-theme="light"] [class*="border-emerald-5"]{border-color:rgba(5,150,105,.18)!important}
 
-/* Menus and hover states */
-.ia-shell[data-theme="light"] button:not(.ia-primary):hover{background-color:rgba(14,165,233,.055)}
+/* Selected states and subtle brand tint */
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.02\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.03\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.035\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.04\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.05\\]{
+  background-color:rgba(14,165,233,.045)!important;
+}
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.06\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.07\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.08\\],
+.ia-shell[data-theme="light"] .bg-sky-400\\/10{
+  background-color:rgba(14,165,233,.075)!important;
+}
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.09\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/10,
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.11\\],
+.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.12\\],
+.ia-shell[data-theme="light"] .bg-sky-400\\/\\[0\\.11\\]{
+  background-color:rgba(14,165,233,.095)!important;
+}
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.07\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.08\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.09\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.1\\],
+.ia-shell[data-theme="light"] .border-sky-400\\/15{
+  border-color:rgba(2,132,199,.15)!important;
+}
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.11\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.12\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.15\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.18\\],
+.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.2\\]{
+  border-color:rgba(2,132,199,.20)!important;
+}
+.ia-shell[data-theme="light"] .ia-primary{
+  background:linear-gradient(90deg,#0ea5e9 0%,#4f6ff1 100%)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.22),
+    0 10px 24px -12px rgba(37,99,235,.48)!important;
+}
+.ia-shell[data-theme="light"] .ia-primary:hover{
+  filter:brightness(1.025) saturate(1.03);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.26),
+    0 13px 28px -12px rgba(37,99,235,.52)!important;
+}
+
+/* Reusable studio surfaces */
+.ia-shell[data-theme="light"] .ia-media-card{
+  border-color:rgba(15,23,42,.09);
+  background:#fff;
+  box-shadow:0 18px 48px -28px rgba(15,23,42,.38);
+}
+.ia-shell[data-theme="light"] .ia-media-card:after{
+  background:linear-gradient(180deg,transparent 62%,rgba(15,23,42,.40) 100%);
+}
+.ia-shell[data-theme="light"] .ia-glow-card{
+  border-color:rgba(14,165,233,.16);
+  background:linear-gradient(180deg,#fff,#f8fbff);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.92),
+    0 16px 42px -28px rgba(14,116,144,.34);
+}
+
+/* Sidebar promo and account dropdown should feel elevated, not dark. */
+.ia-shell[data-theme="light"] aside [class*="radial-gradient"][class*="#08131e"]{
+  background:
+    radial-gradient(circle at 82% 12%,rgba(14,165,233,.14),transparent 36%),
+    linear-gradient(145deg,#ffffff,#f4f9fd)!important;
+  border-color:rgba(14,165,233,.12)!important;
+  box-shadow:0 10px 26px -22px rgba(14,116,144,.36);
+}
+.ia-shell[data-theme="light"] header [class*="bg-[#0a1520]"]{
+  background:#fff!important;
+  border-color:rgba(15,23,42,.09)!important;
+  box-shadow:0 20px 55px -22px rgba(15,23,42,.30)!important;
+}
+
+/* Hover behavior */
+.ia-shell[data-theme="light"] .hover\:bg-white\/\[0\.035\]:hover,
+.ia-shell[data-theme="light"] .hover\:bg-white\/\[0\.04\]:hover,
+.ia-shell[data-theme="light"] .hover\:bg-white\/\[0\.05\]:hover,
+.ia-shell[data-theme="light"] .hover\:bg-white\/\[0\.06\]:hover,
+.ia-shell[data-theme="light"] .hover\:bg-white\/\[0\.07\]:hover,
+.ia-shell[data-theme="light"] .hover\:bg-zinc-50\/50:hover,
+.ia-shell[data-theme="light"] .hover\:bg-zinc-50:hover,
+.ia-shell[data-theme="light"] .hover\:bg-zinc-100:hover{
+  background-color:#eef4f8!important;
+}
 .ia-shell[data-theme="light"] .hover\:text-white:hover{color:#0f172a!important}
 
-@media(max-width:1023px){
-  .ia-shell[data-theme="light"] main{background:#eef3f8!important}
+/* Smooth only the surfaces that visually change theme. */
+.ia-shell[data-theme="light"] header,
+.ia-shell[data-theme="light"] aside,
+.ia-shell[data-theme="light"] main :is(section,article,div,button,input,textarea,select){
+  transition-property:background-color,border-color,color,box-shadow;
+  transition-duration:140ms;
+  transition-timing-function:ease-out;
 }
+
+@media(max-width:1023px){
+  .ia-shell[data-theme="light"] main{background:#f2f5f9!important}
+  .ia-shell[data-theme="light"] aside{box-shadow:18px 0 50px -26px rgba(15,23,42,.38)}
+}
+
