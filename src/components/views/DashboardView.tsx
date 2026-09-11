@@ -43,6 +43,8 @@ export const DashboardView:React.FC<DashboardViewProps>=({onNavigate})=>{
    </button>
   </section>
 
+  <ModelShowcase compact onTry={tryModel} title="Descobrir modelos" subtitle="Explore resultados e entre direto no modelo certo quando quiser experimentar algo novo."/>
+
   <section>
    <div className="flex items-end justify-between gap-4">
     <div><h2 className="ia-section-title">Criações recentes</h2><p className="ia-compact mt-1">Retome de onde parou.</p></div>
@@ -59,6 +61,5 @@ export const DashboardView:React.FC<DashboardViewProps>=({onNavigate})=>{
     :<div className="ia-dashboard-empty mt-4"><Sparkles className="w-5 h-5 mx-auto text-sky-300/50"/><p className="mt-2 text-[11px] text-[var(--ia-text-3)]">Suas próximas criações vão aparecer aqui.</p></div>}
   </section>
 
-  <ModelShowcase compact onTry={tryModel} title="Descobrir modelos" subtitle="Explore resultados e entre direto no modelo certo quando quiser experimentar algo novo."/>
  </div>;
 };
