@@ -1,6 +1,193 @@
-import React,{useEffect,useRef,useState}from'react';
-import{Bell,ChevronDown,CreditCard,LogOut,Menu,Moon,Plus,Settings,Shield,Sun,UserRound,Wallet as WalletIcon}from'lucide-react';import{useAuth}from'../../context/AuthContext.js';import{formatCredits}from'../../utils/creditFormat.js';import{BrandMark}from'../common/BrandMark.js';
-interface NavbarProps{onToggleSidebar:()=>void;onNavigate:(view:string)=>void;theme:'dark'|'light';onToggleTheme:()=>void;}
-export const Navbar:React.FC<NavbarProps>=({onToggleSidebar,onNavigate,theme,onToggleTheme})=>{const{profile,wallet,isAdmin,logout}=useAuth(),[open,setOpen]=useState(false),menuRef=useRef<HTMLDivElement>(null);useEffect(()=>{const close=(event:MouseEvent)=>{if(menuRef.current&&!menuRef.current.contains(event.target as Node))setOpen(false)};document.addEventListener('mousedown',close);return()=>document.removeEventListener('mousedown',close)},[]);const initial=profile?.display_name?.charAt(0).toUpperCase()||profile?.email?.charAt(0).toUpperCase()||'U',balance=wallet?.available_credits??0;
- return <header className="sticky top-0 z-30 flex items-center justify-between h-[64px] px-4 sm:px-5 bg-[#07111b]/92 backdrop-blur-xl border-b border-sky-300/[0.08]"><div className="flex items-center gap-3"><button onClick={onToggleSidebar} className="p-2 -ml-2 rounded-xl text-zinc-500 hover:text-white hover:bg-sky-300/[0.06] lg:hidden" aria-label="Abrir menu"><Menu className="w-5 h-5"/></button><button onClick={()=>onNavigate('dashboard')} className="lg:hidden"><BrandMark/></button></div><div className="flex items-center gap-2 ml-auto"><button className="hidden sm:flex w-9 h-9 items-center justify-center rounded-xl text-zinc-500 hover:text-white hover:bg-sky-300/[0.05]" title="Notificações"><Bell className="w-4 h-4"/></button><button onClick={onToggleTheme} className="flex w-9 h-9 items-center justify-center rounded-xl border border-transparent text-zinc-500 hover:text-white hover:border-sky-300/[0.10] hover:bg-sky-300/[0.05]" title={theme==='dark'?'Usar tema claro':'Usar tema escuro'} aria-label={theme==='dark'?'Usar tema claro':'Usar tema escuro'}>{theme==='dark'?<Sun className="w-4 h-4"/>:<Moon className="w-4 h-4"/>}</button><button onClick={()=>onNavigate('wallet')} className="h-9 flex items-center gap-2 px-3 rounded-xl border border-sky-300/[0.11] bg-sky-300/[0.035] hover:bg-sky-300/[0.07] text-zinc-300"><WalletIcon className="w-3.5 h-3.5 text-sky-300"/><span className="text-[11px] font-semibold tabular-nums">{formatCredits(balance)}</span></button><button onClick={()=>onNavigate('create-video')} className="ia-primary hidden sm:flex h-9 items-center gap-1.5 px-3.5 rounded-xl text-[11px] font-bold"><Plus className="w-3.5 h-3.5"/> Criar</button><div className="relative" ref={menuRef}><button onClick={()=>setOpen(v=>!v)} className={`h-9 pl-1 pr-2 flex items-center gap-2 rounded-xl border ${open?'border-sky-300/30 bg-sky-300/[0.08]':'border-transparent hover:border-sky-300/[0.1] hover:bg-sky-300/[0.04]'}`}><div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 p-[1px]"><div className="w-full h-full rounded-full bg-[#0a1520] flex items-center justify-center text-[10px] font-bold text-white">{initial}</div></div><ChevronDown className={`w-3.5 h-3.5 text-zinc-500 transition-transform ${open?'rotate-180':''}`}/></button>{open&&<div className="absolute right-0 mt-2 w-64 overflow-hidden rounded-2xl border border-sky-300/[0.1] bg-[#0a1520] shadow-2xl shadow-black/50"><div className="p-3.5 border-b border-sky-300/[0.07]"><p className="text-[12px] font-semibold text-white truncate">{profile?.display_name||'Minha conta'}</p><p className="mt-0.5 text-[10px] text-zinc-500 truncate">{profile?.email}</p></div><div className="p-1.5"><button onClick={()=>{setOpen(false);onNavigate('settings')}} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[11px] text-zinc-300 hover:bg-sky-300/[0.05]"><UserRound className="w-4 h-4 text-zinc-500"/> Conta e perfil</button><button onClick={()=>{setOpen(false);onNavigate('wallet')}} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[11px] text-zinc-300 hover:bg-sky-300/[0.05]"><CreditCard className="w-4 h-4 text-zinc-500"/> Carteira e créditos</button><button onClick={()=>{setOpen(false);onNavigate('settings')}} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[11px] text-zinc-300 hover:bg-sky-300/[0.05]"><Settings className="w-4 h-4 text-zinc-500"/> Configurações</button><button onClick={()=>{onToggleTheme();setOpen(false)}} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[11px] text-zinc-300 hover:bg-sky-300/[0.05]">{theme==='dark'?<Sun className="w-4 h-4 text-zinc-500"/>:<Moon className="w-4 h-4 text-zinc-500"/>}{theme==='dark'?'Tema claro':'Tema escuro'}</button>{isAdmin&&<button onClick={()=>{setOpen(false);onNavigate('admin')}} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[11px] text-zinc-300 hover:bg-sky-300/[0.05]"><Shield className="w-4 h-4 text-sky-300"/> Administração</button>}</div><div className="p-1.5 border-t border-sky-300/[0.07]"><button onClick={logout} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[11px] text-red-300 hover:bg-red-500/[0.08]"><LogOut className="w-4 h-4"/> Sair</button></div></div>}</div></div></header>;
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  ChevronDown,
+  CreditCard,
+  Image as ImageIcon,
+  LogOut,
+  Menu,
+  Moon,
+  Plus,
+  Settings,
+  Shield,
+  Sun,
+  UserRound,
+  Video,
+  Wallet as WalletIcon,
+} from 'lucide-react';
+import { useAuth } from '../../context/AuthContext.js';
+import { formatCredits } from '../../utils/creditFormat.js';
+import { BrandMark } from '../common/BrandMark.js';
+
+interface NavbarProps {
+  currentView: string;
+  onToggleSidebar: () => void;
+  onNavigate: (view: string) => void;
+  theme: 'dark' | 'light';
+  onToggleTheme: () => void;
+}
+
+const viewMeta: Record<string, { title: string; eyebrow: string }> = {
+  dashboard: { title: 'Início', eyebrow: 'Studio' },
+  'create-image': { title: 'Gerar imagem', eyebrow: 'Criação' },
+  'create-video': { title: 'Gerar vídeo', eyebrow: 'Criação' },
+  community: { title: 'Comunidade', eyebrow: 'Explorar' },
+  library: { title: 'Biblioteca', eyebrow: 'Assets' },
+  assets: { title: 'Biblioteca', eyebrow: 'Assets' },
+  history: { title: 'Histórico', eyebrow: 'Criações' },
+  wallet: { title: 'Carteira', eyebrow: 'Créditos' },
+  settings: { title: 'Configurações', eyebrow: 'Conta' },
+  admin: { title: 'Administração', eyebrow: 'Operacional' },
+};
+
+export const Navbar: React.FC<NavbarProps> = ({
+  currentView,
+  onToggleSidebar,
+  onNavigate,
+  theme,
+  onToggleTheme,
+}) => {
+  const { profile, wallet, isAdmin, logout } = useAuth();
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
+  const createRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (accountRef.current && !accountRef.current.contains(target)) setAccountOpen(false);
+      if (createRef.current && !createRef.current.contains(target)) setCreateOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+
+  const initial =
+    profile?.display_name?.charAt(0).toUpperCase() ||
+    profile?.email?.charAt(0).toUpperCase() ||
+    'U';
+  const balance = wallet?.available_credits ?? 0;
+  const meta = viewMeta[currentView] || { title: 'IA Connect', eyebrow: 'Studio' };
+
+  const navigate = (view: string) => {
+    setAccountOpen(false);
+    setCreateOpen(false);
+    onNavigate(view);
+  };
+
+  return (
+    <header className="ia-shell-navbar sticky top-0 z-30 flex h-[64px] items-center border-b px-3 sm:px-5">
+      <div className="flex min-w-0 items-center gap-3">
+        <button onClick={onToggleSidebar} className="ia-shell-icon-button lg:hidden" aria-label="Abrir menu">
+          <Menu className="h-5 w-5" />
+        </button>
+
+        <button onClick={() => onNavigate('dashboard')} className="lg:hidden">
+          <BrandMark compact />
+        </button>
+
+        <div className="hidden min-w-0 lg:block">
+          <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ia-text-4)]">{meta.eyebrow}</p>
+          <p className="mt-0.5 truncate text-[13px] font-semibold tracking-[-.01em] text-[var(--ia-text-1)]">{meta.title}</p>
+        </div>
+      </div>
+
+      <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+        <button
+          onClick={onToggleTheme}
+          className="ia-shell-icon-button"
+          title={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
+          aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
+        >
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </button>
+
+        <button onClick={() => navigate('wallet')} className="ia-shell-wallet">
+          <WalletIcon className="h-3.5 w-3.5" />
+          <span className="hidden text-[9px] font-medium text-[var(--ia-text-4)] sm:inline">Saldo</span>
+          <span className="text-[11px] font-semibold tabular-nums text-[var(--ia-text-1)]">{formatCredits(balance)}</span>
+        </button>
+
+        <div className="relative hidden sm:block" ref={createRef}>
+          <button
+            onClick={() => setCreateOpen((value) => !value)}
+            className="ia-button-primary flex h-9 items-center gap-1.5 px-3.5 text-[11px] font-bold"
+            aria-expanded={createOpen}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Criar
+            <ChevronDown className={`h-3 w-3 opacity-70 transition-transform ${createOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {createOpen && (
+            <div className="ia-shell-popover absolute right-0 mt-2 w-52 p-1.5">
+              <button onClick={() => navigate('create-image')} className="ia-shell-menu-item">
+                <ImageIcon className="h-4 w-4" />
+                <span>
+                  <strong>Imagem</strong>
+                  <small>Gerar imagem com IA</small>
+                </span>
+              </button>
+              <button onClick={() => navigate('create-video')} className="ia-shell-menu-item">
+                <Video className="h-4 w-4" />
+                <span>
+                  <strong>Vídeo</strong>
+                  <small>Gerar vídeo com IA</small>
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="relative" ref={accountRef}>
+          <button
+            onClick={() => setAccountOpen((value) => !value)}
+            className={`ia-shell-account-trigger ${accountOpen ? 'is-open' : ''}`}
+            aria-expanded={accountOpen}
+          >
+            <div className="grid h-7 w-7 place-items-center rounded-full border border-[var(--ia-line-strong)] bg-[var(--ia-surface-2)] text-[10px] font-bold text-[var(--ia-text-1)]">
+              {initial}
+            </div>
+            <ChevronDown className={`h-3.5 w-3.5 text-[var(--ia-text-4)] transition-transform ${accountOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {accountOpen && (
+            <div className="ia-shell-popover absolute right-0 mt-2 w-64 overflow-hidden">
+              <div className="border-b border-[var(--ia-line)] px-3.5 py-3">
+                <p className="truncate text-[12px] font-semibold text-[var(--ia-text-1)]">{profile?.display_name || 'Minha conta'}</p>
+                <p className="mt-0.5 truncate text-[10px] text-[var(--ia-text-4)]">{profile?.email}</p>
+              </div>
+
+              <div className="p-1.5">
+                <button onClick={() => navigate('settings')} className="ia-shell-account-item">
+                  <UserRound className="h-4 w-4" /> Conta e perfil
+                </button>
+                <button onClick={() => navigate('wallet')} className="ia-shell-account-item">
+                  <CreditCard className="h-4 w-4" /> Carteira e créditos
+                </button>
+                <button onClick={() => navigate('settings')} className="ia-shell-account-item">
+                  <Settings className="h-4 w-4" /> Configurações
+                </button>
+                <button onClick={() => { onToggleTheme(); setAccountOpen(false); }} className="ia-shell-account-item">
+                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+                </button>
+                {isAdmin && (
+                  <button onClick={() => navigate('admin')} className="ia-shell-account-item">
+                    <Shield className="h-4 w-4" /> Administração
+                  </button>
+                )}
+              </div>
+
+              <div className="border-t border-[var(--ia-line)] p-1.5">
+                <button onClick={logout} className="ia-shell-account-item text-rose-300 hover:bg-rose-500/[0.07]">
+                  <LogOut className="h-4 w-4" /> Sair
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+  );
 };
