@@ -76,7 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="ia-shell-navbar sticky top-0 z-30 flex h-[64px] items-center border-b px-3 sm:px-5">
+    <header className="ia-shell-navbar sticky top-0 z-30 flex h-[68px] items-center border-b px-3 sm:px-5 lg:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <button onClick={onToggleSidebar} className="ia-shell-icon-button lg:hidden" aria-label="Abrir menu">
           <Menu className="h-5 w-5" />
@@ -86,9 +86,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           <BrandMark compact />
         </button>
 
-        <div className="hidden min-w-0 lg:block">
-          <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ia-text-4)]">{meta.eyebrow}</p>
-          <p className="mt-0.5 truncate text-[13px] font-semibold tracking-[-.01em] text-[var(--ia-text-1)]">{meta.title}</p>
+        <div className="ia-shell-page-heading hidden min-w-0 lg:flex">
+          <p className="ia-shell-page-title">{meta.title}</p>
+          <span className="ia-shell-page-context">{meta.eyebrow}</span>
         </div>
       </div>
 
@@ -111,7 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="relative hidden sm:block" ref={createRef}>
           <button
             onClick={() => setCreateOpen((value) => !value)}
-            className="ia-button-primary flex h-9 items-center gap-1.5 px-3.5 text-[11px] font-bold"
+            className="ia-button-primary ia-shell-create-button flex h-10 items-center gap-1.5 px-4 text-[12px] font-bold"
             aria-expanded={createOpen}
           >
             <Plus className="h-3.5 w-3.5" />

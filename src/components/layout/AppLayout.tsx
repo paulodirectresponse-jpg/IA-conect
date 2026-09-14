@@ -56,8 +56,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ currentView, onNavigate, c
           onToggleTheme={toggleTheme}
         />
 
-        <main className={`min-w-0 flex-1 ${isCreateView ? 'flex flex-col overflow-hidden' : 'overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-7'}`}>
-          {isCreateView ? children : <div className="mx-auto w-full max-w-[1440px]">{children}</div>}
+        <main className={`min-w-0 flex-1 ${isCreateView ? 'flex flex-col overflow-hidden' : 'overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 xl:px-10 lg:py-8'}`}>
+          {isCreateView ? children : <div className="mx-auto w-full max-w-[1480px]">{children}</div>}
         </main>
       </div>
     </div>
