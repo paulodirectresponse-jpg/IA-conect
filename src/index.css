@@ -2303,3 +2303,53 @@ html[data-theme="light"] .ia-wallet>div.grid>div:nth-child(2){background:#fff!im
   .ia-wallet table tbody tr{transition-duration:1ms!important}
   .ia-landing-gallery-card:hover img{transform:none!important}
 }
+
+
+/* Design maturity pass — final polish */
+.ia-surface{box-shadow:none}
+.ia-page-title{font-weight:720}
+.ia-section-title{font-weight:680;letter-spacing:-.02em}
+.ia-label{
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.005em;
+  text-transform:none;
+}
+.ia-caption{font-size:10px;line-height:1.45}
+.ia-badge{font-size:10px;font-weight:600}
+.ia-control{
+  transition:
+    background-color var(--ia-motion-standard) var(--ia-ease-standard),
+    border-color var(--ia-motion-standard) var(--ia-ease-standard),
+    color var(--ia-motion-standard) var(--ia-ease-standard),
+    opacity var(--ia-motion-standard) var(--ia-ease-standard);
+}
+.ia-button-primary:active,.ia-primary:active{transform:scale(.985)}
+.ia-community-card button,
+.ia-dashboard-launch,
+.ia-model-showcase-cta,
+.ia-shell-nav-item{
+  -webkit-tap-highlight-color:transparent;
+}
+.ia-creative-library article{
+  box-shadow:none!important;
+}
+.ia-creative-library article:hover{border-color:var(--ia-line-strong)!important}
+.ia-creative-library article img{
+  transition:transform var(--ia-motion-standard) var(--ia-ease-out)!important;
+}
+.ia-creative-library article:hover img{transform:scale(1.01)!important}
+
+@media(max-width:767px){
+  .ia-community-card>div:last-child button{min-height:44px}
+  .ia-creative-library .ia-primary{min-height:44px}
+  .ia-creative-library input,
+  .ia-creative-library textarea{font-size:12px!important}
+  .ia-creative-library button[aria-label]{min-width:40px;min-height:40px}
+  .ia-auth-card button[type="submit"]{min-height:44px}
+  .ia-history-row{align-items:flex-start}
+}
+@media(prefers-reduced-motion:reduce){
+  .ia-creative-library article img{transition-duration:1ms!important}
+  .ia-creative-library article:hover img{transform:none!important}
+}
