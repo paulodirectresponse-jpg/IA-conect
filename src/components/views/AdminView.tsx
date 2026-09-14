@@ -29,21 +29,21 @@ export const AdminView:React.FC=()=>{
   {id:'coupons'as const,label:'Cupons',icon:<Tag className="w-4 h-4"/>},
   {id:'economics'as const,label:'Economia',icon:<ChartNoAxesCombined className="w-4 h-4"/>},
  ];
- return <div className="ia-admin space-y-6">
-  <div><div className="flex items-center gap-2"><h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Admin</h1><Badge variant="neutral">Operacional</Badge></div><p className="mt-1 text-xs text-zinc-500">Créditos, retail pricing, cupons, provedores e economia do IA Connect.</p></div>
-  <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-white/[0.06]">{tabs.map(t=><button key={t.id} onClick={()=>setActiveTab(t.id)} className={`ia-admin-tab flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-semibold whitespace-nowrap ${activeTab===t.id?'bg-white/[0.08] text-white':'text-zinc-500 hover:text-white hover:bg-white/[0.035]'}`}>{t.icon}{t.label}</button>)}</div>
-  {activeTab==='overview'&&<div className="space-y-4">
-   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-    <Card id="admin-stat-users"><span className="text-[9px] uppercase tracking-wider text-zinc-600">Usuários</span><div className="mt-1 text-xl font-black text-white">{stats?.total_users??'—'}</div><span className="text-[9px] text-zinc-600">{stats?.active_users??0} ativos</span></Card>
-    <Card id="admin-stat-credits"><span className="text-[9px] uppercase tracking-wider text-zinc-600">Créditos em contas</span><div className="mt-1 text-xl font-black text-white">{Number(stats?.total_platform_credits||0).toLocaleString('pt-BR')}</div><span className="text-[9px] text-zinc-600">disponíveis + reservados</span></Card>
-    <Card id="admin-stat-models"><span className="text-[9px] uppercase tracking-wider text-zinc-600">Modelos</span><div className="mt-1 text-xl font-black text-white">{stats?.models_count??'—'}</div><span className="text-[9px] text-zinc-600">catálogo ativo</span></Card>
-    <Card id="admin-stat-providers"><span className="text-[9px] uppercase tracking-wider text-zinc-600">Provedores</span><div className="mt-1 text-xl font-black text-white">{stats?.providers_count??'—'}</div><span className="text-[9px] text-zinc-600">catálogo de provedores</span></Card>
+ return <div className="ia-admin space-y-7">
+  <header className="ia-view-header"><div className="flex items-center gap-2.5"><h1 className="ia-view-title">Administração</h1><Badge variant="neutral">Operacional</Badge></div><p className="ia-view-description">Créditos, retail pricing, cupons, provedores e economia do IA Connect.</p></header>
+  <nav className="ia-admin-tabs flex items-center gap-1 overflow-x-auto pb-2">{tabs.map(t=><button key={t.id} onClick={()=>setActiveTab(t.id)} className={`ia-admin-tab flex h-10 items-center gap-2 px-3 rounded-lg text-[11px] font-semibold whitespace-nowrap ${activeTab===t.id?'is-active':''}`}>{t.icon}{t.label}</button>)}</nav>
+  {activeTab==='overview'&&<div className="space-y-5">
+   <div className="ia-admin-stats grid grid-cols-2 lg:grid-cols-4">
+    <Card id="admin-stat-users"><span>Usuários</span><div>{stats?.total_users??'—'}</div><small>{stats?.active_users??0} ativos</small></Card>
+    <Card id="admin-stat-credits"><span>Créditos em contas</span><div>{Number(stats?.total_platform_credits||0).toLocaleString('pt-BR')}</div><small>disponíveis + reservados</small></Card>
+    <Card id="admin-stat-models"><span>Modelos</span><div>{stats?.models_count??'—'}</div><small>catálogo ativo</small></Card>
+    <Card id="admin-stat-providers"><span>Provedores</span><div>{stats?.providers_count??'—'}</div><small>catálogo de provedores</small></Card>
    </div>
-   <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
-    <div className="flex items-center justify-between gap-3"><div><h2 className="text-xs font-bold text-white">Saúde operacional</h2><p className="mt-1 text-[9px] text-zinc-600">Diagnóstico da arquitetura ativa.</p></div>{health&&<span className={`rounded-full border px-2.5 py-1 text-[9px] font-black ${healthClass(health.status)}`}>{health.status}</span>}</div>
-    {health?<div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-2">{health.checks.map(check=><div key={check.key} className={`rounded-xl border p-3 ${healthClass(check.status)}`}><div className="flex items-center justify-between gap-2"><p className="text-[10px] font-bold text-white">{check.label}</p><span className="text-[8px] font-black">{check.status}</span></div><p className="mt-1 text-[9px] leading-relaxed opacity-80">{check.detail}</p></div>)}</div>:<p className="mt-3 text-[10px] text-zinc-600">Carregando diagnóstico...</p>}
-   </div>
-   <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4"><h2 className="text-xs font-bold text-white">Fonte de verdade financeira</h2><p className="mt-2 text-[10px] leading-relaxed text-zinc-500">Créditos operacionais vivem exclusivamente no Credit Ledger. BRL é usado apenas para pagamentos, caixa, COGS e análise econômica.</p></div>
+   <section className="ia-admin-panel">
+    <div className="flex items-center justify-between gap-3"><div><h2>Saúde operacional</h2><p>Diagnóstico da arquitetura ativa.</p></div>{health&&<span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${healthClass(health.status)}`}>{health.status}</span>}</div>
+    {health?<div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-2">{health.checks.map(check=><div key={check.key} className={`ia-admin-health rounded-[11px] border p-3 ${healthClass(check.status)}`}><div className="flex items-center justify-between gap-2"><p className="text-[11px] font-semibold text-white">{check.label}</p><span className="text-[9px] font-bold">{check.status}</span></div><p className="mt-1.5 text-[10px] leading-relaxed opacity-80">{check.detail}</p></div>)}</div>:<p className="mt-3 text-[11px] text-zinc-600">Carregando diagnóstico...</p>}
+   </section>
+   <section className="ia-admin-panel"><h2>Fonte de verdade financeira</h2><p className="mt-2">Créditos operacionais vivem exclusivamente no Credit Ledger. BRL é usado apenas para pagamentos, caixa, COGS e análise econômica.</p></section>
   </div>}
   {activeTab==='users'&&<AdminUsersList/>}
   {activeTab==='models'&&<AdminModels/>}
