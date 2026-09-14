@@ -27,16 +27,30 @@ export const SHOWCASE_MODELS:ShowcaseItem[]=[
 const AutoLoopPreview:React.FC<{item:ShowcaseItem}>=({item})=>{
  const ref=useRef<HTMLVideoElement|null>(null),[failed,setFailed]=useState(false),reduceMotion=useReducedMotion();
  useEffect(()=>{const video=ref.current;if(!video)return;video.muted=true;video.defaultMuted=true;if(reduceMotion){video.pause();return}const tryPlay=()=>void video.play().catch(()=>{});tryPlay();video.addEventListener('canplay',tryPlay);return()=>video.removeEventListener('canplay',tryPlay)},[item.videoSrc,reduceMotion]);
- if(failed)return <div className="absolute inset-0 grid place-items-center bg-[#050b12] px-4 text-center"><p className="text-[9px] font-semibold text-zinc-600">Prévia temporariamente indisponível</p></div>;
+ if(failed)return <div className="absolute inset-0 grid place-items-center bg-[var(--ia-surface-media)] px-4 text-center"><p className="text-[11px] font-medium text-[var(--ia-text-4)]">Prévia temporariamente indisponível</p></div>;
  return <video ref={ref} className="absolute inset-0 w-full h-full object-cover" src={item.videoSrc} autoPlay={!reduceMotion} muted loop={!reduceMotion} playsInline preload="metadata" disablePictureInPicture onError={()=>setFailed(true)}/>;
 };
 
-export const ModelShowcase:React.FC<{compact?:boolean;onTry?:(item:ShowcaseItem)=>void;title?:string;subtitle?:string}> = ({compact=false,onTry,title='Modelos em destaque',subtitle='Veja os resultados em movimento e entre direto no modelo certo.'}) => <section className="ia-model-showcase">
-  <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4"><div><p className="text-[9px] font-black uppercase tracking-[.2em] text-sky-300">Model discovery</p><h2 className={`${compact?'text-xl':'text-3xl sm:text-4xl'} mt-2 font-black tracking-[-.04em] text-white`}>{title}</h2><p className="mt-2 max-w-2xl text-[11px] sm:text-sm leading-relaxed text-zinc-500">{subtitle}</p></div></div>
-  <div className="mt-5 grid md:grid-cols-2 xl:grid-cols-5 gap-3">
-    {SHOWCASE_MODELS.map(item=><article key={item.modelId} className="group overflow-hidden rounded-2xl border border-sky-300/[0.1] bg-[#07111b] hover:border-sky-300/[0.24] transition-[border-color,transform] duration-200 hover:-translate-y-0.5">
-      <div className="relative aspect-video bg-[#050b12] overflow-hidden"><AutoLoopPreview item={item}/><div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-[#03080d]/75 via-transparent to-transparent"/><div className="absolute left-2 bottom-2 pointer-events-none"><span className="px-2 py-1 rounded-lg bg-[#03080d]/70 backdrop-blur border border-sky-300/[0.12] text-[8px] font-black text-white">{item.name}</span></div></div>
-      <div className="p-3"><h3 className="text-[11px] font-black text-white leading-tight">{item.headline}</h3><p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500 line-clamp-2">{item.description}</p><div className="mt-2 flex gap-1 flex-wrap">{item.badges.slice(0,2).map(b=><span key={b} className="px-1.5 py-0.5 rounded-md border border-sky-300/[0.08] bg-sky-300/[0.03] text-[8px] font-semibold text-zinc-500">{b}</span>)}</div>{onTry&&<button onClick={()=>onTry(item)} className="mt-3 h-8 px-2.5 rounded-lg ia-primary text-[8px] font-black inline-flex items-center gap-1.5">Testar modelo<ArrowRight className="w-3 h-3"/></button>}</div>
+export const ModelShowcase:React.FC<{compact?:boolean;onTry?:(item:ShowcaseItem)=>void;title?:string;subtitle?:string}> = ({compact=false,onTry,title='Modelos em destaque',subtitle='Veja os resultados em movimento e entre direto no modelo certo.'}) => <section className={`ia-model-showcase ${compact?'is-compact':''}`}>
+  <div className="ia-model-showcase-header">
+    <div className="min-w-0">
+      <h2 className="ia-model-showcase-title">{title}</h2>
+      <p className="ia-model-showcase-subtitle">{subtitle}</p>
+    </div>
+  </div>
+  <div className="ia-model-showcase-grid">
+    {SHOWCASE_MODELS.map(item=><article key={item.modelId} className="ia-model-showcase-card group">
+      <div className="ia-model-showcase-media">
+        <AutoLoopPreview item={item}/>
+        <div className="ia-model-showcase-media-shade"/>
+        <div className="ia-model-showcase-model-name">{item.name}</div>
+      </div>
+      <div className="ia-model-showcase-body">
+        <h3>{item.headline}</h3>
+        <p>{item.description}</p>
+        <div className="ia-model-showcase-badges">{item.badges.slice(0,2).map(b=><span key={b}>{b}</span>)}</div>
+        {onTry&&<button onClick={()=>onTry(item)} className="ia-model-showcase-cta">Testar modelo<ArrowRight className="w-3.5 h-3.5"/></button>}
+      </div>
     </article>)}
   </div>
 </section>;
