@@ -13,7 +13,7 @@ export const FieldShell: React.FC<FieldShellProps> = ({ label, hint, error, chil
     {label && <span className="ia-label block mb-2">{label}</span>}
     {children}
     {(error || hint) && (
-      <span className={`mt-1.5 block text-[10px] leading-relaxed ${error ? 'text-rose-300' : 'text-[var(--ia-text-4)]'}`}>
+      <span className={`mt-1.5 block text-[11px] leading-relaxed ${error ? 'text-rose-300' : 'text-[var(--ia-text-4)]'}`}>
         {error || hint}
       </span>
     )}
@@ -27,7 +27,7 @@ export interface TextInputProps extends React.InputHTMLAttributes<HTMLInputEleme
 export const TextInput: React.FC<TextInputProps> = ({ invalid = false, className = '', ...props }) => (
   <input
     aria-invalid={invalid || undefined}
-    className={`ia-control h-10 w-full px-3 text-xs outline-none placeholder:text-[var(--ia-text-4)] ${invalid ? 'border-rose-400/35' : ''} ${className}`}
+    className={`ia-control h-11 w-full px-3 text-[13px] outline-none placeholder:text-[var(--ia-text-4)] ${invalid ? 'border-rose-400/35' : ''} ${className}`}
     {...props}
   />
 );
@@ -39,7 +39,7 @@ export interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextArea
 export const TextArea: React.FC<TextAreaProps> = ({ invalid = false, className = '', ...props }) => (
   <textarea
     aria-invalid={invalid || undefined}
-    className={`ia-control min-h-24 w-full px-3 py-2.5 text-xs leading-relaxed outline-none placeholder:text-[var(--ia-text-4)] ${invalid ? 'border-rose-400/35' : ''} ${className}`}
+    className={`ia-control min-h-24 w-full px-3 py-2.5 text-[13px] leading-relaxed outline-none placeholder:text-[var(--ia-text-4)] ${invalid ? 'border-rose-400/35' : ''} ${className}`}
     {...props}
   />
 );
