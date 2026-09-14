@@ -20,9 +20,9 @@ export const Button: React.FC<ButtonProps> = ({
   ...rest
 }) => {
   const sizeStyles = {
-    sm: 'h-9 px-3 text-[11px]',
-    md: 'h-10 sm:h-11 px-4 text-xs',
-    lg: 'h-11 sm:h-12 px-5 text-sm',
+    sm: 'h-10 px-3.5 text-[11px]',
+    md: 'h-11 px-4 text-xs',
+    lg: 'h-12 px-5 text-sm',
   };
 
   const variantStyles = {
