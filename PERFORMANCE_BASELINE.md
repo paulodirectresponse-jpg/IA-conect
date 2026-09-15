@@ -66,6 +66,38 @@ gera `performance-baseline.json` com:
 
 O CI publica esse JSON como artifact por 14 dias e adiciona o resumo ao job.
 
+### Baseline de bundle medido no CI
+
+Medição do primeiro CI desta etapa, antes de code splitting/AVIF/WebP:
+
+| Métrica | Antes |
+| --- | ---: |
+| JS | 2 chunks |
+| JS raw | 2.938,5 KiB |
+| JS gzip | 675,1 KiB |
+| CSS | 1 chunk |
+| CSS raw | 248,0 KiB |
+| CSS gzip | 38,0 KiB |
+| `dist` total raw | 25.218,0 KiB |
+| `dist` total gzip | 22.577,7 KiB |
+
+Maiores arquivos do build:
+
+| Arquivo | Raw | Gzip |
+| --- | ---: | ---: |
+| `ia_conect/index.js` | 2.052,9 KiB | 440,9 KiB |
+| `client/enterprise/visuals/create-video-surfer-desktop.png` | 1.977,2 KiB | 1.964,6 KiB |
+| `client/enterprise/visuals/planet-orb-square.png` | 1.938,7 KiB | 1.927,0 KiB |
+| `client/model-covers/nano-banana-pro-image.png` | 1.915,3 KiB | 1.902,5 KiB |
+| `client/model-covers/nano-banana-2-image.png` | 1.820,7 KiB | 1.808,1 KiB |
+| `client/model-covers/gpt-image-2.png` | 1.808,9 KiB | 1.797,2 KiB |
+| `client/enterprise/visuals/create-image-cat-desktop.png` | 1.777,5 KiB | 1.764,9 KiB |
+| `client/model-covers/seedream-5-pro-image.png` | 1.762,6 KiB | 1.750,9 KiB |
+| `client/enterprise/visuals/planet-hero-wide.png` | 1.587,0 KiB | 1.575,2 KiB |
+| `client/enterprise/visuals/planet-hero-standard.png` | 1.563,5 KiB | 1.551,7 KiB |
+
+O baseline confirma dois gargalos já previstos no roadmap: bundle JS inicial grande e PNGs pesados. A correção fica deliberadamente para as etapas 4 e 6, para preservar a ordem de execução.
+
 ## Pontos críticos que precisam constar no "antes"
 
 | Fluxo | Endpoint / métrica |
@@ -110,6 +142,6 @@ Para comparação consistente:
 | Biblioteca | — | — | — | — | — | requer sessão autenticada |
 | Gerar imagem | — | — | — | — | — | requer sessão autenticada |
 | Gerar vídeo | — | — | — | — | — | requer sessão autenticada |
-| Bundle inicial | CI | n/a | n/a | n/a | `performance-baseline.json` | automatizado |
+| Bundle inicial | n/a | n/a | n/a | n/a | 2 JS / 1 CSS; 2.938,5 KiB JS raw; 25.218,0 KiB dist raw | medido no CI |
 
 A tabela só deve receber números efetivamente medidos. Não preencher valores estimados.
