@@ -11,29 +11,42 @@ function likeId(generationId:string,userId:string){return `${generationId}_${use
 function safeId(value:string){return encodeURIComponent(value);}
 function aliasFrom(value:string){return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]+/g,'_').replace(/^_+|_+$/g,'').slice(0,48)||'referencia';}
 
-async function enrichGeneration(g:any,currentUserId:string){
-  const [userDoc,statsDoc,likeDoc]=await Promise.all([
-    firestoreAdminRest.get(`users/${safeId(g.user_id)}`),
-    firestoreAdminRest.get(`community_stats/${safeId(g.generation_id)}`),
-    firestoreAdminRest.get(`community_likes/${safeId(likeId(g.generation_id,currentUserId))}`),
-  ]);
-  const user=(userDoc.exists?userDoc.data:{}) as any;
-  const stats=(statsDoc.exists?statsDoc.data:{}) as any;
-  const refs=await Promise.all((g.references||[]).map(async(r:any)=>{
-    const doc=await firestoreAdminRest.get(`assets/${safeId(r.asset_id)}`);
-    if(!doc.exists)return null;
-    const a=doc.data as any;
-    if(a?.deleted_at)return null;
-    return {asset_id:a.asset_id,name:a.name,type:a.type,public_url:a.public_url,thumbnail_url:a.thumbnail_url||a.public_url,slot_type:r.slot_type||'GENERAL',alias:r.alias||a.alias};
-  }));
-  return {
-    generation_id:g.generation_id,
-    creator:{user_id:g.user_id,display_name:user?.display_name||user?.name||'Criador IA Connect',avatar_url:user?.avatar_url||''},
-    media_type:mediaType(g.mode),result_url:g.result_url,result_urls:g.result_urls||[g.result_url].filter(Boolean),thumbnail_url:g.thumbnail_url||g.result_url,
-    model_id:g.model_id,mode:g.mode,prompt:g.original_prompt||'',negative_prompt:g.negative_prompt||'',aspect_ratio:g.aspect_ratio||'1:1',resolution:g.resolution||'',
-    duration_seconds:g.duration_seconds||null,number_of_outputs:g.number_of_outputs||1,seed:g.seed??null,motion_strength:g.motion_strength??null,references:refs.filter(Boolean),
-    created_at:g.completed_at||g.created_at,likes_count:Number(stats?.likes_count||0),downloads_count:Number(stats?.downloads_count||0),liked_by_me:likeDoc.exists,
-  };
+async function enrichGenerations(generations:any[],currentUserId:string){
+  const paths=new Set<string>();
+  for(const g of generations){
+    paths.add(`users/${safeId(g.user_id)}`);
+    paths.add(`community_stats/${safeId(g.generation_id)}`);
+    paths.add(`community_likes/${safeId(likeId(g.generation_id,currentUserId))}`);
+    for(const ref of g.references||[])if(ref?.asset_id)paths.add(`assets/${safeId(ref.asset_id)}`);
+  }
+
+  const docs=await firestoreAdminRest.batchGet([...paths]);
+  const get=(path:string)=>docs.get(path)||{exists:false,data:null,updateTime:null};
+
+  return generations.map((g:any)=>{
+    const userDoc=get(`users/${safeId(g.user_id)}`);
+    const statsDoc=get(`community_stats/${safeId(g.generation_id)}`);
+    const likeDoc=get(`community_likes/${safeId(likeId(g.generation_id,currentUserId))}`);
+    const user=(userDoc.exists?userDoc.data:{}) as any;
+    const stats=(statsDoc.exists?statsDoc.data:{}) as any;
+    const refs=(g.references||[]).map((ref:any)=>{
+      if(!ref?.asset_id)return null;
+      const doc=get(`assets/${safeId(ref.asset_id)}`);
+      if(!doc.exists)return null;
+      const a=doc.data as any;
+      if(a?.deleted_at)return null;
+      return {asset_id:a.asset_id,name:a.name,type:a.type,public_url:a.public_url,thumbnail_url:a.thumbnail_url||a.public_url,slot_type:ref.slot_type||'GENERAL',alias:ref.alias||a.alias};
+    }).filter(Boolean);
+
+    return {
+      generation_id:g.generation_id,
+      creator:{user_id:g.user_id,display_name:user?.display_name||user?.name||'Criador IA Connect',avatar_url:user?.avatar_url||''},
+      media_type:mediaType(g.mode),result_url:g.result_url,result_urls:g.result_urls||[g.result_url].filter(Boolean),thumbnail_url:g.thumbnail_url||g.result_url,
+      model_id:g.model_id,mode:g.mode,prompt:g.original_prompt||'',negative_prompt:g.negative_prompt||'',aspect_ratio:g.aspect_ratio||'1:1',resolution:g.resolution||'',
+      duration_seconds:g.duration_seconds||null,number_of_outputs:g.number_of_outputs||1,seed:g.seed??null,motion_strength:g.motion_strength??null,references:refs,
+      created_at:g.completed_at||g.created_at,likes_count:Number(stats?.likes_count||0),downloads_count:Number(stats?.downloads_count||0),liked_by_me:likeDoc.exists,
+    };
+  });
 }
 
 communityRouter.get('/community/feed',async(req:AuthenticatedRequest,res)=>{
@@ -45,7 +58,7 @@ communityRouter.get('/community/feed',async(req:AuthenticatedRequest,res)=>{
       .filter(g=>kind==='ALL'||mediaType(g.mode)===kind)
       .filter((g:any)=>!g.community_recreate_source_id)
       .slice(0,requested);
-    const items=await Promise.all(generations.map(g=>enrichGeneration(g,req.user!.uid)));
+    const items=await enrichGenerations(generations,req.user!.uid);
     res.json({success:true,data:{items}});
   }catch(err:any){res.status(500).json({success:false,error:{code:'COMMUNITY_FEED_ERROR',message:err?.message||'Não foi possível carregar a comunidade.'}});}
 });
