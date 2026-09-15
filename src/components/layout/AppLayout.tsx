@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Navbar } from './Navbar.js';
 import { Sidebar } from './Sidebar.js';
+import { enterpriseVisualAssets } from '../../config/enterpriseVisualAssets.js';
 
 interface AppLayoutProps {
   currentView: string;
@@ -38,8 +39,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ currentView, onNavigate, c
 
   const toggleTheme = () => setTheme((value) => (value === 'dark' ? 'light' : 'dark'));
 
+  const enterpriseVisualStyle = {
+    '--ia-art-planet-home': `url("${enterpriseVisualAssets.homePlanet}")`,
+    '--ia-art-planet-community': `url("${enterpriseVisualAssets.communityPlanet}")`,
+    '--ia-art-planet-library': `url("${enterpriseVisualAssets.libraryPlanet}")`,
+    '--ia-art-planet-studio': `url("${enterpriseVisualAssets.studioPlanet}")`,
+    '--ia-art-planet-mobile': `url("${enterpriseVisualAssets.mobilePlanet}")`,
+    '--ia-art-create-image': `url("${enterpriseVisualAssets.createImageHero}")`,
+    '--ia-art-create-video': `url("${enterpriseVisualAssets.createVideoHero}")`,
+  } as React.CSSProperties & Record<string, string>;
+
   return (
-    <div data-theme={theme} className="ia-shell flex h-screen overflow-hidden font-sans antialiased text-[var(--ia-text-1)]">
+    <div data-theme={theme} style={enterpriseVisualStyle} className="ia-shell flex h-screen overflow-hidden font-sans antialiased text-[var(--ia-text-1)]">
       <Sidebar
         currentView={currentView}
         onNavigate={onNavigate}
