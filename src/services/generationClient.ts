@@ -29,6 +29,9 @@ export type PricedGenerationDraft = GenerationRequestDraft & {
   billing_units?:number;
 };
 
+export type GenerationQuoteResult={request_draft:PricedGenerationDraft;notice:string};
+export type GenerationBatchQuoteResult={items:Array<{key:string;ok:boolean;quote?:GenerationQuoteResult;error?:{code?:string;message?:string}}>};
+
 function normalizeReferences(draft:GenerationRequestDraft) {
   const refs=draft.references||[];
   const hasExplicitRoles=refs.some((r)=>canonicalReferenceSlot(r)!=='GENERAL');
@@ -42,8 +45,12 @@ function normalizeReferences(draft:GenerationRequestDraft) {
 }
 
 export const generationClient = {
-  quote(params:GenerationQuoteParams):Promise<{request_draft:PricedGenerationDraft;notice:string}> {
+  quote(params:GenerationQuoteParams):Promise<GenerationQuoteResult> {
     return apiRequest('/api/generations/quote', {method:'POST',body:JSON.stringify(params)});
+  },
+
+  quoteBatch(requests:Array<GenerationQuoteParams&{key:string}>):Promise<GenerationBatchQuoteResult>{
+    return apiRequest('/api/generations/quote-batch',{method:'POST',body:JSON.stringify({requests})});
   },
 
   async create(draft:GenerationRequestDraft):Promise<Generation> {
@@ -80,6 +87,12 @@ export const generationClient = {
 
   list(max=50) {
     return apiRequest<Generation[]>(`/api/generations?limit=${Math.min(100,max)}`);
+  },
+
+  statusBatch(ids:string[]) {
+    const generation_ids=Array.from(new Set(ids.filter(Boolean))).slice(0,24);
+    if(!generation_ids.length)return Promise.resolve([] as Generation[]);
+    return apiRequest<Generation[]>('/api/generations/status-batch',{method:'POST',body:JSON.stringify({generation_ids})});
   },
 
   cancel(id:string) {
