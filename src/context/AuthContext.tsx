@@ -3,6 +3,7 @@ import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../config/firebase.js';
 import { authService } from '../services/authService.js';
 import { creditService } from '../services/creditService.js';
+import { clearApiCache } from '../services/apiClient.js';
 import { UserProfile } from '../types/index.js';
 import { CreditAccount } from '../types/credits.js';
 
@@ -57,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      clearApiCache();
       setFirebaseUser(user);
       if (user) await loadUserData();
       else { setProfile(null); setWallet(null); setAuthError(null); }
@@ -73,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshMe = async () => { if (auth.currentUser) await loadUserData(); };
   const claimBootstrapAdmin = async (bootstrapSecret?: string) => { await authService.claimBootstrapAdmin(bootstrapSecret); await loadUserData(); };
-  const logout = async () => { await authService.logout(); setFirebaseUser(null); setProfile(null); setWallet(null); setAuthError(null); };
+  const logout = async () => { await authService.logout(); clearApiCache(); setFirebaseUser(null); setProfile(null); setWallet(null); setAuthError(null); };
   const isAdmin = profile?.role === 'ADMIN';
   const isSuspended = profile?.status === 'SUSPENDED';
 
