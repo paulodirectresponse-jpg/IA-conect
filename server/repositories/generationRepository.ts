@@ -6,6 +6,13 @@ export const generationRepository={
   const doc=await firestoreAdminRest.get(`generations/${encodeURIComponent(id)}`);
   return doc.exists?doc.data as Generation:null;
  },
+ async getGenerations(ids:string[]):Promise<Generation[]>{
+  const unique=[...new Set(ids.filter(Boolean))];
+  if(!unique.length)return[];
+  const paths=unique.map(id=>`generations/${encodeURIComponent(id)}`);
+  const docs=await firestoreAdminRest.batchGet(paths);
+  return paths.map(path=>docs.get(path)).filter(doc=>doc?.exists).map(doc=>doc!.data as Generation);
+ },
  async findByClientRequest(userId:string,clientRequestId:string):Promise<Generation|null>{
   const rows=await firestoreAdminRest.runQuery({
    from:[{collectionId:'generations'}],
