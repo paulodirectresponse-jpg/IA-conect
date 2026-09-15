@@ -12,7 +12,8 @@
     "deploy": "npm run build && wrangler deploy",
     "test": "vitest run",
     "clean": "rm -rf dist .wrangler public/brand",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "perf:bundle": "node scripts/report-performance-baseline.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
