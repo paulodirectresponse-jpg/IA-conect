@@ -988,7 +988,7 @@ html[data-theme="light"] .ia-creation-gallery>header{background:rgba(248,250,252
   padding:15px;
   background:
     linear-gradient(120deg,rgba(9,20,31,.99),rgba(7,24,40,.98)),
-    url('/enterprise/planet-arc.svg');
+    var(--ia-art-planet-mobile);
 }
 .ia-dashboard-tip::after{
   content:"";
@@ -996,7 +996,7 @@ html[data-theme="light"] .ia-creation-gallery>header{background:rgba(248,250,252
   inset:auto -80px -90px auto;
   width:220px;
   height:160px;
-  background:url('/enterprise/planet-arc.svg') center/cover no-repeat;
+  background:var(--ia-art-planet-mobile) center/cover no-repeat;
   opacity:.22;
   pointer-events:none;
 }
@@ -1037,21 +1037,21 @@ html[data-theme="light"] .ia-creation-gallery>header{background:rgba(248,250,252
 .ia-dashboard-intro{
   background:
     linear-gradient(90deg,rgba(6,15,23,.99) 0%,rgba(6,15,23,.94) 46%,rgba(5,13,21,.42) 72%,rgba(4,10,16,.08) 100%),
-    url('/enterprise/planet-arc.svg') right -145px center/760px auto no-repeat,
+    var(--ia-art-planet-home) right -145px center/760px auto no-repeat,
     #07111a!important;
 }
 .ia-dashboard-intro::before{display:none!important}
 .ia-community-header{
   background:
     linear-gradient(90deg,rgba(6,15,23,.99) 0%,rgba(6,15,23,.94) 49%,rgba(5,13,21,.43) 73%,rgba(4,10,16,.10) 100%),
-    url('/enterprise/planet-arc.svg') right -150px center/720px auto no-repeat,
+    var(--ia-art-planet-community) right -150px center/720px auto no-repeat,
     #07111a!important;
 }
 .ia-community-header::before{display:none!important}
 .ia-library-hero{
   background:
     linear-gradient(90deg,rgba(6,15,23,.99) 0%,rgba(6,15,23,.93) 50%,rgba(5,13,21,.42) 74%,rgba(4,10,16,.08) 100%),
-    url('/enterprise/planet-arc.svg') right -120px center/710px auto no-repeat,
+    var(--ia-art-planet-library) right -120px center/710px auto no-repeat,
     #07111a!important;
 }
 .ia-library-hero::before{display:none!important}
@@ -1062,12 +1062,12 @@ html[data-theme="light"] .ia-creation-gallery>header{background:rgba(248,250,252
 .ia-dashboard-launch-image{
   background:
     linear-gradient(90deg,rgba(7,18,28,.99) 0%,rgba(8,21,32,.96) 44%,rgba(7,19,29,.64) 68%,rgba(6,15,23,.18) 100%),
-    url('/enterprise/create-image-cat.svg') right center/58% auto no-repeat!important;
+    var(--ia-art-create-image) right center/58% auto no-repeat!important;
 }
 .ia-dashboard-launch-video{
   background:
     linear-gradient(90deg,rgba(7,18,28,.99) 0%,rgba(8,21,32,.96) 44%,rgba(7,19,29,.62) 67%,rgba(6,15,23,.16) 100%),
-    url('/enterprise/create-video-wave.svg') right center/59% auto no-repeat!important;
+    var(--ia-art-create-video) right center/59% auto no-repeat!important;
 }
 .ia-dashboard-launch-image:hover,
 .ia-dashboard-launch-video:hover{
@@ -1078,12 +1078,12 @@ html[data-theme="light"] .ia-creation-gallery>header{background:rgba(248,250,252
 .ia-creation-gallery{
   background:
     linear-gradient(180deg,rgba(4,9,15,.94),rgba(4,9,15,.985)),
-    url('/enterprise/planet-arc.svg') right -360px bottom -320px/920px auto no-repeat!important;
+    var(--ia-art-planet-studio) right -360px bottom -320px/920px auto no-repeat!important;
 }
 .ia-generator-workspace{
   background:
     linear-gradient(180deg,rgba(4,9,15,.94),rgba(4,9,15,.985)),
-    url('/enterprise/planet-arc.svg') right -430px bottom -390px/980px auto no-repeat!important;
+    var(--ia-art-planet-studio) right -430px bottom -390px/980px auto no-repeat!important;
 }
 
 /* Community media must preserve each generation's real aspect ratio. */
@@ -1106,22 +1106,30 @@ html[data-theme="light"] .ia-creation-gallery>header{background:rgba(248,250,252
 }
 
 /* Light parity */
-html[data-theme="light"] .ia-dashboard-intro,
-html[data-theme="light"] .ia-community-header,
+html[data-theme="light"] .ia-dashboard-intro{
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.99),rgba(249,252,255,.94) 55%,rgba(239,247,255,.78) 100%),
+    var(--ia-art-planet-home) right -170px center/720px auto no-repeat!important;
+}
+html[data-theme="light"] .ia-community-header{
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.99),rgba(249,252,255,.94) 55%,rgba(239,247,255,.78) 100%),
+    var(--ia-art-planet-community) right -170px center/720px auto no-repeat!important;
+}
 html[data-theme="light"] .ia-library-hero{
   background:
     linear-gradient(90deg,rgba(255,255,255,.99),rgba(249,252,255,.94) 55%,rgba(239,247,255,.78) 100%),
-    url('/enterprise/planet-arc.svg') right -170px center/720px auto no-repeat!important;
+    var(--ia-art-planet-library) right -170px center/720px auto no-repeat!important;
 }
 html[data-theme="light"] .ia-dashboard-launch-image{
   background:
     linear-gradient(90deg,rgba(255,255,255,.99),rgba(248,252,255,.95) 55%,rgba(245,250,254,.45) 100%),
-    url('/enterprise/create-image-cat.svg') right center/58% auto no-repeat!important;
+    var(--ia-art-create-image) right center/58% auto no-repeat!important;
 }
 html[data-theme="light"] .ia-dashboard-launch-video{
   background:
     linear-gradient(90deg,rgba(255,255,255,.99),rgba(248,252,255,.95) 55%,rgba(245,250,254,.45) 100%),
-    url('/enterprise/create-video-wave.svg') right center/59% auto no-repeat!important;
+    var(--ia-art-create-video) right center/59% auto no-repeat!important;
 }
 html[data-theme="light"] .ia-dashboard-rail-card,
 html[data-theme="light"] .ia-dashboard-tip{
