@@ -16,6 +16,19 @@
   --ia-enterprise-muted:#7d8b9c;
   --ia-enterprise-dim:#586777;
   --ia-enterprise-radius:12px;
+
+  /* Official visual assets.
+   * AppLayout overwrites these from enterpriseVisualAssets.ts; these URLs are
+   * deliberate production fallbacks so the visual system never depends on JS
+   * hydration to render its art direction.
+   */
+  --ia-art-planet-home:url('/enterprise/visuals/planet-hero-wide.png');
+  --ia-art-planet-community:url('/enterprise/visuals/planet-hero-standard.png');
+  --ia-art-planet-library:url('/enterprise/visuals/planet-subtle.png');
+  --ia-art-planet-studio:url('/enterprise/visuals/planet-bottom-right.png');
+  --ia-art-planet-mobile:url('/enterprise/visuals/planet-orb-square.png');
+  --ia-art-create-image:url('/enterprise/visuals/create-image-cat-desktop.png');
+  --ia-art-create-video:url('/enterprise/visuals/create-video-surfer-desktop.png');
 }
 
 .ia-shell{
@@ -1168,4 +1181,147 @@ html[data-theme="light"] .ia-dashboard-tip strong{color:#142033!important}
     background-position:center,right -80px center!important;
   }
   .ia-dashboard-launch p{max-width:68%!important}
+}
+
+
+/* Premium icon language — same Lucide system, richer hierarchy and contextual color. */
+.ia-dashboard-stat-icon,
+.ia-dashboard-create-icon,
+.ia-dashboard-tip-icon,
+.ia-library-tabs button svg,
+.ia-library-global-card>svg,
+.ia-community-filters+div svg,
+.ia-generator-panel svg{
+  transition:
+    color 160ms var(--ia-ease-standard),
+    background-color 160ms var(--ia-ease-standard),
+    border-color 160ms var(--ia-ease-standard),
+    filter 160ms var(--ia-ease-standard);
+}
+
+/* Featured creation tiles */
+.ia-dashboard-launch-image .ia-dashboard-create-icon{
+  color:#3bd0ff!important;
+  border-color:rgba(59,208,255,.24)!important;
+  background:
+    linear-gradient(180deg,rgba(32,190,255,.12),rgba(32,190,255,.045))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.04),
+    0 0 24px rgba(32,190,255,.07)!important;
+}
+.ia-dashboard-launch-video .ia-dashboard-create-icon{
+  color:#7d8dff!important;
+  border-color:rgba(125,141,255,.24)!important;
+  background:
+    linear-gradient(180deg,rgba(96,111,255,.13),rgba(96,111,255,.045))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.04),
+    0 0 24px rgba(96,111,255,.07)!important;
+}
+
+/* Progress: image / video / total each has a distinct restrained accent. */
+.ia-dashboard-stat:nth-child(1) .ia-dashboard-stat-icon{
+  color:#4ccaff;
+  border-color:rgba(76,202,255,.17);
+  background:rgba(39,183,255,.065);
+}
+.ia-dashboard-stat:nth-child(2) .ia-dashboard-stat-icon{
+  color:#8e93ff;
+  border-color:rgba(142,147,255,.17);
+  background:rgba(106,111,255,.065);
+}
+.ia-dashboard-stat:nth-child(3) .ia-dashboard-stat-icon{
+  color:#56d6a3;
+  border-color:rgba(86,214,163,.16);
+  background:rgba(54,191,137,.06);
+}
+
+/* Quick actions: purposeful color, never emoji-like saturation. */
+.ia-dashboard-quick-list button>svg:first-child{
+  display:grid;
+  width:28px!important;
+  height:28px!important;
+  padding:6px;
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:8px;
+}
+.ia-dashboard-quick-list button:nth-child(1)>svg:first-child{
+  color:#9a8cff!important;
+  border-color:rgba(154,140,255,.16);
+  background:rgba(126,105,255,.065);
+}
+.ia-dashboard-quick-list button:nth-child(2)>svg:first-child{
+  color:#4ccaff!important;
+  border-color:rgba(76,202,255,.16);
+  background:rgba(39,183,255,.06);
+}
+.ia-dashboard-quick-list button:nth-child(3)>svg:first-child{
+  color:#55d9b0!important;
+  border-color:rgba(85,217,176,.16);
+  background:rgba(55,190,148,.06);
+}
+.ia-dashboard-quick-list button:nth-child(4)>svg:first-child{
+  color:#6ea2ff!important;
+  border-color:rgba(110,162,255,.16);
+  background:rgba(72,130,255,.06);
+}
+.ia-dashboard-tip-icon{
+  color:#ffc85c!important;
+  border:1px solid rgba(255,200,92,.18);
+  background:rgba(255,181,61,.075)!important;
+  box-shadow:0 0 20px rgba(255,181,61,.045);
+}
+
+/* Library section icons */
+.ia-library-tabs button svg{
+  padding:2px;
+  border-radius:5px;
+}
+.ia-library-tabs button:nth-child(1) svg{color:#43c9ff}
+.ia-library-tabs button:nth-child(2) svg{color:#a28cff}
+.ia-library-tabs button:nth-child(3) svg{color:#63d7ad}
+.ia-library-tabs button:nth-child(4) svg{color:#ffbf66}
+.ia-library-tabs button[class*="bg-white"] svg{
+  filter:drop-shadow(0 0 8px currentColor);
+}
+.ia-library-global-card>svg{
+  width:30px!important;
+  height:30px!important;
+  padding:7px;
+  flex:none;
+  border:1px solid rgba(67,201,255,.16);
+  border-radius:8px;
+  background:rgba(39,183,255,.06);
+  color:#43c9ff;
+}
+
+/* Community action accents */
+.ia-community-card button:has(>svg.lucide-heart){
+  transition:border-color 160ms var(--ia-ease-standard),background-color 160ms var(--ia-ease-standard),color 160ms var(--ia-ease-standard);
+}
+.ia-community-card button:has(>svg.lucide-download) svg{color:#59cfff}
+.ia-community-card .ia-primary svg{color:#e5fbff}
+
+/* Studio controls: icons gain local presence without changing any interaction. */
+.ia-generator-panel .ia-model-picker svg,
+.ia-generator-panel section>button svg,
+.ia-generator-panel [class*="rounded-xl"]>button svg{
+  color:#66cfff;
+}
+.ia-generator-panel .ia-prompt-composer svg{
+  color:#7d93aa;
+}
+.ia-generator-generate:not(:disabled) svg{
+  color:#e7fbff!important;
+  filter:drop-shadow(0 0 7px rgba(79,210,255,.25));
+}
+
+/* Mobile keeps the colored hierarchy but reduces glow/noise. */
+@media(max-width:767px){
+  .ia-dashboard-quick-list button>svg:first-child{
+    width:26px!important;
+    height:26px!important;
+    padding:5px;
+  }
+  .ia-library-tabs button[class*="bg-white"] svg{filter:none}
 }
