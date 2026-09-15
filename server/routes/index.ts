@@ -1,4 +1,5 @@
 import { Router, json } from 'express';
+import { serverTimingMiddleware } from '../middleware/serverTiming.js';
 import { systemRouter } from './systemRoutes.js';
 import { authRouter } from './authRoutes.js';
 import { creditRouter } from './creditRoutes.js';
@@ -16,6 +17,7 @@ import { adminEconomicsRouter } from './adminEconomicsRoutes.js';
 
 export const apiRootRouter = Router();
 
+apiRootRouter.use(serverTimingMiddleware);
 apiRootRouter.use(json({ limit: '4mb' }));
 apiRootRouter.use(systemRouter);
 apiRootRouter.use(authRouter);
