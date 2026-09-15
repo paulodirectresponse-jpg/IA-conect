@@ -54,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpe
       {isOpen && (
         <button
           aria-label="Fechar menu"
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] lg:hidden"
+          className="ia-shell-backdrop fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] lg:hidden"
           onClick={onClose}
         />
       )}
@@ -90,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpe
           )}
         </div>
 
-        <div className="mx-3 mb-3 border-t border-[var(--ia-line)] pt-3">
+        <div className="ia-shell-sidebar-footer mx-3 mb-3 border-t border-[var(--ia-line)] pt-3">
           <p className="px-3 text-[9px] leading-relaxed text-[var(--ia-text-4)]">
             Creative AI Studio
           </p>
