@@ -1460,3 +1460,273 @@ html[data-theme="light"] .ia-creation-gallery{
   background-position:center,right -250px bottom -225px!important;
   background-size:auto,900px auto!important;
 }
+
+
+/* Final visual refinement pass — calibrated from deployed screenshots. */
+
+/* Shared premium surfaces */
+.ia-dashboard-intro,
+.ia-community-header,
+.ia-library-hero,
+.ia-dashboard-rail-card,
+.ia-dashboard-tip,
+.ia-library-nav,
+.ia-community-toolbar{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.018),
+    0 18px 42px -34px rgba(0,0,0,.62);
+}
+
+/* Home: slightly more architectural weight without changing layout. */
+.ia-dashboard-intro{
+  min-height:194px;
+  border-color:rgba(111,183,225,.115)!important;
+}
+.ia-dashboard-launch{
+  min-height:154px!important;
+  border-color:rgba(105,183,230,.145)!important;
+}
+.ia-dashboard-launch:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.026),
+    0 18px 38px -30px rgba(18,128,210,.28)!important;
+}
+.ia-dashboard-rail-card,
+.ia-dashboard-tip{
+  position:relative;
+}
+.ia-dashboard-rail-card::before,
+.ia-dashboard-tip::before{
+  content:"";
+  position:absolute;
+  inset:0 auto auto 14px;
+  width:46px;
+  height:1px;
+  background:linear-gradient(90deg,rgba(55,198,255,.55),transparent);
+  opacity:.65;
+}
+.ia-dashboard-stat{
+  min-height:66px;
+}
+.ia-dashboard-quick-list button{
+  min-height:56px;
+}
+
+/* Community: controls should read as one deliberate system bar, like the approved concept. */
+.ia-community-header{
+  min-height:194px;
+  border-color:rgba(111,183,225,.11)!important;
+  background:
+    linear-gradient(90deg,rgba(6,15,23,.995) 0%,rgba(6,15,23,.96) 48%,rgba(5,13,21,.44) 72%,rgba(4,10,16,.08) 100%),
+    var(--ia-art-planet-community) right -112px center/770px auto no-repeat,
+    #07111a!important;
+}
+.ia-community-toolbar{
+  margin-top:18px!important;
+  padding:7px;
+  border:1px solid rgba(111,183,225,.095);
+  border-radius:12px;
+  background:
+    linear-gradient(180deg,rgba(8,19,29,.86),rgba(6,15,23,.88));
+}
+.ia-community-filters{
+  border:0!important;
+  background:rgba(255,255,255,.014)!important;
+  padding:2px!important;
+}
+.ia-community-search,
+.ia-community-refresh{
+  background:rgba(4,11,18,.72)!important;
+}
+.ia-community-card{
+  border-color:rgba(112,182,224,.115)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.014),
+    0 20px 48px -38px rgba(0,0,0,.82)!important;
+}
+.ia-community-card:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.02),
+    0 24px 54px -36px rgba(0,0,0,.9)!important;
+}
+.ia-community-model-tag{
+  padding:5px 7px!important;
+  border-radius:7px!important;
+  backdrop-filter:blur(12px);
+  box-shadow:0 8px 20px -14px rgba(0,0,0,.9);
+}
+
+/* Library: strengthen hero and content hierarchy, keep real asset cards untouched geometrically. */
+.ia-library-hero{
+  min-height:164px;
+  align-items:center;
+  border-color:rgba(111,183,225,.11)!important;
+  background:
+    linear-gradient(90deg,rgba(6,15,23,.995) 0%,rgba(6,15,23,.95) 50%,rgba(5,13,21,.43) 73%,rgba(4,10,16,.08) 100%),
+    var(--ia-art-planet-library) right -95px center/735px auto no-repeat,
+    #07111a!important;
+}
+.ia-library-nav{
+  border-color:rgba(111,182,224,.105)!important;
+}
+.ia-library-content-header{
+  padding-bottom:15px!important;
+  margin-bottom:18px!important;
+}
+.ia-library-content-header h2{
+  font-weight:680!important;
+  letter-spacing:-.025em!important;
+}
+.ia-creative-library .ia-library-asset-card{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.012),
+    0 18px 42px -36px rgba(0,0,0,.72)!important;
+}
+.ia-creative-library .ia-library-asset-card:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.016),
+    0 22px 48px -34px rgba(0,0,0,.82)!important;
+}
+
+/* Generators: use the empty canvas as intentional atmosphere, not dead space. */
+.ia-creation-gallery{
+  background-image:
+    linear-gradient(180deg,rgba(4,9,15,.40) 0%,rgba(4,9,15,.64) 42%,rgba(4,9,15,.08) 100%),
+    radial-gradient(760px 430px at 84% 88%,rgba(29,126,255,.13),transparent 70%),
+    var(--ia-art-planet-studio)!important;
+  background-position:center,center,right -120px bottom -105px!important;
+  background-size:auto,auto,1040px auto!important;
+}
+.ia-creation-gallery>header{
+  min-height:66px;
+  border-bottom-color:rgba(111,181,223,.095)!important;
+}
+.ia-creation-gallery>header h2{
+  font-size:20px!important;
+  font-weight:710!important;
+}
+.ia-creation-gallery>header input{
+  height:38px!important;
+}
+.ia-creation-gallery>header button{
+  min-height:34px;
+}
+.ia-creation-gallery section{
+  position:relative;
+}
+.ia-creation-gallery section>div:first-child>div:first-child{
+  max-width:760px;
+}
+.ia-creation-gallery section>div:first-child p:first-child{
+  line-height:1.42!important;
+  color:#c8d5df!important;
+}
+.ia-creation-gallery section>div:first-child p+ p{
+  color:#5f7183!important;
+}
+.ia-creation-gallery article>div[class*="rounded"]{
+  border-color:rgba(111,181,223,.115)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.012),
+    0 18px 42px -34px rgba(0,0,0,.88)!important;
+}
+.ia-creation-gallery article:hover>div[class*="rounded"]{
+  border-color:rgba(70,194,255,.20)!important;
+}
+
+/* Auto/model card gains the richer product treatment visible in the references. */
+.ia-generator-panel .ia-model-picker>button{
+  min-height:118px!important;
+  border-radius:13px!important;
+  border-color:rgba(61,190,255,.22)!important;
+  background:
+    radial-gradient(340px 150px at 92% 12%,rgba(33,130,255,.13),transparent 68%),
+    linear-gradient(180deg,rgba(9,22,34,.985),rgba(6,16,25,.995))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.025),
+    0 18px 36px -32px rgba(12,104,170,.40)!important;
+}
+.ia-generator-panel .ia-model-picker>button:hover{
+  border-color:rgba(66,198,255,.32)!important;
+}
+.ia-generator-panel .ia-model-picker>button span[class*="bg-black"]{
+  backdrop-filter:blur(10px);
+}
+.ia-generator-scroll{
+  padding-top:12px!important;
+}
+.ia-generator-actionbar{
+  box-shadow:0 -18px 42px -36px rgba(0,0,0,.82);
+}
+
+/* Shell polish: make global chrome feel more consolidated. */
+.ia-shell-navbar{
+  box-shadow:
+    inset 0 -1px 0 rgba(255,255,255,.012),
+    0 12px 30px -28px rgba(0,0,0,.8);
+}
+.ia-shell-sidebar{
+  box-shadow:
+    inset -1px 0 0 rgba(255,255,255,.012),
+    16px 0 34px -34px rgba(0,0,0,.9);
+}
+.ia-shell-wallet,
+.ia-shell-icon-button,
+.ia-shell-account-trigger{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.018);
+}
+
+/* Responsive calibration */
+@media(max-width:1279px){
+  .ia-dashboard-intro{min-height:176px}
+  .ia-community-header{min-height:176px}
+  .ia-library-hero{min-height:150px}
+  .ia-creation-gallery{
+    background-position:center,center,right -210px bottom -145px!important;
+    background-size:auto,auto,860px auto!important;
+  }
+}
+@media(max-width:767px){
+  .ia-dashboard-intro,
+  .ia-community-header,
+  .ia-library-hero{
+    min-height:164px;
+  }
+  .ia-community-toolbar{
+    padding:6px;
+  }
+  .ia-community-filters{
+    width:100%;
+  }
+  .ia-community-filters button{
+    flex:1;
+    min-width:0;
+  }
+  .ia-creation-gallery{
+    background-position:center,right -120px bottom -44px!important;
+    background-size:auto,390px auto!important;
+  }
+  .ia-creation-gallery>header{
+    min-height:auto;
+  }
+}
+
+/* Light theme parity for refinements */
+html[data-theme="light"] .ia-community-toolbar{
+  background:rgba(255,255,255,.88)!important;
+  border-color:rgba(15,23,42,.075)!important;
+}
+html[data-theme="light"] .ia-community-search,
+html[data-theme="light"] .ia-community-refresh{
+  background:#fff!important;
+}
+html[data-theme="light"] .ia-creation-gallery{
+  background-image:
+    linear-gradient(180deg,rgba(244,247,250,.78),rgba(244,247,250,.48)),
+    var(--ia-art-planet-studio)!important;
+  background-position:center,right -120px bottom -105px!important;
+  background-size:auto,1040px auto!important;
+}
