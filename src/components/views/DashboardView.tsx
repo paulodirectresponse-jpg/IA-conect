@@ -18,8 +18,9 @@ export const DashboardView:React.FC<DashboardViewProps>=({onNavigate})=>{
  return <div className="ia-dashboard pb-12">
   <header className="ia-dashboard-intro">
    <div className="min-w-0">
-    <h1 className="ia-dashboard-title">Olá, {profile?.display_name||'criador'}.</h1>
-    <p className="ia-dashboard-subtitle">Comece uma nova criação ou retome o que já está em andamento.</p>
+    <p className="ia-dashboard-eyebrow">Bem-vindo de volta, {profile?.display_name||'criador'}</p>
+    <h1 className="ia-dashboard-title">Transforme ideias em criações reais.</h1>
+    <p className="ia-dashboard-subtitle">Crie imagens e vídeos, explore modelos e continue trabalhando a partir das suas últimas gerações.</p>
    </div>
   </header>
 
@@ -27,24 +28,24 @@ export const DashboardView:React.FC<DashboardViewProps>=({onNavigate})=>{
    <button onClick={()=>onNavigate('create-image')} className="ia-dashboard-launch group">
     <div className="ia-dashboard-create-icon"><ImageIcon className="w-5 h-5"/></div>
     <div className="min-w-0">
-     <span className="ia-dashboard-launch-label">Imagem</span>
+     <span className="ia-dashboard-launch-label">Studio de imagem</span>
      <h2>Criar imagem</h2>
-     <p>Referências, personagens, produtos, estilos e edição.</p>
+     <p>Combine prompt e referências com os modelos disponíveis no IA Connect.</p>
     </div>
     <span className="ia-dashboard-arrow"><ArrowRight className="w-4 h-4"/></span>
    </button>
    <button onClick={()=>onNavigate('create-video')} className="ia-dashboard-launch group">
     <div className="ia-dashboard-create-icon"><Video className="w-5 h-5"/></div>
     <div className="min-w-0">
-     <span className="ia-dashboard-launch-label">Vídeo</span>
+     <span className="ia-dashboard-launch-label">Studio de vídeo</span>
      <h2>Criar vídeo</h2>
-     <p>Texto, frames e referências multimodais em movimento.</p>
+     <p>Transforme texto, frames e referências em movimento com controle de geração.</p>
     </div>
     <span className="ia-dashboard-arrow"><ArrowRight className="w-4 h-4"/></span>
    </button>
   </section>
 
-  <ModelShowcase compact onTry={tryModel} title="Descobrir modelos" subtitle="Explore resultados e entre direto no modelo certo quando quiser experimentar algo novo."/>
+  <ModelShowcase compact onTry={tryModel} title="Modelos em destaque" subtitle="Explore os modelos disponíveis e entre direto no studio quando quiser experimentar algo novo."/>
 
   <section className="ia-dashboard-recent-section">
    <div className="flex items-end justify-between gap-4">
