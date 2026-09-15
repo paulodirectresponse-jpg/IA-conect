@@ -44,8 +44,62 @@ function unwrapFields(fields:any){const out:Record<string,any>={};for(const[k,v]
 function base(){const cfg=getFirebaseConfig();const db=cfg.firestoreDatabaseId||'(default)';return `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${db}`;}
 async function req(url:string,init:RequestInit={}){const token=await accessToken();const r=await fetch(url,{...init,headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',...(init.headers||{})}});const text=await r.text();let body:any={};try{body=text?JSON.parse(text):{};}catch{body={raw:text};}if(!r.ok){const e:any=new Error(body?.error?.message||`Firestore REST ${r.status}`);e.status=r.status;e.body=body;throw e;}return body;}
 
+function parseJsonStream(text:string){
+  const trimmed=text.trim();
+  if(!trimmed)return[];
+  try{
+    const parsed=JSON.parse(trimmed);
+    return Array.isArray(parsed)?parsed:[parsed];
+  }catch{
+    return trimmed.split(/\r?\n/).map((line)=>line.trim()).filter(Boolean).map((line)=>JSON.parse(line));
+  }
+}
+
 export const firestoreAdminRest={
   async get(path:string){try{const d=await req(`${base()}/documents/${path}`);return{exists:true,data:unwrapFields(d.fields||{}),updateTime:d.updateTime};}catch(e:any){if(e.status===404)return{exists:false,data:null,updateTime:null};throw e;}},
+  async batchGet(paths:string[],chunkSize=80){
+    const unique=[...new Set(paths.filter(Boolean))];
+    const result=new Map<string,{exists:boolean;data:any;updateTime:string|null}>();
+    if(unique.length===0)return result;
+    const fullToPath=new Map<string,string>();
+    for(const path of unique){
+      const full=this.docName(path);
+      fullToPath.set(full,path);
+      try{fullToPath.set(decodeURIComponent(full),path);}catch{}
+      result.set(path,{exists:false,data:null,updateTime:null});
+    }
+    const size=Math.max(1,Math.min(100,chunkSize));
+    for(let i=0;i<unique.length;i+=size){
+      const chunk=unique.slice(i,i+size);
+      const token=await accessToken();
+      const response=await fetch(`${base()}/documents:batchGet`,{
+        method:'POST',
+        headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({documents:chunk.map((path)=>this.docName(path))}),
+      });
+      const text=await response.text();
+      if(!response.ok){
+        let body:any={};
+        try{body=text?JSON.parse(text):{};}catch{body={raw:text};}
+        const e:any=new Error(body?.error?.message||`Firestore REST ${response.status}`);
+        e.status=response.status;e.body=body;throw e;
+      }
+      for(const row of parseJsonStream(text)){
+        if(row?.found?.name){
+          const rawName=String(row.found.name);
+          let path=fullToPath.get(rawName);
+          if(!path){try{path=fullToPath.get(decodeURIComponent(rawName));}catch{}}
+          if(path)result.set(path,{exists:true,data:unwrapFields(row.found.fields||{}),updateTime:row.found.updateTime||null});
+        }else if(row?.missing){
+          const rawName=String(row.missing);
+          let path=fullToPath.get(rawName);
+          if(!path){try{path=fullToPath.get(decodeURIComponent(rawName));}catch{}}
+          if(path)result.set(path,{exists:false,data:null,updateTime:null});
+        }
+      }
+    }
+    return result;
+  },
   async set(path:string,data:any){const d=await req(`${base()}/documents/${path}`,{method:'PATCH',body:JSON.stringify({fields:fsFields(data)})});return{data:unwrapFields(d.fields||{}),updateTime:d.updateTime};},
   async runQuery(structuredQuery:any){const rows=await req(`${base()}/documents:runQuery`,{method:'POST',body:JSON.stringify({structuredQuery})});return(rows||[]).filter((x:any)=>x.document).map((x:any)=>({name:x.document.name,data:unwrapFields(x.document.fields||{}),updateTime:x.document.updateTime}));},
   async commit(writes:any[]){return req(`${base()}/documents:commit`,{method:'POST',body:JSON.stringify({writes})});},
