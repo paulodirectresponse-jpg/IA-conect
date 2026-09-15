@@ -36,7 +36,10 @@ describe('direct video generation UX',()=>{
   expect(source).toContain('generationClient.quote');
   expect(source).toContain('generationClient.create');
   expect(source).toContain("e?.code!=='PRICE_CHANGED_REQUOTE_REQUIRED'");
-  expect(source).toContain('liveGeneration={generation}');
+  expect(source).toContain('liveGenerations={liveGenerations}');
+  expect(source).toContain('setLiveGenerations(prev=>upsertGeneration(prev,started))');
+  expect(source).not.toContain('generationPollRef');
+  expect(source).not.toContain('pollGeneration');
  });
 
  it('keeps runtime errors retryable instead of turning them into blocking validation',()=>{
