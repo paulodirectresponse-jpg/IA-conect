@@ -27,12 +27,12 @@ interface NavbarProps {
 }
 
 const viewMeta: Record<string, { title: string; eyebrow: string }> = {
-  dashboard: { title: 'Início', eyebrow: 'Studio' },
+  dashboard: { title: 'Início', eyebrow: 'Estúdio' },
   'create-image': { title: 'Gerar imagem', eyebrow: 'Criação' },
   'create-video': { title: 'Gerar vídeo', eyebrow: 'Criação' },
   community: { title: 'Comunidade', eyebrow: 'Explorar' },
-  library: { title: 'Biblioteca', eyebrow: 'Assets' },
-  assets: { title: 'Biblioteca', eyebrow: 'Assets' },
+  library: { title: 'Biblioteca', eyebrow: 'Arquivos' },
+  assets: { title: 'Biblioteca', eyebrow: 'Arquivos' },
   history: { title: 'Histórico', eyebrow: 'Criações' },
   wallet: { title: 'Carteira', eyebrow: 'Créditos' },
   settings: { title: 'Configurações', eyebrow: 'Conta' },
@@ -67,7 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     profile?.email?.charAt(0).toUpperCase() ||
     'U';
   const balance = wallet?.available_credits ?? 0;
-  const meta = viewMeta[currentView] || { title: 'IA Connect', eyebrow: 'Studio' };
+  const meta = viewMeta[currentView] || { title: 'IA Connect', eyebrow: 'Estúdio' };
 
   const navigate = (view: string) => {
     setAccountOpen(false);

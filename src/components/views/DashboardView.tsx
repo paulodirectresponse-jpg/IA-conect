@@ -26,7 +26,7 @@ export const DashboardView:React.FC<DashboardViewProps>=({onNavigate})=>{
      <div className="min-w-0">
       <p className="ia-dashboard-eyebrow">Bem-vindo de volta, {firstName}</p>
       <h1 className="ia-dashboard-title">Transforme ideias em criações reais.</h1>
-      <p className="ia-dashboard-subtitle">Imagens, vídeos e modelos em um único studio para transformar referências e prompts em resultados profissionais.</p>
+      <p className="ia-dashboard-subtitle">Imagens, vídeos e modelos em um único estúdio para transformar referências e prompts em resultados profissionais.</p>
      </div>
     </header>
 
@@ -34,16 +34,16 @@ export const DashboardView:React.FC<DashboardViewProps>=({onNavigate})=>{
      <button onClick={()=>onNavigate('create-image')} className="ia-dashboard-launch ia-dashboard-launch-image group">
       <div className="ia-dashboard-create-icon"><ImageIcon className="w-5 h-5"/></div>
       <div className="min-w-0">
-       <span className="ia-dashboard-launch-label">Studio de imagem</span>
+       <span className="ia-dashboard-launch-label">Estúdio de imagem</span>
        <h2>Criar imagem</h2>
-       <p>Combine prompt e referências com os modelos disponíveis no IA Connect.</p>
+       <p>Combine seu prompt e suas referências com os modelos disponíveis no IA Connect.</p>
       </div>
       <span className="ia-dashboard-arrow"><ArrowRight className="w-4 h-4"/></span>
      </button>
      <button onClick={()=>onNavigate('create-video')} className="ia-dashboard-launch ia-dashboard-launch-video group">
       <div className="ia-dashboard-create-icon"><Video className="w-5 h-5"/></div>
       <div className="min-w-0">
-       <span className="ia-dashboard-launch-label">Studio de vídeo</span>
+       <span className="ia-dashboard-launch-label">Estúdio de vídeo</span>
        <h2>Criar vídeo</h2>
        <p>Transforme texto, frames e referências em movimento com controle de geração.</p>
       </div>
@@ -51,7 +51,7 @@ export const DashboardView:React.FC<DashboardViewProps>=({onNavigate})=>{
      </button>
     </section>
 
-    <ModelShowcase compact onTry={tryModel} title="Modelos em destaque" subtitle="Explore os modelos disponíveis e entre direto no studio quando quiser experimentar algo novo."/>
+    <ModelShowcase compact onTry={tryModel} title="Modelos em destaque" subtitle="Explore os modelos disponíveis e acesse o estúdio para experimentar algo novo."/>
 
     <section className="ia-dashboard-recent-section">
      <div className="flex items-end justify-between gap-4">
@@ -66,11 +66,11 @@ export const DashboardView:React.FC<DashboardViewProps>=({onNavigate})=>{
         <p className="ia-dashboard-recent-meta">{isImage(g)?'Imagem':'Vídeo'} · {g.aspect_ratio||'formato original'}</p>
        </button>)}
       </div>
-      :<div className="ia-dashboard-empty mt-4"><Sparkles className="w-5 h-5 mx-auto text-sky-300/50"/><p className="mt-2 text-[12px] text-[var(--ia-text-3)]">Suas próximas criações vão aparecer aqui.</p></div>}
+      :<div className="ia-dashboard-empty mt-4"><Sparkles className="w-5 h-5 mx-auto text-sky-300/50"/><p className="mt-2 text-[12px] text-[var(--ia-text-3)]">Suas próximas criações aparecerão aqui.</p></div>}
     </section>
    </div>
 
-   <aside className="ia-dashboard-rail" aria-label="Resumo do studio">
+   <aside className="ia-dashboard-rail" aria-label="Resumo do estúdio">
     <section className="ia-dashboard-rail-card">
      <div className="ia-dashboard-rail-heading"><div><span>Seu progresso</span><small>últimas {Math.min(100,recent.length)} gerações</small></div><Activity className="w-4 h-4"/></div>
      <div className="ia-dashboard-stat-list">
@@ -81,7 +81,7 @@ export const DashboardView:React.FC<DashboardViewProps>=({onNavigate})=>{
     </section>
 
     <section className="ia-dashboard-rail-card">
-     <div className="ia-dashboard-rail-heading"><div><span>Ações rápidas</span><small>atalhos do seu studio</small></div></div>
+     <div className="ia-dashboard-rail-heading"><div><span>Ações rápidas</span><small>atalhos do seu estúdio</small></div></div>
      <div className="ia-dashboard-quick-list">
       <button onClick={()=>onNavigate('community')}><Globe2/><span><strong>Explorar comunidade</strong><small>Veja criações e prompts reais</small></span><ArrowRight/></button>
       <button onClick={()=>onNavigate('library')}><BookOpen/><span><strong>Abrir biblioteca</strong><small>Organize referências e assets</small></span><ArrowRight/></button>
@@ -92,7 +92,7 @@ export const DashboardView:React.FC<DashboardViewProps>=({onNavigate})=>{
 
     <section className="ia-dashboard-tip">
      <div className="ia-dashboard-tip-icon"><Lightbulb className="w-4 h-4"/></div>
-     <div><span>Dica da semana</span><strong>Use referências visuais quando a consistência for importante.</strong><p>Elas ajudam a manter identidade, composição e direção ao iterar uma criação.</p></div>
+     <div><span>Dica da semana</span><strong>Use referências visuais quando a consistência for importante.</strong><p>Elas ajudam a manter identidade, composição e direção ao refinar uma criação.</p></div>
     </section>
    </aside>
   </div>
