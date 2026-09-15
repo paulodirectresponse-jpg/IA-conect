@@ -9,7 +9,7 @@ import { AssetsView } from './AssetsView.js';
 
 type LibrarySection = 'ASSETS' | 'CHARACTER' | 'PRODUCT' | 'STYLE';
 const tabs: Array<{id:LibrarySection; label:string; icon:any}> = [
-  { id:'ASSETS', label:'Assets', icon:ImageIcon },
+  { id:'ASSETS', label:'Arquivos', icon:ImageIcon },
   { id:'CHARACTER', label:'Personagens', icon:UserRound },
   { id:'PRODUCT', label:'Produtos', icon:Box },
   { id:'STYLE', label:'Estilos', icon:Layers3 },
@@ -21,8 +21,8 @@ const ProjectAssets: React.FC<{project:CreativeEntity; onProjectChange:(p:Creati
   const visible=useMemo(()=>{const q=query.trim().toLowerCase();return q?assets.filter(a=>`${a.name} ${a.alias}`.toLowerCase().includes(q)):assets;},[assets,query]);
   const selected=new Set(project.asset_ids||[]);
   return <div className="ia-project-assets space-y-4">
-    <div className="flex flex-col md:flex-row md:items-end justify-between gap-3"><div><h2 className="text-lg font-black text-white">Assets do projeto</h2><p className="mt-1 text-[11px] text-zinc-500">O arquivo continua existindo uma única vez na Biblioteca Global; aqui guardamos somente o vínculo.</p></div><span className="text-[11px] text-cyan-300 font-semibold">{selected.size} vinculado(s)</span></div>
-    <div className="relative max-w-md"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar assets globais..." className="w-full h-10 pl-10 pr-3 rounded-xl bg-[#11151c] border border-white/[0.07] text-xs text-white outline-none focus:border-cyan-300/25"/></div>
+    <div className="flex flex-col md:flex-row md:items-end justify-between gap-3"><div><h2 className="text-lg font-black text-white">Arquivos do projeto</h2><p className="mt-1 text-[11px] text-zinc-500">O arquivo continua existindo uma única vez na Biblioteca Global; aqui guardamos somente o vínculo.</p></div><span className="text-[11px] text-cyan-300 font-semibold">{selected.size} vinculado(s)</span></div>
+    <div className="relative max-w-md"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar arquivos globais..." className="w-full h-10 pl-10 pr-3 rounded-xl bg-[#11151c] border border-white/[0.07] text-xs text-white outline-none focus:border-cyan-300/25"/></div>
     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">{visible.map(asset=>{const on=selected.has(asset.asset_id);const preview=asset.thumbnail_url||asset.public_url;return <button key={asset.asset_id} disabled={saving===asset.asset_id} onClick={async()=>{setSaving(asset.asset_id);try{onProjectChange(await creativeEntityService.toggleProjectAsset(project.entity_id,asset.asset_id));}finally{setSaving(null);}}} className={`ia-library-asset-card group text-left rounded-2xl overflow-hidden border ${on?'border-cyan-300/45 bg-cyan-300/[0.06] shadow-[0_0_24px_rgba(34,211,238,.08)]':'border-white/[0.07] bg-[#11151c] hover:border-white/[0.14]'}`}><div className="ia-library-media aspect-square bg-[#0b0e13] relative overflow-hidden">{asset.type==='IMAGE'&&preview?<img src={preview} alt="" className="w-full h-full object-cover"/>:<div className="w-full h-full grid place-items-center"><ImageIcon className="w-7 h-7 text-zinc-700"/></div>}<span className={`absolute right-2 top-2 px-2 py-1 rounded-full text-[8px] font-black ${on?'bg-cyan-300 text-[#071015]':'bg-black/65 text-zinc-400'}`}>{on?'NO PROJETO':'ADICIONAR'}</span></div><div className="p-2.5"><p className="text-[10px] font-bold text-white truncate">{asset.name}</p><p className="mt-0.5 text-[8px] font-mono text-zinc-600 truncate">@{asset.alias}</p></div></button>;})}</div>
   </div>;
 };
@@ -42,7 +42,7 @@ export const LibraryHubView: React.FC = () => {
 
   return <div className="ia-library-hub ia-creative-library pb-10">
     <header className="ia-library-hero">
-      <div className="ia-library-heading"><p className="ia-library-kicker">Biblioteca</p><h1>Organização criativa</h1><p>Assets, personagens, produtos e estilos em um só lugar, preservando a mídia original.</p></div>
+      <div className="ia-library-heading"><p className="ia-library-kicker">Biblioteca</p><h1>Organização criativa</h1><p>Arquivos, personagens, produtos e estilos em um só lugar, preservando a mídia original.</p></div>
       <div className="ia-library-tabs inline-flex gap-1 p-1 overflow-x-auto">{tabs.map(({id,label,icon:TabIcon})=><button key={id} onClick={()=>setSection(id)} className={`h-9 px-3 rounded-lg text-[11px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5 ${section===id?'bg-white/[0.08] text-white':'text-zinc-600 hover:text-zinc-200'}`}><TabIcon className="w-3.5 h-3.5"/>{label}</button>)}</div>
     </header>
     <div className="flex flex-col xl:flex-row gap-5">
