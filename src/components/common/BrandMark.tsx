@@ -15,9 +15,9 @@ export const BrandMark: React.FC<BrandMarkProps> = ({ compact = false, className
       draggable={false}
     />
     {!compact && (
-      <div className="leading-none">
-        <div className="text-[14px] font-black tracking-[-0.035em] text-[var(--ia-text-1)]">IA Connect</div>
-        <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.20em] text-[var(--ia-text-4)]">Creative AI Studio</div>
+      <div className="min-w-[78px] leading-none">
+        <div className="whitespace-nowrap text-[14px] font-bold tracking-[-0.02em] text-[var(--ia-text-1)]">IA Connect</div>
+        <div className="mt-1 whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--ia-text-4)]">AI Studio</div>
       </div>
     )}
   </div>
