@@ -92,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpe
 
         <div className="ia-shell-sidebar-footer mx-3 mb-3 border-t border-[var(--ia-line)] pt-3">
           <p className="px-3 text-[9px] leading-relaxed text-[var(--ia-text-4)]">
-            Creative AI Studio
+            IA Connect · AI Studio
           </p>
         </div>
       </aside>
