@@ -14,11 +14,16 @@ import { SettingsView } from './components/views/SettingsView.js';
 import { LibraryHubView } from './components/views/LibraryHubView.js';
 import { CommunityView } from './components/views/CommunityView.js';
 import { BrandMark } from './components/common/BrandMark.js';
+import { markViewNavigationStart } from './utils/performanceMetrics.js';
 
 const MainApp: React.FC = () => {
   const { firebaseUser, loading, isAdmin, isSuspended, logout } = useAuth();
   const [publicView, setPublicView] = useState<'landing' | 'login' | 'register'>('landing');
   const [activeView, setActiveView] = useState<string>('dashboard');
+  const navigate = (view:string) => {
+    markViewNavigationStart(view === 'assets' ? 'library' : view);
+    setActiveView(view);
+  };
 
   if (loading) return <div className="min-h-screen bg-[#050a10] flex items-center justify-center"><div className="flex flex-col items-center gap-4"><BrandMark/><div className="w-7 h-7 rounded-full border-2 border-sky-400/80 border-t-transparent animate-spin"/><span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-[0.2em]">Iniciando estúdio</span></div></div>;
   if (!firebaseUser) {
@@ -30,12 +35,12 @@ const MainApp: React.FC = () => {
 
   const normalizedView = activeView === 'assets' ? 'library' : activeView;
   const currentSafeView = normalizedView==='admin'&&!isAdmin?'dashboard':normalizedView;
-  return <AppLayout currentView={currentSafeView} onNavigate={setActiveView}>
-    {currentSafeView==='dashboard'&&<DashboardView onNavigate={setActiveView}/>} 
+  return <AppLayout currentView={currentSafeView} onNavigate={navigate}>
+    {currentSafeView==='dashboard'&&<DashboardView onNavigate={navigate}/>} 
     {currentSafeView==='wallet'&&<WalletView/>}
     {currentSafeView==='create-video'&&<CreateHubView initialMode="VIDEO"/>}
     {currentSafeView==='create-image'&&<CreateHubView initialMode="IMAGE"/>}
-    {currentSafeView==='community'&&<CommunityView onNavigate={setActiveView}/>} 
+    {currentSafeView==='community'&&<CommunityView onNavigate={navigate}/>} 
     {currentSafeView==='history'&&<HistoryView/>}
     {currentSafeView==='library'&&<LibraryHubView/>}
     {currentSafeView==='admin'&&isAdmin&&<AdminView/>}
