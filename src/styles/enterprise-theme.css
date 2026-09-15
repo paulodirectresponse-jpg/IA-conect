@@ -1766,3 +1766,264 @@ html[data-theme="light"] .ia-creation-gallery{
     transform:none!important;
   }
 }
+
+
+/* Stage 3 — final Home composition pass. */
+.ia-dashboard-layout{
+  gap:16px;
+}
+.ia-dashboard-main{
+  gap:22px;
+}
+
+/* Rail begins on the same visual baseline as the hero, then sticks inside the content scroller. */
+.ia-dashboard-rail{
+  top:18px;
+  align-self:start;
+  gap:11px;
+}
+
+/* Hero remains dominant, but the copy breathes slightly more cleanly. */
+.ia-dashboard-intro{
+  min-height:190px;
+  padding:31px 32px 28px!important;
+}
+.ia-dashboard-title{
+  max-width:620px!important;
+}
+.ia-dashboard-subtitle{
+  max-width:550px!important;
+}
+
+/* Creation launch cards: equalize the perceived weight of cat and surfer artwork. */
+.ia-dashboard-launch{
+  min-height:148px!important;
+  padding:20px!important;
+}
+.ia-dashboard-launch-image{
+  background:
+    linear-gradient(90deg,rgba(7,18,28,.995) 0%,rgba(8,21,32,.965) 45%,rgba(7,19,29,.67) 68%,rgba(6,15,23,.15) 100%),
+    var(--ia-art-create-image) right 2px center/54% auto no-repeat!important;
+}
+.ia-dashboard-launch-video{
+  background:
+    linear-gradient(90deg,rgba(7,18,28,.995) 0%,rgba(8,21,32,.96) 43%,rgba(7,19,29,.58) 65%,rgba(6,15,23,.12) 100%),
+    var(--ia-art-create-video) right -8px center/64% auto no-repeat!important;
+}
+.ia-dashboard-launch p{
+  max-width:360px!important;
+  color:#899aab!important;
+}
+.ia-dashboard-arrow{
+  transition:
+    transform var(--ia-motion-standard) var(--ia-ease-out),
+    color var(--ia-motion-exit) var(--ia-ease-standard),
+    border-color var(--ia-motion-exit) var(--ia-ease-standard),
+    background-color var(--ia-motion-exit) var(--ia-ease-standard);
+}
+.ia-dashboard-launch:hover .ia-dashboard-arrow{
+  transform:translateX(2px);
+  background:rgba(38,169,232,.045);
+}
+
+/* Model discovery is intentionally compact so Recent Creations remains visible in the first viewport. */
+.ia-dashboard .ia-model-showcase{
+  padding-top:0;
+}
+.ia-dashboard .ia-model-showcase-grid{
+  gap:9px!important;
+  margin-top:11px!important;
+}
+.ia-dashboard .ia-model-showcase-media{
+  aspect-ratio:1.78/1!important;
+  border-radius:var(--ia-radius-sm)!important;
+}
+.ia-dashboard .ia-model-showcase-model-name{
+  left:10px!important;
+  bottom:8px!important;
+  font-size:11.5px!important;
+}
+.ia-dashboard .ia-model-showcase-body{
+  display:grid;
+  grid-template-rows:auto auto auto;
+  align-content:start;
+  padding:7px 1px 0!important;
+}
+.ia-dashboard .ia-model-showcase-body h3{
+  min-height:2.7em;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  font-size:11.5px!important;
+  line-height:1.34!important;
+  color:#d3dde5!important;
+}
+.ia-dashboard .ia-model-showcase-body>p{
+  min-height:2.65em!important;
+  max-height:2.65em;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  margin-top:3px!important;
+  font-size:10.25px!important;
+  line-height:1.33!important;
+  color:#748596!important;
+}
+.ia-dashboard .ia-model-showcase-cta{
+  min-height:27px!important;
+  margin-top:4px!important;
+  font-size:10px!important;
+  align-self:end;
+}
+.ia-dashboard .ia-model-showcase-cta svg{
+  transition:transform var(--ia-motion-standard) var(--ia-ease-out);
+}
+.ia-dashboard .ia-model-showcase-cta:hover svg{
+  transform:translateX(2px);
+}
+
+/* Rail: reduce card-within-card nesting. */
+.ia-dashboard-rail-card{
+  padding:14px 14px 12px;
+}
+.ia-dashboard-stat{
+  min-height:62px;
+}
+.ia-dashboard-quick-list{
+  gap:0;
+  margin-top:7px;
+}
+.ia-dashboard-quick-list button{
+  position:relative;
+  min-height:52px;
+  padding:8px 5px;
+  border:0;
+  border-radius:var(--ia-radius-sm);
+  background:transparent;
+  box-shadow:inset 0 -1px 0 rgba(111,181,223,.065);
+}
+.ia-dashboard-quick-list button:last-child{
+  box-shadow:none;
+}
+.ia-dashboard-quick-list button:hover{
+  border-color:transparent;
+  background:rgba(32,154,226,.035);
+}
+.ia-dashboard-quick-list button>svg:first-child{
+  width:27px!important;
+  height:27px!important;
+}
+.ia-dashboard-quick-list strong{
+  font-size:10.75px;
+}
+.ia-dashboard-quick-list small{
+  font-size:9px;
+  color:#6b7d8e;
+}
+
+/* Tip remains useful but visually subordinate to operational panels. */
+.ia-dashboard-tip{
+  padding:13px 14px;
+  border-color:rgba(111,181,223,.075);
+  background:
+    linear-gradient(125deg,rgba(8,18,28,.985),rgba(7,20,32,.96));
+}
+.ia-dashboard-tip::before{
+  opacity:.42;
+}
+.ia-dashboard-tip::after{
+  inset:auto -92px -104px auto;
+  width:210px;
+  height:150px;
+  opacity:.105;
+  filter:saturate(.82);
+}
+.ia-dashboard-tip-icon{
+  box-shadow:none!important;
+}
+.ia-dashboard-tip strong{
+  font-size:10.25px;
+  color:#d3dee6;
+}
+.ia-dashboard-tip p{
+  font-size:8.75px;
+  color:#68798a;
+}
+
+/* Recent creations should immediately inherit the visual focus released by the compact model row. */
+.ia-dashboard-recent-section{
+  margin-top:-1px;
+}
+.ia-dashboard-recent-grid{
+  margin-top:11px!important;
+}
+.ia-dashboard-recent-media{
+  transition:
+    border-color var(--ia-motion-exit) var(--ia-ease-standard),
+    box-shadow var(--ia-motion-standard) var(--ia-ease-standard);
+}
+.ia-dashboard-recent:hover .ia-dashboard-recent-media{
+  border-color:rgba(63,194,255,.20)!important;
+  box-shadow:var(--ia-shadow-panel)!important;
+}
+
+/* Light parity. */
+html[data-theme="light"] .ia-dashboard-quick-list button{
+  box-shadow:inset 0 -1px 0 rgba(15,23,42,.065);
+}
+html[data-theme="light"] .ia-dashboard-quick-list button:hover{
+  background:rgba(14,165,233,.04);
+}
+html[data-theme="light"] .ia-dashboard-tip{
+  background:#fff!important;
+}
+
+/* Responsive calibration without changing the mobile information architecture. */
+@media(max-width:1279px){
+  .ia-dashboard-main{gap:24px}
+  .ia-dashboard-rail{
+    top:auto;
+    gap:12px;
+  }
+  .ia-dashboard-launch-image{
+    background-size:auto,58% auto!important;
+  }
+  .ia-dashboard-launch-video{
+    background-size:auto,66% auto!important;
+  }
+}
+@media(max-width:767px){
+  .ia-dashboard-main{gap:22px}
+  .ia-dashboard-intro{
+    min-height:176px;
+    padding:26px 20px 24px!important;
+  }
+  .ia-dashboard-launch{
+    min-height:136px!important;
+    padding:18px!important;
+  }
+  .ia-dashboard-launch-image{
+    background-size:auto,74% auto!important;
+    background-position:center,right -84px center!important;
+  }
+  .ia-dashboard-launch-video{
+    background-size:auto,78% auto!important;
+    background-position:center,right -96px center!important;
+  }
+  .ia-dashboard .ia-model-showcase-body h3{
+    min-height:auto;
+  }
+  .ia-dashboard .ia-model-showcase-body>p{
+    min-height:auto!important;
+    max-height:none;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .ia-dashboard-launch:hover .ia-dashboard-arrow,
+  .ia-dashboard .ia-model-showcase-cta:hover svg{
+    transform:none!important;
+  }
+}
