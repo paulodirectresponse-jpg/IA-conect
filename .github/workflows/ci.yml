@@ -16,4 +16,10 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run lint
       - run: npm run build
+      - run: npm run perf:bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: performance-baseline-${{ github.sha }}
+          path: performance-baseline.json
+          retention-days: 14
       - run: npm test -- --passWithNoTests

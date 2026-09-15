@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Navbar } from './Navbar.js';
 import { Sidebar } from './Sidebar.js';
 import { enterpriseVisualAssets } from '../../config/enterpriseVisualAssets.js';
+import { markViewRendered } from '../../utils/performanceMetrics.js';
 
 interface AppLayoutProps {
   currentView: string;
@@ -24,6 +25,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ currentView, onNavigate, c
       // Storage can be unavailable in privacy-restricted contexts.
     }
   }, []);
+
+  useEffect(() => {
+    markViewRendered(currentView);
+  }, [currentView]);
 
   const enterpriseVisualStyle = {
     '--ia-art-planet-home': `url("${enterpriseVisualAssets.homePlanet}")`,
