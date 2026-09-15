@@ -2027,3 +2027,330 @@ html[data-theme="light"] .ia-dashboard-tip{
     transform:none!important;
   }
 }
+
+
+/* Stage 4 — final Community + Library pass. */
+
+/* Community: tighter control strip, better masonry rhythm, clearer metadata. */
+.ia-community-header{
+  min-height:188px;
+  background:
+    linear-gradient(90deg,rgba(6,15,23,.995) 0%,rgba(6,15,23,.965) 44%,rgba(5,13,21,.70) 62%,rgba(5,13,21,.28) 79%,rgba(4,10,16,.08) 100%),
+    var(--ia-art-planet-community) right -72px center/760px auto no-repeat,
+    #07111a!important;
+}
+.ia-community-toolbar{
+  width:min(100%,920px);
+  display:grid!important;
+  grid-template-columns:auto minmax(320px,420px);
+  justify-content:start!important;
+  align-items:center;
+  gap:14px!important;
+  margin-top:16px!important;
+  padding:6px!important;
+}
+.ia-community-filters{
+  flex:none;
+}
+.ia-community-search{
+  min-width:0;
+}
+.ia-community-feed{
+  column-gap:14px!important;
+}
+.ia-community-card{
+  margin-bottom:14px!important;
+}
+.ia-community-media{
+  background:#02070b!important;
+}
+.ia-community-meta{
+  padding:11px 12px 10px!important;
+}
+.ia-community-prompt{
+  margin-top:10px!important;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2!important;
+  overflow:hidden;
+  font-size:11.5px!important;
+  line-height:1.52!important;
+  color:#9aa9b8!important;
+}
+.ia-community-actions{
+  padding:0 12px 11px!important;
+}
+.ia-community-actions>div:first-child button{
+  min-height:34px!important;
+  height:34px!important;
+  padding-inline:9px!important;
+  border-color:rgba(111,181,223,.075)!important;
+  background:transparent!important;
+}
+.ia-community-actions>div:first-child button:hover{
+  background:rgba(255,255,255,.022)!important;
+  border-color:rgba(111,181,223,.14)!important;
+}
+.ia-community-recreate{
+  min-height:34px!important;
+  height:34px!important;
+  padding-inline:11px!important;
+  background:linear-gradient(135deg,#149ee8,#2d66dc)!important;
+  box-shadow:none!important;
+}
+.ia-community-model-tag{
+  max-width:76%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  padding:4px 7px!important;
+  font-size:9px!important;
+  color:#d9e6ef!important;
+}
+.ia-community-model-tag svg{
+  flex:none;
+}
+@media(min-width:1800px){
+  .ia-community-feed{
+    column-count:5!important;
+  }
+}
+@media(min-width:2300px){
+  .ia-community-feed{
+    column-count:6!important;
+  }
+}
+
+/* Library: remove nested toolbar card, enlarge operational content, keep asset media geometry unchanged. */
+.ia-library-hero{
+  min-height:160px;
+  background:
+    linear-gradient(90deg,rgba(6,15,23,.995) 0%,rgba(6,15,23,.96) 46%,rgba(5,13,21,.68) 64%,rgba(5,13,21,.25) 80%,rgba(4,10,16,.08) 100%),
+    var(--ia-art-planet-library) right -62px center/720px auto no-repeat,
+    #07111a!important;
+}
+.ia-library-nav{
+  padding:11px;
+}
+.ia-library-global-card{
+  padding:8px 7px 11px;
+}
+.ia-library-global-card span{
+  max-width:180px;
+}
+.ia-library-projects{
+  padding:4px!important;
+}
+.ia-library-projects>div[class*="text-[10px]"]{
+  padding-top:10px!important;
+}
+.ia-library-content-header{
+  padding-bottom:10px!important;
+  margin-bottom:14px!important;
+  border-bottom-color:rgba(111,182,224,.06)!important;
+}
+.ia-library-content-header>div>p{
+  margin-bottom:3px;
+  font-size:9px!important;
+  text-transform:uppercase;
+  letter-spacing:.11em;
+  color:#56697b!important;
+}
+.ia-library-content-header h2{
+  font-size:18px!important;
+}
+.ia-library-assets-heading{
+  align-items:center!important;
+  padding-bottom:2px;
+}
+.ia-library-assets-heading h1{
+  font-size:17px!important;
+  font-weight:680!important;
+  letter-spacing:-.025em!important;
+}
+.ia-library-assets-heading p{
+  color:#718394!important;
+}
+.ia-library-add-asset{
+  min-height:38px;
+  border:1px solid rgba(55,188,255,.25);
+  background:linear-gradient(135deg,#17a8f5,#316be8)!important;
+  color:#f3fbff!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.12),
+    0 12px 26px -20px rgba(26,143,230,.65);
+}
+.ia-library-add-asset:hover{
+  filter:brightness(1.035);
+}
+.ia-library-filters{
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  gap:8px!important;
+}
+.ia-library-filters>div:first-child{
+  gap:8px!important;
+}
+.ia-library-filters>div:first-child>div:first-child input{
+  height:38px!important;
+  border-radius:var(--ia-radius-sm)!important;
+  background:rgba(6,15,23,.78)!important;
+  border-color:rgba(111,182,224,.09)!important;
+}
+.ia-library-origin{
+  min-height:38px;
+  padding:3px!important;
+  border-radius:var(--ia-radius-sm)!important;
+  background:rgba(6,15,23,.62)!important;
+  border-color:rgba(111,182,224,.075)!important;
+}
+.ia-library-filters>div:last-child{
+  min-height:35px;
+  padding-top:7px;
+  border-top:1px solid rgba(111,182,224,.055);
+}
+.ia-library-filters>div:last-child>div:first-child button{
+  min-height:30px;
+}
+.ia-library-filters select{
+  min-height:32px;
+  background:rgba(6,15,23,.62)!important;
+  border-color:rgba(111,182,224,.075)!important;
+}
+.ia-library-assets-grid{
+  align-items:start;
+  gap:12px!important;
+}
+.ia-assets-view .ia-library-asset-card{
+  border-color:rgba(111,182,224,.085)!important;
+}
+.ia-assets-view .ia-library-asset-card:hover{
+  border-color:rgba(49,190,255,.19)!important;
+}
+.ia-library-asset-badges span{
+  min-height:18px;
+  display:inline-flex;
+  align-items:center;
+  padding:2px 6px!important;
+  font-size:8px!important;
+  letter-spacing:.02em;
+}
+.ia-library-asset-name{
+  font-size:11px!important;
+  color:#e7eef4!important;
+}
+.ia-library-asset-alias{
+  margin-top:3px!important;
+  font-size:9px!important;
+  color:#61c8ef!important;
+}
+.ia-library-asset-footer{
+  margin-top:8px!important;
+  padding-top:7px!important;
+  border-top-color:rgba(111,182,224,.05)!important;
+}
+.ia-library-asset-footer>span{
+  font-size:8px!important;
+  color:#647687!important;
+}
+.ia-library-asset-footer button{
+  width:28px!important;
+  height:28px!important;
+}
+.ia-library-media>a{
+  width:28px!important;
+  height:28px!important;
+}
+
+/* Project-bound assets use the same readable density. */
+.ia-project-assets .ia-library-asset-card{
+  border-radius:var(--ia-radius-md)!important;
+}
+.ia-project-assets .ia-library-asset-card>div:last-child p:first-child{
+  font-size:11px!important;
+}
+.ia-project-assets .ia-library-asset-card>div:last-child p:last-child{
+  font-size:9px!important;
+}
+
+/* Entity libraries inherit the same 5-column maximum and calmer chrome. */
+.ia-creative-library section.flex-1>div[class*="space-y-4"]>div[class*="grid"],
+.ia-creative-library section.flex-1>div[class*="pb-8"]>div[class*="grid"]{
+  gap:12px!important;
+}
+.ia-creative-library article.group{
+  border-color:rgba(111,182,224,.085)!important;
+  background:linear-gradient(180deg,rgba(8,19,29,.94),rgba(6,15,23,.98))!important;
+  box-shadow:var(--ia-shadow-panel)!important;
+}
+.ia-creative-library article.group:hover{
+  border-color:rgba(49,190,255,.19)!important;
+  box-shadow:var(--ia-shadow-raised)!important;
+}
+
+/* Light theme parity. */
+html[data-theme="light"] .ia-community-toolbar{
+  background:rgba(255,255,255,.90)!important;
+}
+html[data-theme="light"] .ia-library-filters{
+  background:transparent!important;
+}
+html[data-theme="light"] .ia-library-filters>div:first-child>div:first-child input,
+html[data-theme="light"] .ia-library-origin,
+html[data-theme="light"] .ia-library-filters select{
+  background:#fff!important;
+  border-color:rgba(15,23,42,.08)!important;
+}
+html[data-theme="light"] .ia-library-add-asset{
+  color:#fff!important;
+}
+
+/* Responsive calibration. */
+@media(max-width:1279px){
+  .ia-community-toolbar{
+    width:100%;
+    grid-template-columns:auto minmax(280px,1fr);
+  }
+}
+@media(max-width:1023px){
+  .ia-community-toolbar{
+    grid-template-columns:1fr;
+    align-items:stretch;
+  }
+  .ia-community-toolbar>div:last-child{
+    width:100%;
+  }
+  .ia-community-toolbar>div:last-child>div:first-child{
+    flex:1;
+    width:auto!important;
+  }
+}
+@media(max-width:767px){
+  .ia-community-header,
+  .ia-library-hero{
+    min-height:160px;
+  }
+  .ia-community-toolbar{
+    width:100%;
+    padding:6px!important;
+  }
+  .ia-community-meta{
+    padding:11px!important;
+  }
+  .ia-community-actions{
+    padding-inline:11px!important;
+  }
+  .ia-library-assets-heading{
+    align-items:flex-start!important;
+  }
+  .ia-library-add-asset{
+    width:100%;
+    justify-content:center;
+  }
+  .ia-library-filters>div:last-child{
+    align-items:stretch!important;
+  }
+}
