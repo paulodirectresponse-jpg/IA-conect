@@ -237,9 +237,38 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
       setUploadError(err?.message || 'Arquivo incompatível.');
       return;
     }
-    setUploading(true);
+
     setUploadProgress(1);
     setActiveFileName(file.name);
+
+    if (type === 'IMAGE') {
+      const handle = assetService.startOptimisticImageUpload({
+        file,
+        name: displayNameForFile(file),
+        category: categoryForType(type),
+        onProgress: setUploadProgress,
+      });
+      taskRef.current = { cancel: handle.cancel };
+      const local = handle.asset;
+      setLibraryAssets((current) => mergeAssets([local], current));
+      onAssetUploaded(local);
+      onSelectAsset(local);
+      onClose();
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      void handle.ready.then(async (created) => {
+        taskRef.current = null;
+        setLibraryAssets((current) => mergeAssets([created], current.filter((asset) => asset.asset_id !== local.asset_id)));
+        onAssetUploaded(created);
+        if (scope === 'PROJECT' && activeProject) await attachToActiveProject(created.asset_id).catch(() => {});
+      }, (err: any) => {
+        taskRef.current = null;
+        setLibraryAssets((current) => current.filter((asset) => asset.asset_id !== local.asset_id));
+        setUploadError(err?.message || 'Falha ao enviar a mídia.');
+      });
+      return;
+    }
+
+    setUploading(true);
     try {
       const created = await assetService.uploadAsset({
         file,

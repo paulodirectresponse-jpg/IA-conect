@@ -74,6 +74,7 @@ export interface CreateAssetParams {
   name:string;
   alias?:string;
   storage_path:string;
+  thumbnail_storage_path?:string;
   public_url?:string;
   thumbnail_url?:string;
   mime_type:string;
@@ -104,6 +105,7 @@ export const assetRepository={
     const deduped=await dedupeGeneratedAssets(await userAssets(userId));
     return deduped.filter((asset)=>{
       if(asset.deleted_at)return false;
+      if(asset.status==='UPLOADING'||asset.status==='FAILED')return false;
       if(filters?.type&&asset.type!==filters.type)return false;
       if(filters?.category&&asset.category!==filters.category)return false;
       if(search&&!String(asset.name||'').toLowerCase().includes(search)&&!String(asset.alias||'').toLowerCase().includes(search))return false;
@@ -159,6 +161,7 @@ export const assetRepository={
       name:params.name.trim(),
       alias,
       storage_path:params.storage_path,
+      thumbnail_storage_path:params.thumbnail_storage_path||'',
       public_url:params.public_url||'',
       thumbnail_url:params.thumbnail_url||params.public_url||'',
       mime_type:params.mime_type,
@@ -180,7 +183,7 @@ export const assetRepository={
     return asset;
   },
 
-  async updateAsset(assetId:string,userId:string,updates:{name?:string;alias?:string;category?:AssetCategory;status?:AssetStatus;public_url?:string}):Promise<Asset> {
+  async updateAsset(assetId:string,userId:string,updates:{name?:string;alias?:string;category?:AssetCategory;status?:AssetStatus;public_url?:string;thumbnail_url?:string;width?:number|null;height?:number|null;duration_seconds?:number|null;storage_path?:string;thumbnail_storage_path?:string}):Promise<Asset> {
     const existing=await this.getAsset(assetId,userId);
     if(!existing)throw new Error('Asset não encontrado ou sem permissão.');
     const nextUpdates={...updates};
