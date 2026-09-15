@@ -169,6 +169,7 @@ function createOptimisticImageUpload(params:UploadAssetParams,gate?:Promise<void
     emitUploadEvent('ia:asset-upload-progress',{local_asset_id:localId,percent:value});
   };
 
+  let reservedAssetId='';
   const ready=(async()=>{
     try{
       if(gate)await gate;
@@ -188,6 +189,7 @@ function createOptimisticImageUpload(params:UploadAssetParams,gate?:Promise<void
       });
       const metadataPromise=imageMetadataAndThumbnail(file);
       const [ticket,metadata]=await Promise.all([ticketPromise,metadataPromise]);
+      reservedAssetId=ticket.asset.asset_id;
       if(cancelled)throw new Error('Envio cancelado.');
       optimistic.width=metadata.width;
       optimistic.height=metadata.height;
@@ -226,11 +228,14 @@ function createOptimisticImageUpload(params:UploadAssetParams,gate?:Promise<void
       emitUploadEvent('ia:asset-upload-complete',{local_asset_id:localId,asset:completed});
       return completed;
     }catch(err){
+      if(reservedAssetId){
+        await apiRequest(`/api/assets/${encodeURIComponent(reservedAssetId)}`,{method:'PATCH',body:JSON.stringify({status:'FAILED'})}).catch(()=>null);
+      }
       emitUploadEvent('ia:asset-upload-failed',{local_asset_id:localId,error:err});
       throw err;
     }finally{
       window.setTimeout(()=>URL.revokeObjectURL(previewUrl),1500);
-      pendingUploads.delete(localId);
+      window.setTimeout(()=>pendingUploads.delete(localId),30000);
     }
   })();
 
