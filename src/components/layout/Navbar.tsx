@@ -5,7 +5,6 @@ import {
   Image as ImageIcon,
   LogOut,
   Menu,
-  Moon,
   Plus,
   Settings,
   Shield,
@@ -22,8 +21,6 @@ interface NavbarProps {
   currentView: string;
   onToggleSidebar: () => void;
   onNavigate: (view: string) => void;
-  theme: 'dark' | 'light';
-  onToggleTheme: () => void;
 }
 
 const viewMeta: Record<string, { title: string; eyebrow: string }> = {
@@ -43,12 +40,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentView,
   onToggleSidebar,
   onNavigate,
-  theme,
-  onToggleTheme,
 }) => {
   const { profile, wallet, isAdmin, logout } = useAuth();
   const [accountOpen, setAccountOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [themeNotice, setThemeNotice] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
   const createRef = useRef<HTMLDivElement>(null);
 
@@ -93,14 +89,24 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-        <button
-          onClick={onToggleTheme}
-          className="ia-shell-icon-button"
-          title={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
-          aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
-        >
-          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => {
+              setThemeNotice(true);
+              window.setTimeout(() => setThemeNotice(false), 2400);
+            }}
+            className="ia-shell-icon-button"
+            title="Modo claro — em breve"
+            aria-label="Modo claro ainda não disponível"
+          >
+            <Sun className="h-4 w-4" />
+          </button>
+          {themeNotice && (
+            <div role="status" className="ia-shell-theme-notice absolute right-0 top-12 z-50 w-max max-w-[240px] rounded-xl border border-sky-300/10 bg-[#09131d]/98 px-3 py-2 text-[10px] font-medium text-zinc-300 shadow-2xl backdrop-blur-xl">
+              Modo claro ainda não está disponível.
+            </div>
+          )}
+        </div>
 
         <button onClick={() => navigate('wallet')} className="ia-shell-wallet">
           <WalletIcon className="h-3.5 w-3.5" />
@@ -167,10 +173,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
                 <button onClick={() => navigate('settings')} className="ia-shell-account-item">
                   <Settings className="h-4 w-4" /> Configurações
-                </button>
-                <button onClick={() => { onToggleTheme(); setAccountOpen(false); }} className="ia-shell-account-item">
-                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                  {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
                 </button>
                 {isAdmin && (
                   <button onClick={() => navigate('admin')} className="ia-shell-account-item">
