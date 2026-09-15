@@ -31,6 +31,41 @@
   --ia-art-create-video:url('/enterprise/visuals/create-video-surfer-desktop.png');
 }
 
+/* Interaction foundation: explicit properties only, consistent timing and focus. */
+.ia-shell :is(
+  .ia-shell-icon-button,
+  .ia-shell-wallet,
+  .ia-shell-account-trigger,
+  .ia-shell-create-button,
+  .ia-dashboard-arrow,
+  .ia-dashboard-history-link,
+  .ia-community-refresh,
+  .ia-community-filters button,
+  .ia-library-tabs button,
+  .ia-generator-setting-icon
+){
+  transition:
+    color var(--ia-motion-exit) var(--ia-ease-standard),
+    border-color var(--ia-motion-exit) var(--ia-ease-standard),
+    background-color var(--ia-motion-exit) var(--ia-ease-standard),
+    box-shadow var(--ia-motion-standard) var(--ia-ease-standard),
+    filter var(--ia-motion-standard) var(--ia-ease-standard);
+}
+
+.ia-shell :is(button,a,input,textarea,select):focus-visible{
+  outline:2px solid color-mix(in srgb,var(--ia-brand) 48%,transparent);
+  outline-offset:2px;
+}
+
+.ia-shell :is(
+  .ia-dashboard-launch,
+  .ia-community-card,
+  .ia-creative-library .ia-library-asset-card
+):active{
+  transform:translateY(0);
+  transition-duration:var(--ia-motion-fast);
+}
+
 .ia-shell{
   background:
     radial-gradient(900px 360px at 76% -120px,rgba(35,133,255,.11),transparent 68%),
@@ -460,7 +495,7 @@ html[data-theme="light"] .ia-dashboard-recent-title{color:#334155!important}
   min-height:176px;
   padding:28px 30px 26px!important;
   border:1px solid rgba(118,184,225,.09)!important;
-  border-radius:15px;
+  border-radius:var(--ia-radius-lg);
   background:
     linear-gradient(90deg,rgba(6,15,23,.98) 0%,rgba(6,15,23,.92) 52%,rgba(5,13,21,.46) 76%,rgba(5,13,21,.16) 100%),
     radial-gradient(520px 230px at 78% 58%,rgba(30,128,255,.16),transparent 68%),
@@ -553,7 +588,7 @@ html[data-theme="light"] .ia-dashboard-recent-title{color:#334155!important}
   margin-bottom:18px;
   padding:26px 28px;
   border:1px solid rgba(119,184,225,.09);
-  border-radius:15px;
+  border-radius:var(--ia-radius-lg);
   background:
     linear-gradient(90deg,rgba(6,15,23,.98),rgba(6,15,23,.91) 58%,rgba(5,13,21,.36) 100%),
     radial-gradient(480px 210px at 76% 44%,rgba(30,128,255,.15),transparent 68%),
@@ -597,7 +632,7 @@ html[data-theme="light"] .ia-dashboard-recent-title{color:#334155!important}
 .ia-library-nav{
   padding:12px;
   border:1px solid rgba(112,182,224,.095);
-  border-radius:13px;
+  border-radius:var(--ia-radius-md);
   background:linear-gradient(180deg,rgba(8,19,29,.94),rgba(6,15,23,.96));
   box-shadow:inset 0 1px 0 rgba(255,255,255,.012);
 }
@@ -793,7 +828,7 @@ html[data-theme="light"] .ia-creation-gallery>header{background:rgba(248,250,252
   .ia-library-hero{
     min-height:160px;
     padding:22px 18px!important;
-    border-radius:13px;
+    border-radius:var(--ia-radius-md);
   }
   .ia-community-header h1,
   .ia-library-heading h1{
@@ -830,7 +865,7 @@ html[data-theme="light"] .ia-creation-gallery>header{background:rgba(248,250,252
 .ia-dashboard-rail-card,
 .ia-dashboard-tip{
   border:1px solid rgba(111,181,223,.10);
-  border-radius:13px;
+  border-radius:var(--ia-radius-md);
   background:
     linear-gradient(180deg,rgba(8,19,29,.97),rgba(5,13,20,.99));
   box-shadow:inset 0 1px 0 rgba(255,255,255,.014);
@@ -879,7 +914,7 @@ html[data-theme="light"] .ia-creation-gallery>header{background:rgba(248,250,252
   height:32px;
   place-items:center;
   border:1px solid rgba(111,181,223,.11);
-  border-radius:9px;
+  border-radius:var(--ia-radius-sm);
   background:rgba(255,255,255,.018);
   color:#8bb0c6;
 }
@@ -1523,7 +1558,7 @@ html[data-theme="light"] .ia-creation-gallery{
 /* Auto/model card gains the richer product treatment visible in the references. */
 .ia-generator-panel .ia-model-picker>button{
   min-height:118px!important;
-  border-radius:13px!important;
+  border-radius:var(--ia-radius-md)!important;
   border-color:rgba(61,190,255,.22)!important;
   background:
     radial-gradient(340px 150px at 92% 12%,rgba(33,130,255,.13),transparent 68%),
