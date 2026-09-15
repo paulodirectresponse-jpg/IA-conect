@@ -199,6 +199,17 @@ generationRouter.get('/generations', requireAuth, async (req:AuthenticatedReques
   }
 });
 
+generationRouter.post('/generations/status-batch', requireAuth, async (req:AuthenticatedRequest, res) => {
+  try {
+    const ids=Array.isArray(req.body?.generation_ids)?req.body.generation_ids.map(String).filter(Boolean).slice(0,24):[];
+    if(!ids.length)return res.json({success:true,data:[]});
+    const rows=await generationService.getGenerations(ids,req.user!.uid);
+    return res.json({success:true,data:rows.map(publicGeneration)});
+  } catch {
+    return res.status(500).json({success:false,error:{code:'GENERATION_STATUS_BATCH_ERROR',message:'Não foi possível atualizar as gerações.'}});
+  }
+});
+
 generationRouter.get('/generations/:generationId', requireAuth, async (req:AuthenticatedRequest, res) => {
   try {
     const generation = await generationService.getGeneration(req.params.generationId, req.user!.uid);
