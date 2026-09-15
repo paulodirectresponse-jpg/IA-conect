@@ -109,16 +109,16 @@
   min-height:42px;
   border:1px solid transparent;
   border-radius:var(--ia-radius-sm)!important;
-  color:#91a0b2;
-  font-weight:560!important;
+  color:#9aabbb;
+  font-weight:570!important;
   transition:
     color var(--ia-motion-exit) var(--ia-ease-standard),
     border-color var(--ia-motion-exit) var(--ia-ease-standard),
     background-color var(--ia-motion-exit) var(--ia-ease-standard);
 }
 .ia-shell-nav-item:hover{
-  color:#dce7f0;
-  background:rgba(255,255,255,.022);
+  color:#e4edf4;
+  background:rgba(255,255,255,.028);
 }
 .ia-shell-nav-item.is-active{
   color:#f7fbff;
@@ -131,13 +131,13 @@
 }
 .ia-shell-nav-item.is-active svg{color:#50caff}
 .ia-shell-sidebar [class*="uppercase"]{
-  letter-spacing:.18em!important;
-  color:#607386!important;
+  letter-spacing:.16em!important;
+  color:#73889b!important;
 }
 
 .ia-shell-navbar{
-  border-color:rgba(128,183,219,.08)!important;
-  background:rgba(4,10,16,.78)!important;
+  border-color:rgba(128,183,219,.075)!important;
+  background:linear-gradient(90deg,rgba(4,10,16,.92),rgba(5,13,21,.84))!important;
   backdrop-filter:blur(22px) saturate(118%);
   box-shadow:inset 0 -1px 0 rgba(255,255,255,.012),0 12px 30px -28px rgba(0,0,0,.8);
 }
@@ -150,9 +150,11 @@
   color:#eef6fb!important;
 }
 .ia-shell-page-context{
-  border-left-color:rgba(128,183,219,.095)!important;
-  color:#627486!important;
-  font-size:10px!important;
+  border-left-color:rgba(128,183,219,.12)!important;
+  color:#8193a4!important;
+  font-size:10.5px!important;
+  font-weight:540;
+  letter-spacing:.02em;
 }
 .ia-shell-icon-button,
 .ia-shell-wallet,
@@ -626,8 +628,12 @@ html[data-theme="light"] .ia-dashboard-recent-title{color:#334155!important}
   min-height:36px;
 }
 .ia-library-tabs button[class*="bg-white"]{
-  background:rgba(126,163,191,.11)!important;
-  color:#eef6fb!important;
+  background:linear-gradient(180deg,rgba(24,164,255,.15),rgba(24,164,255,.075))!important;
+  color:#eefaff!important;
+  box-shadow:inset 0 0 0 1px rgba(52,190,255,.11);
+}
+.ia-library-tabs button[class*="bg-white"] svg{
+  color:#55ccff!important;
 }
 .ia-library-nav{
   padding:12px;
@@ -2352,5 +2358,276 @@ html[data-theme="light"] .ia-library-add-asset{
   }
   .ia-library-filters>div:last-child{
     align-items:stretch!important;
+  }
+}
+
+
+/* Stage 5 — final global visual calibration. */
+
+/* Global chrome + motion */
+.ia-shell-sidebar{
+  transition:transform var(--ia-motion-standard) var(--ia-ease-out);
+}
+.ia-shell-backdrop{
+  animation:ia-shell-backdrop-in var(--ia-motion-exit) var(--ia-ease-standard) both;
+}
+.ia-shell-popover{
+  transform-origin:top right;
+  animation:ia-shell-popover-in var(--ia-motion-exit) var(--ia-ease-out) both;
+}
+.ia-shell-account-trigger.is-open{
+  border-color:rgba(61,194,255,.22)!important;
+  background:rgba(10,24,36,.94)!important;
+}
+.ia-shell-sidebar-footer{
+  border-top-color:rgba(128,183,219,.075)!important;
+}
+.ia-shell-sidebar-footer p{
+  font-size:10px!important;
+  line-height:1.45!important;
+  color:#74889a!important;
+  letter-spacing:.01em;
+}
+.ia-shell-nav-item svg{
+  color:#71879a!important;
+}
+.ia-shell-nav-item:hover svg{
+  color:#a8bfd0!important;
+}
+.ia-shell-nav-item.is-active svg{
+  color:#50caff!important;
+}
+.ia-shell-create-button,
+.ia-library-add-asset,
+.ia-generator-generate{
+  transition:
+    transform var(--ia-motion-fast) var(--ia-ease-out),
+    filter var(--ia-motion-exit) var(--ia-ease-standard),
+    box-shadow var(--ia-motion-standard) var(--ia-ease-standard);
+}
+.ia-shell-create-button:active,
+.ia-library-add-asset:active,
+.ia-generator-generate:not(:disabled):active{
+  transform:scale(.985);
+}
+@keyframes ia-shell-backdrop-in{
+  from{opacity:0}
+  to{opacity:1}
+}
+@keyframes ia-shell-popover-in{
+  from{opacity:0;transform:translateY(-4px) scale(.985)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+
+/* Readability floor across the five core screens. */
+.ia-dashboard-recent-meta{
+  font-size:10px!important;
+  color:#718293!important;
+}
+.ia-dashboard-rail-heading small,
+.ia-dashboard-stat span,
+.ia-dashboard-quick-list small{
+  color:#718394!important;
+}
+.ia-dashboard-rail-heading small{
+  font-size:9.5px;
+}
+.ia-dashboard-stat span{
+  font-size:10px;
+}
+.ia-dashboard-quick-list small{
+  font-size:9.5px;
+}
+.ia-dashboard-tip p{
+  font-size:9.5px;
+  color:#718293;
+}
+.ia-dashboard .ia-model-showcase-body>p{
+  color:#8191a1!important;
+}
+.ia-community-model-tag{
+  font-size:9.5px!important;
+}
+.ia-community-meta .text-zinc-600{
+  color:#758697!important;
+}
+.ia-library-global-card span{
+  font-size:10px;
+  color:#718395;
+}
+.ia-library-asset-badges span{
+  font-size:8.5px!important;
+}
+.ia-library-asset-footer>span{
+  font-size:8.5px!important;
+  color:#718293!important;
+}
+.ia-project-assets .ia-library-asset-card>div:last-child p:last-child{
+  font-size:9.5px!important;
+  color:#718293!important;
+}
+
+/* Consistent control materials: selection is cyan/blue; other hues remain semantic only. */
+.ia-community-filters button,
+.ia-library-tabs button,
+.ia-library-origin button,
+.ia-library-filters>div:last-child>div:first-child button{
+  transition:
+    color var(--ia-motion-exit) var(--ia-ease-standard),
+    background-color var(--ia-motion-exit) var(--ia-ease-standard),
+    box-shadow var(--ia-motion-exit) var(--ia-ease-standard);
+}
+.ia-library-origin button[class*="bg-white"],
+.ia-library-filters>div:last-child>div:first-child button[class*="bg-cyan"]{
+  background:rgba(24,164,255,.11)!important;
+  color:#dff7ff!important;
+  box-shadow:inset 0 0 0 1px rgba(52,190,255,.10);
+}
+
+/* Quiet the remaining border-heavy surfaces by leaning on tonal separation. */
+.ia-dashboard-rail-card,
+.ia-dashboard-tip,
+.ia-community-toolbar,
+.ia-library-nav{
+  border-color:rgba(111,181,223,.075)!important;
+}
+.ia-community-card,
+.ia-creative-library .ia-library-asset-card,
+.ia-creation-gallery article>div[class*="rounded"]{
+  border-color:rgba(111,181,223,.09)!important;
+}
+.ia-community-card:hover,
+.ia-creative-library .ia-library-asset-card:hover,
+.ia-creation-gallery article:hover>div[class*="rounded"]{
+  border-color:rgba(65,193,255,.18)!important;
+}
+
+/* Navbar/sidebar and content feel like one continuous product shell. */
+.ia-shell-navbar::after{
+  content:"";
+  position:absolute;
+  inset:auto 0 -1px 0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(57,184,255,.12) 22%,rgba(57,184,255,.05) 68%,transparent);
+  pointer-events:none;
+}
+.ia-shell-sidebar::after{
+  content:"";
+  position:absolute;
+  inset:68px 0 auto auto;
+  width:1px;
+  height:180px;
+  background:linear-gradient(180deg,rgba(58,190,255,.12),transparent);
+  pointer-events:none;
+}
+
+/* Light theme parity */
+html[data-theme="light"] .ia-shell-page-context{
+  color:#64748b!important;
+  border-left-color:rgba(15,23,42,.10)!important;
+}
+html[data-theme="light"] .ia-shell-sidebar-footer p,
+html[data-theme="light"] .ia-dashboard-rail-heading small,
+html[data-theme="light"] .ia-dashboard-stat span,
+html[data-theme="light"] .ia-dashboard-quick-list small,
+html[data-theme="light"] .ia-dashboard-recent-meta,
+html[data-theme="light"] .ia-library-global-card span,
+html[data-theme="light"] .ia-library-asset-footer>span{
+  color:#64748b!important;
+}
+html[data-theme="light"] .ia-shell-nav-item{
+  color:#526174!important;
+}
+html[data-theme="light"] .ia-shell-nav-item svg{
+  color:#708197!important;
+}
+html[data-theme="light"] .ia-shell-nav-item:hover{
+  color:#1f2937!important;
+  background:rgba(14,165,233,.035)!important;
+}
+html[data-theme="light"] .ia-library-tabs button[class*="bg-white"]{
+  background:rgba(14,165,233,.08)!important;
+  color:#173149!important;
+  box-shadow:inset 0 0 0 1px rgba(14,165,233,.10);
+}
+html[data-theme="light"] .ia-community-prompt,
+html[data-theme="light"] .ia-dashboard .ia-model-showcase-body>p{
+  color:#586779!important;
+}
+html[data-theme="light"] .ia-community-model-tag{
+  background:rgba(255,255,255,.86)!important;
+  color:#334155!important;
+  border-color:rgba(15,23,42,.10)!important;
+}
+
+/* Tablet/mobile final calibration */
+@media(max-width:1023px){
+  .ia-shell-sidebar{
+    will-change:transform;
+  }
+  .ia-community-header,
+  .ia-library-hero{
+    background-position:right -180px center!important;
+  }
+}
+@media(max-width:767px){
+  .ia-shell-navbar{
+    min-height:64px;
+    height:64px!important;
+  }
+  .ia-shell-icon-button,
+  .ia-shell-account-trigger,
+  .ia-community-refresh,
+  .ia-community-filters button,
+  .ia-library-tabs button,
+  .ia-library-asset-footer button{
+    min-width:44px;
+    min-height:44px;
+  }
+  .ia-shell-wallet{
+    min-height:44px;
+  }
+  .ia-community-actions button{
+    min-height:44px!important;
+    height:44px!important;
+  }
+  .ia-library-tabs{
+    scrollbar-width:none;
+  }
+  .ia-library-tabs::-webkit-scrollbar{
+    display:none;
+  }
+  .ia-dashboard-rail-heading small,
+  .ia-dashboard-stat span,
+  .ia-dashboard-quick-list small,
+  .ia-dashboard-tip p{
+    font-size:10px;
+  }
+  .ia-community-prompt{
+    font-size:12px!important;
+  }
+  .ia-library-asset-name{
+    font-size:11.5px!important;
+  }
+  .ia-library-asset-alias{
+    font-size:9.5px!important;
+  }
+}
+
+/* Reduced motion means genuinely static UI, including shell entrances. */
+@media(prefers-reduced-motion:reduce){
+  .ia-shell-sidebar,
+  .ia-shell-backdrop,
+  .ia-shell-popover,
+  .ia-shell-create-button,
+  .ia-library-add-asset,
+  .ia-generator-generate{
+    animation:none!important;
+    transition-duration:1ms!important;
+  }
+  .ia-shell-create-button:active,
+  .ia-library-add-asset:active,
+  .ia-generator-generate:not(:disabled):active{
+    transform:none!important;
   }
 }
