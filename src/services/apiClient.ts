@@ -1,4 +1,5 @@
 import { auth } from '../config/firebase.js';
+import { recordApiTiming } from '../utils/performanceMetrics.js';
 
 export class ApiError extends Error {
   code: string;
@@ -13,7 +14,11 @@ export class ApiError extends Error {
   }
 }
 
+const perfNow = () => typeof performance !== 'undefined' ? performance.now() : Date.now();
+
 export async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const startedAt = perfNow();
+  const method = String(options.method || 'GET').toUpperCase();
   const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(options.headers as Record<string,string> || {}) };
   if (auth.currentUser) {
     try { headers['Authorization'] = `Bearer ${await auth.currentUser.getIdToken()}`; }
@@ -30,6 +35,14 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
   try {
     response = await fetch(url, { ...options, headers, signal });
   } catch (err: any) {
+    recordApiTiming({
+      endpoint:url,
+      method,
+      duration_ms:Math.max(0, perfNow() - startedAt),
+      status:err?.name === 'AbortError' ? 408 : 0,
+      response_bytes:0,
+      server_timing:null,
+    });
     if (err?.name === 'AbortError') throw new ApiError('Tempo limite da requisição.', 'REQUEST_TIMEOUT', 408);
     throw err;
   } finally {
@@ -37,6 +50,16 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
   }
 
   const text = await response.text();
+  const responseBytes = typeof TextEncoder !== 'undefined' ? new TextEncoder().encode(text).byteLength : text.length;
+  recordApiTiming({
+    endpoint:url,
+    method,
+    duration_ms:Math.max(0, perfNow() - startedAt),
+    status:response.status,
+    response_bytes:responseBytes,
+    server_timing:response.headers.get('server-timing'),
+  });
+
   let json: any;
   try { json = JSON.parse(text); }
   catch { throw new ApiError(`Resposta inválida do servidor (${response.status})`, 'INVALID_SERVER_RESPONSE', response.status); }
