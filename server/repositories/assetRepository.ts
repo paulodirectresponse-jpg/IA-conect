@@ -105,6 +105,7 @@ export const assetRepository={
     const deduped=await dedupeGeneratedAssets(await userAssets(userId));
     return deduped.filter((asset)=>{
       if(asset.deleted_at)return false;
+      if(asset.status==='UPLOADING'||asset.status==='FAILED')return false;
       if(filters?.type&&asset.type!==filters.type)return false;
       if(filters?.category&&asset.category!==filters.category)return false;
       if(search&&!String(asset.name||'').toLowerCase().includes(search)&&!String(asset.alias||'').toLowerCase().includes(search))return false;
