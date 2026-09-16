@@ -16,7 +16,7 @@ describe('PR-07 Catalog/Admin/Economics architecture',()=>{
   it('uses AUTO to choose an eligible model without provider conditionals',()=>{
     const service=read('server/beta/catalog/betaEconomicsService.ts');
     expect(service).toContain("requestedModelId!=='AUTO'");
-    expect(service).toContain('eligibleModels(params.capabilityId)');
+    expect(service).toContain('eligibleModels(params.capabilityId,params.requestedControls||[])');
     expect(service).not.toMatch(/provider-atlas|provider-wavespeed|WaveSpeed|Atlas Cloud/);
   });
 
@@ -36,12 +36,26 @@ describe('PR-07 Catalog/Admin/Economics architecture',()=>{
     expect(flags).toContain("flag_key: 'beta.auto_router.enabled'");
   });
 
+  it('filters AUTO candidates by the controls requested by the job',()=>{
+    const policy=read('server/beta/catalog/catalogPolicyService.ts');
+    const jobs=read('server/beta/jobs/jobOrchestrator.ts');
+    expect(policy).toContain('validateModelCapability(item.model,capabilityId,requestedControls)');
+    expect(jobs).toContain('requestedControls:requestedControls(current.request)');
+  });
+
   it('records economic events without creating a second credit wallet',()=>{
     const repo=read('server/beta/catalog/catalogPolicyRepository.ts');
     const types=read('server/beta/catalog/catalogPolicyTypes.ts');
     expect(repo).toContain('beta_economic_ledger');
     expect(types).toContain("'QUOTE_AUTHORIZED'|'EXECUTION_STARTED'|'EXECUTION_LINKED'");
     expect(repo).not.toMatch(/reserveForGeneration|captureForGeneration|credit_lots|credit_accounts/);
+  });
+
+  it('persists AUTO and pricing policy audit context into generation economics',()=>{
+    const generation=read('server/services/generationService.ts');
+    expect(generation).toContain('pricing_policy_id:params.pricing_policy_id||null');
+    expect(generation).toContain('requested_model_id:params.requested_model_id||params.model_id');
+    expect(generation).toContain("routing_mode:params.routing_mode||'MANUAL'");
   });
 
   it('protects all PR-07 admin routes with admin auth',()=>{
