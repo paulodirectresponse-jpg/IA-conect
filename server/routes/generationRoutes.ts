@@ -54,130 +54,88 @@ function publicGeneration(g:any) {
   };
 }
 
-generationRouter.post('/generations/quote', requireAuth, async (req:AuthenticatedRequest, res) => {
-  try {
+async function buildGenerationQuote(uid:string,body:any,modelOverride?:any){
+  const mode=String(body.mode||'TEXT_TO_VIDEO') as GenerationMode;
+  const settings=body.settings||{};
+  const prompt=String(body.prompt||'').trim();
+  if(!body.model_id||!prompt)throw Object.assign(new Error('Modelo e prompt são obrigatórios.'),{code:'VALIDATION_ERROR'});
+
+  const model=modelOverride||await catalogRepository.getModel(String(body.model_id));
+  if(!model||model.status==='INACTIVE')throw Object.assign(new Error('Modelo indisponível.'),{code:'MODEL_NOT_FOUND'});
+
+  const imageMode=mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE';
+  const duration=imageMode?1:Math.max(1,Number(settings.duration_seconds||5));
+  const resolution=String(settings.resolution||(imageMode?'1K':'720p'));
+  const aspectRatio=String(settings.aspect_ratio||'16:9');
+  const requestedOutputs=Math.max(1,Math.min(4,Number(settings.number_of_outputs||1)));
+  const outputs=imageMode?requestedOutputs:1;
+  const references=Array.isArray(body.references)?body.references:[];
+  const roleOf=(reference:any)=>String(reference?.role||reference?.slot_type||'').toUpperCase();
+  const hasStartImage=references.some((reference:any)=>['START_FRAME','INITIAL_FRAME','INITIAL'].includes(roleOf(reference)));
+  const hasEndImage=references.some((reference:any)=>['END_FRAME','END'].includes(roleOf(reference)));
+  const compatibility=validateConfiguration(model,{mode,duration_seconds:duration,resolution,aspect_ratio:aspectRatio,references,negative_prompt:body.negative_prompt,promptText:prompt,has_start_image:hasStartImage,has_end_image:hasEndImage});
+  if(!compatibility.valid)throw Object.assign(new Error(compatibility.errors[0]),{code:'VALIDATION_ERROR'});
+
+  const q=await creditPricingService.preview({
+    userId:uid,model_id:model.model_id,mode,prompt,negative_prompt:body.negative_prompt,duration_seconds:duration,resolution,aspect_ratio:aspectRatio,
+    number_of_outputs:outputs,seed:settings.seed,motion_strength:settings.motion_strength,references,
+    audio_enabled:settings.audio_enabled===undefined?undefined:Boolean(settings.audio_enabled),model_variant:settings.model_variant,pricing_options:settings.pricing_options,
+  });
+  const compiled=promptCompilerService.compile({
+    original_prompt:prompt,references,negative_prompt:body.negative_prompt,
+    generation_settings:{model_id:model.model_id,mode,duration_seconds:duration,resolution,aspect_ratio:aspectRatio},
+  });
+  const price=q.retail.retail_credit_price,available=q.account.available_credits,retail:any=q.retail;
+  return{
+    request_draft:{
+      request_id:`quote_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
+      user_id:uid,model_id:model.model_id,model_name:model.name,mode,prompt,compiled_prompt:compiled.compiled_prompt,prompt_compiler_version:compiled.prompt_compiler_version,
+      negative_prompt:body.negative_prompt,references,
+      settings:{duration_seconds:duration,resolution,aspect_ratio:aspectRatio,number_of_outputs:outputs,seed:settings.seed??null,motion_strength:settings.motion_strength,audio_enabled:q.signature.audio_enabled,model_variant:q.signature.model_variant,pricing_options:q.signature.pricing_options},
+      has_pricing:true,retail_credit_price:price,unit_credit_price:retail.unit_credit_price,pricing_unit:retail.pricing_unit,base_duration_seconds:retail.base_duration_seconds,billing_units:retail.billing_units,
+      authorized_credit_price:price,credit_balance_available:available,balance_after_generation_credits:available-price,has_sufficient_funds:available>=price,
+      pricing_signature_hash:q.signature.hash,retail_pricing_id:q.retail.retail_pricing_id,retail_pricing_version:q.retail.version,created_at:new Date().toISOString(),
+    },
+    notice:`Preço confirmado: ${price.toLocaleString('pt-BR')} créditos.`,
+  };
+}
+
+async function mapWithConcurrency<T,R>(items:T[],limit:number,worker:(item:T,index:number)=>Promise<R>):Promise<R[]>{
+  const out=new Array<R>(items.length);let next=0;
+  const runners=Array.from({length:Math.min(Math.max(1,limit),items.length)},async()=>{while(true){const index=next++;if(index>=items.length)return;out[index]=await worker(items[index],index);}});
+  await Promise.all(runners);return out;
+}
+
+generationRouter.post('/generations/quote',requireAuth,async(req:AuthenticatedRequest,res)=>{
+  try{
     await billingControlService.assertNewGenerationAllowed();
-
-    const uid = req.user!.uid;
-    const mode = String(req.body.mode || 'TEXT_TO_VIDEO') as GenerationMode;
-    const settings = req.body.settings || {};
-    const prompt = String(req.body.prompt || '').trim();
-    if (!req.body.model_id || !prompt) {
-      return res.status(400).json({success:false,error:{code:'VALIDATION_ERROR',message:'Modelo e prompt são obrigatórios.'}});
-    }
-
-    const model = await catalogRepository.getModel(String(req.body.model_id));
-    if (!model || model.status === 'INACTIVE') {
-      return res.status(400).json({success:false,error:{code:'MODEL_NOT_FOUND',message:'Modelo indisponível.'}});
-    }
-
-    const imageMode = mode === 'TEXT_TO_IMAGE' || mode === 'IMAGE_TO_IMAGE';
-    const duration = imageMode ? 1 : Math.max(1, Number(settings.duration_seconds || 5));
-    const resolution = String(settings.resolution || (imageMode ? '1K' : '720p'));
-    const aspectRatio = String(settings.aspect_ratio || '16:9');
-    const requestedOutputs = Math.max(1, Math.min(4, Number(settings.number_of_outputs || 1)));
-    const outputs = imageMode ? requestedOutputs : 1;
-    const references = Array.isArray(req.body.references) ? req.body.references : [];
-    const roleOf = (reference:any) => String(reference?.role || reference?.slot_type || '').toUpperCase();
-    const hasStartImage = references.some((reference:any) => ['START_FRAME','INITIAL_FRAME','INITIAL'].includes(roleOf(reference)));
-    const hasEndImage = references.some((reference:any) => ['END_FRAME','END'].includes(roleOf(reference)));
-    const compatibility = validateConfiguration(model, {
-      mode,
-      duration_seconds:duration,
-      resolution,
-      aspect_ratio:aspectRatio,
-      references,
-      negative_prompt:req.body.negative_prompt,
-      promptText:prompt,
-      has_start_image:hasStartImage,
-      has_end_image:hasEndImage,
-    });
-    if (!compatibility.valid) {
-      return res.status(400).json({success:false,error:{code:'VALIDATION_ERROR',message:compatibility.errors[0]}});
-    }
-
-    const q = await creditPricingService.preview({
-      userId:uid,
-      model_id:model.model_id,
-      mode,
-      prompt,
-      negative_prompt:req.body.negative_prompt,
-      duration_seconds:duration,
-      resolution,
-      aspect_ratio:aspectRatio,
-      number_of_outputs:outputs,
-      seed:settings.seed,
-      motion_strength:settings.motion_strength,
-      references,
-      audio_enabled:settings.audio_enabled === undefined ? undefined : Boolean(settings.audio_enabled),
-      model_variant:settings.model_variant,
-      pricing_options:settings.pricing_options,
-    });
-
-    const compiled = promptCompilerService.compile({
-      original_prompt:prompt,
-      references,
-      negative_prompt:req.body.negative_prompt,
-      generation_settings:{
-        model_id:model.model_id,
-        mode,
-        duration_seconds:duration,
-        resolution,
-        aspect_ratio:aspectRatio,
-      },
-    });
-
-    const price = q.retail.retail_credit_price;
-    const available = q.account.available_credits;
-    const retail:any = q.retail;
-
-    return res.json({
-      success:true,
-      data:{
-        request_draft:{
-          request_id:`quote_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
-          user_id:uid,
-          model_id:model.model_id,
-          model_name:model.name,
-          mode,
-          prompt,
-          compiled_prompt:compiled.compiled_prompt,
-          prompt_compiler_version:compiled.prompt_compiler_version,
-          negative_prompt:req.body.negative_prompt,
-          references,
-          settings:{
-            duration_seconds:duration,
-            resolution,
-            aspect_ratio:aspectRatio,
-            number_of_outputs:outputs,
-            seed:settings.seed ?? null,
-            motion_strength:settings.motion_strength,
-            audio_enabled:q.signature.audio_enabled,
-            model_variant:q.signature.model_variant,
-            pricing_options:q.signature.pricing_options,
-          },
-          has_pricing:true,
-          retail_credit_price:price,
-          unit_credit_price:retail.unit_credit_price,
-          pricing_unit:retail.pricing_unit,
-          base_duration_seconds:retail.base_duration_seconds,
-          billing_units:retail.billing_units,
-          authorized_credit_price:price,
-          credit_balance_available:available,
-          balance_after_generation_credits:available-price,
-          has_sufficient_funds:available>=price,
-          pricing_signature_hash:q.signature.hash,
-          retail_pricing_id:q.retail.retail_pricing_id,
-          retail_pricing_version:q.retail.version,
-          created_at:new Date().toISOString(),
-        },
-        notice:`Preço confirmado: ${price.toLocaleString('pt-BR')} créditos.`,
-      },
-    });
-  } catch (err:any) {
-    const error = publicGenerationError(err, 'Não foi possível confirmar o preço desta configuração.');
-    const status = err?.code === 'CREDIT_INSUFFICIENT_FUNDS' ? 402 : err?.code === 'NO_SAFE_PROVIDER_AVAILABLE' ? 503 : 400;
+    const data=await buildGenerationQuote(req.user!.uid,req.body);
+    return res.json({success:true,data});
+  }catch(err:any){
+    const error=publicGenerationError(err,'Não foi possível confirmar o preço desta configuração.');
+    const status=err?.code==='CREDIT_INSUFFICIENT_FUNDS'?402:err?.code==='NO_SAFE_PROVIDER_AVAILABLE'?503:400;
     return res.status(status).json({success:false,error});
+  }
+});
+
+generationRouter.post('/generations/quote-batch',requireAuth,async(req:AuthenticatedRequest,res)=>{
+  try{
+    await billingControlService.assertNewGenerationAllowed();
+    const requests=Array.isArray(req.body?.requests)?req.body.requests.slice(0,16):[];
+    if(!requests.length)return res.status(400).json({success:false,error:{code:'VALIDATION_ERROR',message:'Envie pelo menos uma cotação.'}});
+    const models=await catalogRepository.listModels(),byId=new Map(models.map(model=>[model.model_id,model]));
+    const items=await mapWithConcurrency(requests,4,async(item:any,index)=>{
+      const key=String(item?.key||item?.model_id||index);
+      try{
+        const quote=await buildGenerationQuote(req.user!.uid,item,byId.get(String(item?.model_id))),draft:any=quote.request_draft;
+        return{key,ok:true,pricing:{model_id:draft.model_id,retail_credit_price:draft.retail_credit_price,unit_credit_price:draft.unit_credit_price,has_sufficient_funds:draft.has_sufficient_funds}};
+      }catch(err:any){
+        return{key,ok:false,error:publicGenerationError(err,'Não foi possível confirmar esta cotação.')};
+      }
+    });
+    return res.json({success:true,data:{items}});
+  }catch(err:any){
+    return res.status(400).json({success:false,error:publicGenerationError(err,'Não foi possível confirmar as cotações.')});
   }
 });
 
@@ -238,6 +196,17 @@ generationRouter.get('/generations', requireAuth, async (req:AuthenticatedReques
     return res.json({success:true,data:rows.map(publicGeneration)});
   } catch {
     return res.status(500).json({success:false,error:{code:'GENERATION_LIST_ERROR',message:'Não foi possível carregar as gerações.'}});
+  }
+});
+
+generationRouter.post('/generations/status-batch', requireAuth, async (req:AuthenticatedRequest, res) => {
+  try {
+    const ids=Array.isArray(req.body?.generation_ids)?req.body.generation_ids.map(String).filter(Boolean).slice(0,24):[];
+    if(!ids.length)return res.json({success:true,data:[]});
+    const rows=await generationService.getGenerations(ids,req.user!.uid);
+    return res.json({success:true,data:rows.map(publicGeneration)});
+  } catch {
+    return res.status(500).json({success:false,error:{code:'GENERATION_STATUS_BATCH_ERROR',message:'Não foi possível atualizar as gerações.'}});
   }
 });
 

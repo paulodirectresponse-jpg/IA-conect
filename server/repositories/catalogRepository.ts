@@ -11,6 +11,16 @@ import { STUDIO_SEED_MODELS } from '../../src/config/studioCatalog.js';
 
 const now=()=>new Date().toISOString();
 const safe=(value:string)=>encodeURIComponent(value);
+const CATALOG_CACHE_TTL_MS=30_000;
+const catalogCache=new Map<string,{expiresAt:number;value:any[]}>();
+async function cachedRows<T>(key:string,loader:()=>Promise<T[]>):Promise<T[]>{
+  const hit=catalogCache.get(key);
+  if(hit&&hit.expiresAt>Date.now())return hit.value as T[];
+  const value=await loader();
+  catalogCache.set(key,{expiresAt:Date.now()+CATALOG_CACHE_TTL_MS,value});
+  return value;
+}
+function invalidateCatalog(key?:string){if(key)catalogCache.delete(key);else catalogCache.clear();}
 
 /** Seeds only. Runtime source of truth is Firestore. */
 export const MODEL_CATALOG:ModelRegistryItem[]=STUDIO_SEED_MODELS;
@@ -85,7 +95,7 @@ async function save<T extends Record<string,any>>(collectionId:string,id:string,
 
 export const catalogRepository={
   async listModels(){
-    const rows=await ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG);
+    const rows=await cachedRows<ModelRegistryItem>('models',()=>ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG));
     const seedOrder=new Map(MODEL_CATALOG.map((model,index)=>[model.model_id,index]));
     return rows.filter((row)=>row.status!=='INACTIVE').sort((a,b)=>{
       const ai=seedOrder.get(a.model_id)??Number.MAX_SAFE_INTEGER;
@@ -94,34 +104,35 @@ export const catalogRepository={
     });
   },
   async getModel(id:string){
-    await ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG);
-    const doc=await firestoreAdminRest.get(`models/${safe(id)}`);
-    if(!doc.exists)return null;
-    const model=doc.data as ModelRegistryItem;
-    return model.status!=='INACTIVE'?model:null;
+    const model=(await this.listModels()).find((row)=>row.model_id===id)||null;
+    return model&&model.status!=='INACTIVE'?model:null;
   },
   async saveModel(value:ModelRegistryItem){
-    return save('models',value.model_id,value);
+    const saved=await save('models',value.model_id,value);
+    invalidateCatalog('models');
+    return saved;
   },
 
   async listProviders(){
-    const rows=await ensureSeed<ProviderRegistryItem>('providers','provider_id',PROVIDER_CATALOG);
+    const rows=await cachedRows<ProviderRegistryItem>('providers',()=>ensureSeed<ProviderRegistryItem>('providers','provider_id',PROVIDER_CATALOG));
     return rows.sort((a,b)=>b.priority-a.priority);
   },
   async getProvider(id:string){
-    await ensureSeed<ProviderRegistryItem>('providers','provider_id',PROVIDER_CATALOG);
-    const doc=await firestoreAdminRest.get(`providers/${safe(id)}`);
-    return doc.exists?doc.data as ProviderRegistryItem:null;
+    return (await this.listProviders()).find((row)=>row.provider_id===id)||null;
   },
   async saveProvider(value:ProviderRegistryItem){
-    return save('providers',value.provider_id,value);
+    const saved=await save('providers',value.provider_id,value);
+    invalidateCatalog('providers');
+    return saved;
   },
 
   async listMappings(){
-    return ensureSeed<ProviderModelMapping>('provider_models','mapping_id',MODEL_MAPPINGS);
+    return cachedRows<ProviderModelMapping>('provider_models',()=>ensureSeed<ProviderModelMapping>('provider_models','mapping_id',MODEL_MAPPINGS));
   },
   async saveMapping(value:ProviderModelMapping){
-    return save('provider_models',value.mapping_id,value);
+    const saved=await save('provider_models',value.mapping_id,value);
+    invalidateCatalog('provider_models');
+    return saved;
   },
 
   async listPromotions(){
@@ -149,5 +160,5 @@ export const catalogRepository={
     return save('feature_flags',value.flag_key,value);
   },
 
-  clearForTesting(){},
+  clearForTesting(){invalidateCatalog();},
 };

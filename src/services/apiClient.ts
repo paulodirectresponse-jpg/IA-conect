@@ -14,9 +14,15 @@ export class ApiError extends Error {
   }
 }
 
+type CacheEntry={expiresAt:number;value:any};
+const inFlightGets=new Map<string,Promise<any>>();
+const responseCache=new Map<string,CacheEntry>();
 const perfNow = () => typeof performance !== 'undefined' ? performance.now() : Date.now();
+const cacheIdentity=()=>auth.currentUser?.uid||'anonymous';
+const normalizeUrl=(endpoint:string)=>endpoint.startsWith('/')?endpoint:`/api/${endpoint}`;
+const getKey=(endpoint:string)=>`${cacheIdentity()}:GET:${normalizeUrl(endpoint)}`;
 
-export async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function performApiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const startedAt = perfNow();
   const method = String(options.method || 'GET').toUpperCase();
   const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(options.headers as Record<string,string> || {}) };
@@ -25,7 +31,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     catch (e) { console.warn('[ApiClient] Failed to obtain ID token:', e); }
   }
 
-  const url = endpoint.startsWith('/') ? endpoint : `/api/${endpoint}`;
+  const url = normalizeUrl(endpoint);
   const ownController = !options.signal ? new AbortController() : null;
   const signal = options.signal || ownController?.signal;
   const timeoutMs = endpoint.startsWith('/api/catalog/') ? 8000 : 45000;
@@ -70,4 +76,40 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     throw new ApiError(message, code, response.status, json?.error);
   }
   return json.data !== undefined ? json.data : json;
+}
+
+export function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const method=String(options.method||'GET').toUpperCase();
+  const canDedupe=method==='GET'&&!options.signal&&!options.body;
+  if(!canDedupe)return performApiRequest<T>(endpoint,options);
+
+  const key=getKey(endpoint);
+  const existing=inFlightGets.get(key);
+  if(existing)return existing as Promise<T>;
+
+  const request=performApiRequest<T>(endpoint,options).finally(()=>inFlightGets.delete(key));
+  inFlightGets.set(key,request);
+  return request;
+}
+
+export function apiRequestCached<T = any>(endpoint:string,ttlMs:number,force=false):Promise<T>{
+  const key=getKey(endpoint),now=Date.now(),cached=responseCache.get(key);
+  if(!force&&cached&&cached.expiresAt>now)return Promise.resolve(cached.value as T);
+  return apiRequest<T>(endpoint).then(value=>{
+    responseCache.set(key,{expiresAt:Date.now()+Math.max(0,ttlMs),value});
+    return value;
+  });
+}
+
+export function invalidateApiCache(endpointPrefix?:string){
+  const identity=`${cacheIdentity()}:GET:`;
+  for(const key of responseCache.keys()){
+    if(!key.startsWith(identity))continue;
+    if(!endpointPrefix||key.includes(normalizeUrl(endpointPrefix)))responseCache.delete(key);
+  }
+}
+
+export function clearApiCache(){
+  responseCache.clear();
+  inFlightGets.clear();
 }

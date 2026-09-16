@@ -1,4 +1,4 @@
-import { apiRequest } from './apiClient.js';
+import { apiRequest, apiRequestCached, invalidateApiCache } from './apiClient.js';
 import {
   ModelRegistryItem,
   WorkspacePreset,
@@ -12,7 +12,7 @@ import {
 
 export const workspaceService={
   async listModels():Promise<ModelRegistryItem[]>{
-    const rows=await apiRequest<ModelRegistryItem[]>('/api/catalog/models');
+    const rows=await apiRequestCached<ModelRegistryItem[]>('/api/catalog/models',60_000);
     if(!Array.isArray(rows)||!rows.length)throw new Error('Catálogo de modelos indisponível.');
     return rows;
   },
@@ -25,15 +25,18 @@ export const workspaceService={
   },
 
   listPresets():Promise<WorkspacePreset[]>{
-    return apiRequest<WorkspacePreset[]>('/api/presets');
+    return apiRequestCached<WorkspacePreset[]>('/api/presets',10_000);
   },
 
-  createPreset(data:Partial<WorkspacePreset>):Promise<WorkspacePreset>{
-    return apiRequest<WorkspacePreset>('/api/presets',{method:'POST',body:JSON.stringify(data)});
+  async createPreset(data:Partial<WorkspacePreset>):Promise<WorkspacePreset>{
+    const created=await apiRequest<WorkspacePreset>('/api/presets',{method:'POST',body:JSON.stringify(data)});
+    invalidateApiCache('/api/presets');
+    return created;
   },
 
   async deletePreset(presetId:string):Promise<void>{
     await apiRequest(`/api/presets/${encodeURIComponent(presetId)}`,{method:'DELETE'});
+    invalidateApiCache('/api/presets');
   },
 
   getLatestDraft():Promise<WorkspaceDraft|null>{
@@ -49,15 +52,19 @@ export const workspaceService={
   },
 
   getUserPreferences():Promise<UserPreferences>{
-    return apiRequest<UserPreferences>('/api/user/preferences');
+    return apiRequestCached<UserPreferences>('/api/user/preferences',10_000);
   },
 
-  toggleFavoriteModel(modelId:string):Promise<UserPreferences>{
-    return apiRequest<UserPreferences>('/api/user/preferences/toggle-favorite',{method:'POST',body:JSON.stringify({model_id:modelId})});
+  async toggleFavoriteModel(modelId:string):Promise<UserPreferences>{
+    const next=await apiRequest<UserPreferences>('/api/user/preferences/toggle-favorite',{method:'POST',body:JSON.stringify({model_id:modelId})});
+    invalidateApiCache('/api/user/preferences');
+    return next;
   },
 
-  trackRecentModel(modelId:string,mode?:GenerationMode):Promise<UserPreferences>{
-    return apiRequest<UserPreferences>('/api/user/preferences/track-recent',{method:'POST',body:JSON.stringify({model_id:modelId,mode})});
+  async trackRecentModel(modelId:string,mode?:GenerationMode):Promise<UserPreferences>{
+    const next=await apiRequest<UserPreferences>('/api/user/preferences/track-recent',{method:'POST',body:JSON.stringify({model_id:modelId,mode})});
+    invalidateApiCache('/api/user/preferences');
+    return next;
   },
 
   compilePrompt(params:{

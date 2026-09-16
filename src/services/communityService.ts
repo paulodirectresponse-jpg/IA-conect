@@ -1,4 +1,4 @@
-import { apiRequest } from './apiClient.js';
+import { apiRequest, apiRequestCached, invalidateApiCache } from './apiClient.js';
 
 export type CommunityMediaType='IMAGE'|'VIDEO';
 export interface CommunityReference {asset_id:string;name:string;type:string;public_url:string;thumbnail_url:string;slot_type:'INITIAL'|'END'|'GENERAL'|string;alias?:string;}
@@ -27,8 +27,8 @@ export interface CommunityItem {
 }
 
 export const communityService={
-  async feed(type:'ALL'|'IMAGE'|'VIDEO'='ALL',limit=48){return apiRequest<{items:CommunityItem[]}>(`community/feed?type=${type}&limit=${limit}`)},
-  async toggleLike(generationId:string){return apiRequest<{liked:boolean;likes_count:number}>(`community/${encodeURIComponent(generationId)}/like`,{method:'POST',body:'{}'})},
-  async registerDownload(generationId:string){return apiRequest<{url:string;downloads_count:number;media_type:CommunityMediaType}>(`community/${encodeURIComponent(generationId)}/download`,{method:'POST',body:'{}'})},
-  async prepareRecreate(generationId:string){return apiRequest<{generation_id:string;snapshot:{generation_id:string};target:'create-image'|'create-video'}>(`community/${encodeURIComponent(generationId)}/recreate`,{method:'POST',body:'{}'})},
+  async feed(type:'ALL'|'IMAGE'|'VIDEO'='ALL',limit=48){return apiRequestCached<{items:CommunityItem[]}>(`community/feed?type=${type}&limit=${limit}`,5_000)},
+  async toggleLike(generationId:string){const result=await apiRequest<{liked:boolean;likes_count:number}>(`community/${encodeURIComponent(generationId)}/like`,{method:'POST',body:'{}'});invalidateApiCache('/api/community/feed');return result},
+  async registerDownload(generationId:string){const result=await apiRequest<{url:string;downloads_count:number;media_type:CommunityMediaType}>(`community/${encodeURIComponent(generationId)}/download`,{method:'POST',body:'{}'});invalidateApiCache('/api/community/feed');return result},
+  async prepareRecreate(generationId:string){const result=await apiRequest<{generation_id:string;snapshot:{generation_id:string};target:'create-image'|'create-video'}>(`community/${encodeURIComponent(generationId)}/recreate`,{method:'POST',body:'{}'});return result},
 };
