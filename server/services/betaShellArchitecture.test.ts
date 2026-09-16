@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { describe, expect, it } from 'vitest';
 
 describe('IA Conect Beta PR-01 shell architecture', () => {
   const root = process.cwd();
