@@ -89,7 +89,7 @@ export const BetaImageEditorView:React.FC<{initialAssetId?:string|null;onOpenLib
   const canvas=maskRef.current;if(!canvas||!maskDirty)throw new Error('Pinte a área que deseja alterar.');
   const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error('Não foi possível gerar a máscara.')),'image/png'));
   const file=new File([blob],'mask-'+Date.now()+'.png',{type:'image/png'});
-  return assetService.uploadAsset({file,name:'Máscara de inpaint'});
+  const asset=await assetService.uploadAsset({file,name:'Máscara de inpaint'});await betaImageEditorClient.markMask(asset.asset_id);return asset;
  };
 
  const buildRequest=async()=>{
