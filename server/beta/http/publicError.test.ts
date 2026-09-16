@@ -23,6 +23,11 @@ describe('PR-04 normalized public errors',()=>{
     expect(normalizeBetaPublicError({code:'PRICE_CHANGED_REQUOTE_REQUIRED'}).error.action).toBe('REQUOTE');
   });
 
+  it('requires requote for expired or changed Beta quote policy',()=>{
+    expect(normalizeBetaPublicError({code:'QUOTE_EXPIRED'}).error.action).toBe('REQUOTE');
+    expect(normalizeBetaPublicError({code:'QUOTE_POLICY_CHANGED'}).error.action).toBe('REQUOTE');
+  });
+
   it('normalizes stored task errors without exposing stored provider text',()=>{
     const error=publicErrorFromStored('PROVIDER_NOT_CONFIGURED','internal provider id = secret');
     expect(error?.message).toBe('A rota de execução está temporariamente indisponível.');
