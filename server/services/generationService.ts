@@ -12,17 +12,19 @@ import { generationExecutionEconomics } from './generationEconomicsPolicy.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { validateConfiguration } from '../../src/services/modelCapabilities.js';
 import { generatedAssetStorageService } from './generatedAssetStorageService.js';
+import { audioVoiceService } from '../beta/audio/audioVoiceService.js';
 
 interface GenerationReferenceInput{asset_id:string;slot_type?:'INITIAL'|'END'|'GENERAL';alias?:string;}
-interface StartParams{userId:string;model_id:string;mode?:GenerationMode;prompt:string;negative_prompt?:string;duration_seconds:number;resolution:string;aspect_ratio:string;number_of_outputs:number;seed?:number|null;motion_strength?:number|null;references?:GenerationReferenceInput[];client_request_id?:string;source_job_id?:string|null;derived_from_asset_id?:string|null;requested_model_id?:string|null;routing_mode?:'MANUAL'|'AUTO';pricing_policy_id?:string|null;authorized_credit_price?:number;retail_pricing_id?:string;pricing_signature_hash?:string;audio_enabled?:boolean;model_variant?:string;pricing_options?:Record<string,string|number|boolean|null|undefined>;reqHost?:string;idToken?:string;}
+interface StartParams{userId:string;model_id:string;mode?:GenerationMode;capability_id?:string;output_asset_type?:AssetType|null;prompt:string;negative_prompt?:string;duration_seconds:number;resolution:string;aspect_ratio:string;number_of_outputs:number;seed?:number|null;motion_strength?:number|null;references?:GenerationReferenceInput[];client_request_id?:string;source_job_id?:string|null;derived_from_asset_id?:string|null;requested_model_id?:string|null;routing_mode?:'MANUAL'|'AUTO';pricing_policy_id?:string|null;authorized_credit_price?:number;retail_pricing_id?:string;pricing_signature_hash?:string;audio_enabled?:boolean;model_variant?:string;pricing_options?:Record<string,string|number|boolean|null|undefined>;audio_metadata?:{voice_clone_consent_at?:string;voice_label?:string};reqHost?:string;idToken?:string;}
 const IMAGE_MODEL_IDS=new Set(['nano-banana-pro-image','nano-banana-2-image','nano-banana-2-lite','nano-banana-2-lite-image','seedream-5-pro-image','gpt-image-2']);
 function isImageMode(mode?:GenerationMode){return mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE';}
+function isAudioMode(mode?:GenerationMode){return ['TEXT_TO_SPEECH','TEXT_TO_AUDIO','AUDIO_TO_TEXT','MEDIA_TO_TEXT','AUDIO_TO_AUDIO','MEDIA_DUBBING'].includes(String(mode));}
 function inferMode(refs:GenerationReferenceInput[],requested:GenerationMode|undefined,modelId:string):GenerationMode{if(requested)return requested;if(IMAGE_MODEL_IDS.has(modelId))return refs.length?'IMAGE_TO_IMAGE':'TEXT_TO_IMAGE';if(!refs.length)return'TEXT_TO_VIDEO';if(refs.some(r=>r.slot_type==='INITIAL'))return'IMAGE_TO_VIDEO';return'REFERENCE_TO_VIDEO';}
 function terminal(status:string){return['SUCCEEDED','FAILED','CANCELLED','REFUNDED'].includes(status);}
 const ECONOMICS_IMMUTABLE_FIELDS=['generation_id','retail_pricing_id','retail_pricing_version','pricing_signature_hash','pricing_policy_id','requested_model_id','selected_model_id','routing_mode','authorized_credit_price','credit_lot_allocations','authorized_net_backing_micros','max_allowed_cogs_cents','quoted_at','started_at'] as const;
 async function saveEconomics(generationId:string,data:any){const path=`generation_economics/${encodeURIComponent(generationId)}`;try{const existing=await firestoreAdminRest.get(path),previous=existing.exists?(existing.data as Record<string,any>):{},next={...previous,...data,generation_id:generationId};if(existing.exists)for(const key of ECONOMICS_IMMUTABLE_FIELDS)if(previous[key]!==undefined)next[key]=previous[key];next.updated_at=new Date().toISOString();await firestoreAdminRest.set(path,next);}catch(err:any){console.warn('[EconomicsSnapshot]',err?.message||err);}}
 async function registerGeneratedAssets(generation:Generation,urls:string[]){
- const mediaType:AssetType=isImageMode(generation.mode)?'IMAGE':'VIDEO';
+ const mediaType:AssetType=(generation.output_asset_type as AssetType)|| (isImageMode(generation.mode)?'IMAGE':'VIDEO');
  const created=[];
  const strictArchive=Boolean(generation.source_job_id);
  for(let i=0;i<urls.length;i++){
@@ -31,9 +33,9 @@ async function registerGeneratedAssets(generation:Generation,urls:string[]){
   const existing=await assetRepository.getAsset(assetId,generation.user_id);
   if(existing){created.push(existing);continue;}
   try{
-   const fallbackMime=mediaType==='IMAGE'?'image/jpeg':'video/mp4';
+   const fallbackMime=mediaType==='IMAGE'?'image/jpeg':mediaType==='AUDIO'?'audio/mpeg':'video/mp4';
    const archived=strictArchive?await generatedAssetStorageService.archive({
-    userId:generation.user_id,assetId,sourceUrl:url,fallbackMime,fallbackExtension:mediaType==='IMAGE'?'jpg':'mp4',
+    userId:generation.user_id,assetId,sourceUrl:url,fallbackMime,fallbackExtension:mediaType==='IMAGE'?'jpg':mediaType==='AUDIO'?'mp3':'mp4',
    }):null;
    const publicUrl=archived?.public_url||url;
    const storagePath=archived?.storage_path||`provider://${generation.provider_id}/${generation.provider_job_id||generation.generation_id}/${i+1}`;
@@ -41,10 +43,10 @@ async function registerGeneratedAssets(generation:Generation,urls:string[]){
    const previewUrl=strictArchive&&mediaType==='IMAGE'&&!generation.thumbnail_url?publicUrl:providerPreview;
    created.push(await assetRepository.createAsset({
     asset_id:generatedAssetId(generation.generation_id,i),owner_user_id:generation.user_id,type:mediaType,category:'GENERIC',
-    name:mediaType==='IMAGE'?`Imagem gerada ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`:`Vídeo gerado ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`,
-    alias:`${mediaType==='IMAGE'?'generated_image':'generated_video'}_${generation.generation_id.slice(-6)}${urls.length>1?`_${i+1}`:''}`,
-    storage_path:storagePath,public_url:publicUrl,thumbnail_url:previewUrl,preview_url:previewUrl,
-    preview_mime_type:mediaType==='IMAGE'?(archived?.mime_type||fallbackMime):null,
+    name:mediaType==='IMAGE'?`Imagem gerada ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`:mediaType==='AUDIO'?`Áudio gerado ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`:`Vídeo gerado ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`,
+    alias:`${mediaType==='IMAGE'?'generated_image':mediaType==='AUDIO'?'generated_audio':'generated_video'}_${generation.generation_id.slice(-6)}${urls.length>1?`_${i+1}`:''}`,
+    storage_path:storagePath,public_url:publicUrl,thumbnail_url:mediaType==='IMAGE'?previewUrl:undefined,preview_url:mediaType==='AUDIO'?publicUrl:previewUrl,
+    preview_mime_type:(mediaType==='IMAGE'||mediaType==='AUDIO')?(archived?.mime_type||fallbackMime):null,
     mime_type:archived?.mime_type||fallbackMime,size_bytes:archived?.size_bytes||0,status:'READY',
     origin:generation.derived_from_asset_id?'DERIVED':'GENERATED',source_generation_id:generation.generation_id,source_job_id:generation.source_job_id||null,
     derived_from_asset_id:generation.derived_from_asset_id||null,source_output_index:i,
