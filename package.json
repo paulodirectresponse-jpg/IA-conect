@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run images:optimize && vite dev",
+    "dev": "npm run brand:materialize && npm run images:optimize && vite dev",
     "dev:node": "tsx server.ts",
     "brand:materialize": "node scripts/materialize-brand-assets.mjs",
     "build": "npm run brand:materialize && npm run images:optimize && vite build",
