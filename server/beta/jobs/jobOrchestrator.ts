@@ -139,7 +139,7 @@ async function createQueuedAttempt(job:BetaJob,userId:string){
     execution_key:`beta-job:${versioned.job.job_id}:attempt:${attemptNumber}`,
     generation_id:null,error_code:null,error_message:null,created_at:timestamp,updated_at:timestamp,
   };
-  const queued={...versioned.job,status:'QUEUED' as const,current_attempt_id:attemptId,attempt_count:attemptNumber,queued_at:timestamp,updated_at:timestamp,error_code:null,error_message:null};
+  const queued={...versioned.job,status:'QUEUED' as const,current_attempt_id:attemptId,attempt_count:attemptNumber,linked_generation_id:null,queued_at:timestamp,started_at:null,completed_at:null,failed_at:null,cancelled_at:null,updated_at:timestamp,error_code:null,error_message:null};
   assertJobTransition(versioned.job.status,'QUEUED');
   await betaJobRepository.saveJobAndAttemptConditional(queued,versioned.updateTime,attempt);
   return{job:queued,attempt};
@@ -244,7 +244,7 @@ async function reconcileJob(job:BetaJob,userId:string){
   const generation=await generationService.getGeneration(generationId,userId);
   if(!generation)return job;
   const mapped=generationStatusToJobStatus(generation.status);
-  if(mapped===job.status)return job;
+  if(mapped===job.status&&job.linked_generation_id===generationId)return job;
   const versioned=await betaJobRepository.getJobWithVersion(job.job_id,userId);
   if(!versioned)return job;
   if(versioned.job.status!==job.status)return versioned.job;
