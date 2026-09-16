@@ -27,11 +27,14 @@ function generationModeForCapability(capabilityId:string):GenerationMode|null{
   if(capabilityId==='subtitles')return'MEDIA_TO_TEXT';
   if(capabilityId==='authorized-voice-clone')return'AUDIO_TO_AUDIO';
   if(capabilityId==='dubbing')return'MEDIA_DUBBING';
+  if(capabilityId==='text-to-3d')return'TEXT_TO_3D';
+  if(capabilityId==='image-to-3d')return'IMAGE_TO_3D';
+  if(capabilityId==='multi-image-to-3d')return'MULTI_IMAGE_TO_3D';
   return null;
 }
 
 function derivedAssetIdForRequest(request:BetaJobRequest){
-  if(!['image-to-image','image-edit','image-to-video','first-frame','last-frame'].includes(request.capability_id))return null;
+  if(!['image-to-image','image-edit','image-to-video','first-frame','last-frame','image-to-3d','multi-image-to-3d'].includes(request.capability_id))return null;
   return request.references.find(ref=>ref.slot_type==='INITIAL')?.asset_id||request.references[0]?.asset_id||null;
 }
 
@@ -55,6 +58,10 @@ function requestedControls(request:BetaJobRequest){
   if(request.controls.target_language)controls.push('target_language');
   if(request.controls.voice_clone_consent!==undefined)controls.push('voice_clone_consent');
   if(request.controls.voice_label)controls.push('voice_label');
+  if(request.controls.mesh_mode)controls.push('mesh_mode');
+  if(request.controls.pbr!==undefined)controls.push('pbr');
+  if(request.controls.target_faces!==undefined)controls.push('target_faces');
+  if(request.controls.topology)controls.push('topology');
   return controls;
 }
 
@@ -91,11 +98,20 @@ function normalizeRequest(raw:any):BetaJobRequest{
       target_language:raw?.controls?.target_language?String(raw.controls.target_language):undefined,
       voice_clone_consent:raw?.controls?.voice_clone_consent===undefined?undefined:Boolean(raw.controls.voice_clone_consent),
       voice_label:raw?.controls?.voice_label?String(raw.controls.voice_label).trim().slice(0,80):undefined,
+      mesh_mode:['TEXTURED','LOW_POLY','GEOMETRY'].includes(String(raw?.controls?.mesh_mode||'').toUpperCase())?String(raw.controls.mesh_mode).toUpperCase() as any:undefined,
+      pbr:raw?.controls?.pbr===undefined?undefined:Boolean(raw.controls.pbr),
+      target_faces:Number.isFinite(Number(raw?.controls?.target_faces))?Math.max(40000,Math.min(1500000,Math.round(Number(raw.controls.target_faces)))):undefined,
+      topology:['TRIANGLE','QUAD'].includes(String(raw?.controls?.topology||'').toUpperCase())?String(raw.controls.topology).toUpperCase() as any:undefined,
     },
   };
 }
 
 async function assertCapabilityEnabled(capabilityId:string){
+  if(['text-to-3d','image-to-3d','multi-image-to-3d'].includes(capabilityId)){
+    const flag=await catalogRepository.getFeatureFlag('beta.three_d');
+    if(!flag?.is_enabled)throw Object.assign(new Error('O módulo 3D está temporariamente indisponível.'),{code:'THREE_D_MODULE_DISABLED'});
+    return;
+  }
   const audioCapabilities=new Set(['text-to-speech','sound-effects','music','transcription','subtitles','authorized-voice-clone','dubbing']);
   if(!audioCapabilities.has(capabilityId))return;
   const audio=await catalogRepository.getFeatureFlag('beta.audio');
@@ -133,7 +149,7 @@ async function validateRequest(request:BetaJobRequest,resolvedModelId?:string,us
     const capability=validateModelCapability(model,request.capability_id,requestedControls(request));
     if(!capability.valid)throw Object.assign(new Error(capability.message||'Capability inválida.'),{code:capability.code||'CAPABILITY_INVALID'});
   }
-  const promptRequired=new Set(['text-to-image','image-to-image','image-edit','text-to-video','image-to-video','first-frame','last-frame','text-to-speech','sound-effects','music']);
+  const promptRequired=new Set(['text-to-image','image-to-image','image-edit','text-to-video','image-to-video','first-frame','last-frame','text-to-speech','sound-effects','music','text-to-3d']);
   if(promptRequired.has(request.capability_id)&&!request.prompt)throw Object.assign(new Error('Prompt é obrigatório para esta capability.'),{code:'VALIDATION_ERROR'});
   if((request.capability_id==='image-to-image'||request.capability_id==='image-to-video')&&!request.references.length)throw Object.assign(new Error('Esta capability exige uma imagem de entrada.'),{code:'REFERENCE_REQUIRED'});
   if(request.capability_id==='first-frame'&&!request.references.some(ref=>ref.slot_type==='INITIAL'))throw Object.assign(new Error('Adicione o frame inicial.'),{code:'REFERENCE_REQUIRED'});
@@ -152,6 +168,8 @@ async function validateRequest(request:BetaJobRequest,resolvedModelId?:string,us
       if(!first||!['AUDIO','VIDEO'].includes(first.type))throw Object.assign(new Error('Selecione um áudio ou vídeo para dublar.'),{code:'REFERENCE_REQUIRED'});
       if(!request.controls.target_language)throw Object.assign(new Error('Escolha o idioma de destino da dublagem.'),{code:'VALIDATION_ERROR'});
     }
+    if(request.capability_id==='image-to-3d'&&(assets.length!==1||assets.some(asset=>asset.type!=='IMAGE')))throw Object.assign(new Error('Selecione exatamente uma imagem para gerar o modelo 3D.'),{code:'REFERENCE_REQUIRED'});
+    if(request.capability_id==='multi-image-to-3d'&&(assets.length<2||assets.length>4||assets.some(asset=>asset.type!=='IMAGE')))throw Object.assign(new Error('Selecione de duas a quatro imagens do mesmo objeto para gerar o modelo 3D.'),{code:'REFERENCE_REQUIRED'});
     if(['transcription','subtitles','authorized-voice-clone','dubbing'].includes(request.capability_id)&&assets.length!==1){
       throw Object.assign(new Error('Esta ferramenta aceita um arquivo de entrada por execução.'),{code:'VALIDATION_ERROR'});
     }
@@ -174,9 +192,10 @@ async function pricingContext(userId:string,request:BetaJobRequest){
 async function pricingInput(userId:string,request:BetaJobRequest,mode:GenerationMode,modelId=request.model_id,context?:Awaited<ReturnType<typeof pricingContext>>){
   const image=mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE';
   const mediaInput=['AUDIO_TO_TEXT','MEDIA_TO_TEXT','AUDIO_TO_AUDIO','MEDIA_DUBBING'].includes(mode);
+  const threeD=['TEXT_TO_3D','IMAGE_TO_3D','MULTI_IMAGE_TO_3D'].includes(mode);
   const ctx=context||await pricingContext(userId,request);
   const defaults:Record<string,number>={'TEXT_TO_SPEECH':1,'TEXT_TO_AUDIO':request.capability_id==='music'?30:5};
-  const duration=image?1:mediaInput
+  const duration=image||threeD?1:mediaInput
     ?Math.max(1,Math.round(ctx.durationSeconds||request.controls.duration_seconds||1))
     :Math.max(1,Math.round(request.controls.duration_seconds||defaults[mode]||5));
   const audioMode=['TEXT_TO_SPEECH','TEXT_TO_AUDIO','AUDIO_TO_TEXT','MEDIA_TO_TEXT','AUDIO_TO_AUDIO','MEDIA_DUBBING'].includes(mode);
@@ -191,12 +210,16 @@ async function pricingInput(userId:string,request:BetaJobRequest,mode:Generation
     source_language:request.controls.source_language,
     target_language:request.controls.target_language,
     text_chars:request.capability_id==='text-to-speech'?request.prompt.length:undefined,
+    mesh_mode:request.controls.mesh_mode||'TEXTURED',
+    pbr:request.controls.pbr??false,
+    target_faces:request.controls.target_faces||500000,
+    topology:request.controls.topology||'TRIANGLE',
   };
   return{
     userId,model_id:modelId,mode,capability_id:request.capability_id,prompt:request.prompt||'Processar mídia',negative_prompt:request.negative_prompt,
     duration_seconds:duration,
-    resolution:request.controls.resolution||(image?'1K':audioMode?'audio':'720p'),
-    aspect_ratio:request.controls.aspect_ratio||(image?'1:1':audioMode?'audio':'16:9'),
+    resolution:request.controls.resolution||(image?'1K':audioMode?'audio':threeD?'3D':'720p'),
+    aspect_ratio:request.controls.aspect_ratio||(image?'1:1':audioMode?'audio':threeD?'3D':'16:9'),
     number_of_outputs:image?Math.max(1,Math.min(4,Math.round(request.controls.number_of_outputs||1))):1,
     seed:request.controls.seed,motion_strength:request.controls.motion_strength,
     references:request.references,provider_references:ctx.providerReferences,audio_enabled:request.controls.audio_enabled,
@@ -206,6 +229,7 @@ async function pricingInput(userId:string,request:BetaJobRequest,mode:Generation
 
 function outputAssetType(request:BetaJobRequest,assets:any[]):any{
   if(['text-to-speech','sound-effects','music'].includes(request.capability_id))return'AUDIO';
+  if(['text-to-3d','image-to-3d','multi-image-to-3d'].includes(request.capability_id))return'MODEL_3D';
   if(request.capability_id==='dubbing')return assets[0]?.type==='VIDEO'?'VIDEO':'AUDIO';
   return null;
 }
