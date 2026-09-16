@@ -1,7 +1,9 @@
-import React from'react';
+import React,{useState}from'react';
 import{useReducedMotion}from'motion/react';
 import{ArrowRight,BookOpen,Image as ImageIcon,Layers3,Sparkles,Video,Wallet,Zap}from'lucide-react';
 import{BrandMark}from'../common/BrandMark.js';
+import{ViewportVideo}from'../common/ViewportVideo.js';
+import{ViewportImage}from'../common/ViewportImage.js';
 import{ModelShowcase,ShowcaseItem,showcaseVideo}from'../workspace/ModelShowcase.js';
 
 interface Props{onLogin:()=>void;onStart:()=>void;}
@@ -15,7 +17,7 @@ const galleryRows:GalleryItem[][]=[
 ];
 
 const GalleryCard:React.FC<{item:GalleryItem}>=({item})=><figure className="ia-landing-gallery-card group relative min-w-0 overflow-hidden" style={{aspectRatio:item.ratio}}>
- <img src={media(item.key)} alt={item.label} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover"/>
+ <ViewportImage src={media(item.key)} alt={item.label} decoding="async" className="absolute inset-0 h-full w-full object-cover"/>
  <figcaption className="absolute inset-x-0 bottom-0 px-3.5 pb-3.5 pt-14"><p className="text-[11px] font-semibold text-white">{item.label}</p></figcaption>
 </figure>;
 
@@ -27,6 +29,7 @@ const Feature:React.FC<{icon:any;title:string;text:string}>=({icon:Icon,title,te
 
 export const LandingPageView:React.FC<Props>=({onLogin,onStart})=>{
  const reduceMotion=useReducedMotion();
+ const[heroVideoReady,setHeroVideoReady]=useState(false);
  const startFromModel=(item:ShowcaseItem)=>{sessionStorage.setItem('ia-connect:last-showcase-model',item.modelId);onStart()};
  return <div className="ia-landing min-h-screen overflow-x-hidden text-white">
   <header className="ia-landing-header fixed inset-x-0 top-0 z-50">
@@ -47,7 +50,8 @@ export const LandingPageView:React.FC<Props>=({onLogin,onStart})=>{
   <main>
    <section className="px-3 pt-[82px] sm:px-5 sm:pt-[92px]">
     <div className="ia-landing-hero relative mx-auto max-w-7xl overflow-hidden">
-     <video src={heroVideo} autoPlay={!reduceMotion} muted loop={!reduceMotion} playsInline preload="metadata" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover object-center"/>
+     <img src="/enterprise/visuals/planet-hero-wide-v1.webp" alt="" aria-hidden="true" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover object-center"/>
+     <ViewportVideo src={heroVideo} eager deferUntilWindowLoad playWhenVisible={!reduceMotion} muted loop playsInline aria-hidden="true" onCanPlay={()=>setHeroVideoReady(true)} className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-500 ${heroVideoReady?'opacity-100':'opacity-0'}`}/>
      <div className="ia-landing-hero-overlay absolute inset-0"/>
      <div className="relative z-10 flex min-h-[590px] items-end sm:min-h-[660px]">
       <div className="w-full px-5 pb-8 pt-24 sm:px-8 sm:pb-10 lg:px-12 lg:pb-12">

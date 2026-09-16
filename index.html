@@ -10,9 +10,11 @@
     <meta name="description" content="Crie imagens e vídeos com diferentes modelos de inteligência artificial em um só lugar, com preços em créditos visíveis antes de gerar e assets reutilizáveis." />
     <link rel="canonical" href="https://ia-conect.paulo-direct-response.workers.dev/" />
 
-    <link rel="icon" type="image/png" href="/brand/ia-connect-app-icon.png" />
-    <link rel="apple-touch-icon" href="/brand/ia-connect-app-icon.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/brand/ia-connect-app-icon-64-v1.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/brand/ia-connect-app-icon-192-v1.png" />
     <link rel="manifest" href="/site.webmanifest" />
+    <link rel="dns-prefetch" href="//hzjyhhenajbjxkwkmzdg.supabase.co" />
+    <link rel="preload" as="image" href="/enterprise/visuals/planet-hero-wide-v1.webp" type="image/webp" fetchpriority="high" />
 
     <meta property="og:site_name" content="IA Connect" />
     <meta property="og:locale" content="pt_BR" />
@@ -72,7 +74,58 @@
     </script>
   </head>
   <body>
+    <div id="public-shell" class="public-page">
+      <header class="public-header">
+        <div class="public-wrap public-header-inner">
+          <div class="public-brand">
+            <picture>
+              <source srcset="/brand/ia-connect-logo-oficial-v1.avif" type="image/avif" />
+              <source srcset="/brand/ia-connect-logo-oficial-v1.webp" type="image/webp" />
+              <img src="/brand/ia-connect-logo-oficial.png" width="96" height="32" alt="IA Connect" decoding="async" />
+            </picture>
+            <div><strong>IA Connect</strong><span>AI Studio</span></div>
+          </div>
+          <nav><a href="#models">Modelos</a><a href="#gallery">Explorar</a><a href="#how">Como funciona</a></nav>
+          <div class="public-header-actions">
+            <button class="public-link" data-public-action="login">Entrar</button>
+            <button class="public-primary" data-public-action="register">Começar agora</button>
+          </div>
+        </div>
+      </header>
+      <main>
+        <section class="public-hero-shell">
+          <div class="public-wrap public-hero">
+            <img src="/enterprise/visuals/planet-hero-wide-v1.webp" alt="" aria-hidden="true" fetchpriority="high" decoding="async" class="public-hero-poster" />
+            <div class="public-hero-overlay"></div>
+            <div class="public-hero-content">
+              <div class="public-hero-copy">
+                <h1>Crie imagens e vídeos com as melhores IAs.</h1>
+                <p>Escolha modelos, use referências, veja o preço antes de gerar e mantenha tudo organizado em um único estúdio.</p>
+                <div class="public-hero-actions">
+                  <button class="public-primary public-primary-lg" data-public-action="register">Começar agora <span aria-hidden="true">→</span></button>
+                  <a class="public-secondary" href="#models">Explorar modelos</a>
+                </div>
+              </div>
+              <div class="public-proof"><span>Vários modelos</span><span>Preço antes de gerar</span><span>Pague pelo uso</span></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
     <div id="root"></div>
+    <script>
+      (function(){
+        window.__IA_PUBLIC_ACTION__=window.__IA_PUBLIC_ACTION__||'';
+        document.addEventListener('click',function(event){
+          var target=event.target&&event.target.closest?event.target.closest('[data-public-action]'):null;
+          if(!target)return;
+          event.preventDefault();
+          var action=target.getAttribute('data-public-action')||'';
+          window.__IA_PUBLIC_ACTION__=action;
+          window.dispatchEvent(new CustomEvent('ia:public-action',{detail:action}));
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

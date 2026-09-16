@@ -16,6 +16,7 @@ const targets=[
   'public/model-covers/nano-banana-2-lite-image.png',
   'public/model-covers/nano-banana-pro-image.png',
   'public/model-covers/seedream-5-pro-image.png',
+  'public/brand/ia-connect-logo-oficial.png',
 ];
 
 async function statSize(file){
@@ -40,6 +41,24 @@ async function optimize(relative){
 
 const results=[];
 for(const target of targets)results.push(await optimize(target));
+
+const appIconInput=path.join(root,'public/brand/ia-connect-app-icon.png');
+const appIconOutputs=[
+  {size:64,file:path.join(root,'public/brand/ia-connect-app-icon-64-v1.png')},
+  {size:192,file:path.join(root,'public/brand/ia-connect-app-icon-192-v1.png')},
+  {size:512,file:path.join(root,'public/brand/ia-connect-app-icon-512-v1.png')},
+];
+await Promise.all(appIconOutputs.map(({size,file})=>
+  sharp(appIconInput,{failOn:'warning'})
+    .rotate()
+    .resize(size,size,{fit:'contain',withoutEnlargement:true})
+    .png({compressionLevel:9,adaptiveFiltering:true})
+    .toFile(file)
+));
+console.log('Brand icon derivatives generated');
+for(const item of appIconOutputs){
+  console.log(`- ${path.relative(root,item.file)}: ${((await statSize(item.file))/1024).toFixed(1)} KiB`);
+}
 
 const source=results.reduce((sum,row)=>sum+row.sourceBytes,0);
 const webp=results.reduce((sum,row)=>sum+row.webpBytes,0);

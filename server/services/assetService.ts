@@ -25,12 +25,12 @@ export const assetService = {
     } else if (mime_type.startsWith('video/') || ASSET_UPLOAD_LIMITS.VIDEO.allowed_extensions.includes(extension)) {
       detectedType = 'VIDEO';
       if (size_bytes > ASSET_UPLOAD_LIMITS.VIDEO.max_bytes) {
-        throw new Error('Vídeo excede o limite máximo permitido de 500 MB.');
+        throw new Error('Vídeo excede o limite máximo permitido de 50 MB.');
       }
     } else if (mime_type.startsWith('audio/') || ASSET_UPLOAD_LIMITS.AUDIO.allowed_extensions.includes(extension)) {
       detectedType = 'AUDIO';
       if (size_bytes > ASSET_UPLOAD_LIMITS.AUDIO.max_bytes) {
-        throw new Error('Áudio excede o limite máximo permitido de 100 MB.');
+        throw new Error('Áudio excede o limite máximo permitido de 50 MB.');
       }
     } else {
       throw new Error(`Tipo de mídia não suportado (${mime_type || extension}). Permitidos: imagens (JPG, PNG, WEBP), vídeos (MP4, MOV, WEBM), áudios (MP3, WAV, M4A).`);

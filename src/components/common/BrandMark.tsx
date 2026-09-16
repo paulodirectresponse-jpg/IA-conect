@@ -7,13 +7,20 @@ interface BrandMarkProps {
 
 export const BrandMark: React.FC<BrandMarkProps> = ({ compact = false, className = '' }) => (
   <div className={`flex items-center gap-2.5 select-none ${className}`}>
-    <img
-      src="/brand/ia-connect-logo-oficial.png"
-      alt={compact ? '' : 'IA Connect'}
-      aria-hidden={compact ? true : undefined}
-      className="h-8 w-auto max-w-[96px] shrink-0 object-contain"
-      draggable={false}
-    />
+    <picture className="shrink-0">
+      <source srcSet="/brand/ia-connect-logo-oficial-v1.avif" type="image/avif" />
+      <source srcSet="/brand/ia-connect-logo-oficial-v1.webp" type="image/webp" />
+      <img
+        src="/brand/ia-connect-logo-oficial.png"
+        alt={compact ? '' : 'IA Connect'}
+        aria-hidden={compact ? true : undefined}
+        width={96}
+        height={32}
+        decoding="async"
+        className="h-8 w-auto max-w-[96px] shrink-0 object-contain"
+        draggable={false}
+      />
+    </picture>
     {!compact && (
       <div className="min-w-[78px] leading-none">
         <div className="whitespace-nowrap text-[14px] font-bold tracking-[-0.02em] text-[var(--ia-text-1)]">IA Connect</div>

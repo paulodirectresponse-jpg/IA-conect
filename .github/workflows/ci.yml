@@ -17,9 +17,62 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run perf:bundle
+      - run: node scripts/assert-performance-budget.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: performance-baseline-${{ github.sha }}
           path: performance-baseline.json
           retention-days: 14
       - run: npm test -- --passWithNoTests
+      - name: Browser performance QA — Fast 3G + 4G
+        shell: bash
+        run: |
+          npx vite preview --host 127.0.0.1 --port 4173 >/tmp/ia-connect-preview.log 2>&1 &
+          PREVIEW_PID=$!
+          trap 'kill "$PREVIEW_PID" 2>/dev/null || true' EXIT
+
+          READY=0
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then
+              READY=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$READY" -ne 1 ]; then
+            cat /tmp/ia-connect-preview.log
+            exit 1
+          fi
+
+          npx --yes lighthouse@12.8.2 http://127.0.0.1:4173/ \
+            --quiet \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+            --only-categories=performance \
+            --throttling-method=devtools \
+            --throttling.rttMs=150 \
+            --throttling.throughputKbps=1600 \
+            --throttling.cpuSlowdownMultiplier=4 \
+            --output=json \
+            --output-path=./lighthouse-fast3g.json
+          node scripts/assert-lighthouse.mjs lighthouse-fast3g.json fast3g
+
+          npx --yes lighthouse@12.8.2 http://127.0.0.1:4173/ \
+            --quiet \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+            --only-categories=performance \
+            --throttling-method=devtools \
+            --throttling.rttMs=40 \
+            --throttling.throughputKbps=9000 \
+            --throttling.cpuSlowdownMultiplier=2 \
+            --output=json \
+            --output-path=./lighthouse-4g.json
+          node scripts/assert-lighthouse.mjs lighthouse-4g.json 4g
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: final-browser-qa-${{ github.sha }}
+          path: |
+            lighthouse-fast3g.json
+            lighthouse-4g.json
+          if-no-files-found: warn
+          retention-days: 14
