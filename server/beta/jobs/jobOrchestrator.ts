@@ -317,6 +317,7 @@ export const betaJobOrchestrator={
       const {userId:_userId,model_id:_modelId,mode:_mode,...pricingRest}=base;
       const resolved=await betaEconomicsService.resolveQuote({
         userId,requestedModelId:current.request.model_id,capabilityId:current.request.capability_id,mode,pricingInput:pricingRest,
+        requestedControls:requestedControls(current.request),
       });
       const preview=resolved.preview,timestamp=now(),expiresAt=betaEconomicsService.quoteExpiry(resolved.pricing_policy,new Date(timestamp));
       const quoted=await saveTransition(current,userId,'QUOTED',{
