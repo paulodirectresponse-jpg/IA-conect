@@ -4,7 +4,7 @@ export type BetaJobStatus='DRAFT'|'QUOTED'|'QUEUED'|'RUNNING'|'SUCCEEDED'|'FAILE
 export interface BetaJobAttemptView{attempt_id:string;job_id:string;user_id:string;attempt_number:number;status:string;generation_id?:string|null;error_code?:string|null;error_message?:string|null;created_at:string;updated_at:string;started_at?:string|null;completed_at?:string|null;}
 export interface BetaJobView{
   job_id:string;user_id:string;status:BetaJobStatus;request:any;quote?:{credit_price:number;retail_pricing_id:string;retail_pricing_version:number;pricing_signature_hash:string;requested_model_id:string;selected_model_id:string;routing_mode:'MANUAL'|'AUTO';pricing_policy_id:string;quoted_at:string;expires_at:string}|null;
-  linked_generation_id?:string|null;current_attempt_id?:string|null;attempt_count:number;error_code?:string|null;error_message?:string|null;
+  linked_generation_id?:string|null;current_attempt_id?:string|null;attempt_count:number;error_code?:string|null;error_message?:string|null;result_asset_ids?:string[];result_text?:string|null;result_structured?:Record<string,any>|null;
   created_at:string;updated_at:string;quoted_at?:string|null;queued_at?:string|null;started_at?:string|null;completed_at?:string|null;failed_at?:string|null;cancelled_at?:string|null;
   attempts:BetaJobAttemptView[];
 }
