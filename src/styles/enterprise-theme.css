@@ -22,13 +22,13 @@
    * deliberate production fallbacks so the visual system never depends on JS
    * hydration to render its art direction.
    */
-  --ia-art-planet-home:url('/enterprise/visuals/planet-hero-wide.png');
-  --ia-art-planet-community:url('/enterprise/visuals/planet-hero-standard.png');
-  --ia-art-planet-library:url('/enterprise/visuals/planet-subtle.png');
-  --ia-art-planet-studio:url('/enterprise/visuals/planet-bottom-right.png');
-  --ia-art-planet-mobile:url('/enterprise/visuals/planet-orb-square.png');
-  --ia-art-create-image:url('/enterprise/visuals/create-image-cat-desktop.png');
-  --ia-art-create-video:url('/enterprise/visuals/create-video-surfer-desktop.png');
+  --ia-art-planet-home:image-set(url('/enterprise/visuals/planet-hero-wide-v1.avif') type('image/avif'),url('/enterprise/visuals/planet-hero-wide-v1.webp') type('image/webp'),url('/enterprise/visuals/planet-hero-wide.png') type('image/png'));
+  --ia-art-planet-community:image-set(url('/enterprise/visuals/planet-hero-standard-v1.avif') type('image/avif'),url('/enterprise/visuals/planet-hero-standard-v1.webp') type('image/webp'),url('/enterprise/visuals/planet-hero-standard.png') type('image/png'));
+  --ia-art-planet-library:image-set(url('/enterprise/visuals/planet-subtle-v1.avif') type('image/avif'),url('/enterprise/visuals/planet-subtle-v1.webp') type('image/webp'),url('/enterprise/visuals/planet-subtle.png') type('image/png'));
+  --ia-art-planet-studio:image-set(url('/enterprise/visuals/planet-bottom-right-v1.avif') type('image/avif'),url('/enterprise/visuals/planet-bottom-right-v1.webp') type('image/webp'),url('/enterprise/visuals/planet-bottom-right.png') type('image/png'));
+  --ia-art-planet-mobile:image-set(url('/enterprise/visuals/planet-orb-square-v1.avif') type('image/avif'),url('/enterprise/visuals/planet-orb-square-v1.webp') type('image/webp'),url('/enterprise/visuals/planet-orb-square.png') type('image/png'));
+  --ia-art-create-image:image-set(url('/enterprise/visuals/create-image-cat-desktop-v1.avif') type('image/avif'),url('/enterprise/visuals/create-image-cat-desktop-v1.webp') type('image/webp'),url('/enterprise/visuals/create-image-cat-desktop.png') type('image/png'));
+  --ia-art-create-video:image-set(url('/enterprise/visuals/create-video-surfer-desktop-v1.avif') type('image/avif'),url('/enterprise/visuals/create-video-surfer-desktop-v1.webp') type('image/webp'),url('/enterprise/visuals/create-video-surfer-desktop.png') type('image/png'));
 }
 
 /* Interaction foundation: explicit properties only, consistent timing and focus. */
