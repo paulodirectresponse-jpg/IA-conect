@@ -42,20 +42,20 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
   private get baseUrl(){return trimBase(process.env.ATLAS_BASE_URL);}
   isConfigured(){return Boolean(this.apiKey);}
 
-  supports(modelId:string,mode:GenerationMode){
+  supports(modelId:string,mode:GenerationMode,providerModelIdentifier?:string){
     if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE')return false;
-    return Boolean(VIDEO_FAMILIES[modelId]&&videoSuffixFor(mode));
+    return Boolean((providerModelIdentifier||VIDEO_FAMILIES[modelId])&&videoSuffixFor(mode));
   }
 
-  private modelName(modelId:string,mode:GenerationMode){
-    const family=VIDEO_FAMILIES[modelId];
+  private modelName(modelId:string,mode:GenerationMode,providerModelIdentifier?:string){
+    const family=providerModelIdentifier||VIDEO_FAMILIES[modelId];
     const suffix=videoSuffixFor(mode);
     if(!family||!suffix)throw Object.assign(new Error('Modelo/modo não suportado pela Atlas.'),{code:'PROVIDER_INCOMPATIBLE'});
     return `${family}/${suffix}`;
   }
 
   private buildPayload(params:ProviderGenerationParams){
-    const model=this.modelName(params.model_id,params.mode);
+    const model=this.modelName(params.model_id,params.mode,params.provider_model_identifier);
     const {images,videos,audios}=groups(params);
     const prompt=compileProviderReferencePrompt(params,'atlas');
 
