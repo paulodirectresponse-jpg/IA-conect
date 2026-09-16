@@ -1,14 +1,14 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState}from'react';
-import{Box,ChevronRight,CirclePlus,Database,GitBranch,GripVertical,Image as ImageIcon,Link2,LoaderCircle,Network,Plus,Save,Trash2,Unlink2}from'lucide-react';
+import{Box,ChevronRight,CirclePlus,Database,GitBranch,GripVertical,Link2,LoaderCircle,Network,Plus,Save,Trash2,Unlink2}from'lucide-react';
 import{apiRequest,ApiError}from'../../services/apiClient.js';
 import{BetaCapability,BetaCapabilityMediaType,BetaCapabilityModel}from'../capabilityClient.js';
 import{betaLibraryClient,BetaProjectView}from'../libraryClient.js';
 import{universalAssetClient,UniversalAssetView}from'../universalAssetClient.js';
 import{betaFlowClient,FlowEdge,FlowNode,FlowRecord}from'../flowClient.js';
 
-const MEDIA:BetaCapabilityMediaType[]=['TEXT','IMAGE','VIDEO','AUDIO','MODEL_3D','STRUCTURED_DATA'];
-const labels:Record<string,string>={TEXT:'Texto',IMAGE:'Imagem',VIDEO:'Vídeo',AUDIO:'Áudio',MODEL_3D:'3D',STRUCTURED_DATA:'Dados'};
-const color:Record<string,string>={TEXT:'#a78bfa',IMAGE:'#e879f9',VIDEO:'#22d3ee',AUDIO:'#fbbf24',MODEL_3D:'#818cf8',STRUCTURED_DATA:'#94a3b8'};
+const MEDIA:BetaCapabilityMediaType[]=['TEXT','IMAGE','VIDEO','AUDIO','MODEL_3D','MASK','STRUCTURED_DATA'];
+const labels:Record<string,string>={TEXT:'Texto',IMAGE:'Imagem',VIDEO:'Vídeo',AUDIO:'Áudio',MODEL_3D:'3D',MASK:'Máscara',STRUCTURED_DATA:'Dados'};
+const color:Record<string,string>={TEXT:'#a78bfa',IMAGE:'#e879f9',VIDEO:'#22d3ee',AUDIO:'#fbbf24',MODEL_3D:'#818cf8',MASK:'#f472b6',STRUCTURED_DATA:'#94a3b8'};
 const id=(prefix:string)=>`${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
 const msg=(error:any)=>error instanceof ApiError?error.message:error?.message||'Não foi possível concluir a operação.';
 
