@@ -7,12 +7,13 @@ import { markViewRendered } from '../../utils/performanceMetrics.js';
 interface AppLayoutProps {
   currentView: string;
   onNavigate: (view: string) => void;
+  betaEnabled?: boolean;
   children: React.ReactNode;
 }
 
 const THEME_KEY = 'ia-connect-theme';
 
-export const AppLayout: React.FC<AppLayoutProps> = ({ currentView, onNavigate, children }) => {
+export const AppLayout: React.FC<AppLayoutProps> = ({ currentView, onNavigate, betaEnabled = false, children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isCreateView = currentView === 'create-video' || currentView === 'create-image';
 
@@ -75,6 +76,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ currentView, onNavigate, c
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((value) => !value)}
           onNavigate={onNavigate}
+          betaEnabled={betaEnabled}
         />
 
         <main className={`ia-shell-main min-w-0 flex-1 ${isCreateView ? 'ia-shell-main-create flex flex-col overflow-hidden' : 'ia-shell-main-standard overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 xl:px-10 lg:py-8'}`}>
