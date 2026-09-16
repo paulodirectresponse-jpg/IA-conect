@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Navbar } from './Navbar.js';
 import { Sidebar } from './Sidebar.js';
-import { enterpriseVisualAssets } from '../../config/enterpriseVisualAssets.js';
+import { cssImageSet, enterpriseVisualAssets } from '../../config/enterpriseVisualAssets.js';
 import { markViewRendered } from '../../utils/performanceMetrics.js';
 
 interface AppLayoutProps {
@@ -31,13 +31,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ currentView, onNavigate, c
   }, [currentView]);
 
   const enterpriseVisualStyle = {
-    '--ia-art-planet-home': `url("${enterpriseVisualAssets.homePlanet}")`,
-    '--ia-art-planet-community': `url("${enterpriseVisualAssets.communityPlanet}")`,
-    '--ia-art-planet-library': `url("${enterpriseVisualAssets.libraryPlanet}")`,
-    '--ia-art-planet-studio': `url("${enterpriseVisualAssets.studioPlanet}")`,
-    '--ia-art-planet-mobile': `url("${enterpriseVisualAssets.mobilePlanet}")`,
-    '--ia-art-create-image': `url("${enterpriseVisualAssets.createImageHero}")`,
-    '--ia-art-create-video': `url("${enterpriseVisualAssets.createVideoHero}")`,
+    '--ia-art-planet-home': cssImageSet(enterpriseVisualAssets.homePlanet),
+    '--ia-art-planet-community': cssImageSet(enterpriseVisualAssets.communityPlanet),
+    '--ia-art-planet-library': cssImageSet(enterpriseVisualAssets.libraryPlanet),
+    '--ia-art-planet-studio': cssImageSet(enterpriseVisualAssets.studioPlanet),
+    '--ia-art-planet-mobile': cssImageSet(enterpriseVisualAssets.mobilePlanet),
+    '--ia-art-create-image': cssImageSet(enterpriseVisualAssets.createImageHero),
+    '--ia-art-create-video': cssImageSet(enterpriseVisualAssets.createVideoHero),
   } as React.CSSProperties & Record<string, string>;
 
   return (
