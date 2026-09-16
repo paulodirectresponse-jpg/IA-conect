@@ -12,6 +12,9 @@ export interface ProviderGenerationParams {
   user_id: string;
   model_id: string;
   mode: GenerationMode;
+  capability_id?: string;
+  provider_model_identifier?: string;
+  provider_runtime_options?: Record<string,string|number|boolean|null|undefined>;
   prompt: string;
   negative_prompt?: string;
   duration_seconds: number;
@@ -51,6 +54,8 @@ export interface ProviderJobStatusResult {
   result_video_url?: string;
   result_image_urls?: string[];
   result_urls?: string[];
+  result_text?: string;
+  result_structured?: Record<string,any>|null;
   thumbnail_url?: string;
   error_code?: string;
   error_message?: string;
@@ -60,7 +65,7 @@ export interface VideoProviderAdapter {
   readonly providerId: string;
   readonly name: string;
   isConfigured(): boolean;
-  supports(modelId: string, mode: GenerationMode): boolean;
+  supports(modelId: string, mode: GenerationMode, providerModelIdentifier?: string): boolean;
   quoteCostUsd?(params: ProviderGenerationParams): Promise<ProviderCostQuote>;
   submitGeneration(params: ProviderGenerationParams): Promise<ProviderJobResult>;
   checkStatus(providerJobId: string): Promise<ProviderJobStatusResult>;
