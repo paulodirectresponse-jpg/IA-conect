@@ -70,6 +70,8 @@ const RULES:Record<string,Rule>={
   AUDIO_MODULE_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'O módulo de áudio está temporariamente indisponível.'},
   THREE_D_MODULE_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'O módulo 3D está temporariamente indisponível.'},
   IMAGE_EDITOR_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'O editor de imagem está temporariamente indisponível.'},
+  VIDEO_MODULE_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'O módulo de vídeo está temporariamente indisponível.'},
+  VIDEO_EDITOR_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'Edição e extensão de vídeo estão temporariamente indisponíveis.'},
   MASK_REQUIRED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',message:'Desenhe ou envie uma máscara para continuar.'},
   AUDIO_CAPABILITY_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'Este recurso de áudio está temporariamente indisponível.'},
   VOICE_CLONE_CONSENT_REQUIRED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',message:'Confirme que você possui autorização para usar esta voz.'},
