@@ -40,4 +40,19 @@ describe('generationCollection',()=>{
     const next=upsertGeneration([first],second);
     expect(next.map(row=>row.generation_id)).toEqual(['gen-2','gen-1']);
   });
+
+  it('keeps three concurrent jobs isolated when one fails and another succeeds',()=>{
+    const rows=[
+      generation('gen-1','PROCESSING','2026-09-15T10:00:00.000Z'),
+      generation('gen-2','PROCESSING','2026-09-15T10:01:00.000Z'),
+      generation('gen-3','PROCESSING','2026-09-15T10:02:00.000Z'),
+    ];
+    const afterFailure=upsertGeneration(rows,{...rows[1],status:'FAILED',error_message:'provider failed'});
+    const afterSuccess=upsertGeneration(afterFailure,{...rows[0],status:'SUCCEEDED',progress_percent:100});
+    expect(afterSuccess).toHaveLength(3);
+    expect(afterSuccess.find(row=>row.generation_id==='gen-1')?.status).toBe('SUCCEEDED');
+    expect(afterSuccess.find(row=>row.generation_id==='gen-2')?.status).toBe('FAILED');
+    expect(afterSuccess.find(row=>row.generation_id==='gen-3')?.status).toBe('PROCESSING');
+    expect(afterSuccess.filter(row=>isGenerationWorking(row.status)).map(row=>row.generation_id)).toEqual(['gen-3']);
+  });
 });
