@@ -1,5 +1,5 @@
 import React,{useEffect,useState}from'react';
-import{Users,Coins,Layers,Server,Activity,Tag,ChartNoAxesCombined}from'lucide-react';
+import{Users,Coins,Layers,Server,Activity,Tag,ChartNoAxesCombined,Route}from'lucide-react';
 import{adminService,SystemHealthSnapshot}from'../../services/adminService.js';
 import{Card}from'../common/Card.js';
 import{Badge}from'../common/Badge.js';
@@ -9,8 +9,9 @@ import{AdminProviders}from'../admin/AdminProviders.js';
 import{AdminPricing}from'../admin/AdminPricing.js';
 import{AdminCoupons}from'../admin/AdminCoupons.js';
 import{AdminEconomics}from'../admin/AdminEconomics.js';
+import{AdminBetaCatalog}from'../admin/AdminBetaCatalog.js';
 
-type AdminTab='overview'|'users'|'models'|'providers'|'pricing'|'coupons'|'economics';
+type AdminTab='overview'|'users'|'models'|'providers'|'pricing'|'coupons'|'economics'|'beta-catalog';
 const healthClass=(status:'OK'|'DEGRADED'|'ERROR')=>status==='OK'?'text-emerald-300 bg-emerald-300/[0.06] border-emerald-300/15':status==='DEGRADED'?'text-amber-300 bg-amber-300/[0.06] border-amber-300/15':'text-rose-300 bg-rose-300/[0.06] border-rose-300/15';
 
 export const AdminView:React.FC=()=>{
@@ -28,6 +29,7 @@ export const AdminView:React.FC=()=>{
   {id:'pricing'as const,label:'Preços & margem',icon:<Coins className="w-4 h-4"/>},
   {id:'coupons'as const,label:'Cupons',icon:<Tag className="w-4 h-4"/>},
   {id:'economics'as const,label:'Economia',icon:<ChartNoAxesCombined className="w-4 h-4"/>},
+  {id:'beta-catalog'as const,label:'Beta · Catálogo',icon:<Route className="w-4 h-4"/>},
  ];
  return <div className="ia-admin space-y-7">
   <header className="ia-view-header"><div className="flex items-center gap-2.5"><h1 className="ia-view-title">Administração</h1><Badge variant="neutral">Operacional</Badge></div><p className="ia-view-description">Créditos, preços de varejo, cupons, provedores e economia do IA Connect.</p></header>
@@ -51,5 +53,6 @@ export const AdminView:React.FC=()=>{
   {activeTab==='pricing'&&<AdminPricing/>}
   {activeTab==='coupons'&&<AdminCoupons/>}
   {activeTab==='economics'&&<AdminEconomics/>}
+  {activeTab==='beta-catalog'&&<AdminBetaCatalog/>}
  </div>;
 };
