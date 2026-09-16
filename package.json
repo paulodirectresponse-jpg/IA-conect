@@ -7,13 +7,14 @@
     "dev": "vite dev",
     "dev:node": "tsx server.ts",
     "brand:materialize": "node scripts/materialize-brand-assets.mjs",
-    "build": "npm run brand:materialize && vite build",
+    "build": "npm run brand:materialize && npm run images:optimize && vite build",
     "preview": "npm run build && vite preview",
     "deploy": "npm run build && wrangler deploy",
     "test": "vitest run",
     "clean": "rm -rf dist .wrangler public/brand",
     "lint": "tsc --noEmit",
-    "perf:bundle": "node scripts/report-performance-baseline.mjs"
+    "perf:bundle": "node scripts/report-performance-baseline.mjs",
+    "images:optimize": "node scripts/optimize-static-images.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -39,6 +40,7 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
     "vitest": "^5.0.0",
-    "wrangler": "^4.129.1"
+    "wrangler": "^4.129.1",
+    "sharp": "^0.34.1"
   }
 }
