@@ -50,6 +50,10 @@ const RULES:Record<string,Rule>={
   ASSET_ARCHIVE_UPLOAD_FAILED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'O resultado ainda não pôde ser arquivado na Library.'},
   ASSET_ARCHIVE_TOO_LARGE:{status:409,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',message:'O resultado excede o limite de armazenamento disponível.'},
   ASSET_ARCHIVE_EMPTY:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'O resultado retornado estava vazio e não pôde ser arquivado.'},
+  ASSET_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'NONE',message:'Asset não encontrado.'},
+  PROJECT_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'NONE',message:'Projeto não encontrado.'},
+  COLLECTION_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'NONE',message:'Coleção não encontrada.'},
+  COLLECTION_PROJECT_MISMATCH:{status:409,category:'CONFLICT',retryable:false,action:'CHANGE_INPUT',message:'A coleção selecionada pertence a outro projeto.'},
 };
 
 const SAFE_CODE=/^[A-Z0-9_]{2,80}$/;
