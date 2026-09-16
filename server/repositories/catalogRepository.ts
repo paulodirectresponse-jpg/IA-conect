@@ -7,6 +7,7 @@ import {
 } from '../../src/types/index.js';
 import { firestoreAdminRest } from './firestoreAdminRest.js';
 import { INITIAL_FEATURE_FLAGS } from '../../src/config/constants.js';
+import { BETA_FEATURE_FLAGS } from '../../src/beta/betaFlags.js';
 import { STUDIO_SEED_MODELS } from '../../src/config/studioCatalog.js';
 
 const now=()=>new Date().toISOString();
@@ -53,7 +54,7 @@ export const MODEL_MAPPINGS:ProviderModelMapping[]=[
   mapping('map-seed5-atlas','seedream-5-pro-image','provider-atlas','bytedance/seedream-v5.0-pro'),
   mapping('map-gptimg2-atlas','gpt-image-2','provider-atlas','openai/gpt-image-2'),
 ];
-const FEATURE_FLAG_SEED:FeatureFlag[]=INITIAL_FEATURE_FLAGS.map((flag)=>({...flag,updated_at:now()}));
+const FEATURE_FLAG_SEED:FeatureFlag[]=[...INITIAL_FEATURE_FLAGS,...BETA_FEATURE_FLAGS].map((flag)=>({...flag,updated_at:now()}));
 
 async function listCollection<T>(collectionId:string):Promise<T[]>{
   const rows=await firestoreAdminRest.runQuery({from:[{collectionId}],limit:500});

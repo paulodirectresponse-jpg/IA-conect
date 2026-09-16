@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ChevronDown,
   CreditCard,
+  FlaskConical,
   Image as ImageIcon,
   LogOut,
   Menu,
@@ -22,6 +23,7 @@ interface NavbarProps {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
   onNavigate: (view: string) => void;
+  betaEnabled?: boolean;
 }
 
 const viewMeta: Record<string, { title: string; eyebrow: string }> = {
@@ -42,6 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   sidebarOpen,
   onToggleSidebar,
   onNavigate,
+  betaEnabled = false,
 }) => {
   const { profile, wallet, isAdmin, logout } = useAuth();
   const [accountOpen, setAccountOpen] = useState(false);
@@ -91,6 +94,18 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       <div className="ia-shell-navbar-actions ml-auto flex items-center gap-1.5 sm:gap-2">
+        {betaEnabled && (
+          <button
+            type="button"
+            onClick={() => navigate('beta')}
+            className="ia-shell-beta-button inline-flex h-10 items-center gap-1.5 rounded-xl border border-sky-300/15 bg-sky-400/[0.06] px-3 text-[10px] font-extrabold uppercase tracking-[0.08em] text-sky-300 transition-colors hover:border-sky-300/25 hover:bg-sky-400/[0.10]"
+            aria-label="Experimentar IA Conect Beta"
+          >
+            <FlaskConical className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Beta</span>
+          </button>
+        )}
+
         <div className="relative">
           <button
             onClick={() => {
