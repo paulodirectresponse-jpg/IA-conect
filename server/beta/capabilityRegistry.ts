@@ -8,7 +8,7 @@ export const CAPABILITY_IDS = [
 ] as const;
 export type CapabilityId = typeof CAPABILITY_IDS[number];
 export type CapabilityMediaType = 'TEXT'|'IMAGE'|'VIDEO'|'AUDIO'|'MODEL_3D'|'MASK'|'STRUCTURED_DATA';
-export type CapabilityControl = 'aspect_ratio'|'resolution'|'duration'|'seed'|'guidance'|'negative_prompt'|'reference_image'|'first_frame'|'last_frame'|'language'|'voice'|'output_format';
+export type CapabilityControl = 'aspect_ratio'|'resolution'|'duration'|'seed'|'guidance'|'negative_prompt'|'reference_image'|'first_frame'|'last_frame'|'language'|'voice'|'output_format'|'style'|'instrumental'|'timestamps'|'source_language'|'target_language'|'voice_clone_consent'|'voice_label';
 
 export interface CapabilityDefinition {
   id: CapabilityId;
@@ -32,13 +32,13 @@ const defs: CapabilityDefinition[] = [
   {id:'last-frame',inputs:['TEXT','IMAGE'],outputs:['VIDEO'],controls:['aspect_ratio','resolution','duration','first_frame','last_frame','output_format']},
   {id:'video-extend',inputs:['VIDEO'],outputs:['VIDEO'],controls:['duration','output_format']},
   {id:'video-edit',inputs:['TEXT','VIDEO'],outputs:['VIDEO'],controls:['output_format']},
-  {id:'text-to-speech',inputs:['TEXT'],outputs:['AUDIO'],controls:['language','voice','output_format']},
+  {id:'text-to-speech',inputs:['TEXT'],outputs:['AUDIO'],controls:['language','voice','output_format','style']},
   {id:'sound-effects',inputs:['TEXT'],outputs:['AUDIO'],controls:['duration','output_format']},
-  {id:'music',inputs:['TEXT'],outputs:['AUDIO'],controls:['duration','output_format']},
-  {id:'transcription',inputs:['AUDIO'],outputs:['TEXT','STRUCTURED_DATA'],controls:['language','output_format']},
-  {id:'subtitles',inputs:['VIDEO','AUDIO'],outputs:['TEXT','STRUCTURED_DATA'],controls:['language','output_format']},
-  {id:'authorized-voice-clone',inputs:['AUDIO'],outputs:['AUDIO'],controls:['language','voice','output_format']},
-  {id:'dubbing',inputs:['VIDEO','AUDIO'],outputs:['VIDEO','AUDIO'],controls:['language','voice','output_format']},
+  {id:'music',inputs:['TEXT'],outputs:['AUDIO'],controls:['duration','seed','output_format','instrumental']},
+  {id:'transcription',inputs:['AUDIO'],outputs:['TEXT','STRUCTURED_DATA'],controls:['language','output_format','timestamps']},
+  {id:'subtitles',inputs:['VIDEO','AUDIO'],outputs:['TEXT','STRUCTURED_DATA'],controls:['language','output_format','timestamps']},
+  {id:'authorized-voice-clone',inputs:['AUDIO'],outputs:['STRUCTURED_DATA'],controls:['language','voice_clone_consent','voice_label']},
+  {id:'dubbing',inputs:['VIDEO','AUDIO'],outputs:['VIDEO','AUDIO'],controls:['source_language','target_language','output_format']},
   {id:'text-to-3d',inputs:['TEXT'],outputs:['MODEL_3D'],controls:['output_format']},
   {id:'image-to-3d',inputs:['IMAGE'],outputs:['MODEL_3D'],controls:['reference_image','output_format']},
   {id:'multi-image-to-3d',inputs:['IMAGE'],outputs:['MODEL_3D'],controls:['reference_image','output_format']},
@@ -49,8 +49,8 @@ const byId=new Map<CapabilityId,CapabilityDefinition>(defs.map(def=>[def.id,def]
 export function isCapabilityId(value:string):value is CapabilityId{return byId.has(value as CapabilityId);}
 export function getCapabilityDefinition(id:string){return isCapabilityId(id)?byId.get(id)!:null;}
 
-export function capabilityIdsForModel(model:Pick<ModelRegistryItem,'supported_modes'|'supports_start_end_image'>):CapabilityId[]{
-  const modes=model.supported_modes||[];const out:CapabilityId[]=[];
+export function capabilityIdsForModel(model:Pick<ModelRegistryItem,'supported_modes'|'supports_start_end_image'|'beta_capability_ids'>):CapabilityId[]{
+  const modes=model.supported_modes||[];const out:CapabilityId[]=(model.beta_capability_ids||[]).filter(isCapabilityId);
   if(modes.includes('TEXT_TO_IMAGE'))out.push('text-to-image');
   if(modes.includes('IMAGE_TO_IMAGE'))out.push('image-to-image');
   if(modes.includes('TEXT_TO_VIDEO'))out.push('text-to-video');
@@ -69,6 +69,7 @@ function controlsForModel(model:ModelRegistryItem,id:CapabilityId):CapabilityCon
     if(control==='duration')return (model.supported_durations||[]).length>0;
     if(control==='resolution')return (model.supported_resolutions||[]).length>0;
     if(control==='aspect_ratio')return (model.supported_aspect_ratios||[]).length>0;
+    if(['language','voice','output_format','style','instrumental','timestamps','source_language','target_language','voice_clone_consent','voice_label'].includes(control))return true;
     return control!=='guidance';
   });
 }
