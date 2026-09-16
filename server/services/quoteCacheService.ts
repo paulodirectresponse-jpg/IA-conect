@@ -13,8 +13,8 @@ function ttlMs(){
 function stableOptions(v:Record<string,any>={}){return JSON.stringify(Object.keys(v).sort().reduce((o,k)=>{if(v[k]!==undefined)o[k]=v[k];return o;},{} as Record<string,any>));}
 function keyFor(adapter:VideoProviderAdapter,input:PricingGuardInput,marginPercent:number){
   return [
-    adapter.providerId,input.model_id,input.mode,input.resolution,input.duration_seconds,input.aspect_ratio,input.number_of_outputs,
-    input.seed ?? '',input.motion_strength ?? '',input.audio_enabled===undefined?'':input.audio_enabled?'audio-1':'audio-0',input.model_variant||'default',stableOptions(input.pricing_options||{}),`margin-${marginPercent}`,
+    adapter.providerId,input.model_id,input.mode,input.capability_id||'',input.provider_model_identifier||'',input.resolution,input.duration_seconds,input.aspect_ratio,input.number_of_outputs,
+    input.seed ?? '',input.motion_strength ?? '',input.audio_enabled===undefined?'':input.audio_enabled?'audio-1':'audio-0',input.model_variant||'default',stableOptions(input.pricing_options||{}),(input.provider_references||[]).map(ref=>ref.asset_id).sort().join(','),`margin-${marginPercent}`,
   ].join(':');
 }
 

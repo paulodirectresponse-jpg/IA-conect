@@ -21,8 +21,11 @@ interface Rule {
 const RULES:Record<string,Rule>={
   VALIDATION_ERROR:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   CAPABILITY_UNKNOWN:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
+  UNKNOWN_CAPABILITY:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   CAPABILITY_UNSUPPORTED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
+  CAPABILITY_NOT_SUPPORTED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   CONTROL_UNSUPPORTED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
+  CAPABILITY_CONTROL_NOT_SUPPORTED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   CAPABILITY_EXECUTOR_UNAVAILABLE:{status:409,category:'CONFLICT',retryable:false,action:'CHANGE_INPUT',message:'Este recurso ainda não possui execução disponível no Beta.'},
   REFERENCE_REQUIRED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   REFERENCE_NOT_FOUND:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',message:'Uma referência não foi encontrada ou não está disponível.'},
@@ -64,6 +67,13 @@ const RULES:Record<string,Rule>={
   MODEL_NOT_AUTO_ELIGIBLE:{status:409,category:'CONFLICT',retryable:false,action:'CHANGE_INPUT',message:'Modelo indisponível para o AUTO router.'},
   PRICING_POLICY_INACTIVE:{status:503,category:'BILLING',retryable:true,action:'RETRY',message:'Política de preço temporariamente indisponível.'},
   PRICING_POLICY_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'NONE',message:'Política de preço não encontrada.'},
+  AUDIO_MODULE_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'O módulo de áudio está temporariamente indisponível.'},
+  AUDIO_CAPABILITY_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'Este recurso de áudio está temporariamente indisponível.'},
+  VOICE_CLONE_CONSENT_REQUIRED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',message:'Confirme que você possui autorização para usar esta voz.'},
+  VOICE_CLONE_RESULT_INVALID:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'A voz foi processada, mas não pôde ser registrada para reutilização.'},
+  AUDIO_VOICE_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'CHANGE_INPUT',message:'A voz selecionada não está disponível.'},
+  AUDIO_VOICE_PROVIDER_UNAVAILABLE:{status:409,category:'CONFLICT',retryable:false,action:'CHANGE_INPUT',message:'A voz selecionada não possui uma rota compatível no momento.'},
+  REFERENCE_NOT_READY:{status:409,category:'CONFLICT',retryable:true,action:'RETRY',message:'O arquivo de referência ainda não está pronto.'},
 };
 
 const SAFE_CODE=/^[A-Z0-9_]{2,80}$/;

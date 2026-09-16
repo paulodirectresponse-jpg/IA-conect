@@ -29,15 +29,60 @@ const IMAGE_ENDPOINTS: Record<string, Partial<Record<GenerationMode, string>>> =
 function videoSuffix(mode: GenerationMode) { if(mode==='TEXT_TO_VIDEO')return'text-to-video';if(mode==='IMAGE_TO_VIDEO')return'image-to-video';if(mode==='REFERENCE_TO_VIDEO')return'reference-to-video';return null; }
 function base(value:string|undefined){return(value||'https://api.wavespeed.ai').replace(/\/+$/,'').replace(/\/api\/v3$/,'');}
 function audioEnabled(params:ProviderGenerationParams){return params.audio_enabled!==false;}
+const AUDIO_MODES=new Set<GenerationMode>(['TEXT_TO_SPEECH','TEXT_TO_AUDIO','AUDIO_TO_TEXT','MEDIA_TO_TEXT','AUDIO_TO_AUDIO','MEDIA_DUBBING']);
+const VOICES:Record<string,string>={
+  'calm-female':'Calm_Woman','wise-female':'Wise_Woman','friendly':'Friendly_Person',
+  'casual-male':'Casual_Guy','narrator-male':'Deep_Voice_Man','narrator-female':'Elegant_Man',
+};
+function isAudioMode(mode:GenerationMode){return AUDIO_MODES.has(mode);}
+function option(params:ProviderGenerationParams,key:string,fallback?:any){const value=params.pricing_options?.[key];return value===undefined?fallback:value;}
+function logicalVoice(value:any){const key=String(value||'calm-female');if(key.startsWith('voice_'))return VOICES['calm-female'];return VOICES[key]||VOICES['calm-female'];}
+function firstRef(params:ProviderGenerationParams,type:'AUDIO'|'VIDEO'){return params.references.find(ref=>ref.type===type);}
+function cloneVoiceId(params:ProviderGenerationParams){const explicit=String(params.provider_runtime_options?.provider_voice_id||'').trim();if(explicit)return explicit;return `ia_${String(params.generation_id).replace(/[^a-zA-Z0-9]/g,'').slice(-28)||'voiceclone'}`;}
+
 
 export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
   readonly providerId='provider-wavespeed';readonly name='WaveSpeed AI';
   private get apiKey(){return process.env.WAVESPEED_API_KEY?.trim();}private get baseUrl(){return base(process.env.WAVESPEED_BASE_URL);}
   isConfigured(){return Boolean(this.apiKey);}
-  supports(modelId:string,mode:GenerationMode){if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE')return Boolean(IMAGE_ENDPOINTS[modelId]?.[mode]);if((modelId==='seedance-2-5'||modelId==='seedance-2-0'||modelId==='kling-3-0')&&mode==='REFERENCE_TO_VIDEO')return false;return Boolean(VIDEO_FAMILIES[modelId]&&videoSuffix(mode));}
-  private modelName(modelId:string,mode:GenerationMode){if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE'){const endpoint=IMAGE_ENDPOINTS[modelId]?.[mode];if(!endpoint)throw Object.assign(new Error('Modelo/modo de imagem não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return endpoint;}const family=VIDEO_FAMILIES[modelId],suffix=videoSuffix(mode);if(!family||!suffix||!this.supports(modelId,mode))throw Object.assign(new Error('Modelo/modo não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return`${family}/${suffix}`;}
+  supports(modelId:string,mode:GenerationMode,providerModelIdentifier?:string){if(isAudioMode(mode))return Boolean(providerModelIdentifier);if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE')return Boolean(IMAGE_ENDPOINTS[modelId]?.[mode]);if((modelId==='seedance-2-5'||modelId==='seedance-2-0'||modelId==='kling-3-0')&&mode==='REFERENCE_TO_VIDEO')return false;return Boolean(VIDEO_FAMILIES[modelId]&&videoSuffix(mode));}
+  private modelName(modelId:string,mode:GenerationMode,providerModelIdentifier?:string){if(isAudioMode(mode)){if(!providerModelIdentifier)throw Object.assign(new Error('Mapping de áudio indisponível na WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return providerModelIdentifier;}if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE'){const endpoint=IMAGE_ENDPOINTS[modelId]?.[mode];if(!endpoint)throw Object.assign(new Error('Modelo/modo de imagem não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return endpoint;}const family=VIDEO_FAMILIES[modelId],suffix=videoSuffix(mode);if(!family||!suffix||!this.supports(modelId,mode,providerModelIdentifier))throw Object.assign(new Error('Modelo/modo não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return`${family}/${suffix}`;}
 
-  private imagePayload(params:ProviderGenerationParams){const images=params.references.filter(r=>r.type==='IMAGE').map(r=>r.provider_accessible_url),endpoint=this.modelName(params.model_id,params.mode);const out:any={prompt:compileProviderReferencePrompt(params,'wavespeed'),aspect_ratio:params.aspect_ratio,resolution:String(params.resolution||'1K').toLowerCase(),output_format:'png',enable_sync_mode:false,enable_base64_output:false};if(params.mode==='IMAGE_TO_IMAGE'){if(!images.length)throw Object.assign(new Error('Adicione pelo menos uma imagem de referência.'),{code:'REFERENCE_REQUIRED'});out.images=images;}if(endpoint.startsWith('openai/gpt-image-2/'))out.quality='medium';if(endpoint.startsWith('google/nano-banana-2/')||endpoint.startsWith('google/nano-banana-2-lite/')){delete out.resolution;out.enable_web_search=false;out.enable_image_search=false;}return out;}
+  private imagePayload(params:ProviderGenerationParams){const images=params.references.filter(r=>r.type==='IMAGE').map(r=>r.provider_accessible_url),endpoint=this.modelName(params.model_id,params.mode,params.provider_model_identifier);const out:any={prompt:compileProviderReferencePrompt(params,'wavespeed'),aspect_ratio:params.aspect_ratio,resolution:String(params.resolution||'1K').toLowerCase(),output_format:'png',enable_sync_mode:false,enable_base64_output:false};if(params.mode==='IMAGE_TO_IMAGE'){if(!images.length)throw Object.assign(new Error('Adicione pelo menos uma imagem de referência.'),{code:'REFERENCE_REQUIRED'});out.images=images;}if(endpoint.startsWith('openai/gpt-image-2/'))out.quality='medium';if(endpoint.startsWith('google/nano-banana-2/')||endpoint.startsWith('google/nano-banana-2-lite/')){delete out.resolution;out.enable_web_search=false;out.enable_image_search=false;}return out;}
+
+  private audioPayload(params:ProviderGenerationParams){
+    const capability=String(params.capability_id||'');
+    const format=String(option(params,'output_format','mp3'));
+    if(capability==='text-to-speech'){
+      const out:any={text:params.prompt,voice_id:String(params.provider_runtime_options?.provider_voice_id||logicalVoice(option(params,'voice','calm-female'))),format,
+        speed:Number(option(params,'speed',1)),volume:Number(option(params,'volume',1)),pitch:Number(option(params,'pitch',0)),
+        language_boost:String(option(params,'language','auto')),english_normalization:true};
+      const style=String(option(params,'style','')).trim();if(style)out.emotion=style;return out;
+    }
+    if(capability==='sound-effects')return{prompt:params.prompt,duration:Math.max(1,Math.min(180,params.duration_seconds)),audio_format:format};
+    if(capability==='music'){const out:any={prompt:params.prompt,instrumental:Boolean(option(params,'instrumental',false)),duration:Math.max(5,Math.min(240,params.duration_seconds))};if(params.seed!==null&&params.seed!==undefined)out.seed=params.seed;return out;}
+    if(capability==='transcription'){
+      const audio=firstRef(params,'AUDIO');if(!audio)throw Object.assign(new Error('Áudio obrigatório para transcrição.'),{code:'REFERENCE_REQUIRED'});
+      return{audio:audio.provider_accessible_url,language:String(option(params,'language','auto')),task:'transcribe',enable_timestamps:Boolean(option(params,'timestamps',true)),prompt:params.prompt||undefined};
+    }
+    if(capability==='subtitles'){
+      const media=firstRef(params,'VIDEO');if(!media)throw Object.assign(new Error('Vídeo obrigatório para legendas.'),{code:'REFERENCE_REQUIRED'});
+      return{video:media.provider_accessible_url,language:String(option(params,'language','auto')),task:'transcribe',enable_timestamps:Boolean(option(params,'timestamps',true)),prompt:params.prompt||undefined};
+    }
+    if(capability==='authorized-voice-clone'){
+      const audio=firstRef(params,'AUDIO');if(!audio)throw Object.assign(new Error('Áudio autorizado obrigatório para clonagem.'),{code:'REFERENCE_REQUIRED'});
+      return{audio:audio.provider_accessible_url,custom_voice_id:cloneVoiceId(params),model:'speech-2.6-turbo',
+        noise_reduction:true,volume_normalization:true,accuracy:0.8,language_boost:String(option(params,'language','auto'))};
+    }
+    if(capability==='dubbing'){
+      const video=firstRef(params,'VIDEO'),audio=firstRef(params,'AUDIO'),media=video||audio;
+      if(!media)throw Object.assign(new Error('Áudio ou vídeo obrigatório para dublagem.'),{code:'REFERENCE_REQUIRED'});
+      const out:any={target_lang:String(option(params,'target_language','pt')),source_lang:String(option(params,'source_language','auto')),
+        preserve_background_audio:true};
+      if(video)out.video=video.provider_accessible_url;else out.audio=audio!.provider_accessible_url;return out;
+    }
+    throw Object.assign(new Error('Capability de áudio não suportada pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});
+  }
 
   private videoPayload(params:ProviderGenerationParams){
     const images=params.references.filter(r=>r.type==='IMAGE'),videos=params.references.filter(r=>r.type==='VIDEO'),audios=params.references.filter(r=>r.type==='AUDIO'),prompt=compileProviderReferencePrompt(params,'wavespeed');
@@ -46,12 +91,12 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
     if(params.model_id==='kling-3-0'){const out:any={prompt,duration:params.duration_seconds,aspect_ratio:params.aspect_ratio,sound:audioEnabled(params)};if(params.negative_prompt?.trim())out.negative_prompt=params.negative_prompt.trim();if(params.mode==='IMAGE_TO_VIDEO'){const initial=images.find(r=>r.slot_type==='INITIAL')||images[0];if(!initial)throw Object.assign(new Error('Imagem inicial obrigatória.'),{code:'REFERENCE_REQUIRED'});out.image=initial.provider_accessible_url;const end=images.find(r=>r.slot_type==='END');if(end)out.end_image=end.provider_accessible_url;}return out;}
     const out:any={prompt,resolution:params.resolution,aspect_ratio:params.aspect_ratio,duration:params.duration_seconds};if(params.negative_prompt?.trim())out.negative_prompt=params.negative_prompt.trim();if(params.seed!==null&&params.seed!==undefined)out.seed=params.seed;if(params.mode==='IMAGE_TO_VIDEO'){const initial=images.find(r=>r.slot_type==='INITIAL')||images[0];if(!initial)throw Object.assign(new Error('Imagem inicial obrigatória.'),{code:'REFERENCE_REQUIRED'});out.image=initial.provider_accessible_url;const end=images.find(r=>r.slot_type==='END');if(end)out.last_image=end.provider_accessible_url;}else if(params.mode==='REFERENCE_TO_VIDEO'){out.reference_images=images.map(r=>r.provider_accessible_url);out.reference_videos=videos.map(r=>r.provider_accessible_url);out.reference_audios=audios.map(r=>r.provider_accessible_url);}if(params.model_id.startsWith('wan-3-0')){out.enable_prompt_expansion=false;out.enable_audio=audioEnabled(params);}if(params.model_id==='seedance-2-5'||params.model_id==='seedance-2-0')out.generate_audio=audioEnabled(params);return out;
   }
-  private payload(params:ProviderGenerationParams){return params.mode==='TEXT_TO_IMAGE'||params.mode==='IMAGE_TO_IMAGE'?this.imagePayload(params):this.videoPayload(params);}
-  async quoteCostUsd(params:ProviderGenerationParams):Promise<ProviderCostQuote>{if(!this.apiKey)throw Object.assign(new Error('WaveSpeed não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});const model=this.modelName(params.model_id,params.mode),single={...params,number_of_outputs:1},controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);try{const res=await fetch(`${this.baseUrl}/api/v3/model/price`,{method:'POST',signal:controller.signal,headers:{Authorization:`Bearer ${this.apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({model_id:model,inputs:this.payload(single)})});const text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}if(!res.ok)throw Object.assign(new Error(body?.message||body?.error||`WaveSpeed pricing HTTP ${res.status}`),{code:`WAVESPEED_PRICE_HTTP_${res.status}`});const data=body?.data??body,unit=Number(data?.discounted_price??data?.price);if(!Number.isFinite(unit)||unit<0)throw Object.assign(new Error('WaveSpeed retornou preço inválido.'),{code:'PROVIDER_PRICE_INVALID'});return{effective_price_usd:unit*Math.max(1,params.number_of_outputs),list_price_usd:Number.isFinite(Number(data?.price))?Number(data.price)*Math.max(1,params.number_of_outputs):null,discount_rate:Number.isFinite(Number(data?.discount_rate))?Number(data.discount_rate):null,estimated:false,source:'LIVE_API'};}finally{clearTimeout(timer);}}
+  private payload(params:ProviderGenerationParams){if(isAudioMode(params.mode))return this.audioPayload(params);return params.mode==='TEXT_TO_IMAGE'||params.mode==='IMAGE_TO_IMAGE'?this.imagePayload(params):this.videoPayload(params);}
+  async quoteCostUsd(params:ProviderGenerationParams):Promise<ProviderCostQuote>{if(!this.apiKey)throw Object.assign(new Error('WaveSpeed não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});const model=this.modelName(params.model_id,params.mode,params.provider_model_identifier),single={...params,number_of_outputs:1},controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);try{const res=await fetch(`${this.baseUrl}/api/v3/model/price`,{method:'POST',signal:controller.signal,headers:{Authorization:`Bearer ${this.apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({model_id:model,inputs:this.payload(single)})});const text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}if(!res.ok)throw Object.assign(new Error(body?.message||body?.error||`WaveSpeed pricing HTTP ${res.status}`),{code:`WAVESPEED_PRICE_HTTP_${res.status}`});const data=body?.data??body,unit=Number(data?.discounted_price??data?.price);if(!Number.isFinite(unit)||unit<0)throw Object.assign(new Error('WaveSpeed retornou preço inválido.'),{code:'PROVIDER_PRICE_INVALID'});return{effective_price_usd:unit*Math.max(1,params.number_of_outputs),list_price_usd:Number.isFinite(Number(data?.price))?Number(data.price)*Math.max(1,params.number_of_outputs):null,discount_rate:Number.isFinite(Number(data?.discount_rate))?Number(data.discount_rate):null,estimated:false,source:'LIVE_API'};}finally{clearTimeout(timer);}}
   private encodeBatchJobIds(ids:string[]){return ids.length===1?ids[0]:`batch:${Buffer.from(JSON.stringify(ids),'utf8').toString('base64url')}`;}
   private decodeBatchJobIds(id:string){if(!id.startsWith('batch:'))return[id];try{const decoded=JSON.parse(Buffer.from(id.slice(6),'base64url').toString('utf8'));return Array.isArray(decoded)&&decoded.every(v=>typeof v==='string'&&v)?decoded:[id];}catch{return[id];}}
   private async submitSingle(params:ProviderGenerationParams){
-    const model=this.modelName(params.model_id,params.mode),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
+    const model=this.modelName(params.model_id,params.mode,params.provider_model_identifier),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
     try{
       const res=await fetch(`${this.baseUrl}/api/v3/${model}`,{method:'POST',signal:controller.signal,headers:{Authorization:`Bearer ${this.apiKey}`,'Content-Type':'application/json'},body:JSON.stringify(this.payload({...params,number_of_outputs:1}))});
       const text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}
@@ -64,7 +109,14 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
     const res=await fetch(`${this.baseUrl}/api/v3/predictions/${encodeURIComponent(id)}/result`,{headers:{Authorization:`Bearer ${this.apiKey}`}}),text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}
     if(!res.ok)throw Object.assign(new Error(body?.message||`WaveSpeed status HTTP ${res.status}`),{code:`WAVESPEED_HTTP_${res.status}`});
     const data=body?.data??body,raw=String(data?.status||'').toLowerCase();
-    if(raw==='completed'){const outputs=Array.isArray(data.outputs)?data.outputs.filter(Boolean):[data.output?.video_url,data.video_url,data.output?.image_url,data.image_url].filter(Boolean);return{provider_job_id:id,status:'SUCCEEDED',progress_percent:100,result_video_url:outputs[0],result_urls:outputs};}
+    if(raw==='completed'){
+      const rawOutputs=Array.isArray(data.outputs)?data.outputs:[data.output,data.result,data.output?.video_url,data.video_url,data.output?.image_url,data.image_url,data.output?.audio_url,data.audio_url].filter(Boolean);
+      const urls:string[]=[],objects:any[]=[];let textOutput='';
+      const visit=(value:any)=>{if(value==null)return;if(typeof value==='string'){if(/^https:\/\//i.test(value))urls.push(value);else if(!textOutput)textOutput=value;return;}if(typeof value==='object'){objects.push(value);for(const key of ['url','audio_url','video_url','output_url','file_url'])if(typeof value[key]==='string'&&/^https:\/\//i.test(value[key]))urls.push(value[key]);for(const key of ['text','transcript','transcription','content'])if(!textOutput&&typeof value[key]==='string')textOutput=value[key];}};
+      rawOutputs.forEach(visit);
+      if(!textOutput)for(const key of ['text','transcript','transcription'])if(typeof data?.[key]==='string'){textOutput=data[key];break;}
+      return{provider_job_id:id,status:'SUCCEEDED',progress_percent:100,result_video_url:urls[0],result_urls:Array.from(new Set(urls)),result_text:textOutput||undefined,result_structured:objects.length?{outputs:objects}:undefined};
+    }
     if(['failed','cancelled','canceled','timeout','deleted'].includes(raw))return{provider_job_id:id,status:'FAILED',error_message:String(data?.error||data?.message||'Falha na WaveSpeed.')};
     return{provider_job_id:id,status:raw==='pending'||raw==='queued'?'QUEUED':'PROCESSING',progress_percent:typeof data?.progress==='number'?data.progress:undefined};
   }
@@ -83,7 +135,7 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
     if(failed)return{provider_job_id:id,status:'FAILED',error_message:failed.error_message||'Uma das saídas falhou na WaveSpeed.'};
     if(statuses.every(s=>s.status==='SUCCEEDED')){
       const outputs=statuses.flatMap(s=>s.result_urls||s.result_image_urls||[s.result_video_url].filter(Boolean) as string[]).filter(Boolean);
-      return{provider_job_id:id,status:'SUCCEEDED',progress_percent:100,result_video_url:outputs[0],result_urls:outputs};
+      const first=statuses[0];return{provider_job_id:id,status:'SUCCEEDED',progress_percent:100,result_video_url:outputs[0],result_urls:outputs,result_text:first?.result_text,result_structured:first?.result_structured};
     }
     const progress=Math.round(statuses.reduce((sum,s)=>sum+Number(s.progress_percent??(s.status==='SUCCEEDED'?100:8)),0)/Math.max(1,statuses.length));
     return{provider_job_id:id,status:statuses.some(s=>s.status==='PROCESSING'||s.status==='SUCCEEDED')?'PROCESSING':'QUEUED',progress_percent:progress};

@@ -198,6 +198,9 @@ export const BetaLibraryView:React.FC<Props>=({onIntent})=>{
     {selected&&<div className="ia-beta-library-drawer-backdrop" onClick={()=>setSelected(null)}>
       <aside className="ia-beta-library-drawer" onClick={event=>event.stopPropagation()}>
         <div className="ia-beta-library-drawer-head"><div><span>{selected.type.replace('MODEL_3D','3D')}</span><h2>{selected.name}</h2></div><button onClick={()=>setSelected(null)}>×</button></div>
+        {(selected.type==='AUDIO'||selected.type==='VIDEO')&&selected.preview_url&&<div className="ia-beta-library-drawer-media">
+          {selected.type==='AUDIO'?<audio controls preload="metadata" src={selected.preview_url}/>:<video controls preload="metadata" src={selected.preview_url}/>}
+        </div>}
         <div className="ia-beta-library-drawer-section">
           <label>Projeto<select value={selected.project_id||''} onChange={event=>void updateItem(selected,{project_id:event.target.value||null,collection_ids:[]})}>
             <option value="">Sem projeto</option>{projects.map(project=><option key={project.project_id} value={project.project_id}>{project.name}</option>)}

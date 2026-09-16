@@ -8,13 +8,15 @@ import { pricingSyncService } from './pricingSyncService.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { generationExecutionEconomics } from './generationEconomicsPolicy.js';
 import { pricingReferenceMode } from '../../src/utils/generationReferenceMode.js';
+import { ProviderGenerationReference } from '../adapters/videoProviderAdapter.js';
 
 export interface CreditPricingInput{
- userId:string;model_id:string;mode:GenerationMode;prompt?:string;negative_prompt?:string;duration_seconds:number;resolution:string;aspect_ratio:string;number_of_outputs:number;seed?:number|null;motion_strength?:number|null;references?:Array<{asset_id:string;slot_type?:string;role?:string}>;force_live_quote?:boolean;audio_enabled?:boolean;model_variant?:string;pricing_options?:Record<string,string|number|boolean|null|undefined>;
+ userId:string;model_id:string;mode:GenerationMode;capability_id?:string;prompt?:string;negative_prompt?:string;duration_seconds:number;resolution:string;aspect_ratio:string;number_of_outputs:number;seed?:number|null;motion_strength?:number|null;references?:Array<{asset_id:string;slot_type?:string;role?:string}>;provider_references?:ProviderGenerationReference[];force_live_quote?:boolean;audio_enabled?:boolean;model_variant?:string;pricing_options?:Record<string,string|number|boolean|null|undefined>;
 }
 const DEFAULT_AUDIO_MODELS=new Set(['wan-3-0','wan-3-0-prime','seedance-2-5','seedance-2-0','kling-3-0']);
 function effectiveAudio(input:CreditPricingInput){return input.audio_enabled===undefined?DEFAULT_AUDIO_MODELS.has(input.model_id):Boolean(input.audio_enabled);}
 function isImageMode(mode:GenerationMode){return mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE';}
+function isPerRequestMode(mode:GenerationMode){return ['TEXT_TO_SPEECH','AUDIO_TO_TEXT','MEDIA_TO_TEXT','AUDIO_TO_AUDIO','MEDIA_DUBBING'].includes(mode);}
 function cachedCandidate(row:any){return{provider_id:String(row?.provider_id||'persisted-pricing'),provider_name:String(row?.provider_name||'Snapshot persistido'),provider_cost_usd:Number(row?.provider_cost_usd||0),provider_cost_cents:Number(row?.provider_cost_brl_cents||0),safe_cost_cents:Number(row?.safe_cost_brl_cents||row?.provider_cost_brl_cents||0),fully_loaded_safe_cogs_cents:Number(row?.fully_loaded_safe_cogs_cents||row?.safe_cost_brl_cents||row?.provider_cost_brl_cents||0),billing_policy:'UNKNOWN',quoted_at:String(row?.checked_at||new Date(0).toISOString()),quote_estimated:true,is_healthy:row?.status==='OK'};}
 async function persistedDecision(input:CreditPricingInput,unitSignature:PricingSignature){
  const snapshot=await pricingSyncService.getLatestSnapshot();
@@ -26,11 +28,11 @@ async function persistedDecision(input:CreditPricingInput,unitSignature:PricingS
 }
 export const creditPricingService={
  async preview(input:CreditPricingInput){
-  const audio_enabled=effectiveAudio(input),model_variant=input.model_variant||'default',pricing_options=input.pricing_options||{},image=isImageMode(input.mode),normalizedInput={...input,audio_enabled,model_variant,pricing_options};
+  const audio_enabled=effectiveAudio(input),model_variant=input.model_variant||'default',pricing_options=input.pricing_options||{},image=isImageMode(input.mode),perRequest=isPerRequestMode(input.mode),normalizedInput={...input,audio_enabled,model_variant,pricing_options};
   const signature=pricingSignatureService.create({model_id:input.model_id,mode:input.mode,resolution:input.resolution,duration_seconds:image?1:input.duration_seconds,aspect_ratio:input.aspect_ratio,number_of_outputs:input.number_of_outputs,audio_enabled,reference_mode:pricingReferenceMode(input.references),reference_count:(input.references||[]).length,model_variant,pricing_options});
   const model=image?null:await catalogRepository.getModel(input.model_id);
   const supportedDurations=(model?.supported_durations||[]).map(Number).filter((value)=>Number.isFinite(value)&&value>0);
-  const retailBaseDuration=image?1:(supportedDurations.length?Math.min(...supportedDurations):Math.max(1,Math.round(input.duration_seconds||1)));
+  const retailBaseDuration=image||perRequest?Math.max(1,Math.round(input.duration_seconds||1)):(supportedDurations.length?Math.min(...supportedDurations):Math.max(1,Math.round(input.duration_seconds||1)));
   const unitSignature=pricingSignatureService.create({model_id:input.model_id,mode:input.mode,resolution:input.resolution,duration_seconds:retailBaseDuration,aspect_ratio:input.aspect_ratio,number_of_outputs:1,audio_enabled,reference_mode:pricingReferenceMode(input.references),reference_count:(input.references||[]).length,model_variant,pricing_options});
   const settings=await pricingSettingsService.get(false),useLive=input.force_live_quote===true;
   const unitInput={...normalizedInput,duration_seconds:retailBaseDuration,number_of_outputs:1};
@@ -47,9 +49,9 @@ export const creditPricingService={
   const retailVersion=existingRetail?.active
    ?existingRetail
    :await retailPricingService.resolveOrBootstrap(unitSignature,preliminary.selected.fully_loaded_safe_cogs_cents);
-  const unitCreditPrice=image?retailVersion.retail_credit_price:Math.max(1,Math.ceil(retailVersion.retail_credit_price/retailBaseDuration));
-  const billingUnits=image?Math.max(1,input.number_of_outputs):Math.max(1,input.duration_seconds)*Math.max(1,input.number_of_outputs),totalCreditPrice=unitCreditPrice*billingUnits;
-  const retail={...retailVersion,retail_credit_price:totalCreditPrice,unit_credit_price:unitCreditPrice,pricing_unit:image?'PER_OUTPUT':'PER_SECOND',base_duration_seconds:retailBaseDuration,billing_units:billingUnits};
+  const unitCreditPrice=image||perRequest?retailVersion.retail_credit_price:Math.max(1,Math.ceil(retailVersion.retail_credit_price/retailBaseDuration));
+  const billingUnits=image?Math.max(1,input.number_of_outputs):perRequest?1:Math.max(1,input.duration_seconds)*Math.max(1,input.number_of_outputs),totalCreditPrice=unitCreditPrice*billingUnits;
+  const retail={...retailVersion,retail_credit_price:totalCreditPrice,unit_credit_price:unitCreditPrice,pricing_unit:image?'PER_OUTPUT':perRequest?'PER_REQUEST':'PER_SECOND',base_duration_seconds:retailBaseDuration,billing_units:billingUnits};
   const account=await creditWalletService.getAccount(input.userId),simulation=await creditWalletService.simulateReserve(input.userId,totalCreditPrice),fallbackBacking=totalCreditPrice*settings.conservative_credit_value_micros,backingMicros=simulation.has_sufficient_credits?simulation.authorized_net_backing_micros:fallbackBacking,economics=generationExecutionEconomics(totalCreditPrice,backingMicros),backingCents=economics.cash_backing_cents,maxAllowed=economics.execution_cogs_cap_cents;
   const routed:any=useLive?await smartRouterService.selectProvider({...normalizedInput,max_allowed_cogs_cents:maxAllowed,incurred_cogs_cents:0,force_live_quote:true}):preliminary,realizedPreview=backingCents>0?Math.max(-999,100*(1-Number(routed.selected.fully_loaded_safe_cogs_cents||0)/backingCents)):0;
   return{signature,unit_signature:unitSignature,retail,settings,account,simulation,authorized_net_backing_micros:backingMicros,conservative_net_revenue_cents:backingCents,max_allowed_cogs_cents:maxAllowed,subsidy_gap_cents:economics.subsidy_gap_cents,decision:routed,margin_percent:realizedPreview,health:realizedPreview>=retailVersion.normal_floor_margin_percent?'GREEN':realizedPreview>=retailVersion.emergency_floor_margin_percent?'YELLOW':'RED'};
