@@ -22,6 +22,20 @@ export default function PublicApp(){
  const[authenticated,setAuthenticated]=useState(false);
 
  useEffect(()=>{
+  const applyAction=(action:string)=>{if(action==='login')setView('login');else if(action==='register')setView('register')};
+  const onAction=(event:Event)=>applyAction(String((event as CustomEvent<string>).detail||''));
+  const pending=String((window as any).__IA_PUBLIC_ACTION__||'');
+  if(pending){(window as any).__IA_PUBLIC_ACTION__='';applyAction(pending)}
+  window.addEventListener('ia:public-action',onAction);
+  return()=>window.removeEventListener('ia:public-action',onAction);
+ },[]);
+
+ useEffect(()=>{
+  const shell=document.getElementById('public-shell');
+  if(shell)shell.hidden=authenticated||view!=='landing';
+ },[authenticated,view]);
+
+ useEffect(()=>{
   let cancelled=false,timer:number|undefined;
   const probe=()=>{timer=window.setTimeout(()=>{void import('./services/authSessionProbe.js').then(m=>m.probeAuthenticatedSession()).then((ok)=>{if(!cancelled&&ok)setAuthenticated(true)}).catch(()=>{})},0)};
   if(document.readyState==='complete')probe();
@@ -32,5 +46,5 @@ export default function PublicApp(){
  if(authenticated)return <Suspense fallback={<LoadingCard/>}><AuthenticatedApp onSignedOut={()=>{setAuthenticated(false);setView('landing')}}/></Suspense>;
  if(view==='login')return <Suspense fallback={<LoadingCard/>}><LoginView onSwitchToRegister={()=>setView('register')} onSuccess={()=>setAuthenticated(true)}/></Suspense>;
  if(view==='register')return <Suspense fallback={<LoadingCard/>}><RegisterView onSwitchToLogin={()=>setView('login')} onSuccess={()=>setAuthenticated(true)}/></Suspense>;
- return <PublicLandingView onLogin={()=>setView('login')} onStart={()=>setView('register')}/>;
+ return <PublicLandingView includeShell={false} onLogin={()=>setView('login')} onStart={()=>setView('register')}/>;
 }
