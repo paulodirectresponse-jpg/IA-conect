@@ -15,3 +15,12 @@
 
 /model-covers/*.png
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+/brand/*-v1.png
+  Cache-Control: public, max-age=31536000, immutable
+
+/brand/*-v1.avif
+  Cache-Control: public, max-age=31536000, immutable
+
+/brand/*-v1.webp
+  Cache-Control: public, max-age=31536000, immutable
