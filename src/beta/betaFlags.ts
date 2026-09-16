@@ -12,7 +12,7 @@ export const BETA_FEATURE_FLAGS = [
   { flag_key: 'beta.audio.transcription', name: 'Beta · Transcrição', description: 'Libera transcrição e recursos derivados.', is_enabled: true, is_private: false },
   { flag_key: 'beta.audio.dubbing', name: 'Beta · Dublagem', description: 'Libera pipeline de tradução e dublagem.', is_enabled: true, is_private: false },
   { flag_key: 'beta.three_d', name: 'Beta · 3D', description: 'Libera geração e visualização 3D.', is_enabled: true, is_private: false },
-  { flag_key: 'beta.flows', name: 'Beta · Fluxos', description: 'Libera o editor visual de Fluxos.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.flows', name: 'Beta · Fluxos', description: 'Libera o editor visual de Fluxos.', is_enabled: true, is_private: false },
   { flag_key: 'beta.templates', name: 'Beta · Templates', description: 'Libera galeria e templates de Fluxos.', is_enabled: false, is_private: false },
   { flag_key: 'beta.flow_apps', name: 'Beta · Workflow Apps', description: 'Libera Apps construídos a partir de Fluxos.', is_enabled: false, is_private: false },
   { flag_key: 'beta.batch', name: 'Beta · Batch', description: 'Libera execução em lote e fan-out controlado.', is_enabled: false, is_private: false },
