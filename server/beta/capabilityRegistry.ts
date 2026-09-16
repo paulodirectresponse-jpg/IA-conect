@@ -8,7 +8,7 @@ export const CAPABILITY_IDS = [
 ] as const;
 export type CapabilityId = typeof CAPABILITY_IDS[number];
 export type CapabilityMediaType = 'TEXT'|'IMAGE'|'VIDEO'|'AUDIO'|'MODEL_3D'|'MASK'|'STRUCTURED_DATA';
-export type CapabilityControl = 'aspect_ratio'|'resolution'|'duration'|'seed'|'guidance'|'negative_prompt'|'reference_image'|'first_frame'|'last_frame'|'language'|'voice'|'output_format'|'style'|'instrumental'|'timestamps'|'source_language'|'target_language'|'voice_clone_consent'|'voice_label';
+export type CapabilityControl = 'aspect_ratio'|'resolution'|'duration'|'seed'|'guidance'|'negative_prompt'|'reference_image'|'first_frame'|'last_frame'|'language'|'voice'|'output_format'|'style'|'instrumental'|'timestamps'|'source_language'|'target_language'|'voice_clone_consent'|'voice_label'|'mesh_mode'|'pbr'|'target_faces'|'topology';
 
 export interface CapabilityDefinition {
   id: CapabilityId;
@@ -39,9 +39,9 @@ const defs: CapabilityDefinition[] = [
   {id:'subtitles',inputs:['VIDEO','AUDIO'],outputs:['TEXT','STRUCTURED_DATA'],controls:['language','output_format','timestamps']},
   {id:'authorized-voice-clone',inputs:['AUDIO'],outputs:['STRUCTURED_DATA'],controls:['language','voice_clone_consent','voice_label']},
   {id:'dubbing',inputs:['VIDEO','AUDIO'],outputs:['VIDEO','AUDIO'],controls:['source_language','target_language','output_format']},
-  {id:'text-to-3d',inputs:['TEXT'],outputs:['MODEL_3D'],controls:['output_format']},
-  {id:'image-to-3d',inputs:['IMAGE'],outputs:['MODEL_3D'],controls:['reference_image','output_format']},
-  {id:'multi-image-to-3d',inputs:['IMAGE'],outputs:['MODEL_3D'],controls:['reference_image','output_format']},
+  {id:'text-to-3d',inputs:['TEXT'],outputs:['MODEL_3D'],controls:['output_format','mesh_mode','pbr','target_faces','topology']},
+  {id:'image-to-3d',inputs:['IMAGE'],outputs:['MODEL_3D'],controls:['reference_image','output_format','mesh_mode','pbr','target_faces','topology']},
+  {id:'multi-image-to-3d',inputs:['IMAGE'],outputs:['MODEL_3D'],controls:['reference_image','output_format','mesh_mode','pbr','target_faces','topology']},
   {id:'texture-3d',inputs:['TEXT','MODEL_3D'],outputs:['MODEL_3D'],controls:['output_format']},
 ];
 const byId=new Map<CapabilityId,CapabilityDefinition>(defs.map(def=>[def.id,def]));
@@ -69,7 +69,7 @@ function controlsForModel(model:ModelRegistryItem,id:CapabilityId):CapabilityCon
     if(control==='duration')return (model.supported_durations||[]).length>0;
     if(control==='resolution')return (model.supported_resolutions||[]).length>0;
     if(control==='aspect_ratio')return (model.supported_aspect_ratios||[]).length>0;
-    if(['language','voice','output_format','style','instrumental','timestamps','source_language','target_language','voice_clone_consent','voice_label'].includes(control))return true;
+    if(['language','voice','output_format','style','instrumental','timestamps','source_language','target_language','voice_clone_consent','voice_label','mesh_mode','pbr','target_faces','topology'].includes(control))return true;
     return control!=='guidance';
   });
 }

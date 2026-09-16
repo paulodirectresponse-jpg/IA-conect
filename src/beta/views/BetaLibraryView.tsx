@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Model3DPreview } from '../components/Model3DPreview.js';
 import { Archive, AudioLines, Box, Folder, FolderPlus, Image as ImageIcon, Layers3, LoaderCircle, MoreHorizontal, Play, RefreshCw, Search, Sparkles, Star, Tag, Trash2, Video } from 'lucide-react';
 import { ApiError } from '../../services/apiClient.js';
 import { AssetType } from '../../types/index.js';
@@ -198,6 +199,7 @@ export const BetaLibraryView:React.FC<Props>=({onIntent})=>{
     {selected&&<div className="ia-beta-library-drawer-backdrop" onClick={()=>setSelected(null)}>
       <aside className="ia-beta-library-drawer" onClick={event=>event.stopPropagation()}>
         <div className="ia-beta-library-drawer-head"><div><span>{selected.type.replace('MODEL_3D','3D')}</span><h2>{selected.name}</h2></div><button onClick={()=>setSelected(null)}>×</button></div>
+        {selected.type==='MODEL_3D'&&selected.public_url&&<div className="ia-beta-library-drawer-media"><Model3DPreview url={selected.public_url} label={selected.name} compact/></div>}
         {(selected.type==='AUDIO'||selected.type==='VIDEO')&&selected.preview_url&&<div className="ia-beta-library-drawer-media">
           {selected.type==='AUDIO'?<audio controls preload="metadata" src={selected.preview_url}/>:<video controls preload="metadata" src={selected.preview_url}/>}
         </div>}
