@@ -17,7 +17,9 @@ describe('PR-03 architecture',()=>{
     expect(orchestrator).toContain('generationService.createAndStartGeneration');
     expect(orchestrator).toContain('client_request_id:currentAttempt.execution_key');
     expect(orchestrator).toContain('findByClientRequest(userId,currentAttempt.execution_key)');
-    expect(orchestrator).toContain('billingControlService.assertNewGenerationAllowed');
+    expect(orchestrator).toContain('betaEconomicsService.assertExecutionEnabled');
+    const economics=read('server/beta/catalog/betaEconomicsService.ts');
+    expect(economics).toContain('billingControlService.assertNewGenerationAllowed');
     expect(orchestrator).not.toContain('providerRegistry');
     expect(orchestrator).not.toContain('submitGeneration(');
   });
