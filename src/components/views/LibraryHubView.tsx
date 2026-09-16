@@ -1,8 +1,9 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
-import { Box, FolderKanban, Image as ImageIcon, Layers3, Plus, Search, UserRound } from 'lucide-react';
+import { Box, ChevronDown, FolderKanban, Image as ImageIcon, Layers3, Plus, Search, UserRound } from 'lucide-react';
 import { CreativeEntity, CreativeEntityKind, creativeEntityService } from '../../services/creativeEntityService.js';
 import { assetService } from '../../services/assetService.js';
 import { Asset } from '../../types/index.js';
+import { ResponsiveDialogShell } from '../common/ResponsiveDialogShell.js';
 const EntityLibraryView=lazy(()=>import('./EntityLibraryView.js').then(m=>({default:m.EntityLibraryView})));
 const SingleImageEntityLibraryView=lazy(()=>import('./SingleImageEntityLibraryView.js').then(m=>({default:m.SingleImageEntityLibraryView})));
 const AssetsView=lazy(()=>import('./AssetsView.js').then(m=>({default:m.AssetsView})));
@@ -33,22 +34,27 @@ export const LibraryHubView: React.FC = () => {
   const [selectedProjectId,setSelectedProjectId]=useState<string|null>(null);
   const [newProjectName,setNewProjectName]=useState('');
   const [creating,setCreating]=useState(false);
+  const [mobileProjectOpen,setMobileProjectOpen]=useState(false);
   const refreshProjects=async()=>setProjects(await creativeEntityService.listProjects());
   useEffect(()=>{refreshProjects().catch(()=>setProjects([]));},[]);
   const selectedProject=projects.find(p=>p.entity_id===selectedProjectId)||null;
   const currentLabel=selectedProject?.name||'Biblioteca Global';
 
-  const createProject=async()=>{if(!newProjectName.trim())return;setCreating(true);try{const p=await creativeEntityService.save({kind:'PROJECT',name:newProjectName.trim(),description:'',asset_ids:[]});setProjects(prev=>[p,...prev]);setSelectedProjectId(p.entity_id);setNewProjectName('');}finally{setCreating(false);}};
+  const createProject=async()=>{if(!newProjectName.trim())return;setCreating(true);try{const p=await creativeEntityService.save({kind:'PROJECT',name:newProjectName.trim(),description:'',asset_ids:[]});setProjects(prev=>[p,...prev]);setSelectedProjectId(p.entity_id);setNewProjectName('');setMobileProjectOpen(false);}finally{setCreating(false);}};
 
   return <div className="ia-library-hub ia-creative-library pb-10">
     <header className="ia-library-hero">
       <div className="ia-library-heading"><p className="ia-library-kicker">Biblioteca</p><h1>Organização criativa</h1><p>Arquivos, personagens, produtos e estilos em um só lugar, preservando a mídia original.</p></div>
       <div className="ia-library-tabs inline-flex gap-1 p-1 overflow-x-auto">{tabs.map(({id,label,icon:TabIcon})=><button key={id} onClick={()=>setSection(id)} className={`h-9 px-3 rounded-lg text-[11px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5 ${section===id?'bg-white/[0.08] text-white':'text-zinc-600 hover:text-zinc-200'}`}><TabIcon className="w-3.5 h-3.5"/>{label}</button>)}</div>
     </header>
+    <button type="button" onClick={()=>setMobileProjectOpen(true)} className="ia-library-mobile-project-trigger" aria-haspopup="dialog" aria-expanded={mobileProjectOpen}>
+      <span><small>Projeto</small><strong>{currentLabel}</strong></span>
+      <ChevronDown className="h-4 w-4"/>
+    </button>
     <div className="flex flex-col xl:flex-row gap-5">
       <aside className="ia-library-nav xl:w-[244px] shrink-0 space-y-4">
         <div className="ia-library-global-card"><Layers3 className="w-4 h-4"/><div><strong>Biblioteca Global</strong><span>Arquivos reutilizáveis, organizados sem duplicação.</span></div></div>
-        <div className="ia-library-projects p-2 space-y-1"><button onClick={()=>setSelectedProjectId(null)} className={`w-full h-9 px-3 rounded-xl text-left text-[11px] font-bold flex items-center gap-2 ${selectedProjectId===null?'bg-cyan-300/10 text-cyan-200 ring-1 ring-cyan-300/15':'text-zinc-500 hover:bg-white/[0.04] hover:text-white'}`}><Layers3 className="w-3.5 h-3.5"/> Geral</button><div className="px-2 pt-3 pb-1 text-[10px] font-semibold text-zinc-600">Projetos</div>{projects.map(p=><button key={p.entity_id} onClick={()=>setSelectedProjectId(p.entity_id)} className={`w-full h-9 px-3 rounded-xl text-left text-[11px] font-semibold flex items-center gap-2 truncate ${selectedProjectId===p.entity_id?'bg-white/[0.08] text-white':'text-zinc-600 hover:bg-white/[0.04] hover:text-zinc-200'}`}><FolderKanban className="w-3.5 h-3.5 shrink-0"/><span className="truncate">{p.name}</span></button>)}<div className="pt-2 flex gap-1.5"><input value={newProjectName} onChange={e=>setNewProjectName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')createProject();}} placeholder="Novo projeto" className="min-w-0 flex-1 h-9 px-2.5 rounded-lg border border-white/[0.07] bg-[#0b0e13] text-[11px] text-white outline-none"/><button disabled={!newProjectName.trim()||creating} onClick={createProject} className="w-9 h-9 rounded-lg bg-cyan-300 text-[#071015] grid place-items-center disabled:opacity-30"><Plus className="w-3.5 h-3.5"/></button></div></div>
+        <div className="ia-library-projects p-2 space-y-1"><button onClick={()=>{setSelectedProjectId(null);setMobileProjectOpen(false)}} className={`w-full h-9 px-3 rounded-xl text-left text-[11px] font-bold flex items-center gap-2 ${selectedProjectId===null?'bg-cyan-300/10 text-cyan-200 ring-1 ring-cyan-300/15':'text-zinc-500 hover:bg-white/[0.04] hover:text-white'}`}><Layers3 className="w-3.5 h-3.5"/> Geral</button><div className="px-2 pt-3 pb-1 text-[10px] font-semibold text-zinc-600">Projetos</div>{projects.map(p=><button key={p.entity_id} onClick={()=>{setSelectedProjectId(p.entity_id);setMobileProjectOpen(false)}} className={`w-full h-9 px-3 rounded-xl text-left text-[11px] font-semibold flex items-center gap-2 truncate ${selectedProjectId===p.entity_id?'bg-white/[0.08] text-white':'text-zinc-600 hover:bg-white/[0.04] hover:text-zinc-200'}`}><FolderKanban className="w-3.5 h-3.5 shrink-0"/><span className="truncate">{p.name}</span></button>)}<div className="pt-2 flex gap-1.5"><input value={newProjectName} onChange={e=>setNewProjectName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')createProject();}} placeholder="Novo projeto" className="min-w-0 flex-1 h-9 px-2.5 rounded-lg border border-white/[0.07] bg-[#0b0e13] text-[11px] text-white outline-none"/><button disabled={!newProjectName.trim()||creating} onClick={createProject} className="w-9 h-9 rounded-lg bg-cyan-300 text-[#071015] grid place-items-center disabled:opacity-30"><Plus className="w-3.5 h-3.5"/></button></div></div>
       </aside>
 
       <section className="flex-1 min-w-0">
@@ -61,5 +67,18 @@ export const LibraryHubView: React.FC = () => {
         </Suspense> 
       </section>
     </div>
+
+    <ResponsiveDialogShell open={mobileProjectOpen} onClose={()=>setMobileProjectOpen(false)} ariaLabel="Escolher projeto" mobileMode="sheet" desktopMaxWidth={520} backdropClassName="ia-library-project-sheet-backdrop" className="ia-library-project-sheet">
+      <div className="ia-library-project-sheet-handle" aria-hidden="true"/>
+      <header><div><p>Biblioteca</p><h2>Escolher projeto</h2></div></header>
+      <div className="ia-library-project-sheet-list">
+        <button type="button" onClick={()=>{setSelectedProjectId(null);setMobileProjectOpen(false)}} className={selectedProjectId===null?'is-active':''}><Layers3 className="h-4 w-4"/><span><strong>Biblioteca Global</strong><small>Todos os arquivos reutilizáveis</small></span></button>
+        {projects.map(project=><button type="button" key={project.entity_id} onClick={()=>{setSelectedProjectId(project.entity_id);setMobileProjectOpen(false)}} className={selectedProjectId===project.entity_id?'is-active':''}><FolderKanban className="h-4 w-4"/><span><strong>{project.name}</strong><small>{project.asset_ids?.length||0} arquivo(s)</small></span></button>)}
+      </div>
+      <div className="ia-library-project-sheet-create">
+        <input value={newProjectName} onChange={e=>setNewProjectName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')void createProject()}} placeholder="Nome do novo projeto"/>
+        <button type="button" disabled={!newProjectName.trim()||creating} onClick={()=>void createProject()}><Plus className="h-4 w-4"/><span>{creating?'Criando...':'Criar projeto'}</span></button>
+      </div>
+    </ResponsiveDialogShell>
   </div>;
 };
