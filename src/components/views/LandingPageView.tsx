@@ -48,7 +48,7 @@ export const LandingPageView:React.FC<Props>=({onLogin,onStart})=>{
   <main>
    <section className="px-3 pt-[82px] sm:px-5 sm:pt-[92px]">
     <div className="ia-landing-hero relative mx-auto max-w-7xl overflow-hidden">
-     <ViewportVideo src={heroVideo} eager playWhenVisible={!reduceMotion} muted loop playsInline aria-hidden="true" className="absolute inset-0 h-full w-full object-cover object-center"/>
+     <ViewportVideo src={heroVideo} poster="/enterprise/visuals/planet-hero-wide-v1.webp" eager playWhenVisible={!reduceMotion} muted loop playsInline aria-hidden="true" className="absolute inset-0 h-full w-full object-cover object-center"/>
      <div className="ia-landing-hero-overlay absolute inset-0"/>
      <div className="relative z-10 flex min-h-[590px] items-end sm:min-h-[660px]">
       <div className="w-full px-5 pb-8 pt-24 sm:px-8 sm:pb-10 lg:px-12 lg:pb-12">
