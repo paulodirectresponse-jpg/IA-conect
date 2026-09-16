@@ -243,7 +243,7 @@ assetRouter.patch('/assets/:assetId', requireAuth, async (req: AuthenticatedRequ
   try {
     const uid = req.user!.uid;
     const assetId = req.params.assetId;
-    const { name, alias, category, status, public_url } = req.body;
+    const { name, alias, category, status, public_url, media_metadata } = req.body;
 
     const updated = await assetRepository.updateAsset(assetId, uid, {
       name,
@@ -251,6 +251,7 @@ assetRouter.patch('/assets/:assetId', requireAuth, async (req: AuthenticatedRequ
       category,
       status,
       public_url,
+      media_metadata:media_metadata&&typeof media_metadata==='object'?media_metadata:undefined,
     });
 
     res.json({ success: true, data: updated });
