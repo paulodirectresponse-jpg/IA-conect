@@ -65,4 +65,16 @@ describe('stage 8 final QA gates',()=>{
     expect(video).toContain("preload={nearViewport?'metadata':'none'}");
     expect(html).toContain('rel="preconnect" href="https://hzjyhhenajbjxkwkmzdg.supabase.co"');
   });
+
+  it('keeps the public LCP path on right-sized local assets',()=>{
+    const html=read('index.html');
+    const landing=read('src/components/views/LandingPageView.tsx');
+    const app=read('src/App.tsx');
+    const brand=read('src/components/common/BrandMark.tsx');
+    expect(html).toContain('/brand/ia-connect-app-icon-64-v1.png');
+    expect(html).toContain('/enterprise/visuals/planet-hero-wide-v1.webp');
+    expect(landing).toContain('poster="/enterprise/visuals/planet-hero-wide-v1.webp"');
+    expect(app).toContain("const landingPageModule=import('./components/views/LandingPageView.js')");
+    expect(brand).toContain('/brand/ia-connect-logo-oficial-v1.webp');
+  });
 });
