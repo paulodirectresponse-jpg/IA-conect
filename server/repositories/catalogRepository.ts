@@ -104,6 +104,20 @@ async function save<T extends Record<string,any>>(collectionId:string,id:string,
   return next as T;
 }
 
+const BETA_ONLY_MODEL_IDS=new Set(['three-d-v1','audio-tts-v1','audio-sfx-v1','audio-music-v1','audio-transcription-v1','audio-subtitles-v1','audio-voice-clone-v1','audio-dubbing-v1','image-editor-v1','video-studio-v1']);
+async function applyBetaOnlyModelIsolation(rows:ModelRegistryItem[]):Promise<ModelRegistryItem[]>{
+  const markerPath='app_config/beta_only_models_v1';
+  const marker=await firestoreAdminRest.get(markerPath).catch(()=>({exists:true,data:{}} as any));
+  const next=rows.map(row=>BETA_ONLY_MODEL_IDS.has(row.model_id)?{...row,beta_only:true}:row);
+  if(marker.exists)return next;
+  const timestamp=now();
+  try{await firestoreAdminRest.commit([
+    ...next.filter(row=>BETA_ONLY_MODEL_IDS.has(row.model_id)).map(row=>({update:{name:firestoreAdminRest.docName('models/'+safe(row.model_id)),fields:firestoreAdminRest.fields({...row,beta_only:true,updated_at:timestamp})}})),
+    {update:{name:firestoreAdminRest.docName(markerPath),fields:firestoreAdminRest.fields({release:'PR-11_BETA_MODEL_ISOLATION',released_at:timestamp})},currentDocument:{exists:false}},
+  ]);}catch{}
+  return next;
+}
+
 const AUDIO_V1_FLAG_KEYS=new Set(['beta.audio','beta.audio.voice_clone','beta.audio.music','beta.audio.sfx','beta.audio.transcription','beta.audio.dubbing']);
 const VIDEO_V1_FLAG_KEYS=new Set(['beta.video','beta.video_editor']);
 async function applyVideoV1ReleaseFlags(rows:FeatureFlag[]):Promise<FeatureFlag[]>{
@@ -172,7 +186,7 @@ async function applyAudioV1ReleaseFlags(rows:FeatureFlag[]):Promise<FeatureFlag[
 
 export const catalogRepository={
   async listModels(){
-    const rows=await cachedRows<ModelRegistryItem>('models',()=>ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG));
+    const rows=await cachedRows<ModelRegistryItem>('models',async()=>applyBetaOnlyModelIsolation(await ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG)));
     const seedOrder=new Map(MODEL_CATALOG.map((model,index)=>[model.model_id,index]));
     return rows.filter((row)=>row.status!=='INACTIVE').sort((a,b)=>{
       const ai=seedOrder.get(a.model_id)??Number.MAX_SAFE_INTEGER;
