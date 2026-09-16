@@ -89,8 +89,11 @@ export const betaLibraryService={
 
   async updateAssetOrganization(userId:string,assetId:string,patch:any){
     const asset=await ownedAsset(userId,assetId);
-    const collectionIds=patch.collection_ids===undefined?undefined:await validateOrganization(userId,{project_id:patch.project_id,collection_ids:Array.isArray(patch.collection_ids)?patch.collection_ids.map(String):[]});
-    if(patch.project_id!==undefined)await validateOrganization(userId,{project_id:patch.project_id?String(patch.project_id):null});
+    const current=await betaLibraryRepository.getItem(userId,assetId);
+    const effectiveProject=patch.project_id===undefined?(current?.project_id||null):(patch.project_id?String(patch.project_id):null);
+    const requestedCollections=patch.collection_ids===undefined?undefined:(Array.isArray(patch.collection_ids)?patch.collection_ids.map(String):[]);
+    const collectionIds=requestedCollections===undefined?undefined:await validateOrganization(userId,{project_id:effectiveProject,collection_ids:requestedCollections});
+    if(patch.project_id!==undefined)await validateOrganization(userId,{project_id:effectiveProject});
     const meta=await betaLibraryRepository.upsertItem(userId,assetId,{
       project_id:patch.project_id===undefined?undefined:(patch.project_id?String(patch.project_id):null),
       collection_ids:collectionIds,
