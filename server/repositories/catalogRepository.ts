@@ -105,6 +105,21 @@ async function save<T extends Record<string,any>>(collectionId:string,id:string,
 }
 
 const AUDIO_V1_FLAG_KEYS=new Set(['beta.audio','beta.audio.voice_clone','beta.audio.music','beta.audio.sfx','beta.audio.transcription','beta.audio.dubbing']);
+const VIDEO_V1_FLAG_KEYS=new Set(['beta.video','beta.video_editor']);
+async function applyVideoV1ReleaseFlags(rows:FeatureFlag[]):Promise<FeatureFlag[]>{
+  const markerPath='app_config/beta_video_v1_release';
+  const marker=await firestoreAdminRest.get(markerPath).catch(()=>({exists:true,data:{}} as any));
+  if(marker.exists)return rows;
+  const timestamp=now(),byKey=new Map(rows.map(row=>[row.flag_key,row]));
+  const released=FEATURE_FLAG_SEED.filter(flag=>VIDEO_V1_FLAG_KEYS.has(flag.flag_key)).map(flag=>({...flag,is_enabled:true,updated_at:timestamp}));
+  try{await firestoreAdminRest.commit([
+    ...released.map(flag=>({update:{name:firestoreAdminRest.docName('feature_flags/'+safe(flag.flag_key)),fields:firestoreAdminRest.fields(flag)}})),
+    {update:{name:firestoreAdminRest.docName(markerPath),fields:firestoreAdminRest.fields({release:'PR-11_VIDEO_V1',released_at:timestamp})},currentDocument:{exists:false}},
+  ]);}catch{return listCollection<FeatureFlag>('feature_flags');}
+  for(const flag of released)byKey.set(flag.flag_key,flag);
+  return Array.from(byKey.values());
+}
+
 async function applyImageEditorReleaseFlag(rows:FeatureFlag[]):Promise<FeatureFlag[]>{
   const markerPath='app_config/beta_image_editor_v1_release';
   const marker=await firestoreAdminRest.get(markerPath).catch(()=>({exists:true,data:{}} as any));
@@ -212,7 +227,7 @@ export const catalogRepository={
 
   async listFeatureFlags(){
     const rows=await ensureSeed<FeatureFlag>('feature_flags','flag_key',FEATURE_FLAG_SEED);
-    return applyImageEditorReleaseFlag(await applyThreeDV1ReleaseFlag(await applyAudioV1ReleaseFlags(rows)));
+    return applyVideoV1ReleaseFlags(await applyImageEditorReleaseFlag(await applyThreeDV1ReleaseFlag(await applyAudioV1ReleaseFlags(rows))));
   },
   async getFeatureFlag(id:string){
     await this.listFeatureFlags();
