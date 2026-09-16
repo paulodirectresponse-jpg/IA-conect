@@ -35,6 +35,10 @@ export interface BetaJobRequest {
     target_language?:string;
     voice_clone_consent?:boolean;
     voice_label?:string;
+    mesh_mode?:'TEXTURED'|'LOW_POLY'|'GEOMETRY';
+    pbr?:boolean;
+    target_faces?:number;
+    topology?:'TRIANGLE'|'QUAD';
   };
 }
 
