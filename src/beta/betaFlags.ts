@@ -1,0 +1,18 @@
+export const BETA_FEATURE_FLAGS = [
+  { flag_key: 'beta.enabled', name: 'IA Conect Beta', description: 'Libera a entrada para a experiência Beta isolada.', is_enabled: true, is_private: false },
+  { flag_key: 'beta.image_editor', name: 'Beta · Editor de imagem', description: 'Libera o editor generativo de imagem do Beta.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.video_editor', name: 'Beta · Editor de vídeo', description: 'Libera edição e extensão generativa de vídeo.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.audio', name: 'Beta · Áudio', description: 'Libera o módulo multimodal de áudio.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.audio.voice_clone', name: 'Beta · Clonagem de voz', description: 'Libera clonagem de voz autorizada.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.audio.music', name: 'Beta · Música', description: 'Libera geração de música.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.audio.sfx', name: 'Beta · Efeitos sonoros', description: 'Libera geração de efeitos sonoros.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.audio.transcription', name: 'Beta · Transcrição', description: 'Libera transcrição e recursos derivados.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.audio.dubbing', name: 'Beta · Dublagem', description: 'Libera pipeline de tradução e dublagem.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.three_d', name: 'Beta · 3D', description: 'Libera geração e visualização 3D.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.flows', name: 'Beta · Fluxos', description: 'Libera o editor visual de Fluxos.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.templates', name: 'Beta · Templates', description: 'Libera galeria e templates de Fluxos.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.flow_apps', name: 'Beta · Workflow Apps', description: 'Libera Apps construídos a partir de Fluxos.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.batch', name: 'Beta · Batch', description: 'Libera execução em lote e fan-out controlado.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.brand_kit', name: 'Beta · Brand Kit', description: 'Libera contexto de marca reutilizável.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.sharing', name: 'Beta · Compartilhamento', description: 'Libera compartilhamento controlado de recursos Beta.', is_enabled: false, is_private: false },
+] as const;
