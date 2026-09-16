@@ -33,17 +33,15 @@ betaCapabilityRouter.get('/beta/capabilities',requireAuth,async(_req:Authenticat
       const supporting=supportingModels.flatMap(model=>model.capabilities.filter((capability:any)=>capability.id===id));
       if(!supporting.length)return null;
       const common=supporting[0].controls.filter((control:string)=>supporting.every((capability:any)=>capability.controls.includes(control)));
-      return{id,inputs:def.inputs,outputs:def.outputs,controls:common};
+      const durations=intersection<number>(supporting.map((capability:any)=>capability.supported_durations||[]));
+      const resolutions=intersection<string>(supporting.map((capability:any)=>capability.supported_resolutions||[]));
+      const aspectRatios=intersection<string>(supporting.map((capability:any)=>capability.supported_aspect_ratios||[]));
+      const safeControls=common.filter((control:string)=>control!=='duration'||durations.length).filter((control:string)=>control!=='resolution'||resolutions.length).filter((control:string)=>control!=='aspect_ratio'||aspectRatios.length);
+      return{id,inputs:def.inputs,outputs:def.outputs,controls:safeControls,supported_durations:durations,supported_resolutions:resolutions,supported_aspect_ratios:aspectRatios};
     }).filter(Boolean);
 
     if(autoCapabilities.length){
-      const autoModels=governed.filter(model=>autoPolicyIds.has(model.model_id));
-      governed.unshift({
-        model_id:'AUTO',name:'AUTO',category:'AUTO',capabilities:autoCapabilities,pricing_policy_id:null,
-        supported_durations:intersection(autoModels.map(model=>model.supported_durations||[])),
-        supported_resolutions:intersection(autoModels.map(model=>model.supported_resolutions||[])),
-        supported_aspect_ratios:intersection(autoModels.map(model=>model.supported_aspect_ratios||[])),
-      });
+      governed.unshift({model_id:'AUTO',name:'AUTO',category:'AUTO',capabilities:autoCapabilities,pricing_policy_id:null});
     }
     return res.json({success:true,data:{models:governed}});
   }catch{
