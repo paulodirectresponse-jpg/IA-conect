@@ -45,7 +45,7 @@ async function registerGeneratedAssets(generation:Generation,urls:string[]){
     storage_path:storagePath,public_url:publicUrl,thumbnail_url:previewUrl,preview_url:previewUrl,
     preview_mime_type:mediaType==='IMAGE'?(archived?.mime_type||fallbackMime):null,
     mime_type:archived?.mime_type||fallbackMime,size_bytes:archived?.size_bytes||0,status:'READY',
-    origin:'GENERATED',source_generation_id:generation.generation_id,source_job_id:generation.source_job_id||null,
+    origin:generation.derived_from_asset_id?'DERIVED':'GENERATED',source_generation_id:generation.generation_id,source_job_id:generation.source_job_id||null,
     derived_from_asset_id:generation.derived_from_asset_id||null,source_output_index:i,
     source_model_id:generation.model_id,source_provider_id:generation.provider_id,
     media_metadata:{archived:Boolean(archived),output_index:i},
