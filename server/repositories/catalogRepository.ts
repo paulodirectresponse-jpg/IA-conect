@@ -101,6 +101,27 @@ async function save<T extends Record<string,any>>(collectionId:string,id:string,
   return next as T;
 }
 
+const AUDIO_V1_FLAG_KEYS=new Set(['beta.audio','beta.audio.voice_clone','beta.audio.music','beta.audio.sfx','beta.audio.transcription','beta.audio.dubbing']);
+async function applyAudioV1ReleaseFlags(rows:FeatureFlag[]):Promise<FeatureFlag[]>{
+  const markerPath='app_config/beta_audio_v1_release';
+  const marker=await firestoreAdminRest.get(markerPath).catch(()=>({exists:true,data:{}} as any));
+  if(marker.exists)return rows;
+  const timestamp=now();
+  const byKey=new Map(rows.map(row=>[row.flag_key,row]));
+  const released=FEATURE_FLAG_SEED.filter(flag=>AUDIO_V1_FLAG_KEYS.has(flag.flag_key)).map(flag=>({...flag,is_enabled:true,updated_at:timestamp}));
+  const writes:any[]=[
+    ...released.map(flag=>({update:{name:firestoreAdminRest.docName(`feature_flags/${safe(flag.flag_key)}`),fields:firestoreAdminRest.fields(flag)}})),
+    {update:{name:firestoreAdminRest.docName(markerPath),fields:firestoreAdminRest.fields({release:'PR-08_AUDIO_V1',released_at:timestamp})},currentDocument:{exists:false}},
+  ];
+  try{await firestoreAdminRest.commit(writes);}
+  catch{
+    const reread=await listCollection<FeatureFlag>('feature_flags');
+    return reread;
+  }
+  for(const flag of released)byKey.set(flag.flag_key,flag);
+  return Array.from(byKey.values());
+}
+
 export const catalogRepository={
   async listModels(){
     const rows=await cachedRows<ModelRegistryItem>('models',()=>ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG));
@@ -157,7 +178,8 @@ export const catalogRepository={
   },
 
   async listFeatureFlags(){
-    return ensureSeed<FeatureFlag>('feature_flags','flag_key',FEATURE_FLAG_SEED);
+    const rows=await ensureSeed<FeatureFlag>('feature_flags','flag_key',FEATURE_FLAG_SEED);
+    return applyAudioV1ReleaseFlags(rows);
   },
   async getFeatureFlag(id:string){
     await ensureSeed<FeatureFlag>('feature_flags','flag_key',FEATURE_FLAG_SEED);
