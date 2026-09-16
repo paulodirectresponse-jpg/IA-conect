@@ -100,17 +100,20 @@ communityRouter.post('/community/:generationId/recreate',async(req:Authenticated
     const sourceId=req.params.generationId,userId=req.user!.uid;
     const source=await generationRepository.getGeneration(sourceId);
     if(!source||source.status!=='SUCCEEDED'||!source.result_url)return res.status(404).json({success:false,error:{code:'NOT_FOUND',message:'Criação não encontrada.'}});
-    const clonedRefs:any[]=[];
-    for(const ref of source.references||[]){
-      const srcDoc=await firestoreAdminRest.get(`assets/${safeId(ref.asset_id)}`);
-      if(!srcDoc.exists)continue;
+    const sourceRefs=Array.isArray(source.references)?source.references:[],paths=sourceRefs.filter((ref:any)=>ref?.asset_id).map((ref:any)=>`assets/${safeId(ref.asset_id)}`);
+    const sourceDocs=await firestoreAdminRest.batchGet(paths),clonedRefs:any[]=[],writes:any[]=[],cloneNow=new Date().toISOString();
+    for(const ref of sourceRefs){
+      if(!ref?.asset_id)continue;
+      const srcDoc=sourceDocs.get(`assets/${safeId(ref.asset_id)}`);
+      if(!srcDoc?.exists)continue;
       const a=srcDoc.data as any;if(a?.deleted_at||!a?.public_url)continue;
       const suffix=Math.random().toString(36).slice(2,8),assetId=`ast_community_${Date.now()}_${suffix}`;
       const name=`Referência da comunidade - ${a.name||'asset'}`;
-      const cloned={...a,asset_id:assetId,owner_user_id:userId,category:'GENERIC',name,alias:`${aliasFrom(name)}_${suffix}`,storage_path:a.storage_path||`community://${a.asset_id}`,origin:'UPLOAD',source_generation_id:null,source_model_id:null,source_provider_id:null,created_at:new Date().toISOString(),updated_at:new Date().toISOString(),deleted_at:null};
-      await firestoreAdminRest.set(`assets/${safeId(assetId)}`,cloned);
+      const cloned={...a,asset_id:assetId,owner_user_id:userId,category:'GENERIC',name,alias:`${aliasFrom(name)}_${suffix}`,storage_path:a.storage_path||`community://${a.asset_id}`,origin:'UPLOAD',source_generation_id:null,source_model_id:null,source_provider_id:null,created_at:cloneNow,updated_at:cloneNow,deleted_at:null};
+      writes.push({update:{name:firestoreAdminRest.docName(`assets/${safeId(assetId)}`),fields:firestoreAdminRest.fields(cloned)},currentDocument:{exists:false}});
       clonedRefs.push({asset_id:assetId,slot_type:ref.slot_type||'GENERAL',alias:ref.alias||cloned.alias});
     }
+    if(writes.length)await firestoreAdminRest.commit(writes);
     const now=new Date().toISOString();
     const clonedId=`gen_community_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     const clonedGeneration={...source,generation_id:clonedId,user_id:userId,references:clonedRefs,created_at:now,updated_at:now,completed_at:now,community_recreate_source_id:sourceId,provider_job_id:null,idempotency_key:`community_recreate_${clonedId}`} as any;
