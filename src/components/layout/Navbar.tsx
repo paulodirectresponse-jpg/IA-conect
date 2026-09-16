@@ -19,6 +19,7 @@ import { BrandMark } from '../common/BrandMark.js';
 
 interface NavbarProps {
   currentView: string;
+  sidebarOpen: boolean;
   onToggleSidebar: () => void;
   onNavigate: (view: string) => void;
 }
@@ -38,6 +39,7 @@ const viewMeta: Record<string, { title: string; eyebrow: string }> = {
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentView,
+  sidebarOpen,
   onToggleSidebar,
   onNavigate,
 }) => {
@@ -73,12 +75,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="ia-shell-navbar sticky top-0 z-30 flex h-[68px] items-center border-b px-3 sm:px-5 lg:px-6">
-      <div className="flex min-w-0 items-center gap-3">
-        <button onClick={onToggleSidebar} className="ia-shell-icon-button lg:hidden" aria-label="Abrir menu">
+      <div className="ia-shell-navbar-primary flex min-w-0 items-center gap-3">
+        <button onClick={onToggleSidebar} className="ia-shell-icon-button lg:hidden" aria-label={sidebarOpen?'Fechar menu':'Abrir menu'} aria-controls="ia-mobile-sidebar" aria-expanded={sidebarOpen}>
           <Menu className="h-5 w-5" />
         </button>
 
-        <button onClick={() => onNavigate('dashboard')} className="lg:hidden">
+        <button onClick={() => onNavigate('dashboard')} className="ia-shell-mobile-brand min-w-0 lg:hidden" aria-label="Ir para o início">
           <BrandMark compact />
         </button>
 
@@ -88,14 +90,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+      <div className="ia-shell-navbar-actions ml-auto flex items-center gap-1.5 sm:gap-2">
         <div className="relative">
           <button
             onClick={() => {
               setThemeNotice(true);
               window.setTimeout(() => setThemeNotice(false), 2400);
             }}
-            className="ia-shell-icon-button"
+            className="ia-shell-icon-button ia-shell-theme-button"
             title="Modo claro — em breve"
             aria-label="Modo claro ainda não disponível"
           >
@@ -111,7 +113,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button onClick={() => navigate('wallet')} className="ia-shell-wallet">
           <WalletIcon className="h-3.5 w-3.5" />
           <span className="hidden text-[9px] font-medium text-[var(--ia-text-4)] sm:inline">Saldo</span>
-          <span className="text-[11px] font-semibold tabular-nums text-[var(--ia-text-1)]">{formatCredits(balance)}</span>
+          <span className="ia-shell-wallet-value text-[11px] font-semibold tabular-nums text-[var(--ia-text-1)]">{formatCredits(balance)}</span>
         </button>
 
         <div className="relative hidden sm:block" ref={createRef}>
@@ -145,7 +147,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
-        <div className="relative" ref={accountRef}>
+        <div className="ia-shell-account relative" ref={accountRef}>
           <button
             onClick={() => setAccountOpen((value) => !value)}
             className={`ia-shell-account-trigger ${accountOpen ? 'is-open' : ''}`}
@@ -154,7 +156,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="grid h-7 w-7 place-items-center rounded-full border border-[var(--ia-line-strong)] bg-[var(--ia-surface-2)] text-[10px] font-bold text-[var(--ia-text-1)]">
               {initial}
             </div>
-            <ChevronDown className={`h-3.5 w-3.5 text-[var(--ia-text-4)] transition-transform ${accountOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`ia-shell-account-chevron h-3.5 w-3.5 text-[var(--ia-text-4)] transition-transform ${accountOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {accountOpen && (

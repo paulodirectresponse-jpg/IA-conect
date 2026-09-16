@@ -59,15 +59,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpe
         />
       )}
 
-      <aside className={`ia-shell-sidebar fixed inset-y-0 left-0 z-50 flex w-[236px] flex-col border-r lg:static lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex h-[68px] items-center justify-between px-4.5">
+      <aside id="ia-mobile-sidebar" aria-label="Navegação principal" className={`ia-shell-sidebar fixed inset-y-0 left-0 z-50 flex w-[236px] flex-col border-r lg:static lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="ia-shell-sidebar-header flex h-[68px] items-center justify-between px-4.5">
           <BrandMark />
           <button onClick={onClose} className="ia-shell-icon-button lg:hidden" aria-label="Fechar menu">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 pb-4 pt-4">
+        <div className="ia-shell-sidebar-scroll flex-1 overflow-y-auto px-3 pb-4 pt-4">
           <nav className="space-y-1">{primary.map(item)}</nav>
 
           <div className="mb-2 mt-6 px-3">
