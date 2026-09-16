@@ -36,7 +36,7 @@ const VOICES:Record<string,string>={
 };
 function isAudioMode(mode:GenerationMode){return AUDIO_MODES.has(mode);}
 function option(params:ProviderGenerationParams,key:string,fallback?:any){const value=params.pricing_options?.[key];return value===undefined?fallback:value;}
-function logicalVoice(value:any){const key=String(value||'calm-female');return VOICES[key]||key;}
+function logicalVoice(value:any){const key=String(value||'calm-female');if(key.startsWith('voice_'))return VOICES['calm-female'];return VOICES[key]||VOICES['calm-female'];}
 function firstRef(params:ProviderGenerationParams,type:'AUDIO'|'VIDEO'){return params.references.find(ref=>ref.type===type);}
 function cloneVoiceId(params:ProviderGenerationParams){const explicit=String(params.provider_runtime_options?.provider_voice_id||'').trim();if(explicit)return explicit;return `ia_${String(params.generation_id).replace(/[^a-zA-Z0-9]/g,'').slice(-28)||'voiceclone'}`;}
 
