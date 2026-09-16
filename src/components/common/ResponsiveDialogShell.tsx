@@ -8,6 +8,7 @@ interface ResponsiveDialogShellProps{
   ariaLabel?:string;
   ariaLabelledBy?:string;
   className?:string;
+  backdropClassName?:string;
   mobileMode?:'sheet'|'fullscreen';
   desktopMaxWidth?:number;
   closeOnBackdrop?:boolean;
@@ -20,6 +21,7 @@ export const ResponsiveDialogShell:React.FC<ResponsiveDialogShellProps>=({
   ariaLabel,
   ariaLabelledBy,
   className='',
+  backdropClassName='',
   mobileMode='sheet',
   desktopMaxWidth=760,
   closeOnBackdrop=true,
@@ -49,7 +51,7 @@ export const ResponsiveDialogShell:React.FC<ResponsiveDialogShellProps>=({
 
   return createPortal(
     <div
-      className="ia-responsive-dialog-backdrop"
+      className={`ia-responsive-dialog-backdrop ${backdropClassName}`}
       onMouseDown={(event)=>{if(closeOnBackdrop&&event.target===event.currentTarget)onClose();}}
     >
       <div
