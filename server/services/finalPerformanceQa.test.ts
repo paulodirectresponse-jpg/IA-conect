@@ -62,7 +62,8 @@ describe('stage 8 final QA gates',()=>{
     const html=read('index.html');
     expect(video).toContain('IntersectionObserver');
     expect(video).toContain("document.addEventListener('visibilitychange',sync)");
-    expect(video).toContain("preload={nearViewport?'metadata':'none'}");
+    expect(video).toContain("preload={nearViewport&&loadReady?'metadata':'none'}");
+    expect(video).toContain('deferUntilWindowLoad');
     expect(html).toContain('rel="preconnect" href="https://hzjyhhenajbjxkwkmzdg.supabase.co"');
   });
 
@@ -73,7 +74,9 @@ describe('stage 8 final QA gates',()=>{
     const brand=read('src/components/common/BrandMark.tsx');
     expect(html).toContain('/brand/ia-connect-app-icon-64-v1.png');
     expect(html).toContain('/enterprise/visuals/planet-hero-wide-v1.webp');
-    expect(landing).toContain('poster="/enterprise/visuals/planet-hero-wide-v1.webp"');
+    expect(landing).toContain('src="/enterprise/visuals/planet-hero-wide-v1.webp"');
+    expect(landing).toContain('deferUntilWindowLoad');
+    expect(landing).toContain('<ViewportImage src={media(item.key)}');
     expect(app).toContain("const landingPageModule=import('./components/views/LandingPageView.js')");
     expect(brand).toContain('/brand/ia-connect-logo-oficial-v1.webp');
   });
