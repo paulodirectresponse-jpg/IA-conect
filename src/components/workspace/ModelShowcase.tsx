@@ -1,6 +1,6 @@
-import React,{useEffect,useRef,useState}from 'react';
-import { useReducedMotion } from 'motion/react';
+import React,{useState}from 'react';
 import { ArrowRight } from 'lucide-react';
+import{ViewportVideo}from'../common/ViewportVideo.js';
 
 const SHOWCASE_STORAGE_BASE='https://hzjyhhenajbjxkwkmzdg.supabase.co/storage/v1/object/public/ia-conect-assets/showcase';
 export const showcaseVideo=(fileName:string)=>`${SHOWCASE_STORAGE_BASE}/${encodeURIComponent(fileName)}`;
@@ -25,10 +25,9 @@ export const SHOWCASE_MODELS:ShowcaseItem[]=[
 ];
 
 const AutoLoopPreview:React.FC<{item:ShowcaseItem}>=({item})=>{
- const ref=useRef<HTMLVideoElement|null>(null),[failed,setFailed]=useState(false),reduceMotion=useReducedMotion();
- useEffect(()=>{const video=ref.current;if(!video)return;video.muted=true;video.defaultMuted=true;if(reduceMotion){video.pause();return}const tryPlay=()=>void video.play().catch(()=>{});tryPlay();video.addEventListener('canplay',tryPlay);return()=>video.removeEventListener('canplay',tryPlay)},[item.videoSrc,reduceMotion]);
+ const[failed,setFailed]=useState(false);
  if(failed)return <div className="absolute inset-0 grid place-items-center bg-[var(--ia-surface-media)] px-4 text-center"><p className="text-[11px] font-medium text-[var(--ia-text-4)]">Prévia temporariamente indisponível</p></div>;
- return <video ref={ref} className="absolute inset-0 w-full h-full object-cover" src={item.videoSrc} autoPlay={!reduceMotion} muted loop={!reduceMotion} playsInline preload="metadata" disablePictureInPicture onError={()=>setFailed(true)}/>;
+ return <ViewportVideo className="absolute inset-0 w-full h-full object-cover" src={item.videoSrc} muted loop playsInline disablePictureInPicture onError={()=>setFailed(true)}/>;
 };
 
 export const ModelShowcase:React.FC<{compact?:boolean;onTry?:(item:ShowcaseItem)=>void;title?:string;subtitle?:string}> = ({compact=false,onTry,title='Modelos em destaque',subtitle='Veja os resultados em movimento e entre direto no modelo certo.'}) => <section className={`ia-model-showcase ${compact?'is-compact':''}`}>
