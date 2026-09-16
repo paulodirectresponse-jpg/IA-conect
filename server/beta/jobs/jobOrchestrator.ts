@@ -307,7 +307,7 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
       completed_at:mapped==='SUCCEEDED'?timestamp:latest.job.completed_at,
       failed_at:mapped==='FAILED'?timestamp:latest.job.failed_at,
       cancelled_at:mapped==='CANCELLED'?timestamp:latest.job.cancelled_at,
-      error_code:(generation as any).error_code||null,error_message:(generation as any).error_message||null} as BetaJob;
+      error_code:(generation as any).error_code||null,error_message:(generation as any).error_message||null,result_asset_ids:(generation as any).result_asset_ids||[],result_text:(generation as any).result_text||null,result_structured:(generation as any).result_structured||null} as BetaJob;
     if(latest.job.status!==mapped)assertJobTransition(latest.job.status,mapped);
     await betaJobRepository.saveConditional(next,latest.updateTime);
     const attemptStatus=mapped==='SUCCEEDED'?'SUCCEEDED':mapped==='FAILED'?'FAILED':mapped==='CANCELLED'?'CANCELLED':'RUNNING';
@@ -326,7 +326,7 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
           completed_at:mapped==='SUCCEEDED'?timestamp:latest.job.completed_at,
           failed_at:mapped==='FAILED'?timestamp:latest.job.failed_at,
           cancelled_at:mapped==='CANCELLED'?timestamp:latest.job.cancelled_at,
-          error_code:(recovered as any)?.error_code||null,error_message:(recovered as any)?.error_message||null} as BetaJob;
+          error_code:(recovered as any)?.error_code||null,error_message:(recovered as any)?.error_message||null,result_asset_ids:(recovered as any)?.result_asset_ids||[],result_text:(recovered as any)?.result_text||null,result_structured:(recovered as any)?.result_structured||null} as BetaJob;
         if(latest.job.status!==mapped)assertJobTransition(latest.job.status,mapped);
         try{
           await betaJobRepository.saveConditional(next,latest.updateTime);
@@ -379,7 +379,7 @@ async function reconcileJob(job:BetaJob,userId:string){
     completed_at:mapped==='SUCCEEDED'?timestamp:versioned.job.completed_at,
     failed_at:mapped==='FAILED'?timestamp:versioned.job.failed_at,
     cancelled_at:mapped==='CANCELLED'?timestamp:versioned.job.cancelled_at,
-    error_code:(generation as any).error_code||null,error_message:(generation as any).error_message||null} as BetaJob;
+    error_code:(generation as any).error_code||null,error_message:(generation as any).error_message||null,result_asset_ids:(generation as any).result_asset_ids||[],result_text:(generation as any).result_text||null,result_structured:(generation as any).result_structured||null} as BetaJob;
   await betaJobRepository.saveConditional(next,versioned.updateTime);
   const attempts=await betaJobRepository.listAttempts(job.job_id,userId);
   const attempt=attempts.find(item=>item.attempt_id===next.current_attempt_id);
