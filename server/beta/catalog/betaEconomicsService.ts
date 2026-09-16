@@ -83,6 +83,18 @@ export const betaEconomicsService={
     }
   },
 
+  async assertQuotedModelEligible(quote:{selected_model_id:string;routing_mode:'MANUAL'|'AUTO';pricing_policy_id:string},capabilityId:string){
+    if(quote.routing_mode==='AUTO'){
+      const autoFlag=await catalogRepository.getFeatureFlag('beta.auto_router.enabled');
+      if(!autoFlag?.is_enabled)throw Object.assign(new Error('AUTO router temporariamente indisponível.'),{code:'AUTO_ROUTER_DISABLED'});
+    }
+    const resolved=await betaCatalogPolicyService.resolveModel(quote.selected_model_id,capabilityId,quote.routing_mode==='AUTO');
+    if(resolved.modelPolicy.pricing_policy_id!==quote.pricing_policy_id){
+      throw Object.assign(new Error('A política do modelo mudou. Faça uma nova cotação.'),{code:'QUOTE_POLICY_CHANGED'});
+    }
+    return resolved;
+  },
+
   async recordLedgerEvent(input:Omit<BetaEconomicLedgerEvent,'event_id'|'created_at'> & {event_id?:string}){
     const event:BetaEconomicLedgerEvent={
       ...input,
