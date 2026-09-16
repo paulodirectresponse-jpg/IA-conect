@@ -33,7 +33,12 @@ export interface BetaJobQuote {
   retail_pricing_id:string;
   retail_pricing_version:number;
   pricing_signature_hash:string;
+  requested_model_id:string;
+  selected_model_id:string;
+  routing_mode:'MANUAL'|'AUTO';
+  pricing_policy_id:string;
   quoted_at:string;
+  expires_at:string;
 }
 
 export interface BetaJob {

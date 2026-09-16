@@ -54,6 +54,16 @@ const RULES:Record<string,Rule>={
   PROJECT_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'NONE',message:'Projeto não encontrado.'},
   COLLECTION_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'NONE',message:'Coleção não encontrada.'},
   COLLECTION_PROJECT_MISMATCH:{status:409,category:'CONFLICT',retryable:false,action:'CHANGE_INPUT',message:'A coleção selecionada pertence a outro projeto.'},
+  QUOTE_EXPIRED:{status:409,category:'BILLING',retryable:false,action:'REQUOTE',message:'A cotação expirou. Atualize o preço antes de executar.'},
+  QUOTE_POLICY_CHANGED:{status:409,category:'BILLING',retryable:false,action:'REQUOTE',message:'A política do modelo mudou. Atualize a cotação antes de executar.'},
+  BETA_EXECUTION_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'Novas execuções Beta estão temporariamente pausadas.'},
+  AUTO_ROUTER_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'AUTO router temporariamente indisponível.'},
+  AUTO_NO_ELIGIBLE_MODEL:{status:409,category:'CONFLICT',retryable:false,action:'CHANGE_INPUT',message:'Nenhum modelo elegível para esta capability no AUTO.'},
+  AUTO_NO_SAFE_MODEL:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'Nenhum modelo AUTO possui rota econômica segura agora.'},
+  MODEL_NOT_ELIGIBLE:{status:409,category:'CONFLICT',retryable:false,action:'CHANGE_INPUT',message:'Modelo indisponível para execução Beta.'},
+  MODEL_NOT_AUTO_ELIGIBLE:{status:409,category:'CONFLICT',retryable:false,action:'CHANGE_INPUT',message:'Modelo indisponível para o AUTO router.'},
+  PRICING_POLICY_INACTIVE:{status:503,category:'BILLING',retryable:true,action:'RETRY',message:'Política de preço temporariamente indisponível.'},
+  PRICING_POLICY_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'NONE',message:'Política de preço não encontrada.'},
 };
 
 const SAFE_CODE=/^[A-Z0-9_]{2,80}$/;
