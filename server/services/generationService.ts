@@ -37,9 +37,10 @@ async function registerGeneratedAssets(generation:Generation,urls:string[]){
    }):null;
    const publicUrl=archived?.public_url||url;
    const storagePath=archived?.storage_path||`provider://${generation.provider_id}/${generation.provider_job_id||generation.generation_id}/${i+1}`;
-   const previewUrl=mediaType==='IMAGE'?publicUrl:(generation.thumbnail_url||publicUrl);
+   const providerPreview=mediaType==='IMAGE'?(i===0&&generation.thumbnail_url?generation.thumbnail_url:url):(generation.thumbnail_url||url);
+   const previewUrl=strictArchive&&mediaType==='IMAGE'&&!generation.thumbnail_url?publicUrl:providerPreview;
    created.push(await assetRepository.createAsset({
-    asset_id:assetId,owner_user_id:generation.user_id,type:mediaType,category:'GENERIC',
+    asset_id:generatedAssetId(generation.generation_id,i),owner_user_id:generation.user_id,type:mediaType,category:'GENERIC',
     name:mediaType==='IMAGE'?`Imagem gerada ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`:`Vídeo gerado ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`,
     alias:`${mediaType==='IMAGE'?'generated_image':'generated_video'}_${generation.generation_id.slice(-6)}${urls.length>1?`_${i+1}`:''}`,
     storage_path:storagePath,public_url:publicUrl,thumbnail_url:previewUrl,preview_url:previewUrl,
