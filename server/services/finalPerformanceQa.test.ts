@@ -76,6 +76,8 @@ describe('stage 8 final QA gates',()=>{
     const brand=read('src/components/common/BrandMark.tsx');
     expect(html).toContain('/brand/ia-connect-app-icon-64-v1.png');
     expect(html).toContain('/enterprise/visuals/planet-hero-wide-v1.webp');
+    expect(html).toContain('id="public-shell"');
+    expect(html).toContain('data-public-action="register"');
     expect(main).toContain("import PublicApp from'./PublicApp.js'");
     expect(main).toContain("import'./styles/public-entry.css'");
     expect(main).not.toContain("from './App");
@@ -83,6 +85,8 @@ describe('stage 8 final QA gates',()=>{
     expect(main).not.toContain('firebase');
     expect(publicApp).toContain("import('./services/authSessionProbe.js')");
     expect(publicApp).toContain("const AuthenticatedApp=lazy(()=>import('./App.js')");
+    expect(publicApp).toContain('includeShell={false}');
+    expect(publicApp).toContain("window.addEventListener('scroll',start");
     expect(landing).toContain('src="/enterprise/visuals/planet-hero-wide-v1.webp"');
     expect(landing).toContain('fetchPriority="high"');
     expect(landing).toContain('const DeferredVideo');
