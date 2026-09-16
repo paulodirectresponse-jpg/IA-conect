@@ -1,6 +1,6 @@
 import { ModelRegistryItem } from '../../../src/types/index.js';
 import { catalogRepository } from '../../repositories/catalogRepository.js';
-import { capabilityIdsForModel, CapabilityId, isCapabilityId } from '../capabilityRegistry.js';
+import { capabilityIdsForModel, CapabilityId, isCapabilityId, validateModelCapability } from '../capabilityRegistry.js';
 import { catalogPolicyRepository } from './catalogPolicyRepository.js';
 import { BetaModelPolicy, BetaPricingPolicy } from './catalogPolicyTypes.js';
 
@@ -77,11 +77,15 @@ export const betaCatalogPolicyService={
     return{model,modelPolicy:policy,pricingPolicy};
   },
 
-  async eligibleModels(capabilityId:string){
+  async eligibleModels(capabilityId:string,requestedControls:string[]=[]){
     const models=await catalogRepository.listModels();
     const resolved=[];
     for(const model of models){
-      try{resolved.push(await this.resolveModel(model.model_id,capabilityId,true));}catch{}
+      try{
+        const item=await this.resolveModel(model.model_id,capabilityId,true);
+        if(!validateModelCapability(item.model,capabilityId,requestedControls).valid)continue;
+        resolved.push(item);
+      }catch{}
     }
     return resolved;
   },
