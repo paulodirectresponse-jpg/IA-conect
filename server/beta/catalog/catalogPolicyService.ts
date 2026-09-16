@@ -55,6 +55,7 @@ export const betaCatalogPolicyService={
         capability_ids:policy.capability_ids,
         supported_capability_ids:capabilityIdsForModel(model),
         pricing_policy_id:policy.pricing_policy_id,
+        enabled:policy.enabled,
         eligible:policy.enabled&&Boolean(pricing?.active)&&policy.capability_ids.length>0,
         auto_routing_enabled:policy.auto_routing_enabled,
         quote_ttl_seconds:pricing?.quote_ttl_seconds||0,
