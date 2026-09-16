@@ -24,4 +24,14 @@ describe('PR-11 Video Unification contracts',()=>{
     expect(getCapabilityDefinition('video-extend')?.controls).toEqual(expect.arrayContaining(['duration','resolution','output_format']));
     expect(getCapabilityDefinition('video-edit')?.controls).toEqual(expect.arrayContaining(['duration','resolution','output_format']));
   });
+
+  it('publishes model-safe option sets beside each capability',()=>{
+    const catalog=publicCapabilityCatalog([model])[0];
+    const textToVideo=catalog.capabilities.find(cap=>cap.id==='text-to-video')!;
+    expect(textToVideo.supported_durations).toEqual(model.supported_durations);
+    expect(textToVideo.supported_resolutions).toEqual(model.supported_resolutions);
+    expect(textToVideo.supported_aspect_ratios).toEqual(model.supported_aspect_ratios);
+    const edit=catalog.capabilities.find(cap=>cap.id==='video-edit')!;
+    expect(edit.supported_aspect_ratios).toEqual([]);
+  });
 });
