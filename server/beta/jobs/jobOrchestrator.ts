@@ -21,6 +21,7 @@ function generationModeForCapability(capabilityId:string):GenerationMode|null{
   if(['image-to-image','image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations'].includes(capabilityId))return'IMAGE_TO_IMAGE';
   if(capabilityId==='text-to-video')return'TEXT_TO_VIDEO';
   if(capabilityId==='image-to-video'||capabilityId==='first-frame'||capabilityId==='last-frame')return'IMAGE_TO_VIDEO';
+  if(capabilityId==='video-extend'||capabilityId==='video-edit')return'REFERENCE_TO_VIDEO';
   if(capabilityId==='text-to-speech')return'TEXT_TO_SPEECH';
   if(capabilityId==='sound-effects'||capabilityId==='music')return'TEXT_TO_AUDIO';
   if(capabilityId==='transcription')return'AUDIO_TO_TEXT';
@@ -34,7 +35,7 @@ function generationModeForCapability(capabilityId:string):GenerationMode|null{
 }
 
 function derivedAssetIdForRequest(request:BetaJobRequest){
-  if(!['image-to-image','image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations','image-to-video','first-frame','last-frame','image-to-3d','multi-image-to-3d'].includes(request.capability_id))return null;
+  if(!['image-to-image','image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations','image-to-video','first-frame','last-frame','video-extend','video-edit','image-to-3d','multi-image-to-3d'].includes(request.capability_id))return null;
   return request.references.find(ref=>ref.role==='SOURCE')?.asset_id||request.references.find(ref=>ref.slot_type==='INITIAL')?.asset_id||request.references[0]?.asset_id||null;
 }
 
@@ -113,6 +114,15 @@ function normalizeRequest(raw:any):BetaJobRequest{
 }
 
 async function assertCapabilityEnabled(capabilityId:string){
+  if(['text-to-video','image-to-video','first-frame','last-frame','video-extend','video-edit'].includes(capabilityId)){
+    const video=await catalogRepository.getFeatureFlag('beta.video');
+    if(!video?.is_enabled)throw Object.assign(new Error('O módulo de vídeo está temporariamente indisponível.'),{code:'VIDEO_MODULE_DISABLED'});
+    if(['video-extend','video-edit'].includes(capabilityId)){
+      const editor=await catalogRepository.getFeatureFlag('beta.video_editor');
+      if(!editor?.is_enabled)throw Object.assign(new Error('Edição e extensão de vídeo estão temporariamente indisponíveis.'),{code:'VIDEO_EDITOR_DISABLED'});
+    }
+    return;
+  }
   if(['image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations'].includes(capabilityId)){
     const flag=await catalogRepository.getFeatureFlag('beta.image_editor');
     if(!flag?.is_enabled)throw Object.assign(new Error('O editor de imagem está temporariamente indisponível.'),{code:'IMAGE_EDITOR_DISABLED'});
@@ -160,7 +170,7 @@ async function validateRequest(request:BetaJobRequest,resolvedModelId?:string,us
     const capability=validateModelCapability(model,request.capability_id,requestedControls(request));
     if(!capability.valid)throw Object.assign(new Error(capability.message||'Capability inválida.'),{code:capability.code||'CAPABILITY_INVALID'});
   }
-  const promptRequired=new Set(['text-to-image','image-to-image','image-edit','inpaint-mask','outpaint','text-to-video','image-to-video','first-frame','last-frame','text-to-speech','sound-effects','music','text-to-3d']);
+  const promptRequired=new Set(['text-to-image','image-to-image','image-edit','inpaint-mask','outpaint','text-to-video','image-to-video','first-frame','last-frame','video-edit','text-to-speech','sound-effects','music','text-to-3d']);
   if(promptRequired.has(request.capability_id)&&!request.prompt)throw Object.assign(new Error('Prompt é obrigatório para esta capability.'),{code:'VALIDATION_ERROR'});
   if((request.capability_id==='image-to-image'||request.capability_id==='image-to-video')&&!request.references.length)throw Object.assign(new Error('Esta capability exige uma imagem de entrada.'),{code:'REFERENCE_REQUIRED'});
   if(request.capability_id==='first-frame'&&!request.references.some(ref=>ref.slot_type==='INITIAL'))throw Object.assign(new Error('Adicione o frame inicial.'),{code:'REFERENCE_REQUIRED'});
@@ -169,6 +179,10 @@ async function validateRequest(request:BetaJobRequest,resolvedModelId?:string,us
   if(userId){
     const assets=await ownedReferences(userId,request);
     const first=assets[0];
+    if(request.capability_id==='image-to-video'&&(!first||first.type!=='IMAGE'))throw Object.assign(new Error('Selecione uma imagem para animar.'),{code:'REFERENCE_REQUIRED'});
+    if(request.capability_id==='first-frame'&&(!first||first.type!=='IMAGE'))throw Object.assign(new Error('Selecione uma imagem para o frame inicial.'),{code:'REFERENCE_REQUIRED'});
+    if(request.capability_id==='last-frame'&&(assets.length!==2||assets.some(asset=>asset.type!=='IMAGE')))throw Object.assign(new Error('Selecione exatamente os frames inicial e final.'),{code:'REFERENCE_REQUIRED'});
+    if(['video-extend','video-edit'].includes(request.capability_id)&&(assets.length!==1||first?.type!=='VIDEO'))throw Object.assign(new Error('Selecione exatamente um vídeo de origem.'),{code:'REFERENCE_REQUIRED'});
     if(request.capability_id==='transcription'&&(!first||first.type!=='AUDIO'))throw Object.assign(new Error('Selecione um áudio para transcrever.'),{code:'REFERENCE_REQUIRED'});
     if(request.capability_id==='subtitles'&&(!first||first.type!=='VIDEO'))throw Object.assign(new Error('Selecione um vídeo para gerar legendas.'),{code:'REFERENCE_REQUIRED'});
     if(request.capability_id==='authorized-voice-clone'){
@@ -244,7 +258,7 @@ async function pricingInput(userId:string,request:BetaJobRequest,mode:Generation
     variation_strength:request.controls.variation_strength,
   };
   return{
-    userId,model_id:modelId,mode,capability_id:request.capability_id,prompt:request.prompt||'Processar mídia',negative_prompt:request.negative_prompt,
+    userId,model_id:modelId,mode,capability_id:request.capability_id,prompt:request.prompt||(request.capability_id==='video-extend'?'Continue the source video naturally while preserving continuity, subjects, camera and motion.':'Processar mídia'),negative_prompt:request.negative_prompt,
     duration_seconds:duration,
     resolution:request.controls.resolution||(image?'1K':audioMode?'audio':threeD?'3D':'720p'),
     aspect_ratio:request.controls.aspect_ratio||(image?'1:1':audioMode?'audio':threeD?'3D':'16:9'),
