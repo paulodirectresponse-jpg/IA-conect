@@ -25,7 +25,7 @@ const defs: CapabilityDefinition[] = [
   {id:'background-remove-replace',inputs:['IMAGE'],outputs:['IMAGE'],controls:['resolution','output_format','background_mode']},
   {id:'outpaint',inputs:['TEXT','IMAGE'],outputs:['IMAGE'],controls:['aspect_ratio','resolution','output_format']},
   {id:'upscale',inputs:['IMAGE'],outputs:['IMAGE'],controls:['resolution','output_format']},
-  {id:'variations',inputs:['IMAGE'],outputs:['IMAGE'],controls:['reference_image','output_format','variation_strength']},
+  {id:'variations',inputs:['IMAGE'],outputs:['IMAGE'],controls:['reference_image','resolution','output_format','variation_strength']},
   {id:'text-to-video',inputs:['TEXT'],outputs:['VIDEO'],controls:['aspect_ratio','resolution','duration','seed','guidance','negative_prompt','output_format']},
   {id:'image-to-video',inputs:['TEXT','IMAGE'],outputs:['VIDEO'],controls:['aspect_ratio','resolution','duration','seed','negative_prompt','reference_image','output_format']},
   {id:'first-frame',inputs:['TEXT','IMAGE'],outputs:['VIDEO'],controls:['aspect_ratio','resolution','duration','first_frame','output_format']},
