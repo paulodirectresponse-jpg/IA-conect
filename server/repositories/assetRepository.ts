@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { Asset, AssetType, AssetCategory, AssetStatus } from '../../src/types/index.js';
 import { firestoreAdminRest } from './firestoreAdminRest.js';
 
-export type AssetOrigin = 'UPLOAD' | 'GENERATED';
+export type AssetOrigin = 'UPLOAD' | 'GENERATED' | 'DERIVED';
 const safe=(value:string)=>encodeURIComponent(value);
 
 export function sanitizeAlias(nameOrAlias:string):string {
@@ -85,9 +85,14 @@ export interface CreateAssetParams {
   status?:AssetStatus;
   origin?:AssetOrigin;
   source_generation_id?:string|null;
+  source_job_id?:string|null;
+  derived_from_asset_id?:string|null;
   source_output_index?:number|null;
   source_model_id?:string|null;
   source_provider_id?:string|null;
+  preview_url?:string|null;
+  preview_mime_type?:string|null;
+  media_metadata?:Record<string,string|number|boolean|null>;
 }
 
 async function userAssets(userId:string):Promise<Asset[]> {
@@ -100,12 +105,13 @@ async function userAssets(userId:string):Promise<Asset[]> {
 }
 
 export const assetRepository={
-  async listUserAssets(userId:string,filters?:{type?:AssetType;category?:AssetCategory;search?:string}):Promise<Asset[]> {
+  async listUserAssets(userId:string,filters?:{type?:AssetType;category?:AssetCategory;search?:string;includeUniversal?:boolean}):Promise<Asset[]> {
     const search=filters?.search?.toLowerCase().trim();
     const deduped=await dedupeGeneratedAssets(await userAssets(userId));
     return deduped.filter((asset)=>{
       if(asset.deleted_at)return false;
       if(asset.status==='UPLOADING'||asset.status==='FAILED')return false;
+      if(!filters?.includeUniversal&&asset.type==='MODEL_3D')return false;
       if(filters?.type&&asset.type!==filters.type)return false;
       if(filters?.category&&asset.category!==filters.category)return false;
       if(search&&!String(asset.name||'').toLowerCase().includes(search)&&!String(asset.alias||'').toLowerCase().includes(search))return false;
@@ -164,6 +170,8 @@ export const assetRepository={
       thumbnail_storage_path:params.thumbnail_storage_path||'',
       public_url:params.public_url||'',
       thumbnail_url:params.thumbnail_url||params.public_url||'',
+      preview_url:params.preview_url??params.thumbnail_url??params.public_url??null,
+      preview_mime_type:params.preview_mime_type??null,
       mime_type:params.mime_type,
       size_bytes:params.size_bytes,
       width:params.width??null,
@@ -172,9 +180,12 @@ export const assetRepository={
       status:params.status||'READY',
       origin:params.origin||'UPLOAD',
       source_generation_id:params.source_generation_id??null,
+      source_job_id:params.source_job_id??null,
+      derived_from_asset_id:params.derived_from_asset_id??null,
       source_output_index:params.source_output_index??null,
       source_model_id:params.source_model_id??null,
       source_provider_id:params.source_provider_id??null,
+      media_metadata:params.media_metadata||{},
       created_at:now,
       updated_at:now,
       deleted_at:null,
@@ -183,7 +194,7 @@ export const assetRepository={
     return asset;
   },
 
-  async updateAsset(assetId:string,userId:string,updates:{name?:string;alias?:string;category?:AssetCategory;status?:AssetStatus;public_url?:string;thumbnail_url?:string;width?:number|null;height?:number|null;duration_seconds?:number|null;storage_path?:string;thumbnail_storage_path?:string}):Promise<Asset> {
+  async updateAsset(assetId:string,userId:string,updates:{name?:string;alias?:string;category?:AssetCategory;status?:AssetStatus;public_url?:string;thumbnail_url?:string;preview_url?:string|null;preview_mime_type?:string|null;width?:number|null;height?:number|null;duration_seconds?:number|null;storage_path?:string;thumbnail_storage_path?:string;source_job_id?:string|null;derived_from_asset_id?:string|null;media_metadata?:Record<string,string|number|boolean|null>}):Promise<Asset> {
     const existing=await this.getAsset(assetId,userId);
     if(!existing)throw new Error('Asset não encontrado ou sem permissão.');
     const nextUpdates={...updates};

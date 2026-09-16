@@ -13,6 +13,7 @@ function classify(mime: string, filename: string): AssetType {
   const ext = path.extname(filename).slice(1).toLowerCase();
   if (mime.startsWith('video/') || ASSET_UPLOAD_LIMITS.VIDEO.allowed_extensions.includes(ext)) return 'VIDEO';
   if (mime.startsWith('audio/') || ASSET_UPLOAD_LIMITS.AUDIO.allowed_extensions.includes(ext)) return 'AUDIO';
+  if (mime.startsWith('model/') || ASSET_UPLOAD_LIMITS.MODEL_3D.allowed_extensions.includes(ext)) return 'MODEL_3D';
   return 'IMAGE';
 }
 

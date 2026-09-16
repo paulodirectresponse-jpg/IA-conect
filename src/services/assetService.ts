@@ -296,7 +296,8 @@ async function resolveWorkspaceReferences(refs:WorkspaceReference[]):Promise<Wor
 }
 
 async function legacyUpload(params:UploadAssetParams,type:AssetType):Promise<Asset>{
-  const {file,name,alias,category='PRODUCT',onProgress,onTaskReady,timeoutMs=120000}=params;
+  const {file,name,alias,category,onProgress,onTaskReady,timeoutMs=120000}=params;
+  const effectiveCategory:AssetCategory=category||(type==='AUDIO'?'AUDIO_REFERENCE':type==='MODEL_3D'?'GENERIC':'PRODUCT');
   onProgress?.(5);
   const signed=await apiRequest<SignedUploadResponse>('/api/assets/signed-upload',{
     method:'POST',
@@ -318,7 +319,7 @@ async function legacyUpload(params:UploadAssetParams,type:AssetType):Promise<Ass
       asset_id:signed.asset_id,
       name:(name||file.name).trim(),
       alias:alias?sanitizeAlias(alias):undefined,
-      category,
+      category:effectiveCategory,
       mime_type:file.type||'application/octet-stream',
       size_bytes:file.size,
       filename:file.name,
@@ -359,6 +360,7 @@ export const assetService={
     let type:AssetType='IMAGE';
     if(file.type.startsWith('video/')||ASSET_UPLOAD_LIMITS.VIDEO.allowed_extensions.includes(ext))type='VIDEO';
     else if(file.type.startsWith('audio/')||ASSET_UPLOAD_LIMITS.AUDIO.allowed_extensions.includes(ext))type='AUDIO';
+    else if(file.type.startsWith('model/')||ASSET_UPLOAD_LIMITS.MODEL_3D.allowed_extensions.includes(ext))type='MODEL_3D';
     if(file.size>ASSET_UPLOAD_LIMITS[type].max_bytes)throw new Error('Arquivo excede o limite máximo permitido.');
     if(type==='IMAGE')return createOptimisticImageUpload(params).ready;
     return legacyUpload(params,type);

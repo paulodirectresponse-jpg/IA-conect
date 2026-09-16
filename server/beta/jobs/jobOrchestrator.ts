@@ -22,6 +22,11 @@ function generationModeForCapability(capabilityId:string):GenerationMode|null{
   return null;
 }
 
+function derivedAssetIdForRequest(request:BetaJobRequest){
+  if(!['image-to-image','image-edit','image-to-video','first-frame','last-frame'].includes(request.capability_id))return null;
+  return request.references.find(ref=>ref.slot_type==='INITIAL')?.asset_id||request.references[0]?.asset_id||null;
+}
+
 function requestedControls(request:BetaJobRequest){
   const controls:string[]=[];
   if(request.controls.aspect_ratio)controls.push('aspect_ratio');
@@ -170,6 +175,7 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
       duration_seconds:input.duration_seconds,resolution:input.resolution,aspect_ratio:input.aspect_ratio,
       number_of_outputs:input.number_of_outputs,seed:input.seed,motion_strength:input.motion_strength,
       references:running.request.references,client_request_id:currentAttempt.execution_key,
+      source_job_id:running.job_id,derived_from_asset_id:derivedAssetIdForRequest(running.request),
       authorized_credit_price:quote.credit_price,retail_pricing_id:quote.retail_pricing_id,
       pricing_signature_hash:quote.pricing_signature_hash,audio_enabled:input.audio_enabled,
       model_variant:input.model_variant,pricing_options:input.pricing_options,reqHost,idToken,

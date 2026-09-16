@@ -181,6 +181,11 @@ export const ASSET_UPLOAD_LIMITS = {
     allowed_mimes: ['audio/mpeg', 'audio/wav', 'audio/x-m4a', 'audio/aac'],
     allowed_extensions: ['mp3', 'wav', 'm4a', 'aac'],
   },
+  MODEL_3D: {
+    max_bytes: 50 * 1024 * 1024,
+    allowed_mimes: ['model/gltf-binary', 'model/gltf+json', 'model/obj', 'application/octet-stream'],
+    allowed_extensions: ['glb', 'gltf', 'obj', 'fbx', 'usdz'],
+  },
 };
 
 export const DEFAULT_PRESERVATION_RULES = {

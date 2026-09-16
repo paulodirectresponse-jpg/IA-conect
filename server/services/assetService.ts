@@ -32,8 +32,13 @@ export const assetService = {
       if (size_bytes > ASSET_UPLOAD_LIMITS.AUDIO.max_bytes) {
         throw new Error('Áudio excede o limite máximo permitido de 50 MB.');
       }
+    } else if (mime_type.startsWith('model/') || ASSET_UPLOAD_LIMITS.MODEL_3D.allowed_extensions.includes(extension)) {
+      detectedType = 'MODEL_3D';
+      if (size_bytes > ASSET_UPLOAD_LIMITS.MODEL_3D.max_bytes) {
+        throw new Error('Arquivo 3D excede o limite máximo permitido de 50 MB.');
+      }
     } else {
-      throw new Error(`Tipo de mídia não suportado (${mime_type || extension}). Permitidos: imagens (JPG, PNG, WEBP), vídeos (MP4, MOV, WEBM), áudios (MP3, WAV, M4A).`);
+      throw new Error(`Tipo de mídia não suportado (${mime_type || extension}). Permitidos: imagens, vídeos, áudios e modelos 3D compatíveis.`);
     }
 
     return { type: detectedType, extension: extension || 'bin' };
@@ -58,7 +63,7 @@ export const assetService = {
       size_bytes: params.size_bytes,
       filename: params.filename,
     });
-    const category: AssetCategory = params.category || (validation.type === 'AUDIO' ? 'AUDIO_REFERENCE' : 'PRODUCT');
+    const category: AssetCategory = params.category || (validation.type === 'AUDIO' ? 'AUDIO_REFERENCE' : validation.type === 'MODEL_3D' ? 'GENERIC' : 'PRODUCT');
 
     return assetRepository.createAsset({
       asset_id: params.assetId,
@@ -121,7 +126,7 @@ export const assetService = {
       filename: params.filename,
     });
 
-    const category: AssetCategory = params.category || (validation.type === 'AUDIO' ? 'AUDIO_REFERENCE' : 'PRODUCT');
+    const category: AssetCategory = params.category || (validation.type === 'AUDIO' ? 'AUDIO_REFERENCE' : validation.type === 'MODEL_3D' ? 'GENERIC' : 'PRODUCT');
 
     return assetRepository.createAsset({
       asset_id: params.assetId,
