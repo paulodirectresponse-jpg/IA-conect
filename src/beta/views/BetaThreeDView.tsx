@@ -65,7 +65,7 @@ export const BetaThreeDView:React.FC<{onOpenLibrary?:()=>void}>=({onOpenLibrary}
  };
 
  const upload=async(event:React.ChangeEvent<HTMLInputElement>)=>{
-  const files=Array.from(event.target.files||[]);event.target.value='';if(!files.length)return;
+  const files:File[]=event.target.files?Array.from(event.target.files):[];event.target.value='';if(!files.length)return;
   setBusy('upload');setError('');
   try{
    const next:UniversalAssetView[]=[];
