@@ -17,7 +17,7 @@ const SettingsView=lazy(()=>import('./components/views/SettingsView.js').then(m=
 const LibraryHubView=lazy(()=>import('./components/views/LibraryHubView.js').then(m=>({default:m.LibraryHubView})));
 const CommunityView=lazy(()=>import('./components/views/CommunityView.js').then(m=>({default:m.CommunityView})));
 
-const ViewFallback=()=> <div className="h-full min-h-[320px] grid place-items-center bg-[#050a10]"><div className="flex items-center gap-3 text-zinc-500"><div className="w-5 h-5 rounded-full border-2 border-sky-400/70 border-t-transparent animate-spin"/><span className="text-[10px] font-semibold uppercase tracking-[0.16em]">Carregando</span></div></div>;
+const ViewFallback=()=> <div className="w-full min-h-[320px] px-1 py-3 animate-pulse" aria-busy="true" aria-label="Carregando conteúdo"><div className="h-5 w-40 rounded-lg bg-white/[0.055]"/><div className="mt-2 h-3 w-64 max-w-[70%] rounded bg-white/[0.035]"/><div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><div className="h-36 rounded-2xl border border-white/[0.05] bg-white/[0.025]"/><div className="h-36 rounded-2xl border border-white/[0.05] bg-white/[0.025]"/><div className="hidden h-36 rounded-2xl border border-white/[0.05] bg-white/[0.025] lg:block"/></div><span className="sr-only">Carregando</span></div>;
 const withSuspense=(node:React.ReactNode)=><Suspense fallback={<ViewFallback/>}>{node}</Suspense>;
 
 const MainApp: React.FC = () => {
