@@ -32,11 +32,12 @@ describe('PR-11 Video economics',()=>{
   });
 
   it('does not create a new wallet or billing path',()=>{
-    const videoFiles=[
+    const runtimeVideoFiles=[
       read('src/beta/views/BetaVideoView.tsx'),
       read('src/beta/videoClient.ts'),
-      read('server/beta/video/videoArchitecture.test.ts'),
     ].join('\n');
-    expect(videoFiles).not.toMatch(/reserveForGeneration|captureForGeneration|credit_accounts|credit_lots/);
+    expect(runtimeVideoFiles).not.toMatch(/reserveForGeneration|captureForGeneration|credit_accounts|credit_lots/);
+    const jobs=read('server/beta/jobs/jobOrchestrator.ts');
+    expect(jobs).toContain('generationService.createAndStartGeneration');
   });
 });
