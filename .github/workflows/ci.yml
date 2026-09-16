@@ -17,6 +17,7 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run perf:bundle
+      - run: node scripts/assert-performance-budget.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: performance-baseline-${{ github.sha }}
