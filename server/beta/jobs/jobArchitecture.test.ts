@@ -16,6 +16,8 @@ describe('PR-03 architecture',()=>{
     const orchestrator=read('server/beta/jobs/jobOrchestrator.ts');
     expect(orchestrator).toContain('generationService.createAndStartGeneration');
     expect(orchestrator).toContain('client_request_id:currentAttempt.execution_key');
+    expect(orchestrator).toContain('findByClientRequest(userId,currentAttempt.execution_key)');
+    expect(orchestrator).toContain('billingControlService.assertNewGenerationAllowed');
     expect(orchestrator).not.toContain('providerRegistry');
     expect(orchestrator).not.toContain('submitGeneration(');
   });
