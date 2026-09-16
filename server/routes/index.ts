@@ -14,6 +14,7 @@ import { adminRouter } from './adminRoutes.js';
 import { providerFinanceRouter } from './providerFinanceRoutes.js';
 import { adminPricingRouter } from './adminPricingRoutes.js';
 import { adminEconomicsRouter } from './adminEconomicsRoutes.js';
+import { betaCapabilityRouter } from './betaCapabilityRoutes.js';
 
 export const apiRootRouter = Router();
 
@@ -33,3 +34,4 @@ apiRootRouter.use(adminRouter);
 apiRootRouter.use(providerFinanceRouter);
 apiRootRouter.use(adminPricingRouter);
 apiRootRouter.use(adminEconomicsRouter);
+apiRootRouter.use(betaCapabilityRouter);
