@@ -3,6 +3,7 @@ import{Activity,ArrowRight,BookOpen,Globe2,Image as ImageIcon,Lightbulb,Sparkles
 import{useAuth}from'../../context/AuthContext.js';
 import{generationClient}from'../../services/generationClient.js';
 import{Generation}from'../../types/index.js';
+import'../../styles/mobile-dashboard.css';
 import{ModelShowcase,ShowcaseItem}from'../workspace/ModelShowcase.js';
 
 interface DashboardViewProps{onNavigate:(view:string)=>void;}
