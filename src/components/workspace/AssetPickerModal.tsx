@@ -313,8 +313,8 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
             <p className="mt-1 truncate text-[10px] text-zinc-600">{subtitle}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setActiveTab('UPLOAD')} className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-400 px-3 text-[10px] font-bold text-white"><Plus className="h-3.5 w-3.5" /> Enviar novo</button>
-            <button type="button" onClick={onClose} disabled={uploading} className="grid h-9 w-9 place-items-center rounded-xl border border-white/[0.07] text-zinc-600 hover:text-white"><X className="h-4 w-4" /></button>
+            <button type="button" onClick={() => setActiveTab('UPLOAD')} className="ia-asset-picker-upload-action inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-cyan-400 px-3 text-[10px] font-bold text-white"><Plus className="h-3.5 w-3.5" /><span>Enviar novo</span></button>
+            <button type="button" onClick={onClose} disabled={uploading} className="ia-asset-picker-close grid h-9 w-9 place-items-center rounded-xl border border-white/[0.07] text-zinc-600 hover:text-white"><X className="h-4 w-4" /></button>
           </div>
         </header>
 
