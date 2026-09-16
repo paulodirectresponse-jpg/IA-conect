@@ -3,6 +3,7 @@ import { GenerationMode, ModelRegistryItem } from '../../../src/types/index.js';
 import { catalogRepository } from '../../repositories/catalogRepository.js';
 import { creditPricingService } from '../../services/creditPricingService.js';
 import { generationService } from '../../services/generationService.js';
+import { billingControlService } from '../../services/billingControlService.js';
 import { validateModelCapability } from '../capabilityRegistry.js';
 import { betaJobRepository } from './jobRepository.js';
 import { inlineBetaJobQueue } from './jobQueue.js';
@@ -251,6 +252,7 @@ export const betaJobOrchestrator={
 
   async quote(userId:string,jobId:string,idempotencyKey:string){
     return mutation({userId,jobId,action:'QUOTE',idempotencyKey},async()=>{
+      await billingControlService.assertNewGenerationAllowed();
       const current=await this.get(userId,jobId,false);
       if(current.status==='QUOTED')return current;
       const {mode}=await validateRequest(current.request);
@@ -266,6 +268,7 @@ export const betaJobOrchestrator={
 
   async queue(userId:string,jobId:string,idempotencyKey:string,reqHost?:string,idToken?:string){
     return mutation({userId,jobId,action:'QUEUE',idempotencyKey},async()=>{
+      await billingControlService.assertNewGenerationAllowed();
       const current=await this.get(userId,jobId,true);
       if(current.status==='RUNNING'||current.status==='SUCCEEDED')return current;
       if(current.status!=='QUOTED')throw Object.assign(new Error('O job precisa estar cotado antes de entrar na fila.'),{code:'JOB_QUOTE_REQUIRED'});
@@ -277,6 +280,7 @@ export const betaJobOrchestrator={
 
   async retry(userId:string,jobId:string,idempotencyKey:string,reqHost?:string,idToken?:string){
     return mutation({userId,jobId,action:'RETRY',idempotencyKey},async()=>{
+      await billingControlService.assertNewGenerationAllowed();
       const current=await this.get(userId,jobId,true);
       if(current.status!=='FAILED'&&current.status!=='CANCELLED'){
         throw Object.assign(new Error('Apenas jobs falhos ou cancelados podem ser reenfileirados.'),{code:'JOB_RETRY_UNAVAILABLE'});
