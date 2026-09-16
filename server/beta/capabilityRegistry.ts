@@ -80,7 +80,16 @@ export function publicCapabilityCatalog(models:ModelRegistryItem[]){
     supported_durations:[...(model.supported_durations||[])],
     supported_resolutions:[...(model.supported_resolutions||[])],
     supported_aspect_ratios:[...(model.supported_aspect_ratios||[])],
-    capabilities:capabilityIdsForModel(model).map(id=>{const def=getCapabilityDefinition(id)!;return{id,inputs:def.inputs,outputs:def.outputs,controls:controlsForModel(model,id)};}),
+    capabilities:capabilityIdsForModel(model).map(id=>{
+      const def=getCapabilityDefinition(id)!;
+      const controls=controlsForModel(model,id);
+      return{
+        id,inputs:def.inputs,outputs:def.outputs,controls,
+        supported_durations:controls.includes('duration')?[...(model.supported_durations||[])]:[],
+        supported_resolutions:controls.includes('resolution')?[...(model.supported_resolutions||[])]:[],
+        supported_aspect_ratios:controls.includes('aspect_ratio')?[...(model.supported_aspect_ratios||[])]:[],
+      };
+    }),
   })).filter(model=>model.capabilities.length>0);
 }
 
