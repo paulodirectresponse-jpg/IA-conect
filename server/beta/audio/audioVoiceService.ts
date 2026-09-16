@@ -41,11 +41,12 @@ function publicVoice(row:StoredVoice):BetaAudioVoiceView{
 }
 
 export const audioVoiceService={
+  providerCloneId(generationId:string){return `ia_${String(generationId).replace(/[^a-zA-Z0-9]/g,'').slice(-28)||'voiceclone'}`;},
   async captureClone(params:{
     userId:string;generationId:string;providerId:string;sourceAssetId?:string|null;label?:string|null;
-    consentAt:string;resultStructured?:any;resultText?:string|null;
+    consentAt:string;resultStructured?:any;resultText?:string|null;providerVoiceIdFallback?:string|null;
   }){
-    const providerVoiceId=providerVoiceFromResult(params.resultStructured,params.resultText);
+    const providerVoiceId=providerVoiceFromResult(params.resultStructured,params.resultText)||String(params.providerVoiceIdFallback||'').trim()||null;
     if(!providerVoiceId)throw Object.assign(new Error('O provedor não retornou um identificador de voz reutilizável.'),{code:'VOICE_CLONE_RESULT_INVALID'});
     const voiceId='voice_'+crypto.createHash('sha256').update(`${params.userId}:${params.generationId}`).digest('hex').slice(0,24);
     const row:StoredVoice={
