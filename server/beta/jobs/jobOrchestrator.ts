@@ -27,9 +27,9 @@ function requestedControls(request:BetaJobRequest){
   if(request.controls.duration_seconds!==undefined)controls.push('duration');
   if(request.controls.seed!==undefined&&request.controls.seed!==null)controls.push('seed');
   if(request.negative_prompt?.trim())controls.push('negative_prompt');
-  if(request.references.length)controls.push('reference_image');
-  if(request.references.some(ref=>ref.slot_type==='INITIAL'))controls.push('first_frame');
-  if(request.references.some(ref=>ref.slot_type==='END'))controls.push('last_frame');
+  if(['image-to-image','image-edit','image-to-video'].includes(request.capability_id)&&request.references.length)controls.push('reference_image');
+  if(['first-frame','last-frame'].includes(request.capability_id))controls.push('first_frame');
+  if(request.capability_id==='last-frame')controls.push('last_frame');
   return controls;
 }
 
