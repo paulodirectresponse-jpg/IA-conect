@@ -158,6 +158,10 @@ export const BetaLibraryView:React.FC<Props>=({onIntent})=>{
       <div className="ia-beta-library-toolbar">
         <label className="ia-beta-library-search"><Search/><input value={searchDraft} onChange={e=>setSearchDraft(e.target.value)} placeholder="Buscar nome ou alias"/></label>
         <div className="ia-beta-library-type-tabs">{TYPES.map(type=><button key={type.value} className={filters.type===type.value?'is-selected':''} onClick={()=>setFilters(current=>({...current,type:type.value}))}>{type.label}</button>)}</div>
+        <select className="ia-beta-library-compact-select" value={filters.origin||''} onChange={event=>setFilters(current=>({...current,origin:event.target.value||undefined}))}>
+          <option value="">Todas as origens</option><option value="UPLOAD">Uploads</option><option value="GENERATED">Gerados</option><option value="DERIVED">Derivados</option>
+        </select>
+        <label className="ia-beta-library-tag-filter"><Tag/><input value={filters.tag||''} onChange={event=>setFilters(current=>({...current,tag:event.target.value.trimStart()||undefined}))} placeholder="Filtrar tag"/></label>
         <button className={filters.favorite?'ia-beta-filter-toggle is-selected':'ia-beta-filter-toggle'} onClick={()=>setFilters(current=>({...current,favorite:current.favorite?undefined:true}))}><Star/>Favoritos</button>
       </div>
 
