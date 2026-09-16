@@ -133,3 +133,6 @@ img,video{display:block}
 .public-auth-loading{min-height:100vh;display:grid;place-items:center;align-content:center;gap:12px;background:#050a10;color:#6f7e90;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .public-auth-spinner{width:24px;height:24px;border-radius:999px;border:2px solid rgba(94,210,255,.22);border-top-color:#5ed2ff;animation:public-spin .8s linear infinite}
 @keyframes public-spin{to{transform:rotate(360deg)}}
+
+#public-shell{min-height:0}
+.public-page-tail{min-height:0}
