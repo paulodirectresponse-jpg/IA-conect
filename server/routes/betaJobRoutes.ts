@@ -2,32 +2,30 @@ import { Router, Response, NextFunction } from 'express';
 import { requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { betaJobOrchestrator } from '../beta/jobs/jobOrchestrator.js';
+import { normalizeBetaPublicError } from '../beta/http/publicError.js';
 
 export const betaJobRouter=Router();
 
 async function requireBetaEnabled(_req:AuthenticatedRequest,res:Response,next:NextFunction){
   try{
     const flag=await catalogRepository.getFeatureFlag('beta.enabled');
-    if(!flag?.is_enabled)return res.status(404).json({success:false,error:{code:'BETA_DISABLED',message:'A experiência Beta não está disponível.'}});
+    if(!flag?.is_enabled){
+      const normalized=normalizeBetaPublicError({code:'BETA_DISABLED'});
+      return res.status(normalized.status).json({success:false,error:normalized.error});
+    }
     next();
   }catch{
-    return res.status(503).json({success:false,error:{code:'BETA_ACCESS_UNAVAILABLE',message:'Não foi possível validar o acesso ao Beta.'}});
+    const normalized=normalizeBetaPublicError({code:'BETA_ACCESS_UNAVAILABLE'});
+    return res.status(normalized.status).json({success:false,error:normalized.error});
   }
 }
 
 function idem(req:AuthenticatedRequest){return String(req.headers['idempotency-key']||'').trim();}
 function requestHost(req:AuthenticatedRequest){return req.get('host')||process.env.APP_URL;}
-function statusFor(error:any){
-  if(error?.code==='JOB_NOT_FOUND')return 404;
-  if(['JOB_INVALID_STATE','JOB_RETRY_UNAVAILABLE','PRICE_CHANGED_REQUOTE_REQUIRED'].includes(error?.code))return 409;
-  if(error?.code==='CREDIT_INSUFFICIENT_FUNDS')return 402;
-  if(['NO_SAFE_PROVIDER_AVAILABLE','BETA_ACCESS_UNAVAILABLE'].includes(error?.code))return 503;
-  return 400;
-}
 function failure(res:Response,error:any,fallback:string){
-  return res.status(statusFor(error)).json({success:false,error:{code:error?.code||'JOB_ERROR',message:error?.message||fallback}});
+  const normalized=normalizeBetaPublicError(error,fallback);
+  return res.status(normalized.status).json({success:false,error:normalized.error});
 }
-
 betaJobRouter.use('/beta/jobs',requireAuth,requireBetaEnabled);
 
 betaJobRouter.post('/beta/jobs',async(req:AuthenticatedRequest,res)=>{
