@@ -21,8 +21,11 @@ interface Rule {
 const RULES:Record<string,Rule>={
   VALIDATION_ERROR:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   CAPABILITY_UNKNOWN:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
+  UNKNOWN_CAPABILITY:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   CAPABILITY_UNSUPPORTED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
+  CAPABILITY_NOT_SUPPORTED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   CONTROL_UNSUPPORTED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
+  CAPABILITY_CONTROL_NOT_SUPPORTED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   CAPABILITY_EXECUTOR_UNAVAILABLE:{status:409,category:'CONFLICT',retryable:false,action:'CHANGE_INPUT',message:'Este recurso ainda não possui execução disponível no Beta.'},
   REFERENCE_REQUIRED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   REFERENCE_NOT_FOUND:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',message:'Uma referência não foi encontrada ou não está disponível.'},
