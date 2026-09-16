@@ -16,7 +16,6 @@ const LibraryHubView=lazy(()=>import('./components/views/LibraryHubView.js').the
 const CommunityView=lazy(()=>import('./components/views/CommunityView.js').then(m=>({default:m.CommunityView})));
 
 const ViewFallback=()=> <div className="w-full min-h-[320px] px-1 py-3 animate-pulse" aria-busy="true" aria-label="Carregando conteúdo"><div className="h-5 w-40 rounded-lg bg-white/[0.055]"/><div className="mt-2 h-3 w-64 max-w-[70%] rounded bg-white/[0.035]"/><div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><div className="h-36 rounded-2xl border border-white/[0.05] bg-white/[0.025]"/><div className="h-36 rounded-2xl border border-white/[0.05] bg-white/[0.025]"/><div className="hidden h-36 rounded-2xl border border-white/[0.05] bg-white/[0.025] lg:block"/></div><span className="sr-only">Carregando</span></div>;
-const withSuspense=(node:React.ReactNode)=><Suspense fallback={<ViewFallback/>}>{node}</Suspense>;
 
 const MainApp: React.FC<{onSignedOut?:()=>void}> = ({onSignedOut}) => {
   const { firebaseUser, loading, isAdmin, isSuspended, logout } = useAuth();
