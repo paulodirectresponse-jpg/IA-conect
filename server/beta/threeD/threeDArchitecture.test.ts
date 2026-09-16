@@ -19,7 +19,7 @@ describe('PR-09 3D V1 architecture',()=>{
     expect(jobs).toContain('generationService.createAndStartGeneration');
     expect(generation).toContain('creditWalletService.reserveForGeneration');
     expect(generation).toContain('creditWalletService.captureForGeneration');
-    expect(generation).toContain("return'MODEL_3D'");
+    expect(jobs).toContain("return'MODEL_3D'");
   });
 
   it('enforces owned image inputs and bounded multi-image count on the server',()=>{
