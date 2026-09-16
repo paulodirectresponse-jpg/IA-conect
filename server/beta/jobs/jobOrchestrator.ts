@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import { GenerationMode, ModelRegistryItem } from '../../../src/types/index.js';
 import { catalogRepository } from '../../repositories/catalogRepository.js';
 import { generationRepository } from '../../repositories/generationRepository.js';
+import { assetRepository } from '../../repositories/assetRepository.js';
+import { assetReferenceResolver } from '../../services/assetReferenceResolver.js';
 import { creditPricingService } from '../../services/creditPricingService.js';
 import { generationService } from '../../services/generationService.js';
 import { betaEconomicsService } from '../catalog/betaEconomicsService.js';
@@ -19,6 +21,12 @@ function generationModeForCapability(capabilityId:string):GenerationMode|null{
   if(capabilityId==='image-to-image'||capabilityId==='image-edit')return'IMAGE_TO_IMAGE';
   if(capabilityId==='text-to-video')return'TEXT_TO_VIDEO';
   if(capabilityId==='image-to-video'||capabilityId==='first-frame'||capabilityId==='last-frame')return'IMAGE_TO_VIDEO';
+  if(capabilityId==='text-to-speech')return'TEXT_TO_SPEECH';
+  if(capabilityId==='sound-effects'||capabilityId==='music')return'TEXT_TO_AUDIO';
+  if(capabilityId==='transcription')return'AUDIO_TO_TEXT';
+  if(capabilityId==='subtitles')return'MEDIA_TO_TEXT';
+  if(capabilityId==='authorized-voice-clone')return'AUDIO_TO_AUDIO';
+  if(capabilityId==='dubbing')return'MEDIA_DUBBING';
   return null;
 }
 
@@ -37,6 +45,16 @@ function requestedControls(request:BetaJobRequest){
   if(['image-to-image','image-edit','image-to-video'].includes(request.capability_id)&&request.references.length)controls.push('reference_image');
   if(['first-frame','last-frame'].includes(request.capability_id))controls.push('first_frame');
   if(request.capability_id==='last-frame')controls.push('last_frame');
+  if(request.controls.language)controls.push('language');
+  if(request.controls.voice)controls.push('voice');
+  if(request.controls.output_format)controls.push('output_format');
+  if(request.controls.style)controls.push('style');
+  if(request.controls.instrumental!==undefined)controls.push('instrumental');
+  if(request.controls.timestamps!==undefined)controls.push('timestamps');
+  if(request.controls.source_language)controls.push('source_language');
+  if(request.controls.target_language)controls.push('target_language');
+  if(request.controls.voice_clone_consent!==undefined)controls.push('voice_clone_consent');
+  if(request.controls.voice_label)controls.push('voice_label');
   return controls;
 }
 
@@ -63,6 +81,16 @@ function normalizeRequest(raw:any):BetaJobRequest{
       audio_enabled:raw?.controls?.audio_enabled===undefined?undefined:Boolean(raw.controls.audio_enabled),
       model_variant:raw?.controls?.model_variant?String(raw.controls.model_variant):undefined,
       pricing_options:raw?.controls?.pricing_options&&typeof raw.controls.pricing_options==='object'?raw.controls.pricing_options:undefined,
+      language:raw?.controls?.language?String(raw.controls.language):undefined,
+      voice:raw?.controls?.voice?String(raw.controls.voice):undefined,
+      output_format:raw?.controls?.output_format?String(raw.controls.output_format):undefined,
+      style:raw?.controls?.style?String(raw.controls.style):undefined,
+      instrumental:raw?.controls?.instrumental===undefined?undefined:Boolean(raw.controls.instrumental),
+      timestamps:raw?.controls?.timestamps===undefined?undefined:Boolean(raw.controls.timestamps),
+      source_language:raw?.controls?.source_language?String(raw.controls.source_language):undefined,
+      target_language:raw?.controls?.target_language?String(raw.controls.target_language):undefined,
+      voice_clone_consent:raw?.controls?.voice_clone_consent===undefined?undefined:Boolean(raw.controls.voice_clone_consent),
+      voice_label:raw?.controls?.voice_label?String(raw.controls.voice_label).trim().slice(0,80):undefined,
     },
   };
 }
