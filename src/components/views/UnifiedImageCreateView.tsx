@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState}from'react';
-import{Asset,Generation,GenerationRequestDraft,ModelRegistryItem,WorkspaceReference}from'../../types/index.js';
+import{Asset,Generation,GenerationMode,GenerationRequestDraft,ModelRegistryItem,WorkspaceReference}from'../../types/index.js';
 import{workspaceService}from'../../services/workspaceService.js';
 import{assetService}from'../../services/assetService.js';
 import{generationClient}from'../../services/generationClient.js';
@@ -27,7 +27,7 @@ export const UnifiedImageCreateView:React.FC<Props>=({onUseImageForVideo,initial
  const editImage=useCallback((asset:Asset)=>{setError('');setSelectionMode('AUTO');setPrompt('');setReferences([referenceFor(asset,[])]);setAspectRatio(ratioFromAsset(asset));setNumberOfOutputs(1);window.scrollTo({top:0,behavior:'smooth'});},[]);
  useEffect(()=>{if(initialEditAsset?.type==='IMAGE')editImage(initialEditAsset);},[initialEditAsset?.asset_id,editImage]);
  useEffect(()=>{const complete=(event:Event)=>{const detail=(event as CustomEvent<{local_asset_id:string;asset:Asset}>).detail;if(!detail?.asset)return;const localId=detail.local_asset_id,real=detail.asset;setAssets(prev=>[real,...prev.filter(x=>x.asset_id!==localId&&x.asset_id!==real.asset_id)]);setReferences(prev=>prev.map(ref=>ref.asset_id===localId?{...ref,asset_id:real.asset_id,alias_snapshot:real.alias||ref.alias_snapshot,asset:real}:ref));};const failed=(event:Event)=>{const detail=(event as CustomEvent<{local_asset_id:string}>).detail;if(!detail?.local_asset_id)return;const localId=detail.local_asset_id;setAssets(prev=>prev.filter(x=>x.asset_id!==localId));setReferences(prev=>prev.filter(ref=>ref.asset_id!==localId));};window.addEventListener('ia:asset-upload-complete',complete);window.addEventListener('ia:asset-upload-failed',failed);return()=>{window.removeEventListener('ia:asset-upload-complete',complete);window.removeEventListener('ia:asset-upload-failed',failed);}},[]);
- const mode=references.length?'IMAGE_TO_IMAGE':'TEXT_TO_IMAGE';
+ const mode:GenerationMode=references.length?'IMAGE_TO_IMAGE':'TEXT_TO_IMAGE';
  const baseCompatibleModels=useMemo(()=>models.filter(model=>{const caps=getModelCapabilities(model);return model.supported_modes.includes(mode)&&model.supported_aspect_ratios.includes(aspectRatio)&&(!references.length||(caps.supports_image_reference&&references.length<=caps.max_reference_images));}),[models,mode,aspectRatio,references.length]);
  const manualModel=models.find(m=>m.model_id===manualModelId)||models[0]||null;
  const availableResolutions=useMemo(()=>{const values=selectionMode==='MANUAL'&&manualModel?manualModel.supported_resolutions:Array.from(new Set(baseCompatibleModels.flatMap(m=>m.supported_resolutions||[])));return[...values].sort((a,b)=>resolutionRank(a)-resolutionRank(b));},[selectionMode,manualModel,baseCompatibleModels]);
