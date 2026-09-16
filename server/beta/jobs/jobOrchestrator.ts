@@ -185,6 +185,7 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
       number_of_outputs:input.number_of_outputs,seed:input.seed,motion_strength:input.motion_strength,
       references:running.request.references,client_request_id:currentAttempt.execution_key,
       source_job_id:running.job_id,derived_from_asset_id:derivedAssetIdForRequest(running.request),
+      requested_model_id:quote.requested_model_id,routing_mode:quote.routing_mode,pricing_policy_id:quote.pricing_policy_id,
       authorized_credit_price:quote.credit_price,retail_pricing_id:quote.retail_pricing_id,
       pricing_signature_hash:quote.pricing_signature_hash,audio_enabled:input.audio_enabled,
       model_variant:input.model_variant,pricing_options:input.pricing_options,reqHost,idToken,
