@@ -6,7 +6,7 @@ import { BetaTaskStatus, BetaTaskView } from './taskTypes.js';
 
 const TERMINAL_GENERATION=new Set(['SUCCEEDED','FAILED','CANCELLED','REFUNDED']);
 
-function taskStatus(jobStatus:string):BetaTaskStatus|null{
+export function betaTaskStatusFromJobStatus(jobStatus:string):BetaTaskStatus|null{
   if(jobStatus==='QUEUED')return'QUEUED';
   if(jobStatus==='RUNNING')return'RUNNING';
   if(jobStatus==='SUCCEEDED')return'COMPLETED';
@@ -27,7 +27,7 @@ async function cancelSupported(job:any){
 }
 
 async function toTask(job:any):Promise<BetaTaskView|null>{
-  const status=taskStatus(job.status);
+  const status=betaTaskStatusFromJobStatus(job.status);
   if(!status)return null;
   return{
     task_id:job.job_id,
