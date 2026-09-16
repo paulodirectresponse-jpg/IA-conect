@@ -1,5 +1,4 @@
 import { assetRepository } from '../../repositories/assetRepository.js';
-import { catalogRepository } from '../../repositories/catalogRepository.js';
 import { betaLibraryRepository } from '../library/libraryRepository.js';
 import { betaCatalogPolicyService } from '../catalog/catalogPolicyService.js';
 import { CapabilityMediaType,getCapabilityDefinition,isCapabilityId,validateModelCapability } from '../capabilityRegistry.js';
