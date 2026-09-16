@@ -64,7 +64,7 @@ export const Model3DPreview:React.FC<{url:string;label?:string;compact?:boolean}
    try{
     const response=await fetch(url);if(!response.ok)throw new Error('Não foi possível carregar o modelo.');
     const meshes=parseGlb(await response.arrayBuffer());if(disposed)return;
-    const gl=canvas.getContext('webgl',{antialias:true,alpha:true});if(!gl)throw new Error('WebGL não está disponível neste navegador.');
+    const gl=canvas.getContext('webgl',{antialias:true,alpha:true});if(!gl)throw new Error('WebGL não está disponível neste navegador.');const uintIndices=gl.getExtension('OES_element_index_uint');
     const vertex=compile(gl,gl.VERTEX_SHADER,`
       attribute vec3 a_position;uniform float u_angle;uniform vec3 u_center;uniform float u_scale;
       varying float v_depth;
@@ -80,7 +80,7 @@ export const Model3DPreview:React.FC<{url:string;label?:string;compact?:boolean}
     let min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
     for(const mesh of meshes)for(let i=0;i<mesh.positions.length;i+=3)for(let j=0;j<3;j++){const v=mesh.positions[i+j];min[j]=Math.min(min[j],v);max[j]=Math.max(max[j],v);}
     const center=[(min[0]+max[0])/2,(min[1]+max[1])/2,(min[2]+max[2])/2],span=Math.max(max[0]-min[0],max[1]-min[1],max[2]-min[2])||1,scale=1.55/span;
-    const gpu=meshes.map(mesh=>{const vb=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.STATIC_DRAW);let ib:WebGLBuffer|null=null;if(mesh.indices){ib=gl.createBuffer()!;gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.STATIC_DRAW);}return{...mesh,vb,ib};});
+    const gpu=meshes.map(mesh=>{const vb=gl.createBuffer()!;gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.STATIC_DRAW);let ib:WebGLBuffer|null=null;if(mesh.indices){if(mesh.indices instanceof Uint32Array&&!uintIndices)throw new Error('Este navegador não suporta índices 3D de 32 bits.');ib=gl.createBuffer()!;gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.STATIC_DRAW);}return{...mesh,vb,ib};});
     const resize=()=>{const dpr=Math.min(2,window.devicePixelRatio||1),w=Math.max(1,canvas.clientWidth),h=Math.max(1,canvas.clientHeight);if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}gl.viewport(0,0,canvas.width,canvas.height);};
     const started=performance.now();
     const draw=(time:number)=>{if(disposed)return;resize();gl.clearColor(.015,.027,.043,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.useProgram(program);gl.uniform1f(angleLoc,(time-started)/6500);gl.uniform3f(centerLoc,center[0],center[1],center[2]);gl.uniform1f(scaleLoc,scale);for(const mesh of gpu){gl.bindBuffer(gl.ARRAY_BUFFER,mesh.vb);gl.enableVertexAttribArray(posLoc);gl.vertexAttribPointer(posLoc,3,gl.FLOAT,false,0,0);if(mesh.indices&&mesh.ib){gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.ib);gl.drawElements(gl.TRIANGLES,mesh.indices.length,mesh.indices instanceof Uint32Array?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT,0);}else gl.drawArrays(gl.TRIANGLES,0,mesh.positions.length/3);}raf=requestAnimationFrame(draw);};
