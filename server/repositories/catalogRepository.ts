@@ -34,6 +34,7 @@ const mapping=(id:string,model_id:string,provider_id:string,provider_model_ident
 });
 export const MODEL_MAPPINGS:ProviderModelMapping[]=[
   mapping('map-video-studio-v1-wave','video-studio-v1','provider-wavespeed','alibaba/wan-3.0-prime'),
+  mapping('map-video-studio-v1-atlas','video-studio-v1','provider-atlas','alibaba/wan-3.0-prime'),
   mapping('map-image-editor-v1-wave','image-editor-v1','provider-wavespeed','openai/gpt-image-2'),
   mapping('map-three-d-v1-wave','three-d-v1','provider-wavespeed','wavespeed-ai/hunyuan3d-v3'),
   mapping('map-audio-tts-wave','audio-tts-v1','provider-wavespeed','minimax/speech-2.6-turbo'),
