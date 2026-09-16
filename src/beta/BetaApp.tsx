@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { ArrowLeft, FlaskConical, Home, Library } from 'lucide-react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
+import { ArrowLeft, FlaskConical, Home, Library, Music2 } from 'lucide-react';
 import { BrandMark } from '../components/common/BrandMark.js';
 import { BetaHomeView } from './views/BetaHomeView.js';
 import { BetaLibraryView } from './views/BetaLibraryView.js';
 import { BetaLibraryIntent } from './libraryClient.js';
 import { TaskCenter } from './components/TaskCenter.js';
+import { getPublicBetaFlags } from './services/betaAccessService.js';
 import './styles/beta.css';
 
 interface BetaAppProps {
@@ -12,13 +13,17 @@ interface BetaAppProps {
 }
 
 const INTENT_KEY='ia-conect:beta:library-intent:v1';
+const BetaAudioView=lazy(()=>import('./views/BetaAudioView.js').then(module=>({default:module.BetaAudioView})));
 
 export const BetaApp: React.FC<BetaAppProps> = ({ onExit }) => {
-  const [view,setView]=useState<'home'|'library'>('home');
+  const [view,setView]=useState<'home'|'library'|'audio'>('home');
+  const [flags,setFlags]=useState<Record<string,boolean>>({});
   const [intent,setIntent]=useState<BetaLibraryIntent|null>(()=>{
     if(typeof window==='undefined')return null;
     try{return JSON.parse(window.sessionStorage.getItem(INTENT_KEY)||'null');}catch{return null;}
   });
+
+  useEffect(()=>{void getPublicBetaFlags().then(setFlags).catch(()=>setFlags({}));},[]);
 
   const handleIntent=(next:BetaLibraryIntent)=>{
     setIntent(next);
@@ -36,6 +41,7 @@ export const BetaApp: React.FC<BetaAppProps> = ({ onExit }) => {
       <nav className="ia-beta-primary-nav" aria-label="Navegação Beta">
         <button className={view==='home'?'is-selected':''} onClick={()=>setView('home')}><Home/><span>Início</span></button>
         <button className={view==='library'?'is-selected':''} onClick={()=>setView('library')}><Library/><span>Library</span></button>
+        {flags['beta.audio']&&<button className={view==='audio'?'is-selected':''} onClick={()=>setView('audio')}><Music2/><span>Áudio</span></button>}
       </nav>
       <div className="ia-beta-navbar-actions">
         <TaskCenter />
@@ -46,8 +52,9 @@ export const BetaApp: React.FC<BetaAppProps> = ({ onExit }) => {
       </div>
     </header>
     {view==='home'
-      ?<BetaHomeView pendingIntent={intent} onOpenLibrary={()=>setView('library')}/>
-      :<BetaLibraryView onIntent={handleIntent}/>}
+      ?<BetaHomeView pendingIntent={intent} onOpenLibrary={()=>setView('library')} audioEnabled={flags['beta.audio']===true} onOpenAudio={()=>setView('audio')}/>
+      :view==='library'?<BetaLibraryView onIntent={handleIntent}/>
+      :<Suspense fallback={<div className="ia-beta-module-loading">Carregando Audio V1…</div>}><BetaAudioView onOpenLibrary={()=>setView('library')}/></Suspense>}
   </div>;
 };
 
