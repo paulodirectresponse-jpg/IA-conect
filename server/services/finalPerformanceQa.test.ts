@@ -67,17 +67,25 @@ describe('stage 8 final QA gates',()=>{
     expect(html).toContain('rel="preconnect" href="https://hzjyhhenajbjxkwkmzdg.supabase.co"');
   });
 
-  it('keeps the public LCP path on right-sized local assets',()=>{
+  it('keeps the public LCP path lightweight and independent from firebase',()=>{
     const html=read('index.html');
-    const landing=read('src/components/views/LandingPageView.tsx');
-    const app=read('src/App.tsx');
+    const main=read('src/main.tsx');
+    const publicApp=read('src/PublicApp.tsx');
+    const landing=read('src/components/views/PublicLandingView.tsx');
     const brand=read('src/components/common/BrandMark.tsx');
     expect(html).toContain('/brand/ia-connect-app-icon-64-v1.png');
     expect(html).toContain('/enterprise/visuals/planet-hero-wide-v1.webp');
+    expect(main).toContain("import PublicApp from'./PublicApp.js'");
+    expect(main).toContain("import'./styles/public-entry.css'");
+    expect(main).not.toContain("from './App");
+    expect(main).not.toContain('AuthProvider');
+    expect(main).not.toContain('firebase');
+    expect(publicApp).toContain("import('./services/authSessionProbe.js')");
+    expect(publicApp).toContain("const AuthenticatedApp=lazy(()=>import('./App.js')");
     expect(landing).toContain('src="/enterprise/visuals/planet-hero-wide-v1.webp"');
-    expect(landing).toContain('deferUntilWindowLoad');
-    expect(landing).toContain('<ViewportImage src={media(item.key)}');
-    expect(app).toContain("const landingPageModule=import('./components/views/LandingPageView.js')");
+    expect(landing).toContain('fetchPriority="high"');
+    expect(landing).toContain('const DeferredVideo');
+    expect(landing).toContain('const DeferredImage');
     expect(brand).toContain('/brand/ia-connect-logo-oficial-v1.webp');
   });
 });
