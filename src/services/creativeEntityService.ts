@@ -1,4 +1,4 @@
-import { apiRequest } from './apiClient.js';
+import { apiRequest, apiRequestCached, invalidateApiCache } from './apiClient.js';
 
 export type CreativeEntityKind='CHARACTER'|'PRODUCT'|'STYLE'|'PROJECT';
 export type CreativeEntityAssetRole='FACE'|'BODY'|'PRIMARY';
@@ -23,36 +23,44 @@ export const creativeEntityService={
   list(kind:CreativeEntityKind,projectId?:string|null):Promise<CreativeEntity[]>{
     const params=new URLSearchParams({kind});
     if(projectId!==undefined)params.set('project_id',projectId||'');
-    return apiRequest<CreativeEntity[]>(`/api/creative-entities?${params.toString()}`);
+    return apiRequestCached<CreativeEntity[]>(`/api/creative-entities?${params.toString()}`,5_000);
   },
 
   listProjects():Promise<CreativeEntity[]>{
     return this.list('PROJECT');
   },
 
-  save(input:Partial<CreativeEntity>&{kind:CreativeEntityKind;name:string}):Promise<CreativeEntity>{
-    return apiRequest<CreativeEntity>('/api/creative-entities',{method:'POST',body:JSON.stringify(input)});
+  async save(input:Partial<CreativeEntity>&{kind:CreativeEntityKind;name:string}):Promise<CreativeEntity>{
+    const entity=await apiRequest<CreativeEntity>('/api/creative-entities',{method:'POST',body:JSON.stringify(input)});
+    invalidateApiCache('/api/creative-entities');
+    return entity;
   },
 
-  setProjectAssets(projectId:string,assetIds:string[]):Promise<CreativeEntity>{
-    return apiRequest<CreativeEntity>(`/api/creative-entities/${encodeURIComponent(projectId)}/assets`,{
+  async setProjectAssets(projectId:string,assetIds:string[]):Promise<CreativeEntity>{
+    const entity=await apiRequest<CreativeEntity>(`/api/creative-entities/${encodeURIComponent(projectId)}/assets`,{
       method:'PUT',
       body:JSON.stringify({asset_ids:Array.from(new Set(assetIds))}),
     });
+    invalidateApiCache('/api/creative-entities');
+    return entity;
   },
 
-  toggleProjectAsset(projectId:string,assetId:string):Promise<CreativeEntity>{
-    return apiRequest<CreativeEntity>(
+  async toggleProjectAsset(projectId:string,assetId:string):Promise<CreativeEntity>{
+    const entity=await apiRequest<CreativeEntity>(
       `/api/creative-entities/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(assetId)}/toggle`,
       {method:'POST'},
     );
+    invalidateApiCache('/api/creative-entities');
+    return entity;
   },
 
   async archive(entityId:string):Promise<void>{
     await apiRequest(`/api/creative-entities/${encodeURIComponent(entityId)}/archive`,{method:'PATCH'});
+    invalidateApiCache('/api/creative-entities');
   },
 
   async remove(entityId:string):Promise<void>{
     await apiRequest(`/api/creative-entities/${encodeURIComponent(entityId)}`,{method:'DELETE'});
+    invalidateApiCache('/api/creative-entities');
   },
 };
