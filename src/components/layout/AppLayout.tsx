@@ -30,6 +30,26 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ currentView, onNavigate, c
     markViewRendered(currentView);
   }, [currentView]);
 
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1023px)');
+    const syncLock = () => {
+      const shouldLock = sidebarOpen && media.matches;
+      document.documentElement.classList.toggle('ia-mobile-nav-lock', shouldLock);
+      if (!media.matches && sidebarOpen) setSidebarOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && sidebarOpen) setSidebarOpen(false);
+    };
+    syncLock();
+    media.addEventListener('change', syncLock);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      media.removeEventListener('change', syncLock);
+      document.removeEventListener('keydown', onKeyDown);
+      document.documentElement.classList.remove('ia-mobile-nav-lock');
+    };
+  }, [sidebarOpen]);
+
   const enterpriseVisualStyle = {
     '--ia-art-planet-home': cssImageSet(enterpriseVisualAssets.homePlanet),
     '--ia-art-planet-community': cssImageSet(enterpriseVisualAssets.communityPlanet),
@@ -52,11 +72,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ currentView, onNavigate, c
       <div className="ia-shell-workspace flex min-w-0 flex-1 flex-col overflow-hidden">
         <Navbar
           currentView={currentView}
+          sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((value) => !value)}
           onNavigate={onNavigate}
         />
 
-        <main className={`min-w-0 flex-1 ${isCreateView ? 'flex flex-col overflow-hidden' : 'overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 xl:px-10 lg:py-8'}`}>
+        <main className={`ia-shell-main min-w-0 flex-1 ${isCreateView ? 'ia-shell-main-create flex flex-col overflow-hidden' : 'ia-shell-main-standard overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 xl:px-10 lg:py-8'}`}>
           {isCreateView ? children : <div className="mx-auto w-full max-w-[1480px]">{children}</div>}
         </main>
       </div>
