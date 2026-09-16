@@ -27,6 +27,7 @@ export const betaEconomicsService={
     capabilityId:string;
     mode:GenerationMode;
     pricingInput:Omit<CreditPricingInput,'userId'|'model_id'|'mode'>;
+    requestedControls?:string[];
   }):Promise<BetaResolvedQuote>{
     await this.assertExecutionEnabled();
     if(params.requestedModelId!=='AUTO'){
@@ -39,7 +40,7 @@ export const betaEconomicsService={
 
     const autoFlag=await catalogRepository.getFeatureFlag('beta.auto_router.enabled');
     if(!autoFlag?.is_enabled)throw Object.assign(new Error('AUTO router temporariamente indisponível.'),{code:'AUTO_ROUTER_DISABLED'});
-    const candidates=await betaCatalogPolicyService.eligibleModels(params.capabilityId);
+    const candidates=await betaCatalogPolicyService.eligibleModels(params.capabilityId,params.requestedControls||[]);
     if(!candidates.length)throw Object.assign(new Error('Nenhum modelo elegível para esta capability.'),{code:'AUTO_NO_ELIGIBLE_MODEL'});
     const billing=await billingControlService.get(false);
     const quoted=await Promise.all(candidates.map(async candidate=>{
