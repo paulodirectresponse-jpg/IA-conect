@@ -7,6 +7,7 @@ export interface BetaJobReference {
   asset_id:string;
   slot_type?:'INITIAL'|'END'|'GENERAL';
   alias?:string;
+  role?:'SOURCE'|'MASK'|'REFERENCE';
 }
 
 export interface BetaJobRequest {
@@ -39,6 +40,9 @@ export interface BetaJobRequest {
     pbr?:boolean;
     target_faces?:number;
     topology?:'TRIANGLE'|'QUAD';
+    editor_operation?:'EDIT'|'INPAINT'|'BACKGROUND_REMOVE'|'BACKGROUND_REPLACE'|'OUTPAINT'|'UPSCALE'|'VARIATIONS';
+    background_mode?:'TRANSPARENT'|'REPLACE';
+    variation_strength?:number;
   };
 }
 
