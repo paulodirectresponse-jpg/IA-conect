@@ -97,7 +97,7 @@ export const generationService={
   }
   const currentCost=Number(g.current_provider_safe_cogs_cents||0),policy=String(g.current_provider_billing_policy||'UNKNOWN');if(policy==='CHARGE_ON_SUCCESS'&&currentCost>0){g.incurred_cogs_cents=Number(g.incurred_cogs_cents||0)+currentCost;g.current_provider_billing_policy='CHARGE_ON_SUCCESS_COUNTED';await saveEconomics(g.generation_id,{incurred_cogs_cents:g.incurred_cogs_cents,remaining_cogs_budget_cents:Math.max(0,Number(g.max_allowed_cogs_cents||0)-Number(g.incurred_cogs_cents||0))});}
   const outputs=(status.result_urls||status.result_image_urls||[status.result_video_url]).filter(Boolean) as string[];
-  const hasStructured=Boolean(status.result_text||status.result_structured);
+  const hasStructured=Boolean(status.result_text||status.result_structured)||g.capability_id==='authorized-voice-clone';
   if(!outputs.length&&!hasStructured){try{g.status='ROUTING';await generationRepository.saveGeneration(g);return await routeAndSubmit(g,process.env.APP_URL);}catch(err:any){return failAndRelease(g,err?.code||'DELIVERY_FAILED','A geração terminou sem resultado recuperável e não havia fallback disponível.');}}
   if(outputs.length){g.result_url=outputs[0];g.thumbnail_url=g.output_asset_type==='AUDIO'?null:(status.thumbnail_url||outputs[0]||null);g.result_urls=outputs;const assets=await registerGeneratedAssets(g,outputs);if(assets[0])g.result_asset_id=assets[0].asset_id;g.result_asset_ids=assets.map(a=>a.asset_id);}
   g.result_text=status.result_text||null;g.result_structured=status.result_structured||null;
