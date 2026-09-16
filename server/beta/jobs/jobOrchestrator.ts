@@ -140,6 +140,7 @@ async function createQueuedAttempt(job:BetaJob,userId:string){
   }
   if(!versioned.job.quote)throw Object.assign(new Error('Cotação do job não encontrada.'),{code:'JOB_QUOTE_REQUIRED'});
   betaEconomicsService.assertQuoteFresh(versioned.job.quote);
+  await betaEconomicsService.assertQuotedModelEligible(versioned.job.quote,versioned.job.request.capability_id);
   const attemptNumber=versioned.job.attempt_count+1;
   const attemptId=`batt_${versioned.job.job_id}_${attemptNumber}`;
   const timestamp=now();
@@ -174,6 +175,7 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
     const quote=running.quote!;
     betaEconomicsService.assertQuoteFresh(quote);
     await betaEconomicsService.assertExecutionEnabled();
+    await betaEconomicsService.assertQuotedModelEligible(quote,running.request.capability_id);
     const {mode}=await validateRequest(running.request,quote.selected_model_id);
     const input=pricingInput(userId,running.request,mode,quote.selected_model_id);
     await betaEconomicsService.recordLedgerEvent({event_id:`exec:${running.job_id}:${currentAttempt.attempt_id}`,event_type:'EXECUTION_STARTED',user_id:userId,job_id:running.job_id,generation_id:null,requested_model_id:quote.requested_model_id,selected_model_id:quote.selected_model_id,routing_mode:quote.routing_mode,pricing_policy_id:quote.pricing_policy_id,retail_pricing_id:quote.retail_pricing_id,pricing_signature_hash:quote.pricing_signature_hash,credit_price:quote.credit_price,quote_expires_at:quote.expires_at});
@@ -323,7 +325,7 @@ export const betaJobOrchestrator={
           pricing_policy_id:resolved.pricing_policy.pricing_policy_id,quoted_at:timestamp,expires_at:expiresAt},
         quoted_at:timestamp,error_code:null,error_message:null,
       });
-      await betaEconomicsService.recordLedgerEvent({event_id:`quote:${current.job_id}:${preview.retail.retail_pricing_id}`,event_type:'QUOTE_AUTHORIZED',user_id:userId,job_id:current.job_id,generation_id:null,requested_model_id:current.request.model_id,selected_model_id:resolved.selected_model_id,routing_mode:resolved.routing_mode,pricing_policy_id:resolved.pricing_policy.pricing_policy_id,retail_pricing_id:preview.retail.retail_pricing_id,pricing_signature_hash:preview.signature.hash,credit_price:preview.retail.retail_credit_price,quote_expires_at:expiresAt});
+      await betaEconomicsService.recordLedgerEvent({event_id:`quote:${current.job_id}:${timestamp}`,event_type:'QUOTE_AUTHORIZED',user_id:userId,job_id:current.job_id,generation_id:null,requested_model_id:current.request.model_id,selected_model_id:resolved.selected_model_id,routing_mode:resolved.routing_mode,pricing_policy_id:resolved.pricing_policy.pricing_policy_id,retail_pricing_id:preview.retail.retail_pricing_id,pricing_signature_hash:preview.signature.hash,credit_price:preview.retail.retail_credit_price,quote_expires_at:expiresAt});
       return quoted;
     });
   },
