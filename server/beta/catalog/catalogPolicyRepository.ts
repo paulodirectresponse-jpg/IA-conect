@@ -77,7 +77,12 @@ export const catalogPolicyRepository={
   },
 
   async listEconomicLedger(limit=100):Promise<BetaEconomicLedgerEvent[]>{
-    const rows=await list<BetaEconomicLedgerEvent>('beta_economic_ledger',Math.min(500,Math.max(1,limit)));
-    return rows.sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)).slice(0,Math.min(500,Math.max(1,limit)));
+    const bounded=Math.min(500,Math.max(1,limit));
+    const rows=await firestoreAdminRest.runQuery({
+      from:[{collectionId:'beta_economic_ledger'}],
+      orderBy:[{field:{fieldPath:'created_at'},direction:'DESCENDING'}],
+      limit:bounded,
+    });
+    return rows.map((row:any)=>row.data as BetaEconomicLedgerEvent);
   },
 };
