@@ -64,7 +64,7 @@ describe('stage 8 final QA gates',()=>{
     expect(video).toContain("document.addEventListener('visibilitychange',sync)");
     expect(video).toContain("preload={nearViewport&&loadReady?'metadata':'none'}");
     expect(video).toContain('deferUntilWindowLoad');
-    expect(html).toContain('rel="preconnect" href="https://hzjyhhenajbjxkwkmzdg.supabase.co"');
+    expect(html).not.toContain('rel="preconnect" href="https://hzjyhhenajbjxkwkmzdg.supabase.co"');\n    expect(html).toContain('rel="dns-prefetch" href="//hzjyhhenajbjxkwkmzdg.supabase.co"');
   });
 
   it('keeps the public LCP path lightweight and independent from firebase',()=>{
