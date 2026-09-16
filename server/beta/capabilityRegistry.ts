@@ -77,6 +77,9 @@ function controlsForModel(model:ModelRegistryItem,id:CapabilityId):CapabilityCon
 export function publicCapabilityCatalog(models:ModelRegistryItem[]){
   return models.filter(model=>model.status!=='INACTIVE').map(model=>({
     model_id:model.model_id,name:model.name,category:model.category,
+    supported_durations:[...(model.supported_durations||[])],
+    supported_resolutions:[...(model.supported_resolutions||[])],
+    supported_aspect_ratios:[...(model.supported_aspect_ratios||[])],
     capabilities:capabilityIdsForModel(model).map(id=>{const def=getCapabilityDefinition(id)!;return{id,inputs:def.inputs,outputs:def.outputs,controls:controlsForModel(model,id)};}),
   })).filter(model=>model.capabilities.length>0);
 }
