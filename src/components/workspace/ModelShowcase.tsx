@@ -27,7 +27,7 @@ export const SHOWCASE_MODELS:ShowcaseItem[]=[
 const AutoLoopPreview:React.FC<{item:ShowcaseItem}>=({item})=>{
  const[failed,setFailed]=useState(false);
  if(failed)return <div className="absolute inset-0 grid place-items-center bg-[var(--ia-surface-media)] px-4 text-center"><p className="text-[11px] font-medium text-[var(--ia-text-4)]">Prévia temporariamente indisponível</p></div>;
- return <ViewportVideo className="absolute inset-0 w-full h-full object-cover" src={item.videoSrc} muted loop playsInline disablePictureInPicture onError={()=>setFailed(true)}/>;
+ return <ViewportVideo className="absolute inset-0 w-full h-full object-cover" src={item.videoSrc} rootMargin="0px" muted loop playsInline disablePictureInPicture onError={()=>setFailed(true)}/>;
 };
 
 export const ModelShowcase:React.FC<{compact?:boolean;onTry?:(item:ShowcaseItem)=>void;title?:string;subtitle?:string}> = ({compact=false,onTry,title='Modelos em destaque',subtitle='Veja os resultados em movimento e entre direto no modelo certo.'}) => <section className={`ia-model-showcase ${compact?'is-compact':''}`}>
