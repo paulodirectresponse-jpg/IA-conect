@@ -7,3 +7,9 @@ coverage/
 .env*
 !.env.example
 performance-baseline.json
+
+# Build-generated optimized image derivatives (PNG masters remain versioned)
+public/enterprise/visuals/*-v1.avif
+public/enterprise/visuals/*-v1.webp
+public/model-covers/*-v1.avif
+public/model-covers/*-v1.webp
