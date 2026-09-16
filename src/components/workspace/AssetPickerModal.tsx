@@ -306,7 +306,7 @@ export const AssetPickerModal: React.FC<AssetPickerModalProps> = ({
   ];
 
   return (
-    <ResponsiveDialogShell open={isOpen} onClose={onClose} ariaLabel={title} mobileMode="fullscreen" desktopMaxWidth={980} className="ia-asset-picker-shell flex h-[min(700px,90vh)] flex-col overflow-hidden bg-[#0b0e13] text-zinc-100">
+    <ResponsiveDialogShell open={isOpen} onClose={onClose} ariaLabel={title} mobileMode="fullscreen" desktopMaxWidth={980} backdropClassName="ia-asset-picker-backdrop" className="ia-asset-picker-shell flex h-[min(700px,90vh)] flex-col overflow-hidden bg-[#0b0e13] text-zinc-100">
         <header className="ia-asset-picker-header flex h-[72px] shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-5">
           <div className="min-w-0">
             <div className="flex items-center gap-2"><Library className="h-4 w-4 text-cyan-300" /><h2 className="text-sm font-bold">{title}</h2></div>
