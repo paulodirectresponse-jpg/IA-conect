@@ -30,7 +30,7 @@ export type PricedGenerationDraft = GenerationRequestDraft & {
 };
 
 export type GenerationQuoteResult={request_draft:PricedGenerationDraft;notice:string};
-export type GenerationBatchQuoteResult={items:Array<{key:string;ok:boolean;quote?:GenerationQuoteResult;error?:{code?:string;message?:string}}>};
+export type GenerationBatchQuoteResult={items:Array<{key:string;ok:boolean;pricing?:{model_id:string;retail_credit_price:number;unit_credit_price?:number;has_sufficient_funds:boolean};error?:{code?:string;message?:string}}>};
 
 function normalizeReferences(draft:GenerationRequestDraft) {
   const refs=draft.references||[];
