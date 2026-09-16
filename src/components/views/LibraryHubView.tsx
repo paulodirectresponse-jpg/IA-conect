@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { Box, FolderKanban, Image as ImageIcon, Layers3, Plus, Search, UserRound } from 'lucide-react';
 import { CreativeEntity, CreativeEntityKind, creativeEntityService } from '../../services/creativeEntityService.js';
 import { assetService } from '../../services/assetService.js';
 import { Asset } from '../../types/index.js';
-import { EntityLibraryView } from './EntityLibraryView.js';
-import { SingleImageEntityLibraryView } from './SingleImageEntityLibraryView.js';
-import { AssetsView } from './AssetsView.js';
+const EntityLibraryView=lazy(()=>import('./EntityLibraryView.js').then(m=>({default:m.EntityLibraryView})));
+const SingleImageEntityLibraryView=lazy(()=>import('./SingleImageEntityLibraryView.js').then(m=>({default:m.SingleImageEntityLibraryView})));
+const AssetsView=lazy(()=>import('./AssetsView.js').then(m=>({default:m.AssetsView})));
 
 type LibrarySection = 'ASSETS' | 'CHARACTER' | 'PRODUCT' | 'STYLE';
 const tabs: Array<{id:LibrarySection; label:string; icon:any}> = [
@@ -53,10 +53,12 @@ export const LibraryHubView: React.FC = () => {
 
       <section className="flex-1 min-w-0">
         <div className="ia-library-content-header mb-5 flex items-end justify-between gap-3 pb-4"><div><p className="text-[10px] text-zinc-600">Você está em</p><h2 className="text-lg font-semibold tracking-[-.02em] text-white">{currentLabel}</h2></div></div>
-        {section==='ASSETS' && (selectedProject?<ProjectAssets project={selectedProject} onProjectChange={next=>setProjects(prev=>prev.map(p=>p.entity_id===next.entity_id?next:p))}/>:<AssetsView/>)}
-        {section==='CHARACTER' && <EntityLibraryView kind="CHARACTER" embedded projectId={selectedProjectId}/>} 
-        {section==='PRODUCT' && <SingleImageEntityLibraryView kind="PRODUCT" embedded projectId={selectedProjectId}/>} 
-        {section==='STYLE' && <SingleImageEntityLibraryView kind="STYLE" embedded projectId={selectedProjectId}/>} 
+        <Suspense fallback={<div className="min-h-[320px] grid place-items-center"><div className="w-5 h-5 rounded-full border-2 border-cyan-300/70 border-t-transparent animate-spin"/></div>}>
+          {section==='ASSETS' && (selectedProject?<ProjectAssets project={selectedProject} onProjectChange={next=>setProjects(prev=>prev.map(p=>p.entity_id===next.entity_id?next:p))}/>:<AssetsView/>)}
+          {section==='CHARACTER' && <EntityLibraryView kind="CHARACTER" embedded projectId={selectedProjectId}/>}
+          {section==='PRODUCT' && <SingleImageEntityLibraryView kind="PRODUCT" embedded projectId={selectedProjectId}/>}
+          {section==='STYLE' && <SingleImageEntityLibraryView kind="STYLE" embedded projectId={selectedProjectId}/>}
+        </Suspense> 
       </section>
     </div>
   </div>;
