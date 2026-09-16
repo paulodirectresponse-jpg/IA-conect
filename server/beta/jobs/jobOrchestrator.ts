@@ -4,7 +4,6 @@ import { catalogRepository } from '../../repositories/catalogRepository.js';
 import { generationRepository } from '../../repositories/generationRepository.js';
 import { creditPricingService } from '../../services/creditPricingService.js';
 import { generationService } from '../../services/generationService.js';
-import { billingControlService } from '../../services/billingControlService.js';
 import { betaEconomicsService } from '../catalog/betaEconomicsService.js';
 import { validateModelCapability } from '../capabilityRegistry.js';
 import { betaJobRepository } from './jobRepository.js';
@@ -343,7 +342,7 @@ export const betaJobOrchestrator={
 
   async retry(userId:string,jobId:string,idempotencyKey:string,reqHost?:string,idToken?:string){
     return mutation({userId,jobId,action:'RETRY',idempotencyKey},async()=>{
-      await billingControlService.assertNewGenerationAllowed();
+      await betaEconomicsService.assertExecutionEnabled();
       const current=await this.get(userId,jobId,true);
       if(current.status!=='FAILED'&&current.status!=='CANCELLED'){
         throw Object.assign(new Error('Apenas jobs falhos ou cancelados podem ser reenfileirados.'),{code:'JOB_RETRY_UNAVAILABLE'});
