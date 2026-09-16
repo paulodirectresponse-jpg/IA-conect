@@ -2533,6 +2533,7 @@ html.ia-dialog-open body{
   .ia-desktop-copy{display:none!important}
   .ia-mobile-copy{display:inline!important}
 
+  .ia-shell-main-create{padding-bottom:0!important}
   .ia-mobile-studio-layout{
     display:flex!important;
     flex-direction:column!important;
@@ -2795,8 +2796,13 @@ html.ia-dialog-open body{
     min-height:44px;
   }
 
+  .ia-asset-picker-backdrop{
+    padding:0!important;
+  }
   .ia-asset-picker-shell{
     width:100%!important;
+    padding-top:0!important;
+    padding-bottom:0!important;
     height:100dvh!important;
     max-height:100dvh!important;
     overflow:hidden!important;
