@@ -8,7 +8,7 @@ export const catalogRouter = Router();
 catalogRouter.get('/catalog/models', requireAuth, async (req, res) => {
   try {
     const models = await catalogRepository.listModels();
-    res.json({ success: true, data: models });
+    res.json({ success: true, data: models.filter(model=>model.beta_only!==true) });
   } catch (err: any) {
     res.status(500).json({ success: false, error: { code: 'CATALOG_ERROR', message: 'Erro ao listar modelos.' } });
   }
