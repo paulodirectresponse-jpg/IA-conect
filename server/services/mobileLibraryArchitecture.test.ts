@@ -57,7 +57,7 @@ describe('mobile Library stage 3',()=>{
     expect(css).toContain('.ia-entity-modal,');
     expect(css).toContain('height:100dvh!important');
     expect(css).toContain('border-radius:0!important');
-    expect(css).toContain('padding-bottom:calc(10px + env(safe-area-inset-bottom))!important');
+    expect(css).toContain('padding:10px 12px calc(10px + env(safe-area-inset-bottom))!important');
   });
 
   it('uses touch copy for entity reference slots while retaining desktop drag copy',()=>{
