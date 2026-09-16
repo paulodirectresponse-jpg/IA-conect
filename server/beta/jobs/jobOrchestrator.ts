@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { GenerationMode, ModelRegistryItem } from '../../../src/types/index.js';
 import { catalogRepository } from '../../repositories/catalogRepository.js';
+import { generationRepository } from '../../repositories/generationRepository.js';
 import { creditPricingService } from '../../services/creditPricingService.js';
 import { generationService } from '../../services/generationService.js';
 import { billingControlService } from '../../services/billingControlService.js';
@@ -189,6 +190,32 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
       completed_at:isTerminalJobStatus(mapped)?timestamp:null,error_code:(generation as any).error_code||null,error_message:(generation as any).error_message||null});
     return next;
   }catch(error:any){
+    const existing=await generationRepository.findByClientRequest(userId,currentAttempt.execution_key).catch(()=>null);
+    if(existing){
+      const recovered=await generationService.getGeneration(existing.generation_id,userId).catch(()=>existing);
+      const latest=await betaJobRepository.getJobWithVersion(running.job_id,userId);
+      if(latest&&latest.job.status==='RUNNING'){
+        const mapped=generationStatusToJobStatus(recovered?.status||existing.status);
+        const timestamp=now();
+        const next={...latest.job,status:mapped,linked_generation_id:existing.generation_id,updated_at:timestamp,
+          completed_at:mapped==='SUCCEEDED'?timestamp:latest.job.completed_at,
+          failed_at:mapped==='FAILED'?timestamp:latest.job.failed_at,
+          cancelled_at:mapped==='CANCELLED'?timestamp:latest.job.cancelled_at,
+          error_code:(recovered as any)?.error_code||null,error_message:(recovered as any)?.error_message||null} as BetaJob;
+        if(latest.job.status!==mapped)assertJobTransition(latest.job.status,mapped);
+        try{
+          await betaJobRepository.saveConditional(next,latest.updateTime);
+          const attemptStatus=mapped==='SUCCEEDED'?'SUCCEEDED':mapped==='FAILED'?'FAILED':mapped==='CANCELLED'?'CANCELLED':'RUNNING';
+          await markAttempt(running.job_id,userId,currentAttempt,attemptStatus,{generation_id:existing.generation_id,
+            completed_at:isTerminalJobStatus(mapped)?timestamp:null,error_code:(recovered as any)?.error_code||null,error_message:(recovered as any)?.error_message||null});
+          return next;
+        }catch{
+          throw Object.assign(new Error('A geração já existe e será recuperada pelo mesmo job; nenhuma nova cobrança será criada.'),{code:'JOB_STATE_PERSISTENCE_PENDING'});
+        }
+      }
+      throw Object.assign(new Error('A geração desta tentativa já existe; atualize o job antes de tentar novamente.'),{code:'JOB_STATE_PERSISTENCE_PENDING'});
+    }
+
     const latest=await betaJobRepository.getJobWithVersion(running.job_id,userId);
     const timestamp=now();
     if(latest&&!isTerminalJobStatus(latest.job.status)){
@@ -202,8 +229,19 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
 }
 
 async function reconcileJob(job:BetaJob,userId:string){
-  if(job.status!=='RUNNING'||!job.linked_generation_id)return job;
-  const generation=await generationService.getGeneration(job.linked_generation_id,userId);
+  if(job.status!=='RUNNING')return job;
+  let generationId=job.linked_generation_id||null;
+  let currentAttempt:BetaJobAttempt|undefined;
+  if(!generationId&&job.current_attempt_id){
+    const attempts=await betaJobRepository.listAttempts(job.job_id,userId);
+    currentAttempt=attempts.find(item=>item.attempt_id===job.current_attempt_id);
+    if(currentAttempt){
+      const existing=await generationRepository.findByClientRequest(userId,currentAttempt.execution_key).catch(()=>null);
+      generationId=existing?.generation_id||null;
+    }
+  }
+  if(!generationId)return job;
+  const generation=await generationService.getGeneration(generationId,userId);
   if(!generation)return job;
   const mapped=generationStatusToJobStatus(generation.status);
   if(mapped===job.status)return job;
@@ -212,7 +250,7 @@ async function reconcileJob(job:BetaJob,userId:string){
   if(versioned.job.status!==job.status)return versioned.job;
   assertJobTransition(versioned.job.status,mapped);
   const timestamp=now();
-  const next={...versioned.job,status:mapped,updated_at:timestamp,
+  const next={...versioned.job,status:mapped,linked_generation_id:generationId,updated_at:timestamp,
     completed_at:mapped==='SUCCEEDED'?timestamp:versioned.job.completed_at,
     failed_at:mapped==='FAILED'?timestamp:versioned.job.failed_at,
     cancelled_at:mapped==='CANCELLED'?timestamp:versioned.job.cancelled_at,
