@@ -25,6 +25,16 @@ export interface BetaJobRequest {
     audio_enabled?:boolean;
     model_variant?:string;
     pricing_options?:Record<string,string|number|boolean|null|undefined>;
+    language?:string;
+    voice?:string;
+    output_format?:string;
+    style?:string;
+    instrumental?:boolean;
+    timestamps?:boolean;
+    source_language?:string;
+    target_language?:string;
+    voice_clone_consent?:boolean;
+    voice_label?:string;
   };
 }
 
@@ -52,6 +62,9 @@ export interface BetaJob {
   attempt_count:number;
   error_code?:string|null;
   error_message?:string|null;
+  result_asset_ids?:string[];
+  result_text?:string|null;
+  result_structured?:Record<string,any>|null;
   idempotency_fingerprint:string;
   created_at:string;
   updated_at:string;
