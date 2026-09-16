@@ -127,8 +127,8 @@ generationRouter.post('/generations/quote-batch',requireAuth,async(req:Authentic
     const items=await mapWithConcurrency(requests,4,async(item:any,index)=>{
       const key=String(item?.key||item?.model_id||index);
       try{
-        const quote=await buildGenerationQuote(req.user!.uid,item,byId.get(String(item?.model_id)));
-        return{key,ok:true,quote};
+        const quote=await buildGenerationQuote(req.user!.uid,item,byId.get(String(item?.model_id))),draft:any=quote.request_draft;
+        return{key,ok:true,pricing:{model_id:draft.model_id,retail_credit_price:draft.retail_credit_price,unit_credit_price:draft.unit_credit_price,has_sufficient_funds:draft.has_sufficient_funds}};
       }catch(err:any){
         return{key,ok:false,error:publicGenerationError(err,'Não foi possível confirmar esta cotação.')};
       }
