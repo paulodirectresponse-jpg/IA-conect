@@ -33,6 +33,7 @@ const mapping=(id:string,model_id:string,provider_id:string,provider_model_ident
   mapping_id:id,model_id,provider_id,provider_model_identifier,status:'ACTIVE',updated_at:now(),
 });
 export const MODEL_MAPPINGS:ProviderModelMapping[]=[
+  mapping('map-image-editor-v1-wave','image-editor-v1','provider-wavespeed','openai/gpt-image-2'),
   mapping('map-three-d-v1-wave','three-d-v1','provider-wavespeed','wavespeed-ai/hunyuan3d-v3'),
   mapping('map-audio-tts-wave','audio-tts-v1','provider-wavespeed','minimax/speech-2.6-turbo'),
   mapping('map-audio-sfx-wave','audio-sfx-v1','provider-wavespeed','sonilo/v1/text-to-sfx'),
@@ -103,6 +104,21 @@ async function save<T extends Record<string,any>>(collectionId:string,id:string,
 }
 
 const AUDIO_V1_FLAG_KEYS=new Set(['beta.audio','beta.audio.voice_clone','beta.audio.music','beta.audio.sfx','beta.audio.transcription','beta.audio.dubbing']);
+async function applyImageEditorReleaseFlag(rows:FeatureFlag[]):Promise<FeatureFlag[]>{
+  const markerPath='app_config/beta_image_editor_v1_release';
+  const marker=await firestoreAdminRest.get(markerPath).catch(()=>({exists:true,data:{}} as any));
+  if(marker.exists)return rows;
+  const timestamp=now(),byKey=new Map(rows.map(row=>[row.flag_key,row]));
+  const seed=FEATURE_FLAG_SEED.find(flag=>flag.flag_key==='beta.image_editor');
+  if(!seed)return rows;
+  const released={...seed,is_enabled:true,updated_at:timestamp};
+  try{await firestoreAdminRest.commit([
+    {update:{name:firestoreAdminRest.docName('feature_flags/'+safe(released.flag_key)),fields:firestoreAdminRest.fields(released)}},
+    {update:{name:firestoreAdminRest.docName(markerPath),fields:firestoreAdminRest.fields({release:'PR-10_IMAGE_EDITOR_V1',released_at:timestamp})},currentDocument:{exists:false}},
+  ]);}catch{return listCollection<FeatureFlag>('feature_flags');}
+  byKey.set(released.flag_key,released);return Array.from(byKey.values());
+}
+
 async function applyThreeDV1ReleaseFlag(rows:FeatureFlag[]):Promise<FeatureFlag[]>{
   const markerPath='app_config/beta_three_d_v1_release';
   const marker=await firestoreAdminRest.get(markerPath).catch(()=>({exists:true,data:{}} as any));
@@ -195,7 +211,7 @@ export const catalogRepository={
 
   async listFeatureFlags(){
     const rows=await ensureSeed<FeatureFlag>('feature_flags','flag_key',FEATURE_FLAG_SEED);
-    return applyThreeDV1ReleaseFlag(await applyAudioV1ReleaseFlags(rows));
+    return applyImageEditorReleaseFlag(await applyThreeDV1ReleaseFlag(await applyAudioV1ReleaseFlags(rows)));
   },
   async getFeatureFlag(id:string){
     await this.listFeatureFlags();
