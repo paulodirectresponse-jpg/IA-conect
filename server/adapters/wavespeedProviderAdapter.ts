@@ -54,7 +54,7 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
     const capability=String(params.capability_id||'');
     const format=String(option(params,'output_format','mp3'));
     if(capability==='text-to-speech'){
-      const out:any={text:params.prompt,voice_id:logicalVoice(option(params,'voice','calm-female')),format,
+      const out:any={text:params.prompt,voice_id:String(params.provider_runtime_options?.provider_voice_id||logicalVoice(option(params,'voice','calm-female'))),format,
         speed:Number(option(params,'speed',1)),volume:Number(option(params,'volume',1)),pitch:Number(option(params,'pitch',0)),
         language_boost:String(option(params,'language','auto')),english_normalization:true};
       const style=String(option(params,'style','')).trim();if(style)out.emotion=style;return out;
