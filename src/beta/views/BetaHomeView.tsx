@@ -10,7 +10,7 @@ const modules = [
   { key: 'flows', title: 'Fluxos', description: 'Conecte ferramentas em workflows multimodais.', icon: Network },
 ] as const;
 
-export const BetaHomeView: React.FC<{pendingIntent?:BetaLibraryIntent|null;onOpenLibrary?:()=>void;audioEnabled?:boolean;onOpenAudio?:()=>void;threeDEnabled?:boolean;onOpenThreeD?:()=>void}> = ({pendingIntent,onOpenLibrary,audioEnabled,onOpenAudio,threeDEnabled,onOpenThreeD}) => (
+export const BetaHomeView: React.FC<{pendingIntent?:BetaLibraryIntent|null;onOpenLibrary?:()=>void;audioEnabled?:boolean;onOpenAudio?:()=>void;imageEditorEnabled?:boolean;onOpenImageEditor?:()=>void;threeDEnabled?:boolean;onOpenThreeD?:()=>void}> = ({pendingIntent,onOpenLibrary,audioEnabled,onOpenAudio,imageEditorEnabled,onOpenImageEditor,threeDEnabled,onOpenThreeD}) => (
   <main className="ia-beta-home">
     <section className="ia-beta-hero" aria-labelledby="ia-beta-title">
       <div className="ia-beta-kicker"><Sparkles aria-hidden="true" /> IA Conect Beta</div>
@@ -33,13 +33,15 @@ export const BetaHomeView: React.FC<{pendingIntent?:BetaLibraryIntent|null;onOpe
       </div>
       <div className="ia-beta-module-grid">
         {modules.map(({ key, title, description, icon: Icon }) => (
-          <article className={`ia-beta-module-card ${(key==='audio'&&audioEnabled)||(key==='3d'&&threeDEnabled)?'is-available':''}`} key={key}>
+          <article className={`ia-beta-module-card ${(key==='image'&&imageEditorEnabled)||(key==='audio'&&audioEnabled)||(key==='3d'&&threeDEnabled)?'is-available':''}`} key={key}>
             <div className="ia-beta-module-icon"><Icon aria-hidden="true" /></div>
             <div>
               <h3>{title}</h3>
               <p>{description}</p>
             </div>
-            {key==='audio'&&audioEnabled
+            {key==='image'&&imageEditorEnabled
+              ?<button className="ia-beta-module-open" type="button" onClick={onOpenImageEditor}>Abrir Image Editor <ArrowRight/></button>
+              :key==='audio'&&audioEnabled
               ?<button className="ia-beta-module-open" type="button" onClick={onOpenAudio}>Abrir Audio V1 <ArrowRight/></button>
               :key==='3d'&&threeDEnabled?<button className="ia-beta-module-open" type="button" onClick={onOpenThreeD}>Abrir 3D V1 <ArrowRight/></button>
               :<span className="ia-beta-module-status">Em preparação</span>}

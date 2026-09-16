@@ -47,13 +47,38 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
   readonly providerId='provider-wavespeed';readonly name='WaveSpeed AI';
   private get apiKey(){return process.env.WAVESPEED_API_KEY?.trim();}private get baseUrl(){return base(process.env.WAVESPEED_BASE_URL);}
   isConfigured(){return Boolean(this.apiKey);}
-  supports(modelId:string,mode:GenerationMode,providerModelIdentifier?:string){if(isAudioMode(mode)||isThreeDMode(mode))return Boolean(providerModelIdentifier);if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE')return Boolean(IMAGE_ENDPOINTS[modelId]?.[mode]);if((modelId==='seedance-2-5'||modelId==='seedance-2-0'||modelId==='kling-3-0')&&mode==='REFERENCE_TO_VIDEO')return false;return Boolean(VIDEO_FAMILIES[modelId]&&videoSuffix(mode));}
+  supports(modelId:string,mode:GenerationMode,providerModelIdentifier?:string){if(isAudioMode(mode)||isThreeDMode(mode))return Boolean(providerModelIdentifier);if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE')return Boolean(IMAGE_ENDPOINTS[modelId]?.[mode]||(providerModelIdentifier&&mode==='IMAGE_TO_IMAGE'));if((modelId==='seedance-2-5'||modelId==='seedance-2-0'||modelId==='kling-3-0')&&mode==='REFERENCE_TO_VIDEO')return false;return Boolean(VIDEO_FAMILIES[modelId]&&videoSuffix(mode));}
   private modelName(modelId:string,mode:GenerationMode,providerModelIdentifier?:string){
     if(isAudioMode(mode)){if(!providerModelIdentifier)throw Object.assign(new Error('Mapping de áudio indisponível na WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return providerModelIdentifier;}
     if(isThreeDMode(mode)){if(!providerModelIdentifier)throw Object.assign(new Error('Mapping 3D indisponível na WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return `${providerModelIdentifier}/${mode==='TEXT_TO_3D'?'text-to-3d':'image-to-3d'}`;}
-if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE'){const endpoint=IMAGE_ENDPOINTS[modelId]?.[mode];if(!endpoint)throw Object.assign(new Error('Modelo/modo de imagem não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return endpoint;}const family=VIDEO_FAMILIES[modelId],suffix=videoSuffix(mode);if(!family||!suffix||!this.supports(modelId,mode,providerModelIdentifier))throw Object.assign(new Error('Modelo/modo não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return`${family}/${suffix}`;}
+if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE'){const endpoint=IMAGE_ENDPOINTS[modelId]?.[mode]||(providerModelIdentifier&&mode==='IMAGE_TO_IMAGE'?providerModelIdentifier+'/edit':null);if(!endpoint)throw Object.assign(new Error('Modelo/modo de imagem não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return endpoint;}const family=VIDEO_FAMILIES[modelId],suffix=videoSuffix(mode);if(!family||!suffix||!this.supports(modelId,mode,providerModelIdentifier))throw Object.assign(new Error('Modelo/modo não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return`${family}/${suffix}`;}
 
-  private imagePayload(params:ProviderGenerationParams){const images=params.references.filter(r=>r.type==='IMAGE').map(r=>r.provider_accessible_url),endpoint=this.modelName(params.model_id,params.mode,params.provider_model_identifier);const out:any={prompt:compileProviderReferencePrompt(params,'wavespeed'),aspect_ratio:params.aspect_ratio,resolution:String(params.resolution||'1K').toLowerCase(),output_format:'png',enable_sync_mode:false,enable_base64_output:false};if(params.mode==='IMAGE_TO_IMAGE'){if(!images.length)throw Object.assign(new Error('Adicione pelo menos uma imagem de referência.'),{code:'REFERENCE_REQUIRED'});out.images=images;}if(endpoint.startsWith('openai/gpt-image-2/'))out.quality='medium';if(endpoint.startsWith('google/nano-banana-2/')||endpoint.startsWith('google/nano-banana-2-lite/')){delete out.resolution;out.enable_web_search=false;out.enable_image_search=false;}return out;}
+  private imagePayload(params:ProviderGenerationParams){
+    const refs=params.references.filter(r=>r.type==='IMAGE'),endpoint=this.modelName(params.model_id,params.mode,params.provider_model_identifier),capability=String(params.capability_id||'');
+    const source=refs.find(ref=>ref.role==='SOURCE')||refs.find(ref=>ref.role!=='MASK')||refs[0],mask=refs.find(ref=>ref.role==='MASK');
+    const out:any={prompt:compileProviderReferencePrompt(params,'wavespeed'),aspect_ratio:params.aspect_ratio,resolution:String(params.resolution||'1K').toLowerCase(),output_format:'png',enable_sync_mode:false,enable_base64_output:false};
+    if(params.mode==='IMAGE_TO_IMAGE'){
+      if(!source)throw Object.assign(new Error('Adicione uma imagem de origem.'),{code:'REFERENCE_REQUIRED'});
+      out.images=[source.provider_accessible_url];
+      if(capability==='inpaint-mask'){
+        if(!mask)throw Object.assign(new Error('Máscara obrigatória para inpaint.'),{code:'MASK_REQUIRED'});
+        out.mask=mask.provider_accessible_url;
+      }
+      if(capability==='background-remove-replace'){
+        const mode=String(option(params,'background_mode','TRANSPARENT')).toUpperCase();
+        if(mode==='TRANSPARENT'){out.prompt='Remove the background precisely. Preserve the foreground subject and fine edges. Return a transparent background.';out.background='transparent';}
+      }
+      if(capability==='upscale')out.prompt='Upscale this image faithfully. Preserve identity, composition, text and details. Increase clarity without changing content.';
+      if(capability==='variations'){
+        const strength=Math.max(0,Math.min(1,Number(option(params,'variation_strength',0.35))||0.35));
+        out.prompt=(params.prompt||'Create a faithful visual variation of this image.')+' Keep the original subject and composition recognizable. Variation strength: '+strength.toFixed(2)+'.';
+      }
+      if(capability==='outpaint')out.prompt=params.prompt||'Extend the image naturally into the new canvas while preserving the original content.';
+    }
+    if(endpoint.startsWith('openai/gpt-image-2/'))out.quality='medium';
+    if(endpoint.startsWith('google/nano-banana-2/')||endpoint.startsWith('google/nano-banana-2-lite/')){delete out.resolution;out.enable_web_search=false;out.enable_image_search=false;}
+    return out;
+  }
 
   private audioPayload(params:ProviderGenerationParams){
     const capability=String(params.capability_id||'');

@@ -18,7 +18,7 @@ const makeId=(prefix:string)=>`${prefix}_${Date.now()}_${crypto.randomBytes(5).t
 
 function generationModeForCapability(capabilityId:string):GenerationMode|null{
   if(capabilityId==='text-to-image')return'TEXT_TO_IMAGE';
-  if(capabilityId==='image-to-image'||capabilityId==='image-edit')return'IMAGE_TO_IMAGE';
+  if(['image-to-image','image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations'].includes(capabilityId))return'IMAGE_TO_IMAGE';
   if(capabilityId==='text-to-video')return'TEXT_TO_VIDEO';
   if(capabilityId==='image-to-video'||capabilityId==='first-frame'||capabilityId==='last-frame')return'IMAGE_TO_VIDEO';
   if(capabilityId==='text-to-speech')return'TEXT_TO_SPEECH';
@@ -34,8 +34,8 @@ function generationModeForCapability(capabilityId:string):GenerationMode|null{
 }
 
 function derivedAssetIdForRequest(request:BetaJobRequest){
-  if(!['image-to-image','image-edit','image-to-video','first-frame','last-frame','image-to-3d','multi-image-to-3d'].includes(request.capability_id))return null;
-  return request.references.find(ref=>ref.slot_type==='INITIAL')?.asset_id||request.references[0]?.asset_id||null;
+  if(!['image-to-image','image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations','image-to-video','first-frame','last-frame','image-to-3d','multi-image-to-3d'].includes(request.capability_id))return null;
+  return request.references.find(ref=>ref.role==='SOURCE')?.asset_id||request.references.find(ref=>ref.slot_type==='INITIAL')?.asset_id||request.references[0]?.asset_id||null;
 }
 
 function requestedControls(request:BetaJobRequest){
@@ -45,7 +45,7 @@ function requestedControls(request:BetaJobRequest){
   if(request.controls.duration_seconds!==undefined)controls.push('duration');
   if(request.controls.seed!==undefined&&request.controls.seed!==null)controls.push('seed');
   if(request.negative_prompt?.trim())controls.push('negative_prompt');
-  if(['image-to-image','image-edit','image-to-video'].includes(request.capability_id)&&request.references.length)controls.push('reference_image');
+  if(['image-to-image','image-edit','inpaint-mask','outpaint','variations','image-to-video'].includes(request.capability_id)&&request.references.length)controls.push('reference_image');
   if(['first-frame','last-frame'].includes(request.capability_id))controls.push('first_frame');
   if(request.capability_id==='last-frame')controls.push('last_frame');
   if(request.controls.language)controls.push('language');
@@ -62,6 +62,8 @@ function requestedControls(request:BetaJobRequest){
   if(request.controls.pbr!==undefined)controls.push('pbr');
   if(request.controls.target_faces!==undefined)controls.push('target_faces');
   if(request.controls.topology)controls.push('topology');
+  if(request.controls.background_mode)controls.push('background_mode');
+  if(request.controls.variation_strength!==undefined)controls.push('variation_strength');
   return controls;
 }
 
@@ -77,6 +79,7 @@ function normalizeRequest(raw:any):BetaJobRequest{
         ?String(ref?.slot_type||'GENERAL').toUpperCase() as 'INITIAL'|'END'|'GENERAL'
         :'GENERAL',
       alias:ref?.alias?String(ref.alias):undefined,
+      role:['SOURCE','MASK','REFERENCE'].includes(String(ref?.role||'').toUpperCase())?String(ref.role).toUpperCase() as any:undefined,
     })).filter((ref:any)=>ref.asset_id):[],
     controls:{
       duration_seconds:Number.isFinite(Number(raw?.controls?.duration_seconds))?Number(raw.controls.duration_seconds):undefined,
@@ -102,11 +105,19 @@ function normalizeRequest(raw:any):BetaJobRequest{
       pbr:raw?.controls?.pbr===undefined?undefined:Boolean(raw.controls.pbr),
       target_faces:Number.isFinite(Number(raw?.controls?.target_faces))?Math.max(40000,Math.min(1500000,Math.round(Number(raw.controls.target_faces)))):undefined,
       topology:['TRIANGLE','QUAD'].includes(String(raw?.controls?.topology||'').toUpperCase())?String(raw.controls.topology).toUpperCase() as any:undefined,
+      editor_operation:['EDIT','INPAINT','BACKGROUND_REMOVE','BACKGROUND_REPLACE','OUTPAINT','UPSCALE','VARIATIONS'].includes(String(raw?.controls?.editor_operation||'').toUpperCase())?String(raw.controls.editor_operation).toUpperCase() as any:undefined,
+      background_mode:['TRANSPARENT','REPLACE'].includes(String(raw?.controls?.background_mode||'').toUpperCase())?String(raw.controls.background_mode).toUpperCase() as any:undefined,
+      variation_strength:Number.isFinite(Number(raw?.controls?.variation_strength))?Math.max(0,Math.min(1,Number(raw.controls.variation_strength))):undefined,
     },
   };
 }
 
 async function assertCapabilityEnabled(capabilityId:string){
+  if(['image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations'].includes(capabilityId)){
+    const flag=await catalogRepository.getFeatureFlag('beta.image_editor');
+    if(!flag?.is_enabled)throw Object.assign(new Error('O editor de imagem está temporariamente indisponível.'),{code:'IMAGE_EDITOR_DISABLED'});
+    return;
+  }
   if(['text-to-3d','image-to-3d','multi-image-to-3d'].includes(capabilityId)){
     const flag=await catalogRepository.getFeatureFlag('beta.three_d');
     if(!flag?.is_enabled)throw Object.assign(new Error('O módulo 3D está temporariamente indisponível.'),{code:'THREE_D_MODULE_DISABLED'});
@@ -149,7 +160,7 @@ async function validateRequest(request:BetaJobRequest,resolvedModelId?:string,us
     const capability=validateModelCapability(model,request.capability_id,requestedControls(request));
     if(!capability.valid)throw Object.assign(new Error(capability.message||'Capability inválida.'),{code:capability.code||'CAPABILITY_INVALID'});
   }
-  const promptRequired=new Set(['text-to-image','image-to-image','image-edit','text-to-video','image-to-video','first-frame','last-frame','text-to-speech','sound-effects','music','text-to-3d']);
+  const promptRequired=new Set(['text-to-image','image-to-image','image-edit','inpaint-mask','outpaint','text-to-video','image-to-video','first-frame','last-frame','text-to-speech','sound-effects','music','text-to-3d']);
   if(promptRequired.has(request.capability_id)&&!request.prompt)throw Object.assign(new Error('Prompt é obrigatório para esta capability.'),{code:'VALIDATION_ERROR'});
   if((request.capability_id==='image-to-image'||request.capability_id==='image-to-video')&&!request.references.length)throw Object.assign(new Error('Esta capability exige uma imagem de entrada.'),{code:'REFERENCE_REQUIRED'});
   if(request.capability_id==='first-frame'&&!request.references.some(ref=>ref.slot_type==='INITIAL'))throw Object.assign(new Error('Adicione o frame inicial.'),{code:'REFERENCE_REQUIRED'});
@@ -168,6 +179,20 @@ async function validateRequest(request:BetaJobRequest,resolvedModelId?:string,us
       if(!first||!['AUDIO','VIDEO'].includes(first.type))throw Object.assign(new Error('Selecione um áudio ou vídeo para dublar.'),{code:'REFERENCE_REQUIRED'});
       if(!request.controls.target_language)throw Object.assign(new Error('Escolha o idioma de destino da dublagem.'),{code:'VALIDATION_ERROR'});
     }
+    const editorCaps=['image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations'];
+    if(editorCaps.includes(request.capability_id)){
+      const sourceIndex=request.references.findIndex(ref=>ref.role==='SOURCE');
+      const source=sourceIndex>=0?assets[sourceIndex]:assets[0];
+      if(!source||source.type!=='IMAGE')throw Object.assign(new Error('Selecione uma imagem de origem para editar.'),{code:'REFERENCE_REQUIRED'});
+      if(request.capability_id==='inpaint-mask'){
+        const maskIndex=request.references.findIndex(ref=>ref.role==='MASK');
+        const mask=maskIndex>=0?assets[maskIndex]:null;
+        if(!mask||mask.type!=='IMAGE')throw Object.assign(new Error('Desenhe ou envie uma máscara para o inpaint.'),{code:'MASK_REQUIRED'});
+      }
+      const max=request.capability_id==='inpaint-mask'?2:1;
+      if(assets.length>max)throw Object.assign(new Error('Referências demais para esta operação do editor.'),{code:'VALIDATION_ERROR'});
+    }
+    if(request.capability_id==='background-remove-replace'&&request.controls.background_mode==='REPLACE'&&!request.prompt)throw Object.assign(new Error('Descreva o novo fundo.'),{code:'VALIDATION_ERROR'});
     if(request.capability_id==='image-to-3d'&&(assets.length!==1||assets.some(asset=>asset.type!=='IMAGE')))throw Object.assign(new Error('Selecione exatamente uma imagem para gerar o modelo 3D.'),{code:'REFERENCE_REQUIRED'});
     if(request.capability_id==='multi-image-to-3d'&&(assets.length<2||assets.length>4||assets.some(asset=>asset.type!=='IMAGE')))throw Object.assign(new Error('Selecione de duas a quatro imagens do mesmo objeto para gerar o modelo 3D.'),{code:'REFERENCE_REQUIRED'});
     if(['transcription','subtitles','authorized-voice-clone','dubbing'].includes(request.capability_id)&&assets.length!==1){
@@ -183,7 +208,7 @@ async function pricingContext(userId:string,request:BetaJobRequest){
   const resolved=await assetReferenceResolver.resolveReferenceAssetUrls(userId,request.references.map(ref=>ref.asset_id));
   const providerReferences=resolved.map(asset=>{
     const source=request.references.find(ref=>ref.asset_id===asset.asset_id);
-    return{...asset,slot_type:source?.slot_type||'GENERAL',prompt_alias:source?.alias||asset.alias};
+    return{...asset,slot_type:source?.slot_type||'GENERAL',prompt_alias:source?.alias||asset.alias,role:source?.role};
   });
   const durationSeconds=assets.reduce((max,asset)=>Math.max(max,Number(asset.duration_seconds||0)),0);
   return{assets,providerReferences,durationSeconds};
@@ -214,6 +239,9 @@ async function pricingInput(userId:string,request:BetaJobRequest,mode:Generation
     pbr:request.controls.pbr??false,
     target_faces:request.controls.target_faces||500000,
     topology:request.controls.topology||'TRIANGLE',
+    editor_operation:request.controls.editor_operation,
+    background_mode:request.controls.background_mode,
+    variation_strength:request.controls.variation_strength,
   };
   return{
     userId,model_id:modelId,mode,capability_id:request.capability_id,prompt:request.prompt||'Processar mídia',negative_prompt:request.negative_prompt,

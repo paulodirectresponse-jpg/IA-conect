@@ -110,6 +110,7 @@ export const assetRepository={
     const deduped=await dedupeGeneratedAssets(await userAssets(userId));
     return deduped.filter((asset)=>{
       if(asset.deleted_at)return false;
+      if(asset.media_metadata?.editor_mask===true)return false;
       if(asset.status==='UPLOADING'||asset.status==='FAILED')return false;
       if(!filters?.includeUniversal&&asset.type==='MODEL_3D')return false;
       if(filters?.type&&asset.type!==filters.type)return false;

@@ -8,7 +8,7 @@ export const CAPABILITY_IDS = [
 ] as const;
 export type CapabilityId = typeof CAPABILITY_IDS[number];
 export type CapabilityMediaType = 'TEXT'|'IMAGE'|'VIDEO'|'AUDIO'|'MODEL_3D'|'MASK'|'STRUCTURED_DATA';
-export type CapabilityControl = 'aspect_ratio'|'resolution'|'duration'|'seed'|'guidance'|'negative_prompt'|'reference_image'|'first_frame'|'last_frame'|'language'|'voice'|'output_format'|'style'|'instrumental'|'timestamps'|'source_language'|'target_language'|'voice_clone_consent'|'voice_label'|'mesh_mode'|'pbr'|'target_faces'|'topology';
+export type CapabilityControl = 'aspect_ratio'|'resolution'|'duration'|'seed'|'guidance'|'negative_prompt'|'reference_image'|'first_frame'|'last_frame'|'language'|'voice'|'output_format'|'style'|'instrumental'|'timestamps'|'source_language'|'target_language'|'voice_clone_consent'|'voice_label'|'mesh_mode'|'pbr'|'target_faces'|'topology'|'background_mode'|'variation_strength';
 
 export interface CapabilityDefinition {
   id: CapabilityId;
@@ -22,10 +22,10 @@ const defs: CapabilityDefinition[] = [
   {id:'image-to-image',inputs:['TEXT','IMAGE'],outputs:['IMAGE'],controls:['aspect_ratio','resolution','seed','guidance','negative_prompt','reference_image','output_format']},
   {id:'image-edit',inputs:['TEXT','IMAGE'],outputs:['IMAGE'],controls:['aspect_ratio','resolution','reference_image','output_format']},
   {id:'inpaint-mask',inputs:['TEXT','IMAGE','MASK'],outputs:['IMAGE'],controls:['resolution','reference_image','output_format']},
-  {id:'background-remove-replace',inputs:['IMAGE'],outputs:['IMAGE'],controls:['resolution','output_format']},
+  {id:'background-remove-replace',inputs:['IMAGE'],outputs:['IMAGE'],controls:['resolution','output_format','background_mode']},
   {id:'outpaint',inputs:['TEXT','IMAGE'],outputs:['IMAGE'],controls:['aspect_ratio','resolution','output_format']},
   {id:'upscale',inputs:['IMAGE'],outputs:['IMAGE'],controls:['resolution','output_format']},
-  {id:'variations',inputs:['IMAGE'],outputs:['IMAGE'],controls:['reference_image','output_format']},
+  {id:'variations',inputs:['IMAGE'],outputs:['IMAGE'],controls:['reference_image','resolution','output_format','variation_strength']},
   {id:'text-to-video',inputs:['TEXT'],outputs:['VIDEO'],controls:['aspect_ratio','resolution','duration','seed','guidance','negative_prompt','output_format']},
   {id:'image-to-video',inputs:['TEXT','IMAGE'],outputs:['VIDEO'],controls:['aspect_ratio','resolution','duration','seed','negative_prompt','reference_image','output_format']},
   {id:'first-frame',inputs:['TEXT','IMAGE'],outputs:['VIDEO'],controls:['aspect_ratio','resolution','duration','first_frame','output_format']},
@@ -69,7 +69,7 @@ function controlsForModel(model:ModelRegistryItem,id:CapabilityId):CapabilityCon
     if(control==='duration')return (model.supported_durations||[]).length>0;
     if(control==='resolution')return (model.supported_resolutions||[]).length>0;
     if(control==='aspect_ratio')return (model.supported_aspect_ratios||[]).length>0;
-    if(['language','voice','output_format','style','instrumental','timestamps','source_language','target_language','voice_clone_consent','voice_label','mesh_mode','pbr','target_faces','topology'].includes(control))return true;
+    if(['language','voice','output_format','style','instrumental','timestamps','source_language','target_language','voice_clone_consent','voice_label','mesh_mode','pbr','target_faces','topology','background_mode','variation_strength'].includes(control))return true;
     return control!=='guidance';
   });
 }
