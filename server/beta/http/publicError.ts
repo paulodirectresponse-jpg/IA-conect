@@ -45,6 +45,11 @@ const RULES:Record<string,Rule>={
   PROVIDER_NOT_CONFIGURED:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'A rota de execução está temporariamente indisponível.'},
   JOB_EXECUTION_FAILED:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'A tarefa não pôde ser concluída.'},
   TASK_CANCEL_UNAVAILABLE:{status:409,category:'CONFLICT',retryable:false,action:'NONE',message:'Esta tarefa não pode mais ser cancelada.'},
+  ASSET_STORAGE_UNAVAILABLE:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'O armazenamento de assets está temporariamente indisponível.'},
+  ASSET_ARCHIVE_FETCH_FAILED:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'O resultado ainda não pôde ser recuperado para a Library.'},
+  ASSET_ARCHIVE_UPLOAD_FAILED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'O resultado ainda não pôde ser arquivado na Library.'},
+  ASSET_ARCHIVE_TOO_LARGE:{status:409,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',message:'O resultado excede o limite de armazenamento disponível.'},
+  ASSET_ARCHIVE_EMPTY:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'O resultado retornado estava vazio e não pôde ser arquivado.'},
 };
 
 const SAFE_CODE=/^[A-Z0-9_]{2,80}$/;
