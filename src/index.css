@@ -2362,3 +2362,163 @@ html[data-theme="light"] .ia-wallet>div.grid>div:nth-child(2){background:#fff!im
   .ia-creative-library article img{transition-duration:1ms!important}
   .ia-creative-library article:hover img{transform:none!important}
 }
+
+/* Responsive mobile shell — Stage 1
+   Desktop rules above stay untouched; all shell overrides live below desktop breakpoints. */
+.ia-responsive-dialog-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:120;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:1rem;
+  background:rgba(0,0,0,.72);
+  backdrop-filter:blur(8px);
+}
+.ia-responsive-dialog-surface{
+  width:min(calc(100vw - 2rem),var(--ia-dialog-desktop-max,760px));
+  max-height:min(90vh,840px);
+  overflow:auto;
+  border:1px solid var(--ia-line);
+  border-radius:20px;
+  background:var(--ia-surface-1);
+  box-shadow:var(--ia-shadow-overlay);
+  outline:0;
+}
+html.ia-dialog-open,
+html.ia-dialog-open body{
+  overflow:hidden;
+}
+
+@media(max-width:1023px){
+  html.ia-mobile-nav-lock,
+  html.ia-mobile-nav-lock body{
+    overflow:hidden;
+    overscroll-behavior:none;
+  }
+  .ia-shell{
+    height:100dvh!important;
+    min-height:100dvh;
+    max-height:100dvh;
+    overflow:hidden;
+  }
+  .ia-shell-workspace{
+    height:100%;
+    min-height:0;
+  }
+  .ia-shell-main{
+    min-height:0;
+    overscroll-behavior-y:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  .ia-shell-sidebar{
+    width:min(86vw,288px)!important;
+    height:100dvh;
+    max-height:100dvh;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+    overscroll-behavior:contain;
+  }
+  .ia-shell-sidebar-scroll{
+    overscroll-behavior-y:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  .ia-shell-backdrop{
+    touch-action:none;
+  }
+}
+
+@media(max-width:767px){
+  .ia-shell-navbar{
+    height:calc(64px + env(safe-area-inset-top))!important;
+    min-height:calc(64px + env(safe-area-inset-top))!important;
+    padding-top:env(safe-area-inset-top);
+    padding-left:max(10px,env(safe-area-inset-left));
+    padding-right:max(10px,env(safe-area-inset-right));
+  }
+  .ia-shell-navbar-primary{gap:.5rem!important}
+  .ia-shell-navbar-actions{gap:.25rem!important}
+  .ia-shell-mobile-brand{overflow:hidden}
+  .ia-shell-mobile-brand img{
+    height:28px!important;
+    max-width:74px!important;
+  }
+  .ia-shell-wallet{
+    min-width:0;
+    max-width:94px;
+    gap:.35rem;
+    padding-inline:.5rem;
+  }
+  .ia-shell-wallet-value{
+    display:block;
+    max-width:62px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .ia-shell-theme-notice{
+    max-width:min(240px,calc(100vw - 24px))!important;
+  }
+  .ia-shell-main-standard{
+    padding-left:max(1rem,env(safe-area-inset-left))!important;
+    padding-right:max(1rem,env(safe-area-inset-right))!important;
+    padding-bottom:calc(1.25rem + env(safe-area-inset-bottom))!important;
+  }
+  .ia-shell-main-create{
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+
+  .ia-responsive-dialog-backdrop{
+    align-items:flex-end;
+    justify-content:center;
+    padding:env(safe-area-inset-top) 0 0;
+  }
+  .ia-responsive-dialog-surface{
+    width:100%;
+    max-width:none;
+    max-height:calc(100dvh - env(safe-area-inset-top));
+    border-right:0;
+    border-bottom:0;
+    border-left:0;
+    border-radius:20px 20px 0 0;
+    padding-bottom:env(safe-area-inset-bottom);
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  .ia-responsive-dialog-surface[data-mobile-mode="fullscreen"]{
+    height:100dvh;
+    max-height:100dvh;
+    border-top:0;
+    border-radius:0;
+    padding-top:env(safe-area-inset-top);
+  }
+}
+
+@media(max-width:359px){
+  .ia-shell-navbar{
+    padding-left:max(6px,env(safe-area-inset-left));
+    padding-right:max(6px,env(safe-area-inset-right));
+  }
+  .ia-shell-navbar-primary{gap:.3rem!important}
+  .ia-shell-navbar-actions{gap:0!important}
+  .ia-shell-mobile-brand img{
+    height:26px!important;
+    max-width:62px!important;
+  }
+  .ia-shell-wallet{
+    max-width:72px;
+    gap:.25rem;
+    padding-inline:.35rem;
+  }
+  .ia-shell-wallet-value{
+    max-width:44px;
+    font-size:10px!important;
+  }
+  .ia-shell-account-trigger{
+    padding-left:.2rem;
+    padding-right:.2rem;
+  }
+  .ia-shell-account-chevron{display:none}
+}
+
