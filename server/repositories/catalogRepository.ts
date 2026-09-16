@@ -182,7 +182,7 @@ export const catalogRepository={
     return applyAudioV1ReleaseFlags(rows);
   },
   async getFeatureFlag(id:string){
-    await ensureSeed<FeatureFlag>('feature_flags','flag_key',FEATURE_FLAG_SEED);
+    await this.listFeatureFlags();
     const doc=await firestoreAdminRest.get(`feature_flags/${safe(id)}`);
     return doc.exists?doc.data as FeatureFlag:null;
   },
