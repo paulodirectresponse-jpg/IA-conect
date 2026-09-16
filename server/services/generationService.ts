@@ -97,8 +97,14 @@ export const generationService={
   }
   const currentCost=Number(g.current_provider_safe_cogs_cents||0),policy=String(g.current_provider_billing_policy||'UNKNOWN');if(policy==='CHARGE_ON_SUCCESS'&&currentCost>0){g.incurred_cogs_cents=Number(g.incurred_cogs_cents||0)+currentCost;g.current_provider_billing_policy='CHARGE_ON_SUCCESS_COUNTED';await saveEconomics(g.generation_id,{incurred_cogs_cents:g.incurred_cogs_cents,remaining_cogs_budget_cents:Math.max(0,Number(g.max_allowed_cogs_cents||0)-Number(g.incurred_cogs_cents||0))});}
   const outputs=(status.result_urls||status.result_image_urls||[status.result_video_url]).filter(Boolean) as string[];
-  if(!outputs.length){try{g.status='ROUTING';await generationRepository.saveGeneration(g);return await routeAndSubmit(g,process.env.APP_URL);}catch(err:any){return failAndRelease(g,err?.code||'DELIVERY_FAILED','A geração terminou sem arquivo recuperável e não havia fallback disponível.');}}
-  g.result_url=outputs[0];g.thumbnail_url=status.thumbnail_url||outputs[0]||null;g.result_urls=outputs;const assets=await registerGeneratedAssets(g,outputs);if(assets[0])g.result_asset_id=assets[0].asset_id;g.result_asset_ids=assets.map(a=>a.asset_id);
+  const hasStructured=Boolean(status.result_text||status.result_structured);
+  if(!outputs.length&&!hasStructured){try{g.status='ROUTING';await generationRepository.saveGeneration(g);return await routeAndSubmit(g,process.env.APP_URL);}catch(err:any){return failAndRelease(g,err?.code||'DELIVERY_FAILED','A geração terminou sem resultado recuperável e não havia fallback disponível.');}}
+  if(outputs.length){g.result_url=outputs[0];g.thumbnail_url=g.output_asset_type==='AUDIO'?null:(status.thumbnail_url||outputs[0]||null);g.result_urls=outputs;const assets=await registerGeneratedAssets(g,outputs);if(assets[0])g.result_asset_id=assets[0].asset_id;g.result_asset_ids=assets.map(a=>a.asset_id);}
+  g.result_text=status.result_text||null;g.result_structured=status.result_structured||null;
+  if(g.capability_id==='authorized-voice-clone'){
+    const voice=await audioVoiceService.captureClone({userId:g.user_id,generationId:g.generation_id,providerId:g.provider_id,sourceAssetId:g.references?.[0]?.asset_id||null,label:g.audio_metadata?.voice_label||'Minha voz',consentAt:g.audio_metadata?.voice_clone_consent_at||g.started_at||new Date().toISOString(),resultStructured:status.result_structured,resultText:status.result_text});
+    g.result_text=null;g.result_structured={voice};
+  }
   await creditWalletService.captureForGeneration(g.user_id,g.generation_id);g.final_credit_cost=g.retail_credit_price||0;
   g.status='SUCCEEDED';g.progress_percent=100;g.completed_at=new Date().toISOString();g.final_cogs_cents=Number(g.incurred_cogs_cents||0);const backingCents=Math.floor(Number(g.authorized_net_backing_micros||0)/10000),realized=backingCents>0?100*(1-g.final_cogs_cents/backingCents):null;g.realized_margin_percent=realized;await saveEconomics(g.generation_id,{provider_attempts:economicAttempts(g),incurred_cogs_cents:g.final_cogs_cents,final_cogs_cents:g.final_cogs_cents,remaining_cogs_budget_cents:Math.max(0,Number(g.max_allowed_cogs_cents||0)-g.final_cogs_cents),realized_margin_percent:realized,delivered_at:g.completed_at});return generationRepository.saveGeneration(g);
  },
