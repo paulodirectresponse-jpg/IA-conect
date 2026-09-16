@@ -1,0 +1,76 @@
+export type BetaPublicErrorCategory='VALIDATION'|'AUTHORIZATION'|'NOT_FOUND'|'CONFLICT'|'BILLING'|'SERVICE'|'EXECUTION'|'INTERNAL';
+export type BetaPublicErrorAction='RETRY'|'REQUOTE'|'ADD_CREDITS'|'CHANGE_INPUT'|'NONE';
+
+export interface BetaPublicError {
+  code:string;
+  message:string;
+  category:BetaPublicErrorCategory;
+  retryable:boolean;
+  action:BetaPublicErrorAction;
+}
+
+interface Rule {
+  status:number;
+  category:BetaPublicErrorCategory;
+  retryable:boolean;
+  action:BetaPublicErrorAction;
+  message?:string;
+  preserveMessage?:boolean;
+}
+
+const RULES:Record<string,Rule>={
+  VALIDATION_ERROR:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
+  CAPABILITY_UNKNOWN:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
+  CAPABILITY_UNSUPPORTED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
+  CONTROL_UNSUPPORTED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
+  CAPABILITY_EXECUTOR_UNAVAILABLE:{status:409,category:'CONFLICT',retryable:false,action:'CHANGE_INPUT',message:'Este recurso ainda não possui execução disponível no Beta.'},
+  REFERENCE_REQUIRED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
+  REFERENCE_NOT_FOUND:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',message:'Uma referência não foi encontrada ou não está disponível.'},
+  MODEL_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'CHANGE_INPUT',message:'O modelo selecionado não está disponível.'},
+  JOB_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'NONE',message:'Tarefa não encontrada.'},
+  JOB_INVALID_STATE:{status:409,category:'CONFLICT',retryable:false,action:'NONE',preserveMessage:true},
+  JOB_RETRY_UNAVAILABLE:{status:409,category:'CONFLICT',retryable:false,action:'NONE',preserveMessage:true},
+  JOB_QUOTE_REQUIRED:{status:409,category:'CONFLICT',retryable:false,action:'REQUOTE',message:'Atualize a cotação antes de executar esta tarefa.'},
+  JOB_STATE_PERSISTENCE_PENDING:{status:409,category:'CONFLICT',retryable:true,action:'RETRY',message:'A execução já existe. Atualize a tarefa para recuperar o estado atual.'},
+  IDEMPOTENCY_KEY_REQUIRED:{status:400,category:'VALIDATION',retryable:false,action:'NONE',message:'Não foi possível validar esta operação. Atualize a página e tente novamente.'},
+  PRICE_CHANGED_REQUOTE_REQUIRED:{status:409,category:'BILLING',retryable:false,action:'REQUOTE',message:'O preço mudou. Atualize a cotação antes de executar.'},
+  CREDIT_INSUFFICIENT_FUNDS:{status:402,category:'BILLING',retryable:false,action:'ADD_CREDITS',message:'Créditos insuficientes para executar esta tarefa.'},
+  CREDIT_BILLING_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'O sistema de créditos está temporariamente indisponível.'},
+  NEW_GENERATIONS_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'Novas gerações estão temporariamente pausadas.'},
+  PROVIDER_EXECUTION_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'A execução está temporariamente pausada.'},
+  BETA_DISABLED:{status:404,category:'AUTHORIZATION',retryable:false,action:'NONE',message:'A experiência Beta não está disponível.'},
+  BETA_ACCESS_UNAVAILABLE:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'Não foi possível validar o acesso ao Beta.'},
+  NO_SAFE_PROVIDER_AVAILABLE:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'Nenhuma rota de execução está disponível agora.'},
+  COGS_BUDGET_EXHAUSTED:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'A execução foi interrompida por segurança operacional.'},
+  PROVIDER_NOT_CONFIGURED:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'A rota de execução está temporariamente indisponível.'},
+  JOB_EXECUTION_FAILED:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'A tarefa não pôde ser concluída.'},
+  TASK_CANCEL_UNAVAILABLE:{status:409,category:'CONFLICT',retryable:false,action:'NONE',message:'Esta tarefa não pode mais ser cancelada.'},
+};
+
+const SAFE_CODE=/^[A-Z0-9_]{2,80}$/;
+
+function fallbackRule(code:string):Rule{
+  if(code.startsWith('PROVIDER_')||code.startsWith('GENERATION_')||code.startsWith('DELIVERY_')){
+    return{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'A execução encontrou uma indisponibilidade temporária.'};
+  }
+  if(code.startsWith('CREDIT_')||code.startsWith('PRICING_')){
+    return{status:409,category:'BILLING',retryable:true,action:'RETRY',message:'Não foi possível validar a operação de créditos agora.'};
+  }
+  return{status:500,category:'INTERNAL',retryable:true,action:'RETRY',message:'Não foi possível concluir esta operação agora.'};
+}
+
+export function normalizeBetaPublicError(error:any,fallbackMessage='Não foi possível concluir esta operação.'){
+  const rawCode=String(error?.code||'BETA_ERROR').toUpperCase();
+  const code=SAFE_CODE.test(rawCode)?rawCode:'BETA_ERROR';
+  const rule=RULES[code]||fallbackRule(code);
+  const message=rule.preserveMessage&&typeof error?.message==='string'&&error.message.trim()
+    ?error.message.trim()
+    :rule.message||fallbackMessage;
+  const publicError:BetaPublicError={code,message,category:rule.category,retryable:rule.retryable,action:rule.action};
+  return{status:rule.status,error:publicError};
+}
+
+export function publicErrorFromStored(code?:string|null,message?:string|null):BetaPublicError|null{
+  if(!code&&!message)return null;
+  return normalizeBetaPublicError({code:code||'JOB_EXECUTION_FAILED',message:message||undefined}).error;
+}
