@@ -1,4 +1,4 @@
-import React,{useState}from'react';
+import React,{useEffect,useState}from'react';
 import{Images,Sparkles}from'lucide-react';
 
 type MobileStudioPane='CREATE'|'RESULTS';
@@ -17,6 +17,31 @@ export const MobileStudioLayout:React.FC<MobileStudioLayoutProps>=({
   initialPane='CREATE',
 })=>{
   const[pane,setPane]=useState<MobileStudioPane>(initialPane);
+  useEffect(()=>{
+    const viewport=window.visualViewport;
+    const media=window.matchMedia('(max-width: 767px)');
+    if(!viewport)return;
+    const sync=()=>{
+      if(!media.matches){
+        document.documentElement.style.removeProperty('--ia-mobile-visual-height');
+        document.documentElement.classList.remove('ia-mobile-keyboard-open');
+        return;
+      }
+      document.documentElement.style.setProperty('--ia-mobile-visual-height',`${Math.round(viewport.height)}px`);
+      document.documentElement.classList.toggle('ia-mobile-keyboard-open',window.innerHeight-viewport.height>140);
+    };
+    sync();
+    viewport.addEventListener('resize',sync);
+    viewport.addEventListener('scroll',sync);
+    media.addEventListener('change',sync);
+    return()=>{
+      viewport.removeEventListener('resize',sync);
+      viewport.removeEventListener('scroll',sync);
+      media.removeEventListener('change',sync);
+      document.documentElement.style.removeProperty('--ia-mobile-visual-height');
+      document.documentElement.classList.remove('ia-mobile-keyboard-open');
+    };
+  },[]);
   return <div className="ia-generator-workspace ia-mobile-studio-layout flex h-full min-h-0">
     <div className="ia-mobile-studio-tabs" role="tablist" aria-label="Área do Studio">
       <button
