@@ -8,9 +8,10 @@ import { pricingSyncService } from './pricingSyncService.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { generationExecutionEconomics } from './generationEconomicsPolicy.js';
 import { pricingReferenceMode } from '../../src/utils/generationReferenceMode.js';
+import { ProviderGenerationReference } from '../adapters/videoProviderAdapter.js';
 
 export interface CreditPricingInput{
- userId:string;model_id:string;mode:GenerationMode;prompt?:string;negative_prompt?:string;duration_seconds:number;resolution:string;aspect_ratio:string;number_of_outputs:number;seed?:number|null;motion_strength?:number|null;references?:Array<{asset_id:string;slot_type?:string;role?:string}>;force_live_quote?:boolean;audio_enabled?:boolean;model_variant?:string;pricing_options?:Record<string,string|number|boolean|null|undefined>;
+ userId:string;model_id:string;mode:GenerationMode;capability_id?:string;prompt?:string;negative_prompt?:string;duration_seconds:number;resolution:string;aspect_ratio:string;number_of_outputs:number;seed?:number|null;motion_strength?:number|null;references?:Array<{asset_id:string;slot_type?:string;role?:string}>;provider_references?:ProviderGenerationReference[];force_live_quote?:boolean;audio_enabled?:boolean;model_variant?:string;pricing_options?:Record<string,string|number|boolean|null|undefined>;
 }
 const DEFAULT_AUDIO_MODELS=new Set(['wan-3-0','wan-3-0-prime','seedance-2-5','seedance-2-0','kling-3-0']);
 function effectiveAudio(input:CreditPricingInput){return input.audio_enabled===undefined?DEFAULT_AUDIO_MODELS.has(input.model_id):Boolean(input.audio_enabled);}
