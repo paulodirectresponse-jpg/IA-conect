@@ -44,8 +44,8 @@ async function registerGeneratedAssets(generation:Generation,urls:string[]){
    const previewUrl=strictArchive&&mediaType==='IMAGE'&&!generation.thumbnail_url?publicUrl:providerPreview;
    created.push(await assetRepository.createAsset({
     asset_id:generatedAssetId(generation.generation_id,i),owner_user_id:generation.user_id,type:mediaType,category:'GENERIC',
-    name:mediaType==='IMAGE'?`Imagem gerada ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`:mediaType==='AUDIO'?`Áudio gerado ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`:`Vídeo gerado ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`,
-    alias:`${mediaType==='IMAGE'?'generated_image':mediaType==='AUDIO'?'generated_audio':'generated_video'}_${generation.generation_id.slice(-6)}${urls.length>1?`_${i+1}`:''}`,
+    name:mediaType==='IMAGE'?`Imagem gerada ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`:mediaType==='AUDIO'?`Áudio gerado ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`:mediaType==='MODEL_3D'?`Modelo 3D ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`:`Vídeo gerado ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`,
+    alias:`${mediaType==='IMAGE'?'generated_image':mediaType==='AUDIO'?'generated_audio':mediaType==='MODEL_3D'?'generated_3d':'generated_video'}_${generation.generation_id.slice(-6)}${urls.length>1?`_${i+1}`:''}`,
     storage_path:storagePath,public_url:publicUrl,thumbnail_url:mediaType==='IMAGE'?previewUrl:undefined,preview_url:mediaType==='AUDIO'?publicUrl:previewUrl,
     preview_mime_type:(mediaType==='IMAGE'||mediaType==='AUDIO')?(archived?.mime_type||fallbackMime):null,
     mime_type:archived?.mime_type||fallbackMime,size_bytes:archived?.size_bytes||0,status:'READY',
