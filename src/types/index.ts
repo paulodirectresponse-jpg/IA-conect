@@ -9,7 +9,7 @@ export type UserStatus = 'ACTIVE' | 'SUSPENDED';
 export interface UserProfile { user_id:string; email:string; display_name:string; avatar_url?:string; role:UserRole; status:UserStatus; created_at:string; updated_at:string; last_login_at?:string; }
 export type GenerationStatus='DRAFT'|'QUEUED'|'RESERVING_FUNDS'|'SUBMITTED'|'PROCESSING'|'SUCCEEDED'|'FAILED'|'CANCELLED'|'REFUNDED';
 export type GenerationMode='TEXT_TO_VIDEO'|'IMAGE_TO_VIDEO'|'REFERENCE_TO_VIDEO'|'VIDEO_TO_VIDEO'|'TEXT_TO_IMAGE'|'IMAGE_TO_IMAGE'|'TEXT_TO_SPEECH'|'TEXT_TO_AUDIO'|'AUDIO_TO_TEXT'|'MEDIA_TO_TEXT'|'AUDIO_TO_AUDIO'|'MEDIA_DUBBING'|'TEXT_TO_3D'|'IMAGE_TO_3D'|'MULTI_IMAGE_TO_3D';
-export interface GenerationReferenceSnapshot { asset_id:string; slot_type?:'INITIAL'|'END'|'GENERAL'; alias?:string; }
+export interface GenerationReferenceSnapshot { asset_id:string; slot_type?:'INITIAL'|'END'|'GENERAL'; alias?:string; role?:'SOURCE'|'MASK'|'REFERENCE'; }
 export interface Generation {
  generation_id:string; user_id:string; status:GenerationStatus; model_id:string; provider_id:string; mode?:GenerationMode; original_prompt:string; compiled_prompt?:string; prompt_compiler_version?:string;
  negative_prompt?:string; duration_seconds?:number; resolution?:string; aspect_ratio?:string; number_of_outputs?:number; seed?:number|null; motion_strength?:number|null; references?:GenerationReferenceSnapshot[]; capability_id?:string; output_asset_type?:AssetType|null; result_text?:string|null; result_structured?:Record<string,any>|null;
