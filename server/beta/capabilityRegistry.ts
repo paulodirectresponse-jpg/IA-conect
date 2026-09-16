@@ -30,8 +30,8 @@ const defs: CapabilityDefinition[] = [
   {id:'image-to-video',inputs:['TEXT','IMAGE'],outputs:['VIDEO'],controls:['aspect_ratio','resolution','duration','seed','negative_prompt','reference_image','output_format']},
   {id:'first-frame',inputs:['TEXT','IMAGE'],outputs:['VIDEO'],controls:['aspect_ratio','resolution','duration','first_frame','output_format']},
   {id:'last-frame',inputs:['TEXT','IMAGE'],outputs:['VIDEO'],controls:['aspect_ratio','resolution','duration','first_frame','last_frame','output_format']},
-  {id:'video-extend',inputs:['VIDEO'],outputs:['VIDEO'],controls:['duration','output_format']},
-  {id:'video-edit',inputs:['TEXT','VIDEO'],outputs:['VIDEO'],controls:['output_format']},
+  {id:'video-extend',inputs:['VIDEO'],outputs:['VIDEO'],controls:['duration','resolution','output_format']},
+  {id:'video-edit',inputs:['TEXT','VIDEO'],outputs:['VIDEO'],controls:['duration','resolution','output_format']},
   {id:'text-to-speech',inputs:['TEXT'],outputs:['AUDIO'],controls:['language','voice','output_format','style']},
   {id:'sound-effects',inputs:['TEXT'],outputs:['AUDIO'],controls:['duration','output_format']},
   {id:'music',inputs:['TEXT'],outputs:['AUDIO'],controls:['duration','seed','output_format','instrumental']},
@@ -77,7 +77,19 @@ function controlsForModel(model:ModelRegistryItem,id:CapabilityId):CapabilityCon
 export function publicCapabilityCatalog(models:ModelRegistryItem[]){
   return models.filter(model=>model.status!=='INACTIVE').map(model=>({
     model_id:model.model_id,name:model.name,category:model.category,
-    capabilities:capabilityIdsForModel(model).map(id=>{const def=getCapabilityDefinition(id)!;return{id,inputs:def.inputs,outputs:def.outputs,controls:controlsForModel(model,id)};}),
+    supported_durations:[...(model.supported_durations||[])],
+    supported_resolutions:[...(model.supported_resolutions||[])],
+    supported_aspect_ratios:[...(model.supported_aspect_ratios||[])],
+    capabilities:capabilityIdsForModel(model).map(id=>{
+      const def=getCapabilityDefinition(id)!;
+      const controls=controlsForModel(model,id);
+      return{
+        id,inputs:def.inputs,outputs:def.outputs,controls,
+        supported_durations:controls.includes('duration')?[...(model.supported_durations||[])]:[],
+        supported_resolutions:controls.includes('resolution')?[...(model.supported_resolutions||[])]:[],
+        supported_aspect_ratios:controls.includes('aspect_ratio')?[...(model.supported_aspect_ratios||[])]:[],
+      };
+    }),
   })).filter(model=>model.capabilities.length>0);
 }
 
