@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState}from'react';
 
-interface Props{onLogin:()=>void;onStart:()=>void;}
+interface Props{onLogin:()=>void;onStart:()=>void;includeShell?:boolean;}
 
 const storage='https://hzjyhhenajbjxkwkmzdg.supabase.co/storage/v1/object/public/ia-conect-assets/showcase';
 const video=(name:string)=>`${storage}/${encodeURIComponent(name)}`;
@@ -48,14 +48,14 @@ const HeroVideo:React.FC=()=>{
  return <video src={ready?video('Hero.mp4'):undefined} muted loop playsInline preload={ready?'metadata':'none'} onCanPlay={()=>setCanPlay(true)} autoPlay={ready} aria-hidden="true" className={`public-hero-video ${canPlay?'is-ready':''}`}/>;
 };
 
-export const PublicLandingView:React.FC<Props>=({onLogin,onStart})=><div className="public-page">
- <header className="public-header"><div className="public-wrap public-header-inner"><Mark/><nav><a href="#models">Modelos</a><a href="#gallery">Explorar</a><a href="#how">Como funciona</a></nav><div className="public-header-actions"><button className="public-link" onClick={onLogin}>Entrar</button><button className="public-primary" onClick={onStart}>Começar agora</button></div></div></header>
+export const PublicLandingView:React.FC<Props>=({onLogin,onStart,includeShell=true})=><div className="public-page public-page-tail">
+ {includeShell&&<header className="public-header"><div className="public-wrap public-header-inner"><Mark/><nav><a href="#models">Modelos</a><a href="#gallery">Explorar</a><a href="#how">Como funciona</a></nav><div className="public-header-actions"><button className="public-link" onClick={onLogin}>Entrar</button><button className="public-primary" onClick={onStart}>Começar agora</button></div></div></header>}
  <main>
-  <section className="public-hero-shell"><div className="public-wrap public-hero">
+  {includeShell&&<section className="public-hero-shell"><div className="public-wrap public-hero">
    <img src="/enterprise/visuals/planet-hero-wide-v1.webp" alt="" aria-hidden="true" fetchPriority="high" decoding="async" className="public-hero-poster"/>
    <HeroVideo/><div className="public-hero-overlay"/>
    <div className="public-hero-content"><div className="public-hero-copy"><h1>Crie imagens e vídeos com as melhores IAs.</h1><p>Escolha modelos, use referências, veja o preço antes de gerar e mantenha tudo organizado em um único estúdio.</p><div className="public-hero-actions"><button className="public-primary public-primary-lg" onClick={onStart}>Começar agora <span aria-hidden="true">→</span></button><a className="public-secondary" href="#models">Explorar modelos</a></div></div><div className="public-proof"><span>Vários modelos</span><span>Preço antes de gerar</span><span>Pague pelo uso</span></div></div>
-  </div></section>
+  </div></section>}
 
   <section id="models" className="public-section"><div className="public-wrap"><div className="public-heading"><h2>Tecnologia de ponta para grandes ideias</h2><p>Compare estética, movimento e capacidade dos modelos antes de entrar no estúdio.</p></div><div className="public-model-grid">{models.map(item=><article key={item.name} className="public-model-card"><div className="public-model-media"><DeferredVideo src={video(item.file)} className="public-model-video"/><span>{item.name}</span></div><div className="public-model-body"><h3>{item.headline}</h3><p>{item.description}</p><button onClick={onStart}>Testar modelo <span aria-hidden="true">→</span></button></div></article>)}</div></div></section>
 
