@@ -36,6 +36,36 @@ export default function PublicApp(){
  },[authenticated,view]);
 
  useEffect(()=>{
+  if(authenticated||view!=='landing')return;
+  const shell=document.getElementById('public-shell');
+  const host=shell?.querySelector('.public-hero');
+  if(!host)return;
+  let video:HTMLVideoElement|null=null;
+  const start=()=>{
+    if(video)return;
+    video=document.createElement('video');
+    video.className='public-hero-video is-ready';
+    video.src='https://hzjyhhenajbjxkwkmzdg.supabase.co/storage/v1/object/public/ia-conect-assets/showcase/Hero.mp4';
+    video.muted=true;video.loop=true;video.playsInline=true;video.preload='metadata';
+    const overlay=host.querySelector('.public-hero-overlay');
+    host.insertBefore(video,overlay||null);
+    void video.play().catch(()=>{});
+    window.removeEventListener('pointerdown',start);
+    window.removeEventListener('keydown',start);
+    window.removeEventListener('scroll',start);
+  };
+  window.addEventListener('pointerdown',start,{once:true});
+  window.addEventListener('keydown',start,{once:true});
+  window.addEventListener('scroll',start,{once:true,passive:true});
+  return()=>{
+    window.removeEventListener('pointerdown',start);
+    window.removeEventListener('keydown',start);
+    window.removeEventListener('scroll',start);
+    if(video){video.pause();video.remove();video=null}
+  };
+ },[authenticated,view]);
+
+ useEffect(()=>{
   let cancelled=false,timer:number|undefined;
   const probe=()=>{timer=window.setTimeout(()=>{void import('./services/authSessionProbe.js').then(m=>m.probeAuthenticatedSession()).then((ok)=>{if(!cancelled&&ok)setAuthenticated(true)}).catch(()=>{})},0)};
   if(document.readyState==='complete')probe();
