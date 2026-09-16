@@ -9,9 +9,9 @@ const previous={
 
 afterEach(()=>{
   vi.restoreAllMocks();
-  process.env.SUPABASE_URL=previous.SUPABASE_URL;
-  process.env.SUPABASE_SECRET_KEY=previous.SUPABASE_SECRET_KEY;
-  process.env.SUPABASE_BUCKET=previous.SUPABASE_BUCKET;
+  if(previous.SUPABASE_URL===undefined)delete process.env.SUPABASE_URL;else process.env.SUPABASE_URL=previous.SUPABASE_URL;
+  if(previous.SUPABASE_SECRET_KEY===undefined)delete process.env.SUPABASE_SECRET_KEY;else process.env.SUPABASE_SECRET_KEY=previous.SUPABASE_SECRET_KEY;
+  if(previous.SUPABASE_BUCKET===undefined)delete process.env.SUPABASE_BUCKET;else process.env.SUPABASE_BUCKET=previous.SUPABASE_BUCKET;
 });
 
 describe('PR-05 generated asset storage',()=>{
