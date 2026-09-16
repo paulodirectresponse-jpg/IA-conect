@@ -16,6 +16,9 @@ const TOOLS:Array<{id:Tool;label:string;description:string;icon:React.ComponentT
  {id:'video-extend',label:'Estender',description:'Continue um vídeo preservando a continuidade.',icon:VideoIcon},
  {id:'video-edit',label:'Editar vídeo',description:'Reinterprete um vídeo com instruções.',icon:WandSparkles},
 ];
+const DEFAULT_DURATIONS=[5];
+const DEFAULT_RESOLUTIONS=['720p'];
+const DEFAULT_RATIOS=['16:9'];
 
 const errorMessage=(error:any)=>error instanceof ApiError?error.message:error?.message||'Não foi possível concluir esta operação.';
 const statusLabel=(job:BetaJobView|null)=>job?.status==='SUCCEEDED'?'Concluído':job?.status==='FAILED'?'Falhou':job?.status==='CANCELLED'?'Cancelado':job?.status==='RUNNING'?'Processando':job?.status==='QUEUED'?'Na fila':job?.status==='QUOTED'?'Cotado':'Rascunho';
@@ -71,7 +74,17 @@ export const BetaVideoView:React.FC<{initialAssetId?:string|null;initialAssetTyp
 
  const eligibleModels=useMemo(()=>catalog.filter(model=>model.capabilities.some(cap=>cap.id===tool)),[catalog,tool]);
  const selectedModel=eligibleModels.find(model=>model.model_id===modelId)||null;
- const controls=new Set(selectedModel?.capabilities.find(cap=>cap.id===tool)?.controls||[]);
+ const capability=selectedModel?.capabilities.find(cap=>cap.id===tool)||null;
+ const controls=new Set(capability?.controls||[]);
+ const durationOptions=capability?.supported_durations?.length?capability.supported_durations:DEFAULT_DURATIONS;
+ const resolutionOptions=capability?.supported_resolutions?.length?capability.supported_resolutions:DEFAULT_RESOLUTIONS;
+ const ratioOptions=capability?.supported_aspect_ratios?.length?capability.supported_aspect_ratios:DEFAULT_RATIOS;
+
+ useEffect(()=>{
+  if(controls.has('duration')&&!durationOptions.includes(duration))setDuration(durationOptions[0]||5);
+  if(controls.has('resolution')&&!resolutionOptions.includes(resolution))setResolution(resolutionOptions[0]||'720p');
+  if(controls.has('aspect_ratio')&&!ratioOptions.includes(aspectRatio))setAspectRatio(ratioOptions[0]||'16:9');
+ },[modelId,tool,capability?.id,capability?.supported_durations?.join(','),capability?.supported_resolutions?.join(','),capability?.supported_aspect_ratios?.join(',')]);
 
  const upload=async(event:React.ChangeEvent<HTMLInputElement>,kind:'IMAGE'|'VIDEO',slot:'FIRST'|'LAST'|'SOURCE')=>{
   const file=event.target.files?.[0];event.target.value='';if(!file)return;
@@ -133,9 +146,9 @@ export const BetaVideoView:React.FC<{initialAssetId?:string|null;initialAssetTyp
     <label className="ia-beta-video-field"><span>{tool==='video-extend'?'Direção da continuação · opcional':'Prompt'}</span><textarea rows={5} value={prompt} onChange={event=>{setPrompt(event.target.value);setJob(null)}} placeholder={tool==='video-edit'?'Ex.: transforme a cena em um pôr do sol cinematográfico, preservando o personagem…':tool==='video-extend'?'Ex.: continue o movimento de câmera e a caminhada por mais alguns segundos…':'Descreva cena, câmera, movimento, luz e estilo…'}/></label>
 
     <div className="ia-beta-video-options">
-      {controls.has('duration')&&<label><span>Duração · {duration}s</span><input type="range" min={2} max={30} value={duration} onChange={event=>{setDuration(Number(event.target.value));setJob(null)}}/></label>}
-      {controls.has('resolution')&&<label><span>Resolução</span><select value={resolution} onChange={event=>{setResolution(event.target.value);setJob(null)}}><option value="480p">480p</option><option value="720p">720p</option><option value="1080p">1080p</option></select></label>}
-      {controls.has('aspect_ratio')&&<label><span>Formato</span><select value={aspectRatio} onChange={event=>{setAspectRatio(event.target.value);setJob(null)}}><option>16:9</option><option>9:16</option><option>1:1</option><option>4:3</option><option>3:4</option><option>21:9</option></select></label>}
+      {controls.has('duration')&&<label><span>Duração</span><select value={duration} onChange={event=>{setDuration(Number(event.target.value));setJob(null)}}>{durationOptions.map(value=><option key={value} value={value}>{value}s</option>)}</select></label>}
+      {controls.has('resolution')&&<label><span>Resolução</span><select value={resolution} onChange={event=>{setResolution(event.target.value);setJob(null)}}>{resolutionOptions.map(value=><option key={value} value={value}>{value}</option>)}</select></label>}
+      {controls.has('aspect_ratio')&&<label><span>Formato</span><select value={aspectRatio} onChange={event=>{setAspectRatio(event.target.value);setJob(null)}}>{ratioOptions.map(value=><option key={value}>{value}</option>)}</select></label>}
       <label className="is-check"><input type="checkbox" checked={audioEnabled} onChange={event=>{setAudioEnabled(event.target.checked);setJob(null)}}/><span>Gerar/preservar áudio quando suportado</span></label>
     </div>
 
