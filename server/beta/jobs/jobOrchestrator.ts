@@ -282,11 +282,12 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
     betaEconomicsService.assertQuoteFresh(quote);
     await betaEconomicsService.assertExecutionEnabled();
     await betaEconomicsService.assertQuotedModelEligible(quote,running.request.capability_id);
-    const {mode}=await validateRequest(running.request,quote.selected_model_id);
-    const input=pricingInput(userId,running.request,mode,quote.selected_model_id);
+    const {mode}=await validateRequest(running.request,quote.selected_model_id,userId);
+    const context=await pricingContext(userId,running.request);
+    const input=await pricingInput(userId,running.request,mode,quote.selected_model_id,context);
     await betaEconomicsService.recordLedgerEvent({event_id:`exec:${running.job_id}:${currentAttempt.attempt_id}`,event_type:'EXECUTION_STARTED',user_id:userId,job_id:running.job_id,generation_id:null,requested_model_id:quote.requested_model_id,selected_model_id:quote.selected_model_id,routing_mode:quote.routing_mode,pricing_policy_id:quote.pricing_policy_id,retail_pricing_id:quote.retail_pricing_id,pricing_signature_hash:quote.pricing_signature_hash,credit_price:quote.credit_price,quote_expires_at:quote.expires_at});
     const generation=await generationService.createAndStartGeneration({
-      userId,model_id:quote.selected_model_id,mode,prompt:input.prompt,negative_prompt:input.negative_prompt,
+      userId,model_id:quote.selected_model_id,mode,capability_id:running.request.capability_id,output_asset_type:outputAssetType(running.request,context.assets),prompt:input.prompt,negative_prompt:input.negative_prompt,
       duration_seconds:input.duration_seconds,resolution:input.resolution,aspect_ratio:input.aspect_ratio,
       number_of_outputs:input.number_of_outputs,seed:input.seed,motion_strength:input.motion_strength,
       references:running.request.references,client_request_id:currentAttempt.execution_key,
@@ -294,7 +295,8 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
       requested_model_id:quote.requested_model_id,routing_mode:quote.routing_mode,pricing_policy_id:quote.pricing_policy_id,
       authorized_credit_price:quote.credit_price,retail_pricing_id:quote.retail_pricing_id,
       pricing_signature_hash:quote.pricing_signature_hash,audio_enabled:input.audio_enabled,
-      model_variant:input.model_variant,pricing_options:input.pricing_options,reqHost,idToken,
+      model_variant:input.model_variant,pricing_options:input.pricing_options,
+      audio_metadata:running.request.capability_id==='authorized-voice-clone'?{voice_clone_consent_at:runningAt,voice_label:running.request.controls.voice_label||'Minha voz'}:undefined,reqHost,idToken,
     });
     await betaEconomicsService.recordLedgerEvent({event_id:`linked:${running.job_id}:${currentAttempt.attempt_id}`,event_type:'EXECUTION_LINKED',user_id:userId,job_id:running.job_id,generation_id:generation.generation_id,requested_model_id:quote.requested_model_id,selected_model_id:quote.selected_model_id,routing_mode:quote.routing_mode,pricing_policy_id:quote.pricing_policy_id,retail_pricing_id:quote.retail_pricing_id,pricing_signature_hash:quote.pricing_signature_hash,credit_price:quote.credit_price,quote_expires_at:quote.expires_at});
     const mapped=generationStatusToJobStatus(generation.status);
@@ -402,7 +404,7 @@ export function publicBetaJob(job:BetaJob,attempts:BetaJobAttempt[]=[]){
 export const betaJobOrchestrator={
   async create(userId:string,body:any,idempotencyKey:string){
     const request=normalizeRequest(body);
-    await validateRequest(request);
+    await validateRequest(request,undefined,userId);
     const timestamp=now();
     const job:BetaJob={
       job_id:makeId('bjob'),user_id:userId,status:'DRAFT',request,quote:null,linked_generation_id:null,current_attempt_id:null,
@@ -418,8 +420,9 @@ export const betaJobOrchestrator={
       if(current.status==='QUOTED'&&current.quote){
         try{betaEconomicsService.assertQuoteFresh(current.quote);return current;}catch{}
       }
-      const {mode}=await validateRequest(current.request);
-      const base=pricingInput(userId,current.request,mode);
+      const {mode}=await validateRequest(current.request,undefined,userId);
+      const context=await pricingContext(userId,current.request);
+      const base=await pricingInput(userId,current.request,mode,current.request.model_id,context);
       const {userId:_userId,model_id:_modelId,mode:_mode,...pricingRest}=base;
       const resolved=await betaEconomicsService.resolveQuote({
         userId,requestedModelId:current.request.model_id,capabilityId:current.request.capability_id,mode,pricingInput:pricingRest,
