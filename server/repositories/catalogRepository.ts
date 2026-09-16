@@ -33,6 +33,13 @@ const mapping=(id:string,model_id:string,provider_id:string,provider_model_ident
   mapping_id:id,model_id,provider_id,provider_model_identifier,status:'ACTIVE',updated_at:now(),
 });
 export const MODEL_MAPPINGS:ProviderModelMapping[]=[
+  mapping('map-audio-tts-wave','audio-tts-v1','provider-wavespeed','minimax/speech-2.6-turbo'),
+  mapping('map-audio-sfx-wave','audio-sfx-v1','provider-wavespeed','sonilo/v1/text-to-sfx'),
+  mapping('map-audio-music-wave','audio-music-v1','provider-wavespeed','wavespeed-ai/ace-step/prompt-to-audio'),
+  mapping('map-audio-transcribe-wave','audio-transcription-v1','provider-wavespeed','wavespeed-ai/openai-whisper'),
+  mapping('map-audio-subtitles-wave','audio-subtitles-v1','provider-wavespeed','wavespeed-ai/openai-whisper-with-video'),
+  mapping('map-audio-voice-clone-wave','audio-voice-clone-v1','provider-wavespeed','minimax/voice-clone'),
+  mapping('map-audio-dubbing-wave','audio-dubbing-v1','provider-wavespeed','elevenlabs/dubbing'),
   mapping('map-wan3p-atlas','wan-3-0-prime','provider-atlas','alibaba/wan-3.0-prime'),
   mapping('map-wan3p-wave','wan-3-0-prime','provider-wavespeed','alibaba/wan-3.0-prime'),
   mapping('map-seed25-atlas','seedance-2-5','provider-atlas','bytedance/seedance-2.5'),
