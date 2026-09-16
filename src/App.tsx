@@ -7,7 +7,8 @@ import { markViewNavigationStart } from './utils/performanceMetrics.js';
 
 const LoginView=lazy(()=>import('./components/views/LoginView.js').then(m=>({default:m.LoginView})));
 const RegisterView=lazy(()=>import('./components/views/RegisterView.js').then(m=>({default:m.RegisterView})));
-const LandingPageView=lazy(()=>import('./components/views/LandingPageView.js').then(m=>({default:m.LandingPageView})));
+const landingPageModule=import('./components/views/LandingPageView.js');
+const LandingPageView=lazy(()=>landingPageModule.then(m=>({default:m.LandingPageView})));
 const DashboardView=lazy(()=>import('./components/views/DashboardView.js').then(m=>({default:m.DashboardView})));
 const WalletView=lazy(()=>import('./components/views/WalletView.js').then(m=>({default:m.WalletView})));
 const CreateHubView=lazy(()=>import('./components/views/CreateHubView.js').then(m=>({default:m.CreateHubView})));
