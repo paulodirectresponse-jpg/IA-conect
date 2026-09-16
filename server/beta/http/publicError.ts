@@ -68,6 +68,7 @@ const RULES:Record<string,Rule>={
   PRICING_POLICY_INACTIVE:{status:503,category:'BILLING',retryable:true,action:'RETRY',message:'Política de preço temporariamente indisponível.'},
   PRICING_POLICY_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'NONE',message:'Política de preço não encontrada.'},
   AUDIO_MODULE_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'O módulo de áudio está temporariamente indisponível.'},
+  THREE_D_MODULE_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'O módulo 3D está temporariamente indisponível.'},
   AUDIO_CAPABILITY_DISABLED:{status:503,category:'SERVICE',retryable:true,action:'RETRY',message:'Este recurso de áudio está temporariamente indisponível.'},
   VOICE_CLONE_CONSENT_REQUIRED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',message:'Confirme que você possui autorização para usar esta voz.'},
   VOICE_CLONE_RESULT_INVALID:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',message:'A voz foi processada, mas não pôde ser registrada para reutilização.'},
