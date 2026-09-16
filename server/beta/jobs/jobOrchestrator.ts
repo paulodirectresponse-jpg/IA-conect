@@ -95,8 +95,36 @@ function normalizeRequest(raw:any):BetaJobRequest{
   };
 }
 
-async function validateRequest(request:BetaJobRequest,resolvedModelId?:string):Promise<{model:ModelRegistryItem|null;mode:GenerationMode}>{
+async function assertCapabilityEnabled(capabilityId:string){
+  const audioCapabilities=new Set(['text-to-speech','sound-effects','music','transcription','subtitles','authorized-voice-clone','dubbing']);
+  if(!audioCapabilities.has(capabilityId))return;
+  const audio=await catalogRepository.getFeatureFlag('beta.audio');
+  if(!audio?.is_enabled)throw Object.assign(new Error('O módulo de áudio está temporariamente indisponível.'),{code:'AUDIO_MODULE_DISABLED'});
+  const keyed:Record<string,string>={
+    'sound-effects':'beta.audio.sfx','music':'beta.audio.music','transcription':'beta.audio.transcription',
+    'subtitles':'beta.audio.transcription','authorized-voice-clone':'beta.audio.voice_clone','dubbing':'beta.audio.dubbing',
+  };
+  const key=keyed[capabilityId];
+  if(key){
+    const flag=await catalogRepository.getFeatureFlag(key);
+    if(!flag?.is_enabled)throw Object.assign(new Error('Este recurso de áudio está temporariamente indisponível.'),{code:'AUDIO_CAPABILITY_DISABLED'});
+  }
+}
+
+async function ownedReferences(userId:string,request:BetaJobRequest){
+  const assets=[] as any[];
+  for(const ref of request.references){
+    const asset=await assetRepository.getAsset(ref.asset_id,userId);
+    if(!asset)throw Object.assign(new Error('Uma referência não foi encontrada ou não pertence a este usuário.'),{code:'REFERENCE_NOT_FOUND'});
+    if(asset.status!=='READY')throw Object.assign(new Error('Uma referência ainda não está pronta.'),{code:'REFERENCE_NOT_READY'});
+    assets.push(asset);
+  }
+  return assets;
+}
+
+async function validateRequest(request:BetaJobRequest,resolvedModelId?:string,userId?:string):Promise<{model:ModelRegistryItem|null;mode:GenerationMode}>{
   if(!request.model_id)throw Object.assign(new Error('Modelo é obrigatório.'),{code:'VALIDATION_ERROR'});
+  await assertCapabilityEnabled(request.capability_id);
   const mode=generationModeForCapability(request.capability_id);
   if(!mode)throw Object.assign(new Error('Esta capability ainda não possui executor disponível.'),{code:'CAPABILITY_EXECUTOR_UNAVAILABLE'});
   const modelId=resolvedModelId||request.model_id;
@@ -105,31 +133,81 @@ async function validateRequest(request:BetaJobRequest,resolvedModelId?:string):P
     const capability=validateModelCapability(model,request.capability_id,requestedControls(request));
     if(!capability.valid)throw Object.assign(new Error(capability.message||'Capability inválida.'),{code:capability.code||'CAPABILITY_INVALID'});
   }
-  if(!request.prompt)throw Object.assign(new Error('Prompt é obrigatório para esta capability.'),{code:'VALIDATION_ERROR'});
-  if((request.capability_id==='image-to-image'||request.capability_id==='image-to-video')&&!request.references.length){
-    throw Object.assign(new Error('Esta capability exige uma imagem de entrada.'),{code:'REFERENCE_REQUIRED'});
-  }
-  if(request.capability_id==='first-frame'&&!request.references.some(ref=>ref.slot_type==='INITIAL')){
-    throw Object.assign(new Error('Adicione o frame inicial.'),{code:'REFERENCE_REQUIRED'});
-  }
-  if(request.capability_id==='last-frame'&&(!request.references.some(ref=>ref.slot_type==='INITIAL')||!request.references.some(ref=>ref.slot_type==='END'))){
-    throw Object.assign(new Error('Adicione os frames inicial e final.'),{code:'REFERENCE_REQUIRED'});
+  const promptRequired=new Set(['text-to-image','image-to-image','image-edit','text-to-video','image-to-video','first-frame','last-frame','text-to-speech','sound-effects','music']);
+  if(promptRequired.has(request.capability_id)&&!request.prompt)throw Object.assign(new Error('Prompt é obrigatório para esta capability.'),{code:'VALIDATION_ERROR'});
+  if((request.capability_id==='image-to-image'||request.capability_id==='image-to-video')&&!request.references.length)throw Object.assign(new Error('Esta capability exige uma imagem de entrada.'),{code:'REFERENCE_REQUIRED'});
+  if(request.capability_id==='first-frame'&&!request.references.some(ref=>ref.slot_type==='INITIAL'))throw Object.assign(new Error('Adicione o frame inicial.'),{code:'REFERENCE_REQUIRED'});
+  if(request.capability_id==='last-frame'&&(!request.references.some(ref=>ref.slot_type==='INITIAL')||!request.references.some(ref=>ref.slot_type==='END')))throw Object.assign(new Error('Adicione os frames inicial e final.'),{code:'REFERENCE_REQUIRED'});
+
+  if(userId){
+    const assets=await ownedReferences(userId,request);
+    const first=assets[0];
+    if(request.capability_id==='transcription'&&(!first||first.type!=='AUDIO'))throw Object.assign(new Error('Selecione um áudio para transcrever.'),{code:'REFERENCE_REQUIRED'});
+    if(request.capability_id==='subtitles'&&(!first||first.type!=='VIDEO'))throw Object.assign(new Error('Selecione um vídeo para gerar legendas.'),{code:'REFERENCE_REQUIRED'});
+    if(request.capability_id==='authorized-voice-clone'){
+      if(!first||first.type!=='AUDIO')throw Object.assign(new Error('Selecione um áudio autorizado para clonar a voz.'),{code:'REFERENCE_REQUIRED'});
+      if(request.controls.voice_clone_consent!==true)throw Object.assign(new Error('Confirme que você possui autorização para usar esta voz.'),{code:'VOICE_CLONE_CONSENT_REQUIRED'});
+    }
+    if(request.capability_id==='dubbing'){
+      if(!first||!['AUDIO','VIDEO'].includes(first.type))throw Object.assign(new Error('Selecione um áudio ou vídeo para dublar.'),{code:'REFERENCE_REQUIRED'});
+      if(!request.controls.target_language)throw Object.assign(new Error('Escolha o idioma de destino da dublagem.'),{code:'VALIDATION_ERROR'});
+    }
+    if(['transcription','subtitles','authorized-voice-clone','dubbing'].includes(request.capability_id)&&assets.length!==1){
+      throw Object.assign(new Error('Esta ferramenta aceita um arquivo de entrada por execução.'),{code:'VALIDATION_ERROR'});
+    }
   }
   return{model,mode};
 }
 
-function pricingInput(userId:string,request:BetaJobRequest,mode:GenerationMode,modelId=request.model_id){
+async function pricingContext(userId:string,request:BetaJobRequest){
+  const assets=await ownedReferences(userId,request);
+  if(!assets.length)return{assets,providerReferences:[] as any[],durationSeconds:0};
+  const resolved=await assetReferenceResolver.resolveReferenceAssetUrls(userId,request.references.map(ref=>ref.asset_id));
+  const providerReferences=resolved.map(asset=>{
+    const source=request.references.find(ref=>ref.asset_id===asset.asset_id);
+    return{...asset,slot_type:source?.slot_type||'GENERAL',prompt_alias:source?.alias||asset.alias};
+  });
+  const durationSeconds=assets.reduce((max,asset)=>Math.max(max,Number(asset.duration_seconds||0)),0);
+  return{assets,providerReferences,durationSeconds};
+}
+
+async function pricingInput(userId:string,request:BetaJobRequest,mode:GenerationMode,modelId=request.model_id,context?:Awaited<ReturnType<typeof pricingContext>>){
   const image=mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE';
+  const mediaInput=['AUDIO_TO_TEXT','MEDIA_TO_TEXT','AUDIO_TO_AUDIO','MEDIA_DUBBING'].includes(mode);
+  const ctx=context||await pricingContext(userId,request);
+  const defaults:Record<string,number>={'TEXT_TO_SPEECH':1,'TEXT_TO_AUDIO':request.capability_id==='music'?30:5};
+  const duration=image?1:mediaInput
+    ?Math.max(1,Math.round(ctx.durationSeconds||request.controls.duration_seconds||1))
+    :Math.max(1,Math.round(request.controls.duration_seconds||defaults[mode]||5));
+  const audioMode=['TEXT_TO_SPEECH','TEXT_TO_AUDIO','AUDIO_TO_TEXT','MEDIA_TO_TEXT','AUDIO_TO_AUDIO','MEDIA_DUBBING'].includes(mode);
+  const pricingOptions={
+    ...(request.controls.pricing_options||{}),
+    language:request.controls.language,
+    voice:request.controls.voice,
+    output_format:request.controls.output_format,
+    style:request.controls.style,
+    instrumental:request.controls.instrumental,
+    timestamps:request.controls.timestamps,
+    source_language:request.controls.source_language,
+    target_language:request.controls.target_language,
+    text_chars:request.capability_id==='text-to-speech'?request.prompt.length:undefined,
+  };
   return{
-    userId,model_id:modelId,mode,prompt:request.prompt,negative_prompt:request.negative_prompt,
-    duration_seconds:image?1:Math.max(1,Math.round(request.controls.duration_seconds||5)),
-    resolution:request.controls.resolution||(image?'1K':'720p'),
-    aspect_ratio:request.controls.aspect_ratio||(image?'1:1':'16:9'),
+    userId,model_id:modelId,mode,capability_id:request.capability_id,prompt:request.prompt||'Processar mídia',negative_prompt:request.negative_prompt,
+    duration_seconds:duration,
+    resolution:request.controls.resolution||(image?'1K':audioMode?'audio':'720p'),
+    aspect_ratio:request.controls.aspect_ratio||(image?'1:1':audioMode?'audio':'16:9'),
     number_of_outputs:image?Math.max(1,Math.min(4,Math.round(request.controls.number_of_outputs||1))):1,
     seed:request.controls.seed,motion_strength:request.controls.motion_strength,
-    references:request.references,audio_enabled:request.controls.audio_enabled,
-    model_variant:request.controls.model_variant,pricing_options:request.controls.pricing_options,
+    references:request.references,provider_references:ctx.providerReferences,audio_enabled:request.controls.audio_enabled,
+    model_variant:request.controls.model_variant,pricing_options:pricingOptions,
   };
+}
+
+function outputAssetType(request:BetaJobRequest,assets:any[]):any{
+  if(['text-to-speech','sound-effects','music'].includes(request.capability_id))return'AUDIO';
+  if(request.capability_id==='dubbing')return assets[0]?.type==='VIDEO'?'VIDEO':'AUDIO';
+  return null;
 }
 
 async function saveTransition(job:BetaJob,userId:string,to:BetaJobStatus,patch:Partial<BetaJob>={}){
