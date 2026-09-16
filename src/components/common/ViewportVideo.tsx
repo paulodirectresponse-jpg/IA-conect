@@ -6,6 +6,7 @@ interface ViewportVideoProps extends Omit<React.VideoHTMLAttributes<HTMLVideoEle
   eager?:boolean;
   rootMargin?:string;
   playWhenVisible?:boolean;
+  deferUntilWindowLoad?:boolean;
 }
 
 export const ViewportVideo:React.FC<ViewportVideoProps>=({
@@ -13,6 +14,7 @@ export const ViewportVideo:React.FC<ViewportVideoProps>=({
   eager=false,
   rootMargin='240px 0px',
   playWhenVisible=true,
+  deferUntilWindowLoad=false,
   muted=true,
   loop=true,
   playsInline=true,
@@ -22,6 +24,24 @@ export const ViewportVideo:React.FC<ViewportVideoProps>=({
   const reduceMotion=useReducedMotion();
   const[nearViewport,setNearViewport]=useState(eager);
   const[visible,setVisible]=useState(eager);
+  const[loadReady,setLoadReady]=useState(!deferUntilWindowLoad);
+
+  useEffect(()=>{
+    if(!deferUntilWindowLoad){setLoadReady(true);return;}
+    let idleId:any=null,timer:number|undefined;
+    const start=()=>{
+      const idle=(window as any).requestIdleCallback;
+      if(typeof idle==='function')idleId=idle(()=>setLoadReady(true),{timeout:1800});
+      else timer=window.setTimeout(()=>setLoadReady(true),600);
+    };
+    if(document.readyState==='complete')start();
+    else window.addEventListener('load',start,{once:true});
+    return()=>{
+      window.removeEventListener('load',start);
+      if(idleId!=null&&(window as any).cancelIdleCallback)(window as any).cancelIdleCallback(idleId);
+      if(timer)window.clearTimeout(timer);
+    };
+  },[deferUntilWindowLoad]);
 
   useEffect(()=>{
     const node=ref.current;
@@ -62,10 +82,10 @@ export const ViewportVideo:React.FC<ViewportVideoProps>=({
   return <video
     {...props}
     ref={ref}
-    src={nearViewport?src:undefined}
+    src={nearViewport&&loadReady?src:undefined}
     muted={muted}
     loop={loop}
     playsInline={playsInline}
-    preload={nearViewport?'metadata':'none'}
+    preload={nearViewport&&loadReady?'metadata':'none'}
   />;
 };
