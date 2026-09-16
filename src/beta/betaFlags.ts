@@ -2,7 +2,7 @@ export const BETA_FEATURE_FLAGS = [
   { flag_key: 'beta.enabled', name: 'IA Conect Beta', description: 'Libera a entrada para a experiência Beta isolada.', is_enabled: true, is_private: false },
   { flag_key: 'beta.execution.enabled', name: 'Beta · Execução', description: 'Kill switch central para novas execuções do Beta.', is_enabled: true, is_private: true },
   { flag_key: 'beta.auto_router.enabled', name: 'Beta · AUTO Router', description: 'Libera seleção automática de modelo elegível no Beta.', is_enabled: true, is_private: true },
-  { flag_key: 'beta.image_editor', name: 'Beta · Editor de imagem', description: 'Libera o editor generativo de imagem do Beta.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.image_editor', name: 'Beta · Editor de imagem', description: 'Libera o editor generativo de imagem do Beta.', is_enabled: true, is_private: false },
   { flag_key: 'beta.video_editor', name: 'Beta · Editor de vídeo', description: 'Libera edição e extensão generativa de vídeo.', is_enabled: false, is_private: false },
   { flag_key: 'beta.audio', name: 'Beta · Áudio', description: 'Libera o módulo multimodal de áudio.', is_enabled: true, is_private: false },
   { flag_key: 'beta.audio.voice_clone', name: 'Beta · Clonagem de voz', description: 'Libera clonagem de voz autorizada.', is_enabled: true, is_private: false },
