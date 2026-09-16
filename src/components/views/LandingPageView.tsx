@@ -15,7 +15,7 @@ const galleryRows:GalleryItem[][]=[
 ];
 
 const GalleryCard:React.FC<{item:GalleryItem}>=({item})=><figure className="ia-landing-gallery-card group relative min-w-0 overflow-hidden" style={{aspectRatio:item.ratio}}>
- <img src={media(item.key)} alt={item.label} loading="lazy" className="absolute inset-0 h-full w-full object-cover"/>
+ <img src={media(item.key)} alt={item.label} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover"/>
  <figcaption className="absolute inset-x-0 bottom-0 px-3.5 pb-3.5 pt-14"><p className="text-[11px] font-semibold text-white">{item.label}</p></figcaption>
 </figure>;
 

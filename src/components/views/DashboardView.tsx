@@ -61,7 +61,7 @@ export const DashboardView:React.FC<DashboardViewProps>=({onNavigate})=>{
      {completed.length>0?
       <div className="ia-dashboard-recent-grid">
        {completed.slice(0,5).map(g=><button key={g.generation_id} onClick={()=>onNavigate('history')} className="ia-dashboard-recent group text-left min-w-0">
-        <div className="ia-dashboard-recent-media" style={{aspectRatio:ratio(g.aspect_ratio)}}>{isImage(g)?<img src={g.result_url!} alt="" className="w-full h-full object-contain"/>:<video src={g.result_url!} muted playsInline preload="metadata" className="w-full h-full object-contain"/>}</div>
+        <div className="ia-dashboard-recent-media" style={{aspectRatio:ratio(g.aspect_ratio)}}>{isImage(g)?<img src={g.thumbnail_url||g.result_url!} alt="" loading="lazy" decoding="async" className="w-full h-full object-contain"/>:<video src={g.result_url!} muted playsInline preload="metadata" className="w-full h-full object-contain"/>}</div>
         <p className="ia-dashboard-recent-title">{g.original_prompt||'Criação'}</p>
         <p className="ia-dashboard-recent-meta">{isImage(g)?'Imagem':'Vídeo'} · {g.aspect_ratio||'formato original'}</p>
        </button>)}

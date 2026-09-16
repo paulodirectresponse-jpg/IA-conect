@@ -1,0 +1,17 @@
+/enterprise/visuals/*-v1.avif
+  Cache-Control: public, max-age=31536000, immutable
+
+/enterprise/visuals/*-v1.webp
+  Cache-Control: public, max-age=31536000, immutable
+
+/model-covers/*-v1.avif
+  Cache-Control: public, max-age=31536000, immutable
+
+/model-covers/*-v1.webp
+  Cache-Control: public, max-age=31536000, immutable
+
+/enterprise/visuals/*.png
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+/model-covers/*.png
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
