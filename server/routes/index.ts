@@ -17,6 +17,7 @@ import { adminEconomicsRouter } from './adminEconomicsRoutes.js';
 import { betaCapabilityRouter } from './betaCapabilityRoutes.js';
 import { betaJobRouter } from './betaJobRoutes.js';
 import { betaTaskRouter } from './betaTaskRoutes.js';
+import { betaAssetRouter } from './betaAssetRoutes.js';
 
 export const apiRootRouter = Router();
 
@@ -39,3 +40,4 @@ apiRootRouter.use(adminEconomicsRouter);
 apiRootRouter.use(betaCapabilityRouter);
 apiRootRouter.use(betaJobRouter);
 apiRootRouter.use(betaTaskRouter);
+apiRootRouter.use(betaAssetRouter);
