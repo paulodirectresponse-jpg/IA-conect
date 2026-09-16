@@ -135,7 +135,7 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
     if(failed)return{provider_job_id:id,status:'FAILED',error_message:failed.error_message||'Uma das saídas falhou na WaveSpeed.'};
     if(statuses.every(s=>s.status==='SUCCEEDED')){
       const outputs=statuses.flatMap(s=>s.result_urls||s.result_image_urls||[s.result_video_url].filter(Boolean) as string[]).filter(Boolean);
-      return{provider_job_id:id,status:'SUCCEEDED',progress_percent:100,result_video_url:outputs[0],result_urls:outputs};
+      const first=statuses[0];return{provider_job_id:id,status:'SUCCEEDED',progress_percent:100,result_video_url:outputs[0],result_urls:outputs,result_text:first?.result_text,result_structured:first?.result_structured};
     }
     const progress=Math.round(statuses.reduce((sum,s)=>sum+Number(s.progress_percent??(s.status==='SUCCEEDED'?100:8)),0)/Math.max(1,statuses.length));
     return{provider_job_id:id,status:statuses.some(s=>s.status==='PROCESSING'||s.status==='SUCCEEDED')?'PROCESSING':'QUEUED',progress_percent:progress};
