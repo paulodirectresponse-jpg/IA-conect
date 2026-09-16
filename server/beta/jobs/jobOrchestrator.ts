@@ -5,6 +5,7 @@ import { generationRepository } from '../../repositories/generationRepository.js
 import { creditPricingService } from '../../services/creditPricingService.js';
 import { generationService } from '../../services/generationService.js';
 import { billingControlService } from '../../services/billingControlService.js';
+import { betaEconomicsService } from '../catalog/betaEconomicsService.js';
 import { validateModelCapability } from '../capabilityRegistry.js';
 import { betaJobRepository } from './jobRepository.js';
 import { inlineBetaJobQueue } from './jobQueue.js';
@@ -67,13 +68,16 @@ function normalizeRequest(raw:any):BetaJobRequest{
   };
 }
 
-async function validateRequest(request:BetaJobRequest):Promise<{model:ModelRegistryItem;mode:GenerationMode}>{
+async function validateRequest(request:BetaJobRequest,resolvedModelId?:string):Promise<{model:ModelRegistryItem|null;mode:GenerationMode}>{
   if(!request.model_id)throw Object.assign(new Error('Modelo é obrigatório.'),{code:'VALIDATION_ERROR'});
-  const model=await catalogRepository.getModel(request.model_id);
-  const capability=validateModelCapability(model,request.capability_id,requestedControls(request));
-  if(!capability.valid)throw Object.assign(new Error(capability.message||'Capability inválida.'),{code:capability.code||'CAPABILITY_INVALID'});
   const mode=generationModeForCapability(request.capability_id);
-  if(!mode)throw Object.assign(new Error('Esta capability ainda não possui executor na PR-03.'),{code:'CAPABILITY_EXECUTOR_UNAVAILABLE'});
+  if(!mode)throw Object.assign(new Error('Esta capability ainda não possui executor disponível.'),{code:'CAPABILITY_EXECUTOR_UNAVAILABLE'});
+  const modelId=resolvedModelId||request.model_id;
+  const model=modelId==='AUTO'?null:await catalogRepository.getModel(modelId);
+  if(modelId!=='AUTO'){
+    const capability=validateModelCapability(model,request.capability_id,requestedControls(request));
+    if(!capability.valid)throw Object.assign(new Error(capability.message||'Capability inválida.'),{code:capability.code||'CAPABILITY_INVALID'});
+  }
   if(!request.prompt)throw Object.assign(new Error('Prompt é obrigatório para esta capability.'),{code:'VALIDATION_ERROR'});
   if((request.capability_id==='image-to-image'||request.capability_id==='image-to-video')&&!request.references.length){
     throw Object.assign(new Error('Esta capability exige uma imagem de entrada.'),{code:'REFERENCE_REQUIRED'});
@@ -84,13 +88,13 @@ async function validateRequest(request:BetaJobRequest):Promise<{model:ModelRegis
   if(request.capability_id==='last-frame'&&(!request.references.some(ref=>ref.slot_type==='INITIAL')||!request.references.some(ref=>ref.slot_type==='END'))){
     throw Object.assign(new Error('Adicione os frames inicial e final.'),{code:'REFERENCE_REQUIRED'});
   }
-  return{model:model!,mode};
+  return{model,mode};
 }
 
-function pricingInput(userId:string,request:BetaJobRequest,mode:GenerationMode){
+function pricingInput(userId:string,request:BetaJobRequest,mode:GenerationMode,modelId=request.model_id){
   const image=mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE';
   return{
-    userId,model_id:request.model_id,mode,prompt:request.prompt,negative_prompt:request.negative_prompt,
+    userId,model_id:modelId,mode,prompt:request.prompt,negative_prompt:request.negative_prompt,
     duration_seconds:image?1:Math.max(1,Math.round(request.controls.duration_seconds||5)),
     resolution:request.controls.resolution||(image?'1K':'720p'),
     aspect_ratio:request.controls.aspect_ratio||(image?'1:1':'16:9'),
@@ -136,6 +140,7 @@ async function createQueuedAttempt(job:BetaJob,userId:string){
     throw Object.assign(new Error('O job precisa estar cotado ou em estado recuperável antes de executar.'),{code:'JOB_INVALID_STATE'});
   }
   if(!versioned.job.quote)throw Object.assign(new Error('Cotação do job não encontrada.'),{code:'JOB_QUOTE_REQUIRED'});
+  betaEconomicsService.assertQuoteFresh(versioned.job.quote);
   const attemptNumber=versioned.job.attempt_count+1;
   const attemptId=`batt_${versioned.job.job_id}_${attemptNumber}`;
   const timestamp=now();
@@ -167,11 +172,14 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
   let currentAttempt=await markAttempt(job.job_id,userId,attempt,'RUNNING',{started_at:runningAt});
 
   try{
-    const {mode}=await validateRequest(running.request);
-    const input=pricingInput(userId,running.request,mode);
     const quote=running.quote!;
+    betaEconomicsService.assertQuoteFresh(quote);
+    await betaEconomicsService.assertExecutionEnabled();
+    const {mode}=await validateRequest(running.request,quote.selected_model_id);
+    const input=pricingInput(userId,running.request,mode,quote.selected_model_id);
+    await betaEconomicsService.recordLedgerEvent({event_id:`exec:${running.job_id}:${currentAttempt.attempt_id}`,event_type:'EXECUTION_STARTED',user_id:userId,job_id:running.job_id,generation_id:null,requested_model_id:quote.requested_model_id,selected_model_id:quote.selected_model_id,routing_mode:quote.routing_mode,pricing_policy_id:quote.pricing_policy_id,retail_pricing_id:quote.retail_pricing_id,pricing_signature_hash:quote.pricing_signature_hash,credit_price:quote.credit_price,quote_expires_at:quote.expires_at});
     const generation=await generationService.createAndStartGeneration({
-      userId,model_id:input.model_id,mode,prompt:input.prompt,negative_prompt:input.negative_prompt,
+      userId,model_id:quote.selected_model_id,mode,prompt:input.prompt,negative_prompt:input.negative_prompt,
       duration_seconds:input.duration_seconds,resolution:input.resolution,aspect_ratio:input.aspect_ratio,
       number_of_outputs:input.number_of_outputs,seed:input.seed,motion_strength:input.motion_strength,
       references:running.request.references,client_request_id:currentAttempt.execution_key,
@@ -180,6 +188,7 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
       pricing_signature_hash:quote.pricing_signature_hash,audio_enabled:input.audio_enabled,
       model_variant:input.model_variant,pricing_options:input.pricing_options,reqHost,idToken,
     });
+    await betaEconomicsService.recordLedgerEvent({event_id:`linked:${running.job_id}:${currentAttempt.attempt_id}`,event_type:'EXECUTION_LINKED',user_id:userId,job_id:running.job_id,generation_id:generation.generation_id,requested_model_id:quote.requested_model_id,selected_model_id:quote.selected_model_id,routing_mode:quote.routing_mode,pricing_policy_id:quote.pricing_policy_id,retail_pricing_id:quote.retail_pricing_id,pricing_signature_hash:quote.pricing_signature_hash,credit_price:quote.credit_price,quote_expires_at:quote.expires_at});
     const mapped=generationStatusToJobStatus(generation.status);
     const latest=await betaJobRepository.getJobWithVersion(running.job_id,userId);
     if(!latest)return running;
@@ -296,23 +305,33 @@ export const betaJobOrchestrator={
 
   async quote(userId:string,jobId:string,idempotencyKey:string){
     return mutation({userId,jobId,action:'QUOTE',idempotencyKey},async()=>{
-      await billingControlService.assertNewGenerationAllowed();
+      await betaEconomicsService.assertExecutionEnabled();
       const current=await this.get(userId,jobId,false);
-      if(current.status==='QUOTED')return current;
+      if(current.status==='QUOTED'&&current.quote){
+        try{betaEconomicsService.assertQuoteFresh(current.quote);return current;}catch{}
+      }
       const {mode}=await validateRequest(current.request);
-      const preview=await creditPricingService.preview(pricingInput(userId,current.request,mode));
-      const timestamp=now();
-      return saveTransition(current,userId,'QUOTED',{
+      const base=pricingInput(userId,current.request,mode);
+      const {userId:_userId,model_id:_modelId,mode:_mode,...pricingRest}=base;
+      const resolved=await betaEconomicsService.resolveQuote({
+        userId,requestedModelId:current.request.model_id,capabilityId:current.request.capability_id,mode,pricingInput:pricingRest,
+      });
+      const preview=resolved.preview,timestamp=now(),expiresAt=betaEconomicsService.quoteExpiry(resolved.pricing_policy,new Date(timestamp));
+      const quoted=await saveTransition(current,userId,'QUOTED',{
         quote:{credit_price:preview.retail.retail_credit_price,retail_pricing_id:preview.retail.retail_pricing_id,
-          retail_pricing_version:preview.retail.version,pricing_signature_hash:preview.signature.hash,quoted_at:timestamp},
+          retail_pricing_version:preview.retail.version,pricing_signature_hash:preview.signature.hash,
+          requested_model_id:current.request.model_id,selected_model_id:resolved.selected_model_id,routing_mode:resolved.routing_mode,
+          pricing_policy_id:resolved.pricing_policy.pricing_policy_id,quoted_at:timestamp,expires_at:expiresAt},
         quoted_at:timestamp,error_code:null,error_message:null,
       });
+      await betaEconomicsService.recordLedgerEvent({event_id:`quote:${current.job_id}:${preview.retail.retail_pricing_id}`,event_type:'QUOTE_AUTHORIZED',user_id:userId,job_id:current.job_id,generation_id:null,requested_model_id:current.request.model_id,selected_model_id:resolved.selected_model_id,routing_mode:resolved.routing_mode,pricing_policy_id:resolved.pricing_policy.pricing_policy_id,retail_pricing_id:preview.retail.retail_pricing_id,pricing_signature_hash:preview.signature.hash,credit_price:preview.retail.retail_credit_price,quote_expires_at:expiresAt});
+      return quoted;
     });
   },
 
   async queue(userId:string,jobId:string,idempotencyKey:string,reqHost?:string,idToken?:string){
     return mutation({userId,jobId,action:'QUEUE',idempotencyKey},async()=>{
-      await billingControlService.assertNewGenerationAllowed();
+      await betaEconomicsService.assertExecutionEnabled();
       const current=await this.get(userId,jobId,true);
       if(current.status==='RUNNING'||current.status==='SUCCEEDED')return current;
       if(current.status!=='QUOTED')throw Object.assign(new Error('O job precisa estar cotado antes de entrar na fila.'),{code:'JOB_QUOTE_REQUIRED'});
@@ -330,6 +349,7 @@ export const betaJobOrchestrator={
         throw Object.assign(new Error('Apenas jobs falhos ou cancelados podem ser reenfileirados.'),{code:'JOB_RETRY_UNAVAILABLE'});
       }
       if(!current.quote)throw Object.assign(new Error('Refaça a cotação antes de tentar novamente.'),{code:'JOB_QUOTE_REQUIRED'});
+      betaEconomicsService.assertQuoteFresh(current.quote);
       const queued=await createQueuedAttempt(current,userId);
       await inlineBetaJobQueue.enqueue(queued.job,queued.attempt,async()=>{await executeAttempt(queued.job,queued.attempt,userId,reqHost,idToken);});
       return this.get(userId,jobId,true);
