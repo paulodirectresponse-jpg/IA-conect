@@ -122,6 +122,41 @@ export const BetaFlowsView:React.FC=()=>{
  };
  const pointerUp=()=>{drag.current=null;};
 
+ useEffect(()=>{
+  if(!run||run.status!=='RUNNING')return;
+  const timer=window.setTimeout(async()=>{
+   try{
+    const next=await betaFlowRuntimeClient.advance(run.run_id);
+    setRun(next);
+    if(next.status==='SUCCEEDED')setAssets(await universalAssetClient.list());
+   }catch(e){setError(msg(e));}
+  },2500);
+  return()=>window.clearTimeout(timer);
+ },[run]);
+
+ const runtimeInputPayload=()=>{
+  const payload:Record<string,any>={};
+  for(const node of inputNodes){
+   const raw=String(runInputs[node.node_id]||'').trim();
+   if(node.media_type==='TEXT'){payload[node.node_id]={text:raw};continue;}
+   if(node.media_type==='STRUCTURED_DATA'){
+    try{payload[node.node_id]={structured:JSON.parse(raw||'{}')};}
+    catch{throw new Error('JSON inválido em "'+node.label+'".');}
+    continue;
+   }
+   payload[node.node_id]={asset_id:raw};
+  }
+  return payload;
+ };
+ const startRun=async()=>{
+  if(!current||dirty){setError('Salve o fluxo antes de executar.');return;}
+  setRunBusy('start');setError('');
+  try{setRun(await betaFlowRuntimeClient.start(current.flow_id,runtimeInputPayload()));}
+  catch(e){setError(msg(e));}finally{setRunBusy('');}
+ };
+ const retryRun=async()=>{if(!run)return;setRunBusy('retry');setError('');try{setRun(await betaFlowRuntimeClient.retry(run.run_id));}catch(e){setError(msg(e));}finally{setRunBusy('');}};
+ const cancelRun=async()=>{if(!run)return;setRunBusy('cancel');setError('');try{setRun(await betaFlowRuntimeClient.cancel(run.run_id));}catch(e){setError(msg(e));}finally{setRunBusy('');}};
+
  return <main className="ia-beta-flows">
   <header className="ia-beta-flows-head">
    <div><span><Network/> Flows Editor V1</span><h1>Conecte as ferramentas do IA Conect.</h1><p>Monte o grafo visual agora. A execução orquestrada dos nós entra na próxima fase, sem mudar este contrato.</p></div>
