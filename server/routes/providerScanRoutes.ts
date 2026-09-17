@@ -23,7 +23,9 @@ providerScanRouter.get('/admin/provider-scan',requireAuth,requireAdmin,async(_re
 
 providerScanRouter.get('/admin/provider-scan/inventory',requireAuth,requireAdmin,async(_req,res)=>{
   try{
-    await providerCatalogService.ensureSeeded();
+    // This endpoint is intentionally read-only. The curated inventory already
+    // lives in source control and does not need dozens of Firestore writes just
+    // to render the Admin page.
     res.json({success:true,data:{total_positions:CURATED_MODEL_BLUEPRINTS.length,counts:CURATED_MODEL_POSITION_COUNTS,models:CURATED_MODEL_BLUEPRINTS}});
   }catch(err:any){res.status(500).json({success:false,error:{code:'PROVIDER_INVENTORY_ERROR',message:err?.message||'Falha ao carregar acervo curado.'}});}
 });
@@ -54,17 +56,27 @@ providerScanRouter.post('/admin/provider-pricing',requireAuth,requireAdmin,async
 
 providerScanRouter.post('/admin/provider-scan/approve-mapping',requireAuth,requireAdmin,async(req:AuthenticatedRequest,res)=>{
   try{
-    await providerCatalogService.ensureSeeded();
     const body=req.body||{},providerId=String(body.provider_id||'').trim(),modelId=String(body.model_id||'').trim(),identifier=String(body.provider_model_identifier||'').trim(),capabilityId=String(body.capability_id||'').trim();
     if(!providerId||!modelId||!identifier||!capabilityId)throw Object.assign(new Error('provider_id, model_id, provider_model_identifier e capability_id são obrigatórios.'),{code:'VALIDATION_ERROR'});
     const blueprint=CURATED_MODEL_BLUEPRINTS.find(row=>row.model_id===modelId);
     if(!blueprint)throw Object.assign(new Error('O modelo não pertence ao acervo curado do IA Conect.'),{code:'MODEL_NOT_CURATED'});
-    const [provider,model,verifiedPrice]=await Promise.all([
-      providerCatalogService.getProvider(providerId),catalogRepository.getModel(modelId),providerPricingCatalogService.getVerified(providerId,identifier,capabilityId),
+
+    const [provider,verifiedPrice]=await Promise.all([
+      providerCatalogService.getProvider(providerId),
+      providerPricingCatalogService.getVerified(providerId,identifier,capabilityId),
     ]);
     if(!provider)throw Object.assign(new Error('Provider não cadastrado.'),{code:'PROVIDER_NOT_FOUND'});
-    if(!model)throw Object.assign(new Error('Modelo canônico não cadastrado.'),{code:'MODEL_NOT_FOUND'});
     if(!verifiedPrice)throw Object.assign(new Error('O mapping só pode ser ativado depois que o preço deste provider/modelo/capability for verificado.'),{code:'PROVIDER_PRICE_UNVERIFIED'});
+
+    // Persist only the two records actually needed by an approved mapping.
+    // This keeps each Admin action within the Cloudflare Worker subrequest budget.
+    const [providerRecord,model]=await Promise.all([
+      providerCatalogService.ensureProviderRecord(providerId),
+      providerCatalogService.ensureCuratedModel(modelId),
+    ]);
+    if(!providerRecord)throw Object.assign(new Error('Provider não cadastrado.'),{code:'PROVIDER_NOT_FOUND'});
+    if(!model)throw Object.assign(new Error('Modelo canônico não cadastrado.'),{code:'MODEL_NOT_FOUND'});
+
     const hash=crypto.createHash('sha1').update(`${providerId}:${modelId}:${identifier}`).digest('hex').slice(0,12);
     const mapping=await catalogRepository.saveMapping({
       mapping_id:`map-curated-${hash}`,model_id:modelId,provider_id:providerId,provider_model_identifier:identifier,status:'ACTIVE',capabilities:[capabilityId],updated_at:new Date().toISOString(),
