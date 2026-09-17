@@ -16,10 +16,10 @@ export async function downloadMediaDirect(url: string, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
-export function safeDownloadName(name: string | undefined, type: 'IMAGE' | 'VIDEO' = 'IMAGE') {
-  const fallback = type === 'VIDEO' ? 'video-ia-connect.mp4' : 'imagem-ia-connect.png';
+export function safeDownloadName(name: string | undefined, type: 'IMAGE' | 'VIDEO' | 'AUDIO' = 'IMAGE') {
+  const fallback = type === 'VIDEO' ? 'video-ia-connect.mp4' : type === 'AUDIO' ? 'audio-ia-connect.mp3' : 'imagem-ia-connect.png';
   if (!name?.trim()) return fallback;
   const clean = name.trim().replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/-+/g, '-');
   if (/\.[a-zA-Z0-9]{2,5}$/.test(clean)) return clean;
-  return `${clean}.${type === 'VIDEO' ? 'mp4' : 'png'}`;
+  return `${clean}.${type === 'VIDEO' ? 'mp4' : type === 'AUDIO' ? 'mp3' : 'png'}`;
 }

@@ -1,10 +1,11 @@
 import React,{useCallback,useEffect,useMemo,useState}from'react';
-import{AudioLines,Clock3,LoaderCircle,Mic2,RefreshCw,Sparkles,Volume2,WandSparkles}from'lucide-react';
+import{LoaderCircle,Mic2,RefreshCw,Sparkles,Volume2,WandSparkles}from'lucide-react';
 import{useAuth}from'../../context/AuthContext.js';
 import{assetService}from'../../services/assetService.js';
 import{ApiError}from'../../services/apiClient.js';
 import{voiceGenerationClient,VoiceJob}from'../../services/voiceGenerationClient.js';
 import{Asset}from'../../types/index.js';
+import{CreationGallery}from'../workspace/CreationGallery.js';
 import'../../styles/voice-create.css';
 
 const VOICES=[
@@ -32,27 +33,23 @@ export const VoiceCreateView:React.FC=()=>{
  const[language,setLanguage]=useState('auto');
  const[format,setFormat]=useState('mp3');
  const[job,setJob]=useState<VoiceJob|null>(null);
- const[creations,setCreations]=useState<Asset[]>([]);
+ const[result,setResult]=useState<Asset|null>(null);
  const[busy,setBusy]=useState('load');
  const[error,setError]=useState('');
  const[pollCount,setPollCount]=useState(0);
 
- const loadCreations=useCallback(async()=>{
-  const rows=await assetService.listAssets({type:'AUDIO',origin:'GENERATED'}).catch(()=>[]);
-  setCreations(rows.sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)));
- },[]);
  const load=useCallback(async()=>{
   setBusy(current=>current||'load');setError('');
   try{
-   const[catalog]=await Promise.all([voiceGenerationClient.catalog(),loadCreations()]);
+   const catalog=await voiceGenerationClient.catalog();
    setModels(catalog.filter(model=>model.capabilities.some(capability=>capability.id==='text-to-speech')).map(model=>({model_id:model.model_id,name:model.name})));
   }catch(err){setError(message(err));}
   finally{setBusy(current=>current==='load'?'':current);}
- },[loadCreations]);
+ },[]);
  useEffect(()=>{void load();},[load]);
 
  const modelId=useMemo(()=>models.find(model=>model.model_id==='AUTO')?.model_id||models[0]?.model_id||'',[models]);
- const invalidate=()=>{setJob(null);setPollCount(0);setError('');};
+ const invalidate=()=>{setJob(null);setResult(null);setPollCount(0);setError('');};
 
  useEffect(()=>{
   if(!job||terminal(job.status)||!['QUEUED','RUNNING'].includes(job.status)||pollCount>=160)return;
@@ -65,16 +62,22 @@ export const VoiceCreateView:React.FC=()=>{
 
  useEffect(()=>{
   if(job?.status!=='SUCCEEDED')return;
-  void refreshWallet();
-  void loadCreations();
-  const timer=window.setTimeout(()=>void loadCreations(),900);
-  return()=>window.clearTimeout(timer);
- },[job?.status,loadCreations,refreshWallet]);
+  let disposed=false;
+  const sync=async()=>{
+   void refreshWallet();
+   const resultId=job.result_asset_ids?.[0];
+   if(resultId){const rows=await assetService.listAssets({type:'AUDIO',origin:'GENERATED'}).catch(()=>[]);if(!disposed)setResult(rows.find(asset=>asset.asset_id===resultId)||null)}
+   window.dispatchEvent(new CustomEvent('creations:updated',{detail:{kind:'VOICE',asset_ids:job.result_asset_ids||[]}}));
+  };
+  void sync();
+  const timer=window.setTimeout(()=>void sync(),900);
+  return()=>{disposed=true;window.clearTimeout(timer)};
+ },[job?.status,job?.result_asset_ids,refreshWallet]);
 
  const quote=async()=>{
   if(!text.trim())return setError('Digite o texto que será narrado.');
   if(!modelId)return setError('Nenhum modelo de voz está disponível agora.');
-  setBusy('quote');setError('');setJob(null);
+  setBusy('quote');setError('');setJob(null);setResult(null);
   try{
    const created=await voiceGenerationClient.create({model_id:modelId,prompt:text.trim(),controls:{language,voice,output_format:format}});
    setJob(await voiceGenerationClient.quote(created.job_id));setPollCount(0);
@@ -89,8 +92,6 @@ export const VoiceCreateView:React.FC=()=>{
   finally{setBusy('');}
  };
 
- const resultId=job?.result_asset_ids?.[0];
- const result=creations.find(asset=>asset.asset_id===resultId)||null;
  const balance=wallet?.available_credits??0;
  const price=job?.quote?.credit_price??null;
  const insufficient=price!=null&&balance<price;
@@ -100,7 +101,7 @@ export const VoiceCreateView:React.FC=()=>{
   <section className="ia-voice-creator" aria-label="Gerador de voz">
    <header className="ia-voice-heading">
     <div className="ia-voice-heading-icon"><Mic2/></div>
-    <div><span>GERADOR DE VOZ</span><h1>Transforme texto em voz.</h1><p>Escreva sua narração, escolha a voz e gere o áudio usando os mesmos créditos e criações do IA Connect.</p></div>
+    <div><span>GERADOR DE VOZ</span><h1>Transforme texto em voz.</h1><p>Escreva sua narração, escolha a voz e gere o áudio usando os mesmos créditos e o Minhas criações universal do IA Connect.</p></div>
    </header>
 
    <div className="ia-voice-field ia-voice-text-field">
@@ -136,14 +137,7 @@ export const VoiceCreateView:React.FC=()=>{
    </section>}
   </section>
 
-  <section className="ia-voice-gallery" aria-label="Minhas criações de voz">
-   <header className="ia-voice-gallery-head"><div><span>MINHAS CRIAÇÕES</span><h2>Vozes geradas</h2><p>Os resultados ficam salvos na mesma Biblioteca do IA Connect.</p></div><button onClick={()=>void loadCreations()} disabled={busy==='load'}><RefreshCw className={busy==='load'?'is-spin':''}/>Atualizar</button></header>
-   {creations.length?<div className="ia-voice-grid">{creations.map(asset=><article key={asset.asset_id} className="ia-voice-card">
-    <div className="ia-voice-card-icon"><AudioLines/></div>
-    <div className="ia-voice-card-copy"><strong>{asset.name||'Voz gerada'}</strong><span><Clock3/> {new Date(asset.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})}</span></div>
-    {asset.public_url?<audio controls preload="metadata" src={asset.public_url}/>:<p>Áudio indisponível para reprodução.</p>}
-   </article>)}</div>:<div className="ia-voice-empty"><Mic2/><strong>Suas vozes aparecerão aqui.</strong><span>Gere a primeira narração para começar.</span></div>}
-  </section>
+  <CreationGallery defaultFilter="VOICE" title="Minhas criações" subtitle="Imagens, vídeos, vozes e todo o histórico de criação do IA Connect."/>
  </div>;
 };
 
