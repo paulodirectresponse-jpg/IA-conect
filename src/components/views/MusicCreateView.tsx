@@ -51,12 +51,12 @@ export const MusicCreateView:React.FC=()=>{
  const routeReady=providerOptions.length>0;
  const selectedProviderName=selectedProviderId==='AUTO'?'AUTO · melhor rota':providerOptions.find(provider=>provider.provider_id===selectedProviderId)?.name||selectedProviderId;
  const durations=useMemo(()=>{
-  const values=(capability?.supported_durations?.length?capability.supported_durations:model?.supported_durations)||[];
-  const clean=Array.from(new Set(values.map(Number).filter(value=>Number.isFinite(value)&&value>0))).sort((a,b)=>a-b);
+  const values:number[]=(capability?.supported_durations?.length?capability.supported_durations:model?.supported_durations)||[];
+  const clean:number[]=Array.from(new Set<number>(values.map(value=>Number(value)).filter((value:number)=>Number.isFinite(value)&&value>0))).sort((a:number,b:number)=>a-b);
   if(!clean.length)return FALLBACK_DURATIONS;
-  const allowed=new Set(clean),preferred=PREFERRED_DURATIONS.filter(value=>allowed.has(value));
+  const allowed=new Set<number>(clean),preferred=PREFERRED_DURATIONS.filter(value=>allowed.has(value));
   if(preferred.length)return preferred;
-  return Array.from(new Set([clean[0],clean[Math.floor((clean.length-1)/2)],clean[clean.length-1]])).filter(Boolean);
+  return Array.from(new Set<number>([clean[0],clean[Math.floor((clean.length-1)/2)],clean[clean.length-1]])).filter((value):value is number=>Number.isFinite(value));
  },[capability,model]);
  const supportsSeed=Boolean(capability?.controls?.includes('seed'));
  useEffect(()=>{if(!durations.includes(duration))setDuration(durations.includes(60)?60:durations[0]);},[durations,duration]);
