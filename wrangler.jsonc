@@ -15,6 +15,13 @@
   "vars": {
     "ATLAS_BASE_URL": "https://api.atlascloud.ai",
     "WAVESPEED_BASE_URL": "https://api.wavespeed.ai",
+    "RUNWARE_BASE_URL": "https://api.runware.ai/v1",
+    "FAL_BASE_URL": "https://queue.fal.run",
+    "DEEPINFRA_BASE_URL": "https://api.deepinfra.com",
+    "REPLICATE_BASE_URL": "https://api.replicate.com/v1",
+    "AIML_BASE_URL": "https://api.aimlapi.com",
+    "PIAPI_BASE_URL": "https://api.piapi.ai",
+    "KIE_BASE_URL": "https://api.kie.ai",
     "MERCADOPAGO_BASE_URL": "https://api.mercadopago.com",
     "FIRESTORE_PREFER_REST": "true",
     "SUPABASE_URL": "https://hzjyhhenajbjxkwkmzdg.supabase.co",
