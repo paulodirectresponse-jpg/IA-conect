@@ -23,9 +23,9 @@ import { adminBetaCatalogRouter } from './adminBetaCatalogRoutes.js';
 import { betaAudioRouter } from './betaAudioRoutes.js';
 import { betaFlowRouter } from './betaFlowRoutes.js';
 import { betaFlowRuntimeRouter } from './betaFlowRuntimeRoutes.js';
+import { betaTemplateRouter } from './betaTemplateRoutes.js';
 
 export const apiRootRouter = Router();
-
 apiRootRouter.use(serverTimingMiddleware);
 apiRootRouter.use(json({ limit: '4mb' }));
 apiRootRouter.use(systemRouter);
@@ -51,3 +51,4 @@ apiRootRouter.use(adminBetaCatalogRouter);
 apiRootRouter.use(betaAudioRouter);
 apiRootRouter.use(betaFlowRouter);
 apiRootRouter.use(betaFlowRuntimeRouter);
+apiRootRouter.use(betaTemplateRouter);
