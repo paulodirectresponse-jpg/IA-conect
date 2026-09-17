@@ -6,6 +6,7 @@ import{ApiError}from'../../services/apiClient.js';
 import{threeDGenerationClient,ThreeDCapability,ThreeDJob,ThreeDModel}from'../../services/threeDGenerationClient.js';
 import{Asset}from'../../types/index.js';
 import{CreationGallery}from'../workspace/CreationGallery.js';
+import{StableModel3DPreview}from'../workspace/StableModel3DPreview.js';
 import'../../styles/three-d-create.css';
 
 type Tool=ThreeDCapability;
@@ -52,7 +53,6 @@ export const ThreeDCreateView:React.FC=()=>{
  const providerOptions=useMemo(()=>(model?.providers||[]).filter(provider=>provider.capability_ids.includes(tool)),[model,tool]);
  const routeReady=providerOptions.length>0;
  const selectedProviderName=selectedProviderId==='AUTO'?'AUTO · melhor rota':providerOptions.find(provider=>provider.provider_id===selectedProviderId)?.name||selectedProviderId;
- const selected=selectedIds.map(id=>images.find(asset=>asset.asset_id===id)).filter(Boolean) as Asset[];
  const invalidate=()=>{setJob(null);setResult(null);setPollCount(0);setError('');};
  useEffect(()=>{const fallback=availableModels.find(item=>item.model_id==='AUTO')?.model_id||availableModels[0]?.model_id||'';if(!availableModels.some(item=>item.model_id===selectedModelId))setSelectedModelId(fallback);setSelectedProviderId('AUTO');invalidate();},[tool]);
  useEffect(()=>{if(selectedProviderId!=='AUTO'&&!providerOptions.some(provider=>provider.provider_id===selectedProviderId))setSelectedProviderId('AUTO');},[providerOptions,selectedProviderId]);
@@ -114,9 +114,9 @@ export const ThreeDCreateView:React.FC=()=>{
 
    {error&&<div className="ia-three-d-error" role="status">{error}</div>}
    <section className="ia-three-d-price"><div><span>Créditos</span><strong>{price==null?'Calcule antes de gerar':`${price.toLocaleString('pt-BR')} créditos`}</strong>{price!=null&&<small>{insufficient?'Saldo insuficiente para esta geração.':`Saldo disponível: ${balance.toLocaleString('pt-BR')} créditos`}</small>}</div>{!job?.quote?<button className="ia-three-d-primary" disabled={Boolean(busy)||!model||!routeReady} onClick={()=>void quote()}>{busy==='quote'?<LoaderCircle className="is-spin"/>:<Sparkles/>}Calcular créditos</button>:['DRAFT','QUOTED'].includes(job.status)?<div className="ia-three-d-actions"><button disabled={Boolean(busy)} onClick={()=>void quote()}><RefreshCw/>Atualizar</button><button className="ia-three-d-primary" disabled={Boolean(busy)||insufficient} onClick={()=>void generate()}>{busy==='generate'?<LoaderCircle className="is-spin"/>:<WandSparkles/>}Gerar 3D</button></div>:<button disabled>{['QUEUED','RUNNING'].includes(job.status)&&<LoaderCircle className="is-spin"/>}{status}</button>}</section>
-   {job&&<section className="ia-three-d-current"><div className="ia-three-d-current-head"><div><span>Resultado atual</span><strong>{status}</strong></div>{job.status==='SUCCEEDED'?<CheckCircle2/>:<Box/>}</div>{job.quote&&<p>Modelo: <strong>{job.quote.selected_model_id}</strong> · {job.quote.routing_mode==='AUTO'?'roteamento AUTO':'modelo manual'} · provider solicitado: <strong>{selectedProviderName}</strong>.</p>}{['QUEUED','RUNNING'].includes(job.status)&&<p>A geração continua no sistema de tarefas e pode levar alguns minutos.</p>}{job.status==='FAILED'&&<p>{job.error_message||'A geração 3D não pôde ser concluída.'}</p>}{job.status==='SUCCEEDED'&&result?.public_url&&<a className="ia-three-d-download" href={result.public_url} target="_blank" rel="noreferrer"><Download/>Abrir GLB gerado</a>}{job.status==='SUCCEEDED'&&!result?.public_url&&<p>Asset concluído. Sincronizando o arquivo 3D…</p>}</section>}
+   {job&&<section className="ia-three-d-current"><div className="ia-three-d-current-head"><div><span>Resultado atual</span><strong>{status}</strong></div>{job.status==='SUCCEEDED'?<CheckCircle2/>:<Box/>}</div>{job.quote&&<p>Modelo: <strong>{job.quote.selected_model_id}</strong> · {job.quote.routing_mode==='AUTO'?'roteamento AUTO':'modelo manual'} · provider solicitado: <strong>{selectedProviderName}</strong>.</p>}{['QUEUED','RUNNING'].includes(job.status)&&<p>A geração continua no sistema de tarefas e pode levar alguns minutos.</p>}{job.status==='FAILED'&&<p>{job.error_message||'A geração 3D não pôde ser concluída.'}</p>}{job.status==='SUCCEEDED'&&result?.public_url&&<><StableModel3DPreview url={result.public_url} label={result.name}/><a className="ia-three-d-download" href={result.public_url} target="_blank" rel="noreferrer"><Download/>Abrir GLB gerado</a></>}{job.status==='SUCCEEDED'&&!result?.public_url&&<p>Asset concluído. Sincronizando o arquivo 3D…</p>}</section>}
   </section>
-  <section className="ia-three-d-creations"><CreationGallery defaultFilter="ALL" title="Minhas criações" subtitle="Histórico universal de criações do IA Connect. O filtro 3D será integrado nesta mesma galeria, sem criar uma segunda biblioteca."/></section>
+  <section className="ia-three-d-creations"><CreationGallery defaultFilter="THREE_D" title="Minhas criações" subtitle="O mesmo histórico universal de Imagem, Vídeo, Voz, Música e 3D."/></section>
  </div>;
 };
 
