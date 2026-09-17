@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useState}from'react';
-import{Disc3,Headphones,LoaderCircle,Music2,RefreshCw,Sparkles,WandSparkles}from'lucide-react';
+import{Disc3,LoaderCircle,Music2,RefreshCw,Sparkles,WandSparkles}from'lucide-react';
 import{useAuth}from'../../context/AuthContext.js';
 import{assetService}from'../../services/assetService.js';
 import{ApiError}from'../../services/apiClient.js';
@@ -8,6 +8,7 @@ import{Asset}from'../../types/index.js';
 import{CreationGallery}from'../workspace/CreationGallery.js';
 import'../../styles/music-create.css';
 
+const PREFERRED_DURATIONS=[15,30,60,90,120,180,240];
 const FALLBACK_DURATIONS=[30,60,120];
 const terminal=(status?:string)=>['SUCCEEDED','FAILED','CANCELLED'].includes(String(status||''));
 const message=(error:any)=>error instanceof ApiError?error.message:error?.message||'Não foi possível concluir esta operação.';
@@ -44,10 +45,13 @@ export const MusicCreateView:React.FC=()=>{
  const durations=useMemo(()=>{
   const values=(capability?.supported_durations?.length?capability.supported_durations:model?.supported_durations)||[];
   const clean=Array.from(new Set(values.map(Number).filter(value=>Number.isFinite(value)&&value>0))).sort((a,b)=>a-b);
-  return clean.length?clean:FALLBACK_DURATIONS;
+  if(!clean.length)return FALLBACK_DURATIONS;
+  const allowed=new Set(clean),preferred=PREFERRED_DURATIONS.filter(value=>allowed.has(value));
+  if(preferred.length)return preferred;
+  return Array.from(new Set([clean[0],clean[Math.floor((clean.length-1)/2)],clean[clean.length-1]])).filter(Boolean);
  },[capability,model]);
  const supportsSeed=Boolean(capability?.controls?.includes('seed'));
- useEffect(()=>{if(!durations.includes(duration))setDuration(durations[0]);},[durations,duration]);
+ useEffect(()=>{if(!durations.includes(duration))setDuration(durations.includes(60)?60:durations[0]);},[durations,duration]);
  const invalidate=()=>{setJob(null);setCurrentAsset(null);setPollCount(0);setError('');};
 
  useEffect(()=>{
@@ -65,7 +69,7 @@ export const MusicCreateView:React.FC=()=>{
   const assetId=job.result_asset_ids?.[0];
   void loadCurrentAsset(assetId);
   const timer=window.setTimeout(()=>void loadCurrentAsset(assetId),900);
-  window.dispatchEvent(new CustomEvent('creations:updated'));
+  window.dispatchEvent(new CustomEvent('creations:updated',{detail:{kind:'MUSIC',asset_ids:job.result_asset_ids||[]}}));
   return()=>window.clearTimeout(timer);
  },[job?.status,job?.result_asset_ids,loadCurrentAsset,refreshWallet]);
 
