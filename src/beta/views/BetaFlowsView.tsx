@@ -198,12 +198,12 @@ export const BetaFlowsView:React.FC=()=>{
     <div className="ia-beta-flow-stage" ref={canvas} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onClick={()=>setSelectedId(null)}>
      <svg className="ia-beta-flow-lines" viewBox="0 0 1400 850" preserveAspectRatio="none">{edges.map(edge=>{const a=nodes.find(n=>n.node_id===edge.from_node_id),b=nodes.find(n=>n.node_id===edge.to_node_id);if(!a||!b)return null;const x1=a.x+190,y1=a.y+52,x2=b.x,y2=b.y+52;return <g key={edge.edge_id}><path d={`M${x1} ${y1} C${x1+80} ${y1},${x2-80} ${y2},${x2} ${y2}`} stroke={color[edge.media_type]||'#64748b'}/><circle cx={(x1+x2)/2} cy={(y1+y2)/2} r="8" onClick={event=>{event.stopPropagation();setEdges(rows=>rows.filter(item=>item.edge_id!==edge.edge_id));touch()}}/></g>})}</svg>
      {nodes.map(node=>{
-      const out=outputs(models,assets,node),inn=inputs(models,node),active=selectedId===node.node_id;
-      return <article key={node.node_id} className={`ia-beta-flow-node ${active?'is-selected':''}`} style={{left:node.x,top:node.y}} onClick={event=>{event.stopPropagation();setSelectedId(node.node_id)}}>
+      const out=outputs(models,assets,node),inn=inputs(models,node),active=selectedId===node.node_id,runtimeNode=run?.node_runs.find(item=>item.node_id===node.node_id);
+      return <article key={node.node_id} className={'ia-beta-flow-node '+(active?'is-selected ':'')+(runtimeNode?'is-run-'+runtimeNode.status.toLowerCase():'')} style={{left:node.x,top:node.y}} onClick={event=>{event.stopPropagation();setSelectedId(node.node_id)}}>
        {inn.length>0&&<button className="ia-beta-flow-port is-input" title={inn.map(t=>labels[t]).join(', ')} onClick={event=>{event.stopPropagation();connect(node.node_id)}}><ChevronRight/></button>}
        <div className="ia-beta-flow-node-head" onPointerDown={event=>{event.stopPropagation();const rect=(event.currentTarget.parentElement as HTMLElement).getBoundingClientRect();drag.current={id:node.node_id,dx:event.clientX-rect.left,dy:event.clientY-rect.top};(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)}}><GripVertical/><span>{node.kind}</span><button onPointerDown={e=>e.stopPropagation()} onClick={event=>{event.stopPropagation();removeNode(node.node_id)}}><Trash2/></button></div>
        <strong>{node.label}</strong>
-       <small>{node.kind==='TOOL'?node.capability_id:node.kind==='ASSET'?(assets.find(a=>a.asset_id===node.asset_id)?.type||node.media_type):node.media_type}</small>
+       <small>{node.kind==='TOOL'?node.capability_id:node.kind==='ASSET'?(assets.find(a=>a.asset_id===node.asset_id)?.type||node.media_type):node.media_type}</small>{runtimeNode&&<em>{runtimeNode.status}</em>}
        {out.length>0&&<button className={`ia-beta-flow-port is-output ${linkFrom===node.node_id?'is-linking':''}`} title={out.map(t=>labels[t]).join(', ')} onClick={event=>{event.stopPropagation();setLinkFrom(linkFrom===node.node_id?null:node.node_id)}}><Link2/></button>}
       </article>
      })}
