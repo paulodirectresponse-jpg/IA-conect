@@ -13,6 +13,17 @@ export interface BetaFlowBudgetQuote{
   expires_at:string;
 }
 
+export interface BetaFlowRunEconomics{
+  run_id:string;
+  user_id:string;
+  flow_id:string;
+  flow_revision:number;
+  flow_quote_id:string;
+  budget_credit_limit:number;
+  created_at:string;
+  updated_at:string;
+}
+
 export interface BetaFlowEconomicSummary{
   budget_credit_limit:number;
   authorized_credits_total:number;
