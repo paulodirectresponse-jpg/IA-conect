@@ -1,4 +1,5 @@
 import { CURATED_MODEL_BLUEPRINTS, CuratedModelBlueprint, CuratedModelFunction } from '../../src/config/curatedModelInventory.js';
+import { ProviderModelMapping } from '../../src/types/index.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import type { ProviderScanCandidate } from './providerModelScanService.js';
 
@@ -63,8 +64,8 @@ function score(row:CuratedModelBlueprint,candidate:ProviderScanCandidate){
 }
 
 export const curatedModelMatchService={
-  async propose(providerId:string,candidates:ProviderScanCandidate[]):Promise<ProviderModelMatchProposal[]>{
-    const mappings=await catalogRepository.listMappings();
+  async propose(providerId:string,candidates:ProviderScanCandidate[],knownMappings?:ProviderModelMapping[]):Promise<ProviderModelMatchProposal[]>{
+    const mappings=knownMappings||await catalogRepository.listMappings();
     const existing=new Set(mappings.filter(mapping=>mapping.provider_id===providerId).map(mapping=>`${mapping.model_id}::${mapping.provider_model_identifier}`));
     const byModel=new Map<string,ProviderModelMatchProposal>();
     for(const candidate of candidates){
