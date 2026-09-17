@@ -24,4 +24,5 @@ export const BETA_FEATURE_FLAGS = [
   { flag_key: 'beta.copilot', name: 'Beta · Copilot', description: 'Libera assistência contextual com confirmação explícita antes de mudanças.', is_enabled: false, is_private: false },
   { flag_key: 'beta.brand_kit', name: 'Beta · Brand Kit', description: 'Libera contexto de marca reutilizável.', is_enabled: false, is_private: false },
   { flag_key: 'beta.sharing', name: 'Beta · Compartilhamento', description: 'Libera compartilhamento controlado de recursos Beta.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.analytics', name: 'Beta · Analytics', description: 'Libera métricas agregadas do workspace e compartilhamentos.', is_enabled: false, is_private: false },
 ] as const;
