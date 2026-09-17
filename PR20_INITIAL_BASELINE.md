@@ -1,62 +1,38 @@
-# PR-20 — Final QA / Rollout — Initial Baseline
+# PR-20 — Final QA / Rollout — Baseline Closure
 
-Base: `main@cf1f3fe0a6da3af027dc2645e313329ddeb6355b`
+Base inicial: `main@cf1f3fe0a6da3af027dc2645e313329ddeb6355b`.
 
-Status: **initial only**. Nenhuma alteração de rollout, feature flag, arquitetura de produto ou comportamento de produção foi aplicada nesta etapa.
-
-## Objetivo
-
-Preparar a fase final de hardening e rollout do IA Conect após as PRs 00–19, sem criar nova arquitetura paralela e sem reabrir escopo de produto já concluído.
+A fase inicialmente aberta apenas para análise foi promovida para execução completa por comando explícito. O relatório final de readiness está em `PR20_RELEASE_READINESS.md`.
 
 ## Fonte nativa de QA
 
-A fonte de verdade da PR-20 continuará sendo o próprio sistema do IA Conect, principalmente `.github/workflows/ci.yml`:
+A fonte de verdade permanece o próprio sistema do IA Conect:
 
 - lint/typecheck;
 - production build;
-- bundle analysis;
-- performance budget;
-- testes do repositório, arquitetura e contratos;
-- Browser Performance QA — Fast 3G + 4G;
-- artifacts de performance.
+- bundle analysis e performance budget;
+- testes de repositório, arquitetura e contratos;
+- Browser Performance QA Fast 3G + 4G;
+- artifacts de performance e Lighthouse.
 
-Não será usado TinyFish nem uma plataforma externa de QA paralela.
+Não há TinyFish nem infraestrutura externa paralela de QA.
 
-## Baseline herdado
+## Baseline herdado da PR-19
 
-A PR-19 foi squash merged em `main@cf1f3fe0a6da3af027dc2645e313329ddeb6355b`.
+- SHA: `cf1f3fe0a6da3af027dc2645e313329ddeb6355b`;
+- CI pós-merge: run `35220014922`, job `105197551222`;
+- 75 arquivos de teste / 353 testes verdes;
+- chunk inicial: 235.6 KiB raw / 73.5 KiB gzip;
+- Fast 3G: score 95, LCP 1987 ms, CLS 0.000, TBT 227 ms;
+- 4G: score 99, LCP 1879 ms, CLS 0.000, TBT 0 ms.
 
-CI pós-merge de referência:
+## Fechamento documental
 
-- run: `35220014922`;
-- job: `105197551222`;
-- resultado: success;
-- lint/typecheck: success;
-- build: success;
-- performance budget: success;
-- testes: success;
-- Browser Performance QA Fast 3G + 4G: success.
+- `FINAL_VISUAL_QA.md` foi atualizado para refletir o Browser QA nativo atual.
+- `PERFORMANCE_BASELINE.md` permanece intacto como baseline histórico pré-otimizações.
+- `PR20_RELEASE_READINESS.md` registra a comparação final, matriz de proteções e ordem de rollout/rollback.
+- `server/services/pr20ReleaseReadiness.test.ts` transforma os invariantes finais em contrato executável no CI.
 
-## Pontos identificados na análise inicial
+## Regra de conclusão
 
-1. `FINAL_VISUAL_QA.md` ainda registra que o Browser QA com Playwright MCP estaria pendente. Essa nota está desatualizada em relação ao pipeline atual, que já executa Browser Performance QA Fast 3G + 4G no próprio CI.
-2. `PERFORMANCE_BASELINE.md` preserva um baseline histórico anterior às otimizações. Na PR-20 completa, ele deve continuar como histórico, mas receber uma comparação final com o estado atual em vez de ser sobrescrito.
-3. O pipeline atual já contém os gates essenciais de build, testes e performance; a PR-20 deve consolidar e ampliar a matriz de validação, não criar uma segunda infraestrutura de QA.
-
-## Checklist da PR-20 completa — ainda não executado
-
-- validar rotas e fluxos Stable: auth, criação, wallet, history, settings, admin, community e library;
-- validar todas as superfícies Beta e seus feature flags/kill switches;
-- revalidar que provider IDs, chaves e roteamento interno não vazam para o frontend;
-- revalidar pricing/créditos server-authoritative;
-- revalidar ownership, idempotência e isolamento de dados;
-- validar privacidade, revogação e read-only de Sharing;
-- validar desktop/mobile, reduced motion e acessibilidade;
-- comparar bundle final e artifacts Lighthouse com os baselines históricos;
-- consolidar matriz de rollout/rollback e ordem segura de flags;
-- atualizar documentação final de QA/performance;
-- produzir relatório de release readiness antes de qualquer decisão de rollout.
-
-## Regra para o próximo passo
-
-A PR-20 só deve avançar para implementação, QA completo, abertura de PR e rollout quando houver comando explícito para continuar/finalizar esta fase.
+A PR-20 somente estará concluída quando o CI da PR estiver verde, houver squash merge para `main`, o novo SHA for confirmado e o CI pós-merge — incluindo Browser Performance QA Fast 3G + 4G — também terminar verde.
