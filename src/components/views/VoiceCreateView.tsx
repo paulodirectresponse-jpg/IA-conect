@@ -1,162 +1,42 @@
 import React,{useCallback,useEffect,useMemo,useState}from'react';
-import{LoaderCircle,Mic2,RefreshCw,Sparkles,Volume2,WandSparkles}from'lucide-react';
+import{LoaderCircle,RefreshCw,Sparkles,Volume2,WandSparkles}from'lucide-react';
 import{useAuth}from'../../context/AuthContext.js';
 import{assetService}from'../../services/assetService.js';
 import{ApiError}from'../../services/apiClient.js';
 import{voiceGenerationClient,VoiceJob,VoiceModel}from'../../services/voiceGenerationClient.js';
 import{Asset}from'../../types/index.js';
 import{CreationGallery}from'../workspace/CreationGallery.js';
-import'../../styles/voice-create.css';
+import{StableGeneratorModelPicker}from'../workspace/StableGeneratorModelPicker.js';
+import'../../styles/stable-generator-shell.css';
 
-const VOICES=[
- {id:'calm-female',label:'Feminina calma'},
- {id:'wise-female',label:'Feminina madura'},
- {id:'friendly',label:'Amigável'},
- {id:'casual-male',label:'Masculina casual'},
-];
-const LANGUAGES=[
- {id:'auto',label:'Detectar automaticamente'},
- {id:'pt',label:'Português'},
- {id:'en',label:'Inglês'},
- {id:'es',label:'Espanhol'},
- {id:'fr',label:'Francês'},
- {id:'de',label:'Alemão'},
-];
+const VOICES=[{id:'calm-female',label:'Feminina calma'},{id:'wise-female',label:'Feminina madura'},{id:'friendly',label:'Amigável'},{id:'casual-male',label:'Masculina casual'}];
+const LANGUAGES=[{id:'auto',label:'Detectar automaticamente'},{id:'pt',label:'Português'},{id:'en',label:'Inglês'},{id:'es',label:'Espanhol'},{id:'fr',label:'Francês'},{id:'de',label:'Alemão'}];
 const terminal=(status?:string)=>['SUCCEEDED','FAILED','CANCELLED'].includes(String(status||''));
 const message=(error:any)=>error instanceof ApiError?error.message:error?.message||'Não foi possível concluir esta operação.';
 
 export const VoiceCreateView:React.FC=()=>{
  const{wallet,refreshWallet}=useAuth();
- const[models,setModels]=useState<VoiceModel[]>([]);
- const[selectedModelId,setSelectedModelId]=useState('');
- const[selectedProviderId,setSelectedProviderId]=useState('AUTO');
- const[text,setText]=useState('');
- const[voice,setVoice]=useState('calm-female');
- const[language,setLanguage]=useState('auto');
- const[format,setFormat]=useState('mp3');
- const[job,setJob]=useState<VoiceJob|null>(null);
- const[result,setResult]=useState<Asset|null>(null);
- const[busy,setBusy]=useState('load');
- const[error,setError]=useState('');
- const[pollCount,setPollCount]=useState(0);
-
- const load=useCallback(async()=>{
-  setBusy(current=>current||'load');setError('');
-  try{
-   const available=(await voiceGenerationClient.catalog()).filter(model=>model.capabilities.some(capability=>capability.id==='text-to-speech'));
-   setModels(available);
-   setSelectedModelId(current=>available.some(model=>model.model_id===current)?current:(available.find(model=>model.model_id==='AUTO')?.model_id||available[0]?.model_id||''));
-  }catch(err){setError(message(err));}
-  finally{setBusy(current=>current==='load'?'':current);}
- },[]);
- useEffect(()=>{void load();},[load]);
-
- const modelId=selectedModelId;
- const selectedModel=useMemo(()=>models.find(model=>model.model_id===modelId)||null,[models,modelId]);
- const providerOptions=selectedModel?.providers||[];
- const selectedProviderName=selectedProviderId==='AUTO'?'AUTO · melhor rota':providerOptions.find(provider=>provider.provider_id===selectedProviderId)?.name||selectedProviderId;
- const routeReady=providerOptions.length>0;
- const invalidate=()=>{setJob(null);setResult(null);setPollCount(0);setError('');};
- useEffect(()=>{if(selectedProviderId!=='AUTO'&&!providerOptions.some(provider=>provider.provider_id===selectedProviderId))setSelectedProviderId('AUTO');},[modelId,providerOptions,selectedProviderId]);
-
- useEffect(()=>{
-  if(!job||terminal(job.status)||!['QUEUED','RUNNING'].includes(job.status)||pollCount>=160)return;
-  const timer=window.setTimeout(async()=>{
-   try{const next=await voiceGenerationClient.get(job.job_id);setJob(next);setPollCount(value=>value+1);}
-   catch(err){setError(message(err));setPollCount(160);}
-  },Math.min(6500,1800+pollCount*120));
-  return()=>window.clearTimeout(timer);
- },[job,pollCount]);
-
- useEffect(()=>{
-  if(job?.status!=='SUCCEEDED')return;
-  let disposed=false;
-  const sync=async()=>{
-   void refreshWallet();
-   const resultId=job.result_asset_ids?.[0];
-   if(resultId){const rows=await assetService.listAssets({type:'AUDIO',origin:'GENERATED'}).catch(()=>[]);if(!disposed)setResult(rows.find(asset=>asset.asset_id===resultId)||null)}
-   window.dispatchEvent(new CustomEvent('creations:updated',{detail:{kind:'VOICE',asset_ids:job.result_asset_ids||[]}}));
-  };
-  void sync();
-  const timer=window.setTimeout(()=>void sync(),900);
-  return()=>{disposed=true;window.clearTimeout(timer)};
- },[job?.status,job?.result_asset_ids,refreshWallet]);
-
- const quote=async()=>{
-  if(!text.trim())return setError('Digite o texto que será narrado.');
-  if(!modelId)return setError('Nenhum modelo de voz está disponível agora.');
-  if(!routeReady)return setError('Este modelo ainda não possui provider com mapping e preço verificados. Escolha outro modelo.');
-  setBusy('quote');setError('');setJob(null);setResult(null);
-  try{
-   const pricing_options=selectedProviderId==='AUTO'?{}:{preferred_provider_id:selectedProviderId};
-   const created=await voiceGenerationClient.create({model_id:modelId,prompt:text.trim(),controls:{language,voice,output_format:format,pricing_options}});
-   setJob(await voiceGenerationClient.quote(created.job_id));setPollCount(0);
-  }catch(err){setError(message(err));}
-  finally{setBusy('');}
- };
- const generate=async()=>{
-  if(!job)return;
-  setBusy('generate');setError('');
-  try{setJob(await voiceGenerationClient.queue(job.job_id));setPollCount(0);}
-  catch(err){setError(message(err));}
-  finally{setBusy('');}
- };
-
- const balance=wallet?.available_credits??0;
- const price=job?.quote?.credit_price??null;
- const insufficient=price!=null&&balance<price;
+ const[models,setModels]=useState<VoiceModel[]>([]),[selectedModelId,setSelectedModelId]=useState('AUTO'),[text,setText]=useState(''),[voice,setVoice]=useState('calm-female'),[language,setLanguage]=useState('auto'),[format,setFormat]=useState('mp3');
+ const[job,setJob]=useState<VoiceJob|null>(null),[result,setResult]=useState<Asset|null>(null),[busy,setBusy]=useState('load'),[error,setError]=useState(''),[pollCount,setPollCount]=useState(0);
+ const load=useCallback(async()=>{setBusy(current=>current||'load');setError('');try{const available=(await voiceGenerationClient.catalog()).filter(model=>model.capabilities.some(capability=>capability.id==='text-to-speech'));setModels(available);setSelectedModelId(current=>current==='AUTO'||available.some(model=>model.model_id===current)?current:'AUTO');}catch(err){setError(message(err));}finally{setBusy(current=>current==='load'?'':current)}},[]);
+ useEffect(()=>{void load()},[load]);
+ const selectedModel=useMemo(()=>selectedModelId==='AUTO'?null:models.find(model=>model.model_id===selectedModelId)||null,[models,selectedModelId]);
+ const routeReady=selectedModelId==='AUTO'?models.some(model=>model.providers?.length):Boolean(selectedModel?.providers?.length);
+ const invalidate=()=>{setJob(null);setResult(null);setPollCount(0);setError('')};
+ useEffect(()=>{if(!job||terminal(job.status)||!['QUEUED','RUNNING'].includes(job.status)||pollCount>=160)return;const timer=window.setTimeout(async()=>{try{setJob(await voiceGenerationClient.get(job.job_id));setPollCount(value=>value+1)}catch(err){setError(message(err));setPollCount(160)}},Math.min(6500,1800+pollCount*120));return()=>window.clearTimeout(timer)},[job,pollCount]);
+ useEffect(()=>{if(job?.status!=='SUCCEEDED')return;let disposed=false;const sync=async()=>{void refreshWallet();const resultId=job.result_asset_ids?.[0];if(resultId){const rows=await assetService.listAssets({type:'AUDIO',origin:'GENERATED'}).catch(()=>[]);if(!disposed)setResult(rows.find(asset=>asset.asset_id===resultId)||null)}window.dispatchEvent(new CustomEvent('creations:updated',{detail:{kind:'VOICE',asset_ids:job.result_asset_ids||[]}}))};void sync();const timer=window.setTimeout(()=>void sync(),900);return()=>{disposed=true;window.clearTimeout(timer)}},[job?.status,job?.result_asset_ids,refreshWallet]);
+ const quote=async()=>{if(!text.trim())return setError('Digite o texto que será narrado.');if(!routeReady)return setError('Nenhum modelo com rota e preço verificados está disponível agora.');setBusy('quote');setError('');setJob(null);setResult(null);try{const created=await voiceGenerationClient.create({model_id:selectedModelId,prompt:text.trim(),controls:{language,voice,output_format:format}});setJob(await voiceGenerationClient.quote(created.job_id));setPollCount(0)}catch(err){setError(message(err))}finally{setBusy('')}};
+ const generate=async()=>{if(!job)return;setBusy('generate');setError('');try{setJob(await voiceGenerationClient.queue(job.job_id));setPollCount(0)}catch(err){setError(message(err))}finally{setBusy('')}};
+ const balance=wallet?.available_credits??0,price=job?.quote?.credit_price??null,insufficient=price!=null&&balance<price;
  const status=job?.status==='SUCCEEDED'?'Concluído':job?.status==='FAILED'?'Falhou':job?.status==='RUNNING'?'Processando':job?.status==='QUEUED'?'Na fila':job?.status==='QUOTED'?'Preço calculado':'Preparando';
- const selectedName=selectedModel?.name||modelId;
-
- return <div className="ia-voice-studio">
-  <section className="ia-voice-creator" aria-label="Gerador de voz">
-   <header className="ia-voice-heading">
-    <div className="ia-voice-heading-icon"><Mic2/></div>
-    <div><span>GERADOR DE VOZ</span><h1>Transforme texto em voz.</h1><p>Escolha a IA e, quando quiser, o provider. Só rotas com mapping e preço verificados aparecem para uso.</p></div>
-   </header>
-
-   <div className="ia-voice-modelbar">
-    <label htmlFor="voice-model"><span>IA / modelo</span><select id="voice-model" value={modelId} disabled={busy==='load'||!models.length} onChange={event=>{setSelectedModelId(event.target.value);setSelectedProviderId('AUTO');invalidate();}}>{models.map(model=><option key={model.model_id} value={model.model_id}>{model.model_id==='AUTO'?'AUTO · Melhor modelo disponível':model.name}</option>)}</select></label>
-    <label htmlFor="voice-provider"><span>Provider</span><select id="voice-provider" value={selectedProviderId} disabled={!routeReady} onChange={event=>{setSelectedProviderId(event.target.value);invalidate();}}>{routeReady?<><option value="AUTO">AUTO · Mais econômico/saudável</option>{providerOptions.map(provider=><option key={provider.provider_id} value={provider.provider_id}>{provider.name}</option>)}</>:<option value="AUTO">Nenhum provider verificado</option>}</select></label>
-    <div className={`ia-voice-routing ${modelId==='AUTO'?'is-auto':'is-manual'}`}><span>{modelId==='AUTO'?'AUTO':'MODELO FIXO'}</span><strong>{selectedName||'Carregando...'}</strong><small>{routeReady?`Provider: ${selectedProviderName}. ${selectedProviderId==='AUTO'?'O sistema escolhe a rota economicamente segura.':'A rota fica restrita ao provider escolhido e ainda passa pelos bloqueios de custo/saldo.'}`:'Sem rota segura publicada; o modelo permanece indisponível para geração.'}</small></div>
-   </div>
-
-   <div className="ia-voice-field ia-voice-text-field">
-    <div className="ia-voice-label-row"><label htmlFor="voice-text">Texto</label><span>{text.length.toLocaleString('pt-BR')} caracteres</span></div>
-    <textarea id="voice-text" rows={10} value={text} maxLength={12000} onChange={event=>{setText(event.target.value);invalidate();}} placeholder="Digite o texto que deseja transformar em voz…"/>
-   </div>
-
-   <div className="ia-voice-options">
-    <label><span>Voz</span><select value={voice} onChange={event=>{setVoice(event.target.value);invalidate();}}>{VOICES.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-    <label><span>Idioma</span><select value={language} onChange={event=>{setLanguage(event.target.value);invalidate();}}>{LANGUAGES.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-    <label><span>Formato</span><select value={format} onChange={event=>{setFormat(event.target.value);invalidate();}}><option value="mp3">MP3</option><option value="wav">WAV</option></select></label>
-   </div>
-
-   {error&&<div className="ia-voice-error" role="status">{error}</div>}
-
-   <section className="ia-voice-price">
-    <div className="ia-voice-price-copy">
-     <span>Créditos</span>
-     <strong>{price==null?'Calcule antes de gerar':`${price.toLocaleString('pt-BR')} créditos`}</strong>
-     {price!=null&&<small>{insufficient?'Saldo insuficiente para esta geração.':`Saldo disponível: ${balance.toLocaleString('pt-BR')} créditos`}</small>}
-    </div>
-    {!job?.quote?<button className="ia-voice-primary" disabled={Boolean(busy)||!text.trim()||!modelId||!routeReady} onClick={()=>void quote()}>{busy==='quote'?<LoaderCircle className="is-spin"/>:<Sparkles/>}Calcular créditos</button>
-     :['DRAFT','QUOTED'].includes(job.status)?<div className="ia-voice-actions"><button disabled={Boolean(busy)} onClick={()=>void quote()}><RefreshCw/>Atualizar</button><button className="ia-voice-primary" disabled={Boolean(busy)||insufficient} onClick={()=>void generate()}>{busy==='generate'?<LoaderCircle className="is-spin"/>:<WandSparkles/>}Gerar voz</button></div>
-     :<button className="ia-voice-status" disabled>{['QUEUED','RUNNING'].includes(job.status)&&<LoaderCircle className="is-spin"/>}{status}</button>}
-   </section>
-
-   {job&&<section className="ia-voice-current">
-    <div className="ia-voice-current-head"><div><span>Resultado atual</span><strong>{status}</strong></div><Volume2/></div>
-    {job.quote&&<p>Modelo selecionado: <strong>{models.find(model=>model.model_id===job.quote?.selected_model_id)?.name||job.quote.selected_model_id}</strong> · {job.quote.routing_mode==='AUTO'?'roteamento AUTO':'modelo manual'} · provider solicitado: <strong>{selectedProviderName}</strong>.</p>}
-    {['QUEUED','RUNNING'].includes(job.status)&&<p>A geração continua sendo processada e também pode ser acompanhada pelo sistema de tarefas.</p>}
-    {job.status==='FAILED'&&<p>{job.error_message||'A voz não pôde ser gerada.'}</p>}
-    {job.status==='SUCCEEDED'&&result?.public_url&&<audio controls preload="metadata" src={result.public_url}/>} 
-    {job.status==='SUCCEEDED'&&!result?.public_url&&<p>Áudio concluído. Atualizando Minhas criações…</p>}
-   </section>}
-  </section>
-
-  <CreationGallery defaultFilter="VOICE" title="Minhas criações" subtitle="Imagens, vídeos, vozes e todo o histórico de criação do IA Connect."/>
+ return <div className="ia-stable-generator-studio">
+  <aside className="ia-stable-generator-panel" aria-label="Gerador de voz"><div className="ia-stable-generator-scroll">
+   <StableGeneratorModelPicker models={models.map(model=>({model_id:model.model_id,name:model.name,description:'Modelo de voz'}))} selectedModelId={selectedModelId} loading={busy==='load'} onSelect={modelId=>{setSelectedModelId(modelId);invalidate()}} accentClass="from-sky-500/30 via-cyan-500/15 to-violet-500/20"/>
+   <section className="ia-stable-generator-field"><div className="ia-stable-generator-labelrow"><label htmlFor="voice-text">Texto</label><span>{text.length.toLocaleString('pt-BR')} caracteres</span></div><textarea id="voice-text" className="ia-stable-generator-textarea" rows={10} value={text} maxLength={12000} onChange={event=>{setText(event.target.value);invalidate()}} placeholder="Digite o texto que deseja transformar em voz…"/></section>
+   <div className="ia-stable-generator-settings"><label className="ia-stable-setting"><span>Voz</span><select value={voice} onChange={event=>{setVoice(event.target.value);invalidate()}}>{VOICES.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label className="ia-stable-setting"><span>Idioma</span><select value={language} onChange={event=>{setLanguage(event.target.value);invalidate()}}>{LANGUAGES.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label className="ia-stable-setting"><span>Formato</span><select value={format} onChange={event=>{setFormat(event.target.value);invalidate()}}><option value="mp3">MP3</option><option value="wav">WAV</option></select></label></div>
+   {job&&<section className="ia-stable-current"><div className="flex items-center justify-between"><div><span className="text-[8px] text-zinc-600">Resultado atual</span><strong className="block text-[10px] text-white">{status}</strong></div><Volume2 className="w-4 h-4 text-sky-300"/></div>{job.quote&&<p>Modelo executado: <strong>{job.quote.selected_model_id}</strong> · {job.quote.routing_mode==='AUTO'?'roteamento AUTO':'modelo específico'}.</p>}{job.status==='SUCCEEDED'&&result?.public_url&&<audio controls preload="metadata" src={result.public_url} className="mt-2 w-full h-9"/>}{job.status==='FAILED'&&<p>{job.error_message||'A voz não pôde ser gerada.'}</p>}</section>}
+  </div><div className="ia-stable-generator-actionbar">{error&&<div className="ia-stable-error mb-2" role="status">{error}</div>}<div className="ia-stable-price-row"><div><span>Preço</span><strong>{price==null?'Preço indisponível':`${price.toLocaleString('pt-BR')} créditos`}</strong></div><div className="ia-stable-balance"><span>Saldo</span><strong className={insufficient?'text-rose-400':''}>{balance.toLocaleString('pt-BR')} créditos</strong></div></div>{!job?.quote?<button className="ia-stable-generator-primary" disabled={Boolean(busy)||!text.trim()||!routeReady} onClick={()=>void quote()}>{busy==='quote'?<LoaderCircle className="is-spin"/>:<Sparkles/>}Calcular créditos</button>:['DRAFT','QUOTED'].includes(job.status)?<div className="ia-stable-generator-actions"><button className="ia-stable-generator-secondary" disabled={Boolean(busy)} onClick={()=>void quote()}><RefreshCw/>Atualizar</button><button className="ia-stable-generator-primary" disabled={Boolean(busy)||insufficient} onClick={()=>void generate()}>{busy==='generate'?<LoaderCircle className="is-spin"/>:<WandSparkles/>}Gerar voz</button></div>:<button className="ia-stable-generator-primary" disabled>{['QUEUED','RUNNING'].includes(job.status)&&<LoaderCircle className="is-spin"/>}{status}</button>}</div></aside>
+  <main className="ia-stable-generator-main"><CreationGallery defaultFilter="VOICE" title="Minhas criações" subtitle="Imagens, vídeos, vozes e todo o histórico de criação do IA Connect."/></main>
  </div>;
 };
-
 export default VoiceCreateView;

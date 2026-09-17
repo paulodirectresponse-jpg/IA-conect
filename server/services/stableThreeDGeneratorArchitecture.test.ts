@@ -15,10 +15,11 @@ describe('Stable 3D generator foundation',()=>{
   expect(routes).toContain('betaJobOrchestrator.create');expect(routes).toContain('betaJobOrchestrator.quote');expect(routes).toContain('betaJobOrchestrator.queue');
   expect(routes).not.toMatch(/three_d_jobs|3d_jobs_collection|model3d_jobs/);
  });
- it('keeps pricing and provider eligibility server authoritative',()=>{
+ it('keeps pricing and provider eligibility server authoritative and hidden from the generator UI',()=>{
   const routes=read('server/routes/threeDGenerationRoutes.ts'),view=read('src/components/views/ThreeDCreateView.tsx'),client=read('src/services/threeDGenerationClient.ts');
   expect(routes).toContain('providerPricingCatalogService.list');expect(routes).toContain('configured.get');expect(routes).toContain("provider.status!=='ACTIVE'");
-  expect(view).toContain('job?.quote?.credit_price');expect(view).toContain('Provider');expect(view).toContain('AUTO · Mais econômico/saudável');
+  expect(view).toContain('job?.quote?.credit_price');expect(view).toContain('StableGeneratorModelPicker');
+  expect(view).not.toContain('preferred_provider_id');expect(view).not.toContain('AUTO · Mais econômico/saudável');
   expect(client).not.toMatch(/api[_-]?key|authorization|bearer/i);expect(view).not.toMatch(/wavespeed|runware|deepinfra|replicate|aiml|piapi|kie\.ai/i);
  });
  it('preserves the 3D kill switch and existing Universal Assets ownership',()=>{
@@ -33,9 +34,9 @@ describe('Stable 3D generator foundation',()=>{
   expect(view).not.toMatch(/ThreeDGallery|Model3DLibrary|three-d-creations-list/);
  });
  it('uses the shared Stable create shell and responsive workspace',()=>{
-  const layout=read('src/components/layout/AppLayout.tsx'),css=read('src/styles/three-d-create.css'),view=read('src/components/views/ThreeDCreateView.tsx');
+  const layout=read('src/components/layout/AppLayout.tsx'),css=read('src/styles/stable-generator-shell.css'),view=read('src/components/views/ThreeDCreateView.tsx');
   expect(layout).toContain("currentView === 'create-3d'");expect(layout).toContain('ia-shell-main-create');
-  expect(css).toContain('@media(max-width:1023px)');expect(css).toContain('@media(max-width:640px)');
-  expect(view).toContain('CreationGallery');
+  expect(css).toContain('@media(max-width:1023px)');expect(css).toContain('@media(max-width:640px)');expect(css).toContain('width:368px');
+  expect(view).toContain('ia-stable-generator-studio');expect(view).toContain('CreationGallery');
  });
 });
