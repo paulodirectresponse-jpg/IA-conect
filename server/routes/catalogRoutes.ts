@@ -8,6 +8,7 @@ export const catalogRouter = Router();
 
 catalogRouter.get('/catalog/models', requireAuth, async (req, res) => {
   try {
+    await providerCatalogService.ensureSeeded();
     const models = await catalogRepository.listModels();
     res.json({ success: true, data: models.filter(model=>model.beta_only!==true) });
   } catch (err: any) {
@@ -40,6 +41,7 @@ catalogRouter.get('/catalog/promotions', requireAuth, async (req, res) => {
 
 catalogRouter.get('/models', async (req, res) => {
   try {
+    await providerCatalogService.ensureSeeded();
     const models = await catalogRepository.listModels();
     res.json({ success: true, data: models });
   } catch (err: any) {
@@ -49,6 +51,7 @@ catalogRouter.get('/models', async (req, res) => {
 
 catalogRouter.get('/models/:modelId', async (req, res) => {
   try {
+    await providerCatalogService.ensureSeeded();
     const model = await catalogRepository.getModel(req.params.modelId);
     if (!model) {
       return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Modelo não encontrado.' } });
