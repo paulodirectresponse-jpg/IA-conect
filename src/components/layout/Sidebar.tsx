@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Globe2, Home, Image as ImageIcon, Images, Layers3, Mic2, Music2, ShieldCheck, Video, WandSparkles, X } from 'lucide-react';
+import { BookOpen, Globe2, Home, Image as ImageIcon, Images, Layers3, Mic2, Music2, Network, ShieldCheck, Video, WandSparkles, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { BrandMark } from '../common/BrandMark.js';
 
@@ -40,6 +40,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpe
   const edit: NavItem[] = [
     { id: 'edit-image', label: 'Editor de imagem', icon: Images },
     { id: 'edit-video', label: 'Editor de vídeo', icon: WandSparkles },
+  ];
+
+  const automate: NavItem[] = [
+    { id: 'spaces', label: 'Spaces', icon: Network },
   ];
 
   const item = ({ id, label, icon: Icon }: NavItem) => {
@@ -87,6 +91,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpe
             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--ia-text-4)]">Editar</p>
           </div>
           <nav className="space-y-1">{edit.map(item)}</nav>
+
+          <div className="mb-2 mt-6 px-3">
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--ia-text-4)]">Automatizar</p>
+          </div>
+          <nav className="space-y-1">{automate.map(item)}</nav>
 
           {isAdmin && (
             <>
