@@ -1,0 +1,17 @@
+import{Router,Response}from'express';
+import{AuthenticatedRequest,requireAuth}from'../middleware/authMiddleware.js';
+import{normalizeBetaPublicError}from'../beta/http/publicError.js';
+import{batchService}from'../beta/batch/batchService.js';
+export const betaBatchRouter=Router();
+const failure=(res:Response,e:any,fallback:string)=>{const n=normalizeBetaPublicError(e,fallback);return res.status(n.status).json({success:false,error:n.error});};
+const host=(req:AuthenticatedRequest)=>req.get('host')||process.env.APP_URL;
+betaBatchRouter.use('/beta/batches',requireAuth);
+betaBatchRouter.get('/beta/batches',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await batchService.list(req.user!.uid)});}catch(e){return failure(res,e,'Não foi possível carregar os Batches.');}});
+betaBatchRouter.post('/beta/batches',async(req:AuthenticatedRequest,res)=>{try{return res.status(201).json({success:true,data:await batchService.create(req.user!.uid,req.body||{},String(req.headers['idempotency-key']||''))});}catch(e){return failure(res,e,'Não foi possível criar o Batch.');}});
+betaBatchRouter.get('/beta/batches/:batchId',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await batchService.get(req.user!.uid,req.params.batchId)});}catch(e){return failure(res,e,'Não foi possível carregar o Batch.');}});
+betaBatchRouter.post('/beta/batches/:batchId/confirm',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await batchService.confirm(req.user!.uid,req.params.batchId)});}catch(e){return failure(res,e,'Não foi possível confirmar o Batch.');}});
+betaBatchRouter.post('/beta/batches/:batchId/advance',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await batchService.advance(req.user!.uid,req.params.batchId,host(req),req.user!.idToken)});}catch(e){return failure(res,e,'Não foi possível avançar o Batch.');}});
+betaBatchRouter.post('/beta/batches/:batchId/pause',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await batchService.pause(req.user!.uid,req.params.batchId)});}catch(e){return failure(res,e,'Não foi possível pausar o Batch.');}});
+betaBatchRouter.post('/beta/batches/:batchId/resume',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await batchService.resume(req.user!.uid,req.params.batchId,host(req),req.user!.idToken)});}catch(e){return failure(res,e,'Não foi possível retomar o Batch.');}});
+betaBatchRouter.post('/beta/batches/:batchId/retry',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await batchService.retryFailed(req.user!.uid,req.params.batchId,host(req),req.user!.idToken)});}catch(e){return failure(res,e,'Não foi possível tentar novamente.');}});
+betaBatchRouter.post('/beta/batches/:batchId/cancel',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await batchService.cancel(req.user!.uid,req.params.batchId)});}catch(e){return failure(res,e,'Não foi possível cancelar o Batch.');}});
