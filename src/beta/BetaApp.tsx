@@ -7,6 +7,7 @@ import { BetaLibraryIntent } from './libraryClient.js';
 import { TaskCenter } from './components/TaskCenter.js';
 import { getPublicBetaFlags } from './services/betaAccessService.js';
 import './styles/beta.css';
+import './styles/templates.css';
 
 interface BetaAppProps { onExit: () => void; }
 const INTENT_KEY='ia-conect:beta:library-intent:v1';
