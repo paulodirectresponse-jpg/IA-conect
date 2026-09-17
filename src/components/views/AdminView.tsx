@@ -2,10 +2,8 @@ import React,{useState}from'react';
 import{Activity,BrainCircuit,Coins,Settings2,Users}from'lucide-react';
 import{Badge}from'../common/Badge.js';
 import{AdminOverviewDashboard}from'../admin/AdminOverviewDashboard.js';
+import{AdminAIProvidersHub}from'../admin/AdminAIProvidersHub.js';
 import{AdminUsersList}from'../admin/AdminUsersList.js';
-import{AdminModels}from'../admin/AdminModels.js';
-import{AdminProviders}from'../admin/AdminProviders.js';
-import{AdminProviderScan}from'../admin/AdminProviderScan.js';
 import{AdminPricing}from'../admin/AdminPricing.js';
 import{AdminCoupons}from'../admin/AdminCoupons.js';
 import{AdminEconomics}from'../admin/AdminEconomics.js';
@@ -32,16 +30,10 @@ export const AdminView:React.FC=()=>{
   <nav className="ia-admin-tabs flex items-center gap-1 overflow-x-auto pb-2">{tabs.map(t=><button key={t.id} onClick={()=>setActiveTab(t.id)} className={`ia-admin-tab flex h-10 items-center gap-2 px-3 rounded-lg text-[11px] font-semibold whitespace-nowrap ${activeTab===t.id?'is-active':''}`}>{t.icon}{t.label}</button>)}</nav>
 
   {activeTab==='overview'&&<AdminOverviewDashboard/>}
-
-  {activeTab==='ai'&&<div className="space-y-4">
-   <div className="ia-admin-panel"><h2>IA & Providers</h2><p className="mt-1.5">Uma única área para catálogo canônico, modelos Stable/Beta, providers, credenciais detectadas, scan, mappings e roteamento. O scan não publica modelos automaticamente.</p></div>
-   <Section title="Catálogo de modelos" description="Modelos do runtime e metadados editáveis. A próxima etapa unifica aqui também todas as 86 posições canônicas." open><AdminModels/></Section>
-   <Section title="Providers & saldos" description="Estado operacional, saldo, prioridade e disponibilidade dos nove providers."><AdminProviders/></Section>
-   <Section title="Scan, acervo e mappings" description="86 posições planejadas, descoberta por provider, correspondências, preços verificados e Safe Routing." open><AdminProviderScan/></Section>
-  </div>}
+  {activeTab==='ai'&&<AdminAIProvidersHub/>}
 
   {activeTab==='finance'&&<div className="space-y-4">
-   <div className="ia-admin-panel"><h2>Financeiro</h2><p className="mt-1.5">Preço de varejo, margem, COGS, caixa, créditos, campanhas e economia passam a viver no mesmo domínio.</p></div>
+   <div className="ia-admin-panel"><h2>Financeiro</h2><p className="mt-1.5">Preço de varejo, margem, COGS, caixa, créditos, campanhas e economia no mesmo domínio.</p></div>
    <Section title="Economia & unit economics" description="Caixa, COGS, contribuição, margem, consumo por modelo/provider e gerações recentes." open><AdminEconomics/></Section>
    <Section title="Preços & margem" description="Políticas de preço e pisos de margem usados pelo runtime."><AdminPricing/></Section>
   </div>}
