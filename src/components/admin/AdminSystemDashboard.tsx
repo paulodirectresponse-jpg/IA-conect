@@ -1,0 +1,18 @@
+import React,{useEffect,useMemo,useState}from'react';
+import{Activity,Flag,History,ShieldCheck}from'lucide-react';
+import{adminService,SystemHealthSnapshot}from'../../services/adminService.js';
+import{FeatureFlag}from'../../types/index.js';
+
+export const AdminSystemDashboard:React.FC=()=>{
+ const[health,setHealth]=useState<SystemHealthSnapshot|null>(null),[flags,setFlags]=useState<FeatureFlag[]>([]),[auditCount,setAuditCount]=useState(0),[loading,setLoading]=useState(true);
+ useEffect(()=>{Promise.all([adminService.getSystemHealth(),adminService.listFeatureFlags(),adminService.listAuditLogs('',5,0)]).then(([h,f,a])=>{setHealth(h);setFlags(f);setAuditCount(a.total)}).catch(console.error).finally(()=>setLoading(false))},[]);
+ const checks=health?.checks||[];
+ const ok=checks.filter(c=>c.status==='OK').length,degraded=checks.filter(c=>c.status==='DEGRADED').length,error=checks.filter(c=>c.status==='ERROR').length;
+ const enabled=flags.filter(f=>f.is_enabled).length;
+ const healthPct=checks.length?Math.max(0,Math.min(100,(ok/checks.length)*100)):0;
+ const recent=useMemo(()=>checks.filter(c=>c.status!=='OK'),[checks]);
+ return <div className="space-y-4">
+  <div className="grid grid-cols-2 xl:grid-cols-4 gap-3"><div className="ia-admin-panel"><div className="flex items-center gap-2 text-[9px] text-zinc-600"><ShieldCheck className="w-4 h-4"/>Saúde</div><div className="mt-2 text-xl font-black text-white">{loading?'—':health?.status||'—'}</div><p className="text-[10px] text-zinc-500 mt-1">{ok}/{checks.length} checks OK</p></div><div className="ia-admin-panel"><div className="flex items-center gap-2 text-[9px] text-zinc-600"><Flag className="w-4 h-4"/>Feature flags</div><div className="mt-2 text-xl font-black text-white">{loading?'—':enabled}</div><p className="text-[10px] text-zinc-500 mt-1">de {flags.length} habilitadas</p></div><div className="ia-admin-panel"><div className="flex items-center gap-2 text-[9px] text-zinc-600"><Activity className="w-4 h-4"/>Degradados / erros</div><div className="mt-2 text-xl font-black text-white">{loading?'—':`${degraded} / ${error}`}</div><p className="text-[10px] text-zinc-500 mt-1">checks que pedem atenção</p></div><div className="ia-admin-panel"><div className="flex items-center gap-2 text-[9px] text-zinc-600"><History className="w-4 h-4"/>Auditoria</div><div className="mt-2 text-xl font-black text-white">{loading?'—':auditCount.toLocaleString('pt-BR')}</div><p className="text-[10px] text-zinc-500 mt-1">eventos registrados</p></div></div>
+  <div className="grid xl:grid-cols-[1fr_.8fr] gap-4"><section className="ia-admin-panel"><div className="flex items-center justify-between text-[10px]"><div><h3 className="text-xs font-bold text-white">Saúde técnica</h3><p className="text-zinc-600 mt-1">Percentual dos checks operacionais em estado OK.</p></div><strong className="text-sky-200">{healthPct.toFixed(1)}%</strong></div><div className="mt-4 h-3 rounded-full bg-white/[0.05] overflow-hidden"><div className="h-full rounded-full bg-emerald-400/65" style={{width:`${healthPct}%`}}/></div></section><section className="ia-admin-panel"><h3 className="text-xs font-bold text-white">Atenção técnica</h3><div className="mt-3 space-y-2">{recent.length?recent.map(c=><div key={c.key} className="rounded-xl border border-white/[0.06] p-3"><div className="flex items-center justify-between gap-3 text-[9px]"><span className="font-bold text-zinc-300">{c.label}</span><span className={c.status==='ERROR'?'text-rose-300':'text-amber-300'}>{c.status}</span></div><p className="mt-1 text-[9px] text-zinc-600">{c.detail}</p></div>):<div className="text-[10px] text-emerald-300">Nenhum check degradado ou em erro.</div>}</div></section></div>
+ </div>;
+};
