@@ -1,29 +1,50 @@
-import React,{useEffect,useMemo,useRef,useState}from'react';
-import{Check,ChevronDown,Search,Sparkles}from'lucide-react';
+import React,{useMemo}from'react';
+import{ModelRegistryItem}from'../../types/index.js';
+import{CompactModelPicker}from'./CompactModelPicker.js';
 
-export interface StableGeneratorModelOption{model_id:string;name:string;description?:string;}
+export interface StableGeneratorModelOption{model_id:string;name:string;description?:string;supported_durations?:number[];}
 interface Props{models:StableGeneratorModelOption[];selectedModelId:string;onSelect:(modelId:string)=>void;loading?:boolean;accentClass?:string;}
-const initials=(name?:string)=>(name||'AI').split(/\s+/).slice(0,2).map(part=>part[0]).join('').toUpperCase();
 
-export const StableGeneratorModelPicker:React.FC<Props>=({models,selectedModelId,onSelect,loading=false,accentClass='from-violet-500/35 via-fuchsia-500/15 to-cyan-400/25'})=>{
- const[open,setOpen]=useState(false),[search,setSearch]=useState(''),ref=useRef<HTMLDivElement>(null);
- useEffect(()=>{const close=(event:MouseEvent)=>{if(ref.current&&!ref.current.contains(event.target as Node))setOpen(false)};const key=(event:KeyboardEvent)=>{if(event.key==='Escape')setOpen(false)};document.addEventListener('mousedown',close);document.addEventListener('keydown',key);return()=>{document.removeEventListener('mousedown',close);document.removeEventListener('keydown',key)}},[]);
- const selected=useMemo(()=>models.find(model=>model.model_id===selectedModelId)||models.find(model=>model.model_id==='AUTO')||models[0]||null,[models,selectedModelId]);
- const isAuto=!selected||selected.model_id==='AUTO';
- const filtered=useMemo(()=>{const query=search.trim().toLowerCase();return models.filter(model=>!query||`${model.name} ${model.description||''}`.toLowerCase().includes(query))},[models,search]);
- return <div className={`ia-model-picker relative ${isAuto?'is-auto':'is-manual'}`} ref={ref}>
-  <button type="button" disabled={loading||!models.length} onClick={()=>setOpen(value=>!value)} className={`group relative w-full min-h-[112px] overflow-hidden rounded-[16px] border border-white/[0.08] bg-gradient-to-br ${accentClass} text-left shadow-[0_16px_45px_rgba(0,0,0,.2)] disabled:opacity-60`}>
-   <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_25%,rgba(255,255,255,.12),transparent_28%),linear-gradient(to_top,rgba(4,6,10,.92),rgba(4,6,10,.18))]"/>
-   <div className="relative h-full p-3 flex flex-col justify-between gap-6">
-    <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2 min-w-0"><div className="ia-model-picker-identity w-9 h-9 rounded-xl border border-white/10 bg-black/30 backdrop-blur grid place-items-center text-[11px] font-black text-white">{isAuto?'AI':initials(selected?.name)}</div><div className="min-w-0"><p className="text-[13px] font-black text-white truncate">{loading?'Carregando...':isAuto?'Auto':selected?.name||'Escolher IA'}</p><p className="text-[9px] text-white/65 truncate">{isAuto?'Escolha automática do melhor modelo':selected?.description||'Modelo específico'}</p></div></div><span className="ia-model-picker-change rounded-lg border border-white/10 bg-black/35 backdrop-blur px-2 py-1 text-[9px] font-semibold text-white flex items-center gap-1">Alterar <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open?'rotate-180':''}`}/></span></div>
-    <div className="flex flex-wrap gap-1.5 text-[9px] text-white/75"><span className="inline-flex items-center gap-1 rounded-md bg-black/30 px-1.5 py-1"><Sparkles className="w-3 h-3"/>{isAuto?'Seleção automática':'Modelo selecionado'}</span></div>
-   </div>
-  </button>
-  {open&&<><button type="button" aria-label="Fechar seletor de IA" className="ia-model-picker-backdrop" onClick={()=>setOpen(false)}/><div className="ia-model-picker-menu absolute z-[80] top-full mt-2 inset-x-0 overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0d1117] shadow-2xl shadow-black/60">
-   <div className="p-2 border-b border-white/[0.06]"><button type="button" onClick={()=>{onSelect('AUTO');setOpen(false)}} className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl text-left ${isAuto?'bg-violet-500/12 ring-1 ring-violet-400/15':'hover:bg-white/[0.04]'}`}><div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/30 to-cyan-400/20 grid place-items-center"><Sparkles className="w-4 h-4 text-cyan-300"/></div><div className="flex-1 min-w-0"><p className="text-[11px] font-bold text-white">Auto Router</p><p className="text-[9px] text-zinc-500">Seleciona automaticamente o melhor modelo compatível.</p></div>{isAuto&&<Check className="w-3.5 h-3.5 text-cyan-300"/>}</button></div>
-   <div className="p-2 border-b border-white/[0.06]"><div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600"/><input value={search} onChange={event=>setSearch(event.target.value)} placeholder="Buscar modelo..." className="w-full h-9 pl-8 pr-3 rounded-xl bg-[#090c11] border border-white/[0.07] text-[10px] text-zinc-300 placeholder:text-zinc-700 outline-none focus:border-violet-400/30"/></div></div>
-   <div className="ia-model-picker-list max-h-[360px] overflow-y-auto p-2 space-y-1.5">{filtered.filter(model=>model.model_id!=='AUTO').map(model=>{const active=model.model_id===selected?.model_id&&!isAuto;return <button key={model.model_id} type="button" onClick={()=>{onSelect(model.model_id);setOpen(false)}} className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left border transition-colors ${active?'bg-white/[0.075] border-cyan-400/20':'border-transparent hover:bg-white/[0.04] hover:border-white/[0.05]'}`}><div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500/25 to-cyan-400/15 border border-white/[0.07] grid place-items-center shrink-0"><span className="text-[11px] font-black text-white">{initials(model.name)}</span></div><div className="min-w-0 flex-1"><p className="text-[10px] font-bold text-white truncate">{model.name}</p><p className="mt-0.5 text-[8px] text-zinc-600 truncate">{model.description||'Modelo disponível para esta função'}</p></div>{active&&<Check className="w-3.5 h-3.5 text-cyan-300"/>}</button>})}{!filtered.filter(model=>model.model_id!=='AUTO').length&&<p className="py-7 text-center text-[10px] text-zinc-600">Nenhum modelo disponível.</p>}</div>
-  </div></>}
+const now='1970-01-01T00:00:00.000Z';
+export const StableGeneratorModelPicker:React.FC<Props>=({models,selectedModelId,onSelect,loading=false})=>{
+ const adapted=useMemo<ModelRegistryItem[]>(()=>models.map(model=>({
+  model_id:model.model_id,
+  name:model.name,
+  slug:model.model_id,
+  category:'OTHER',
+  description:model.description||'Modelo disponível',
+  status:'ACTIVE',
+  best_for:model.description||'Modelo específico',
+  supported_durations:model.supported_durations||[],
+  supported_resolutions:[],
+  supported_aspect_ratios:[],
+  supported_modes:[],
+  supports_image_reference:false,
+  supports_multiple_images:false,
+  supports_video_reference:false,
+  supports_audio_reference:false,
+  supports_negative_prompt:false,
+  supports_seed:false,
+  max_reference_images:0,
+  max_reference_videos:0,
+  max_reference_audio:0,
+  max_prompt_length:4000,
+  created_at:now,
+  updated_at:now,
+ })),[models]);
+ const manualId=selectedModelId==='AUTO'?(adapted[0]?.model_id||''):selectedModelId;
+ return <div className={loading?'pointer-events-none opacity-60':''} aria-busy={loading||undefined}>
+  <CompactModelPicker
+   models={adapted}
+   selectionMode={selectedModelId==='AUTO'?'AUTO':'MANUAL'}
+   selectedModelId={manualId}
+   autoResolvedModel={null}
+   onSelectAuto={()=>onSelect('AUTO')}
+   onSelectModel={model=>onSelect(model.model_id)}
+   favoriteModelIds={[]}
+   recentModelIds={[]}
+   onToggleFavorite={()=>{}}
+  />
  </div>;
 };
 

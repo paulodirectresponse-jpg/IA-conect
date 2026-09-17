@@ -15,6 +15,9 @@ interface PromptComposerProps{
  supportsNegativePrompt?:boolean;
  supportsReferences?:boolean;
  maxChars?:number;
+ label?:string;
+ placeholder?:string;
+ showImproveButton?:boolean;
 }
 
 const isFrameReference=(ref:WorkspaceReference)=>['START_FRAME','INITIAL_FRAME','INITIAL','END_FRAME','END'].includes(String(ref.role||'').toUpperCase());
@@ -54,7 +57,7 @@ function restoreCaret(root:HTMLElement,offset:number){
 }
 
 export const PromptComposer:React.FC<PromptComposerProps>=({
- prompt,onChangePrompt,negativePrompt,onChangeNegativePrompt,onOpenImproveModal,references,onRequestAddMedia,supportsNegativePrompt=true,supportsReferences=true,maxChars=2000,
+ prompt,onChangePrompt,negativePrompt,onChangeNegativePrompt,onOpenImproveModal,references,onRequestAddMedia,supportsNegativePrompt=true,supportsReferences=true,maxChars=2000,label='Prompt',placeholder,showImproveButton=true,
 })=>{
  const[showNegative,setShowNegative]=useState(Boolean(negativePrompt));
  const[mentionOpen,setMentionOpen]=useState(false);
@@ -71,6 +74,8 @@ export const PromptComposer:React.FC<PromptComposerProps>=({
   const q=mentionQuery.trim().toLowerCase();
   return promptReferences.filter(ref=>!q||ref.alias_snapshot.toLowerCase().includes(q)||(ref.asset?.name||'').toLowerCase().includes(q));
  },[promptReferences,mentionQuery]);
+ const resolvedPlaceholder=placeholder||(supportsReferences?'Descreva exatamente o que você quer gerar... Digite @ para usar uma referência.':'Descreva exatamente o que você quer gerar...');
+ const hasFooterActions=supportsReferences||showImproveButton;
 
  const mentionSignature=useCallback((text:string)=>promptReferences
   .filter(ref=>new RegExp('(^|\\s)@'+escapeRegExp(ref.alias_snapshot)+'(?=$|\\s|[.,!?;:])','i').test(text))
@@ -169,15 +174,15 @@ export const PromptComposer:React.FC<PromptComposerProps>=({
  },[aliasKey]);
 
  return <div className="ia-prompt-composer space-y-2.5">
-  <div className="flex items-center justify-between"><label htmlFor="workspace-prompt-input" className="text-[11px] font-bold text-zinc-300">Prompt</label><span className="text-[9px] font-mono text-zinc-600">{prompt.length}/{maxChars}</span></div>
+  <div className="flex items-center justify-between"><label htmlFor="workspace-prompt-input" className="text-[11px] font-bold text-zinc-300">{label}</label><span className="text-[9px] font-mono text-zinc-600">{prompt.length}/{maxChars}</span></div>
   <div className="relative rounded-[14px] border border-white/[0.075] bg-[#0a0d12] focus-within:border-cyan-400/25 transition-colors overflow-visible">
-   {!prompt&&!focused&&<div className="absolute left-3 right-3 top-3 pointer-events-none text-[12px] font-medium leading-relaxed text-zinc-600">{supportsReferences?'Descreva exatamente o que você quer gerar... Digite @ para usar uma referência.':'Descreva exatamente o que você quer gerar...'}</div>}
+   {!prompt&&!focused&&<div className="absolute left-3 right-3 top-3 pointer-events-none text-[12px] font-medium leading-relaxed text-zinc-600">{resolvedPlaceholder}</div>}
    <div
     ref={editorRef}
     id="workspace-prompt-input"
     role="textbox"
     aria-multiline="true"
-    aria-label="Prompt"
+    aria-label={label}
     contentEditable
     suppressContentEditableWarning
     spellCheck
@@ -190,15 +195,15 @@ export const PromptComposer:React.FC<PromptComposerProps>=({
     onCompositionStart={()=>{composingRef.current=true}}
     onCompositionEnd={()=>{composingRef.current=false;syncInput()}}
     onPaste={e=>{e.preventDefault();const text=e.clipboardData.getData('text/plain');document.execCommand('insertText',false,text)}}
-    className="relative z-10 w-full min-h-[120px] max-h-[260px] overflow-y-auto p-3 pb-10 bg-transparent border-0 text-[12px] font-medium leading-[1.6] text-white caret-cyan-300 outline-none whitespace-pre-wrap break-words selection:bg-cyan-300/20"
+    className={`relative z-10 w-full min-h-[120px] max-h-[260px] overflow-y-auto p-3 ${hasFooterActions?'pb-10':'pb-3'} bg-transparent border-0 text-[12px] font-medium leading-[1.6] text-white caret-cyan-300 outline-none whitespace-pre-wrap break-words selection:bg-cyan-300/20`}
    />
-   <div className="absolute z-30 left-2.5 right-2.5 bottom-2 flex items-center justify-between gap-2 pointer-events-none">
+   {hasFooterActions&&<div className="absolute z-30 left-2.5 right-2.5 bottom-2 flex items-center justify-between gap-2 pointer-events-none">
     <div className="flex items-center gap-1.5 pointer-events-auto">
      {supportsReferences&&<button type="button" onClick={()=>onRequestAddMedia('ASSETS')} className="h-7 px-2 rounded-lg border border-white/[0.07] bg-white/[0.035] hover:bg-white/[0.06] text-[8px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1"><Plus className="w-3 h-3"/> Referência</button>}
-     <button type="button" onClick={onOpenImproveModal} disabled={!prompt.trim()} className="h-7 px-2 rounded-lg border border-white/[0.07] bg-white/[0.035] hover:bg-white/[0.06] disabled:opacity-30 text-[8px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1"><Sparkles className="w-3 h-3 text-cyan-300"/> Melhorar</button>
+     {showImproveButton&&<button type="button" onClick={onOpenImproveModal} disabled={!prompt.trim()} className="h-7 px-2 rounded-lg border border-white/[0.07] bg-white/[0.035] hover:bg-white/[0.06] disabled:opacity-30 text-[8px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1"><Sparkles className="w-3 h-3 text-cyan-300"/> Melhorar</button>}
     </div>
     {supportsReferences&&<span className="text-[8px] text-zinc-700">@ para mencionar</span>}
-   </div>
+   </div>}
 
    {supportsReferences&&mentionOpen&&<div className="absolute z-[100] left-2 top-full mt-1.5 w-[330px] max-w-[calc(100%-16px)] overflow-hidden rounded-2xl border border-white/[0.1] bg-[#171719] shadow-[0_24px_70px_rgba(0,0,0,.72)]">
     <div className="p-2 border-b border-white/[0.055]"><div className="h-9 px-2.5 rounded-xl bg-[#111214] border border-white/[0.06] flex items-center gap-2"><Search className="w-3.5 h-3.5 text-zinc-600"/><span className="text-[10px] flex-1 truncate text-zinc-500">{mentionQuery?'Buscar: '+mentionQuery:'Referências desta geração'}</span></div></div>
@@ -213,7 +218,7 @@ export const PromptComposer:React.FC<PromptComposerProps>=({
       {label:'Personagens',icon:UserRound,section:'CHARACTERS' as LibrarySection},
       {label:'Produtos',icon:Package,section:'PRODUCTS' as LibrarySection},
       {label:'Estilos',icon:Palette,section:'STYLES' as LibrarySection},
-     ].map(({label,icon:Icon,section})=><button key={section} type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>openLibrary(section)} className="w-full h-9 px-2.5 rounded-xl flex items-center gap-2.5 text-left hover:bg-white/[0.07]"><div className="w-6 h-6 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.06] grid place-items-center text-cyan-200"><Icon className="w-3.5 h-3.5"/></div><span className="text-[9px] font-semibold text-zinc-200">{label}</span></button>)}
+     ].map(({label:libraryLabel,icon:Icon,section})=><button key={section} type="button" onMouseDown={e=>e.preventDefault()} onClick={()=>openLibrary(section)} className="w-full h-9 px-2.5 rounded-xl flex items-center gap-2.5 text-left hover:bg-white/[0.07]"><div className="w-6 h-6 rounded-lg border border-cyan-300/15 bg-cyan-300/[0.06] grid place-items-center text-cyan-200"><Icon className="w-3.5 h-3.5"/></div><span className="text-[9px] font-semibold text-zinc-200">{libraryLabel}</span></button>)}
     </div>
    </div>}
   </div>
