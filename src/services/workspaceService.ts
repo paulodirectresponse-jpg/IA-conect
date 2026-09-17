@@ -10,11 +10,24 @@ import {
   PromptImproveObjective,
 } from '../types/index.js';
 
+export interface SafeModelProviderRoute{
+  model_id:string;
+  provider_id:string;
+  provider_name:string;
+  provider_model_identifier:string;
+  capabilities:string[];
+}
+
 export const workspaceService={
   async listModels():Promise<ModelRegistryItem[]>{
     const rows=await apiRequestCached<ModelRegistryItem[]>('/api/catalog/models',60_000);
     if(!Array.isArray(rows)||!rows.length)throw new Error('Catálogo de modelos indisponível.');
     return rows;
+  },
+
+  async listModelRoutes(capabilityId?:string):Promise<SafeModelProviderRoute[]>{
+    const query=capabilityId?`?capability_id=${encodeURIComponent(capabilityId)}`:'';
+    return apiRequestCached<SafeModelProviderRoute[]>(`/api/catalog/model-routes${query}`,60_000);
   },
 
   async getModel(modelId:string):Promise<ModelRegistryItem>{
