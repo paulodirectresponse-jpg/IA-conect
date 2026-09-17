@@ -135,6 +135,21 @@ async function applyVideoV1ReleaseFlags(rows:FeatureFlag[]):Promise<FeatureFlag[
   return Array.from(byKey.values());
 }
 
+const FLOW_RUNTIME_FLAG_KEYS=new Set(['beta.flow_runtime','beta.flow_runtime.execution']);
+async function applyFlowRuntimeV1ReleaseFlags(rows:FeatureFlag[]):Promise<FeatureFlag[]>{
+  const markerPath='app_config/beta_flow_runtime_v1_release';
+  const marker=await firestoreAdminRest.get(markerPath).catch(()=>({exists:true,data:{}} as any));
+  if(marker.exists)return rows;
+  const timestamp=now(),byKey=new Map(rows.map(row=>[row.flag_key,row]));
+  const released=FEATURE_FLAG_SEED.filter(flag=>FLOW_RUNTIME_FLAG_KEYS.has(flag.flag_key)).map(flag=>({...flag,is_enabled:true,updated_at:timestamp}));
+  try{await firestoreAdminRest.commit([
+    ...released.map(flag=>({update:{name:firestoreAdminRest.docName('feature_flags/'+safe(flag.flag_key)),fields:firestoreAdminRest.fields(flag)}})),
+    {update:{name:firestoreAdminRest.docName(markerPath),fields:firestoreAdminRest.fields({release:'PR-13_FLOW_RUNTIME_V1',released_at:timestamp})},currentDocument:{exists:false}},
+  ]);}catch{return listCollection<FeatureFlag>('feature_flags');}
+  for(const flag of released)byKey.set(flag.flag_key,flag);
+  return Array.from(byKey.values());
+}
+
 async function applyFlowsV1ReleaseFlag(rows:FeatureFlag[]):Promise<FeatureFlag[]>{
   const markerPath='app_config/beta_flows_v1_release';
   const marker=await firestoreAdminRest.get(markerPath).catch(()=>({exists:true,data:{}} as any));
@@ -257,7 +272,7 @@ export const catalogRepository={
 
   async listFeatureFlags(){
     const rows=await ensureSeed<FeatureFlag>('feature_flags','flag_key',FEATURE_FLAG_SEED);
-    return applyFlowsV1ReleaseFlag(await applyVideoV1ReleaseFlags(await applyImageEditorReleaseFlag(await applyThreeDV1ReleaseFlag(await applyAudioV1ReleaseFlags(rows)))));
+    return applyFlowRuntimeV1ReleaseFlags(await applyFlowsV1ReleaseFlag(await applyVideoV1ReleaseFlags(await applyImageEditorReleaseFlag(await applyThreeDV1ReleaseFlag(await applyAudioV1ReleaseFlags(rows))))));
   },
   async getFeatureFlag(id:string){
     await this.listFeatureFlags();

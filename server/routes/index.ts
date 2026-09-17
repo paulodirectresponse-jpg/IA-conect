@@ -22,6 +22,7 @@ import { betaLibraryRouter } from './betaLibraryRoutes.js';
 import { adminBetaCatalogRouter } from './adminBetaCatalogRoutes.js';
 import { betaAudioRouter } from './betaAudioRoutes.js';
 import { betaFlowRouter } from './betaFlowRoutes.js';
+import { betaFlowRuntimeRouter } from './betaFlowRuntimeRoutes.js';
 
 export const apiRootRouter = Router();
 
@@ -49,3 +50,4 @@ apiRootRouter.use(betaLibraryRouter);
 apiRootRouter.use(adminBetaCatalogRouter);
 apiRootRouter.use(betaAudioRouter);
 apiRootRouter.use(betaFlowRouter);
+apiRootRouter.use(betaFlowRuntimeRouter);

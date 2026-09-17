@@ -1,0 +1,12 @@
+import fs from 'fs';
+import path from 'path';
+import{describe,expect,it}from'vitest';
+const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
+describe('PR-13 Flow Runtime architecture',()=>{
+ it('executes tool nodes only through Universal Jobs',()=>{const runtime=read('server/beta/flows/flowRuntimeService.ts');expect(runtime).toContain('betaJobOrchestrator.create');expect(runtime).toContain('betaJobOrchestrator.quote');expect(runtime).toContain('betaJobOrchestrator.queue');expect(runtime).not.toContain('generationService.createAndStartGeneration');});
+ it('persists runs and deterministic node-run identities',()=>{const repo=read('server/beta/flows/flowRuntimeRepository.ts');expect(repo).toContain("const RUNS='beta_flow_runs'");expect(repo).toContain("const NODES='beta_flow_node_runs'");expect(repo).toContain("hash(\`\${run}:\${node}\`)");});
+ it('snapshots the graph and flow revision into every run',()=>{const types=read('server/beta/flows/flowRuntimeTypes.ts');const runtime=read('server/beta/flows/flowRuntimeService.ts');expect(types).toContain('flow_revision:number');expect(types).toContain('graph:BetaFlowGraph');expect(runtime).toContain('flow_revision:flow.revision');expect(runtime).toContain('graph:flow.graph');});
+ it('requires active output nodes and topologically executes the DAG',()=>{const runtime=read('server/beta/flows/flowRuntimeService.ts');expect(runtime).toContain('FLOW_OUTPUT_REQUIRED');expect(runtime).toContain('topological(run.graph,active)');expect(runtime).toContain('FLOW_CYCLE');});
+ it('validates owned typed runtime inputs',()=>{const runtime=read('server/beta/flows/flowRuntimeService.ts');expect(runtime).toContain('assetRepository.getAsset(id,userId)');expect(runtime).toContain('FLOW_INPUT_TYPE_MISMATCH');expect(runtime).toContain("type==='STRUCTURED_DATA'");expect(runtime).toContain("type==='TEXT'");});
+ it('keeps Stable isolated and providers out of the editor',()=>{const ui=read('src/beta/views/BetaFlowsView.tsx');const stable=read('src/App.tsx');expect(ui).not.toMatch(/wavespeed|atlas|provider_id|provider_model_identifier/i);expect(stable).not.toContain('flowRuntimeClient');expect(stable).not.toContain('betaFlowRuntime');});
+});
