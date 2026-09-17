@@ -7,13 +7,17 @@ import {betaCatalogPolicyService} from '../beta/catalog/catalogPolicyService.js'
 import {betaFlowService} from '../beta/flows/flowService.js';
 import {betaFlowEconomicRuntimeService} from '../beta/flows/flowEconomicRuntimeService.js';
 import {normalizeBetaPublicError} from '../beta/http/publicError.js';
+import {providerCatalogService} from '../services/providerCatalogService.js';
+import {providerPricingCatalogService} from '../services/providerPricingCatalogService.js';
+import {providerRegistry} from '../adapters/providerRegistry.js';
 
 export const spacesRouter=Router();
-const STABLE_CAPABILITIES=new Set([
+const STABLE_CAPABILITY_IDS=[
  'text-to-image','image-to-image','image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations',
  'text-to-video','image-to-video','first-frame','last-frame','video-extend','video-edit',
  'text-to-speech','music','text-to-3d','image-to-3d','multi-image-to-3d',
-]);
+] as const;
+const STABLE_CAPABILITIES=new Set<string>(STABLE_CAPABILITY_IDS);
 function failure(res:Response,error:any,fallback:string){const n=normalizeBetaPublicError(error,fallback);return res.status(n.status).json({success:false,error:n.error});}
 function idem(req:AuthenticatedRequest){return String(req.headers['idempotency-key']||'').trim();}
 function host(req:AuthenticatedRequest){return req.get('host')||process.env.APP_URL;}
@@ -24,11 +28,31 @@ spacesRouter.use('/spaces',requireAuth,requireSpaces);
 
 spacesRouter.get('/spaces/catalog',async(_req:AuthenticatedRequest,res)=>{
  try{
-  const models=await catalogRepository.listModels();
+  const[models,policies,mappings,providers,pricing]=await Promise.all([
+   catalogRepository.listModels(),betaCatalogPolicyService.listCatalog(),catalogRepository.listMappings(),providerCatalogService.listProviders(),providerPricingCatalogService.list(),
+  ]);
   const base=publicCapabilityCatalog(models);
-  const policies=await betaCatalogPolicyService.listCatalog();
   const policyByModel=new Map(policies.map(policy=>[policy.model_id,policy]));
-  const governed=base.map(model=>{const policy=policyByModel.get(model.model_id);if(!policy?.eligible)return null;const allowed=new Set(policy.capability_ids.filter(id=>STABLE_CAPABILITIES.has(String(id))));const capabilities=model.capabilities.filter(cap=>allowed.has(cap.id as any));return capabilities.length?{...model,capabilities,pricing_policy_id:policy.pricing_policy_id}:null;}).filter(Boolean) as any[];
+  const providerById=new Map(providers.map(provider=>[String(provider.provider_id),provider]));
+  const configured=new Map(providerRegistry.listAdapters().map(adapter=>[String(adapter.providerId),adapter.isConfigured()]));
+  const verifiedPriceKeys=new Set(pricing.filter(row=>row.verified).flatMap(row=>[
+   `${row.provider_id}|${row.provider_model_identifier}|${row.capability_id||''}`,
+   row.capability_id?null:`${row.provider_id}|${row.provider_model_identifier}|*`,
+  ].filter(Boolean) as string[]));
+  const readyCapabilities=(modelId:string)=>new Set(mappings.filter(mapping=>mapping.model_id===modelId&&mapping.status==='ACTIVE').flatMap(mapping=>{
+   const provider=providerById.get(String(mapping.provider_id));
+   if(!provider||provider.status!=='ACTIVE'||!configured.get(String(mapping.provider_id)))return[];
+   return STABLE_CAPABILITY_IDS.filter(capability=>(!mapping.capabilities?.length||mapping.capabilities.includes(capability as any))&&(
+    verifiedPriceKeys.has(`${mapping.provider_id}|${mapping.provider_model_identifier}|${capability}`)||verifiedPriceKeys.has(`${mapping.provider_id}|${mapping.provider_model_identifier}|*`)
+   ));
+  }));
+  const governed=base.map(model=>{
+   const policy=policyByModel.get(model.model_id);if(!policy?.eligible)return null;
+   const allowed=new Set(policy.capability_ids.filter(id=>STABLE_CAPABILITIES.has(String(id))));
+   const ready=readyCapabilities(model.model_id);
+   const capabilities=model.capabilities.filter(cap=>allowed.has(cap.id)&&ready.has(cap.id as any));
+   return capabilities.length?{...model,capabilities,pricing_policy_id:policy.pricing_policy_id}:null;
+  }).filter(Boolean) as any[];
   const autoPolicies=policies.filter(policy=>policy.eligible&&policy.auto_routing_enabled);
   const autoPolicyIds=new Set(autoPolicies.map(policy=>policy.model_id));
   const autoCapabilities=Array.from(new Set(autoPolicies.flatMap(policy=>policy.capability_ids).filter(id=>STABLE_CAPABILITIES.has(String(id))))).map(id=>{
