@@ -10,6 +10,7 @@ import'./styles/fullAppStyles.js';
 const DashboardView=lazy(()=>import('./components/views/DashboardView.js').then(m=>({default:m.DashboardView})));
 const WalletView=lazy(()=>import('./components/views/WalletView.js').then(m=>({default:m.WalletView})));
 const CreateHubView=lazy(()=>import('./components/views/CreateHubView.js').then(m=>({default:m.CreateHubView})));
+const VoiceCreateView=lazy(()=>import('./components/views/VoiceCreateView.js').then(m=>({default:m.VoiceCreateView})));
 const HistoryView=lazy(()=>import('./components/views/HistoryView.js').then(m=>({default:m.HistoryView})));
 const AdminView=lazy(()=>import('./components/views/AdminView.js').then(m=>({default:m.AdminView})));
 const SettingsView=lazy(()=>import('./components/views/SettingsView.js').then(m=>({default:m.SettingsView})));
@@ -35,7 +36,7 @@ const MainApp: React.FC<{onSignedOut?:()=>void}> = ({onSignedOut}) => {
   if(activeView==='beta'&&betaEnabled)return <Suspense fallback={<BetaFallback/>}><BetaApp onExit={()=>navigate(lastStableView)}/></Suspense>;
   const normalizedView = activeView === 'assets' ? 'library' : activeView;
   const currentSafeView = normalizedView==='admin'&&!isAdmin?'dashboard':normalizedView;
-  return <AppLayout currentView={currentSafeView} onNavigate={navigate} betaEnabled={betaEnabled}><Suspense fallback={<ViewFallback/>}>{currentSafeView==='dashboard'&&<DashboardView onNavigate={navigate}/>} {currentSafeView==='wallet'&&<WalletView/>}{currentSafeView==='create-video'&&<CreateHubView initialMode="VIDEO"/>}{currentSafeView==='create-image'&&<CreateHubView initialMode="IMAGE"/>}{currentSafeView==='community'&&<CommunityView onNavigate={navigate}/>} {currentSafeView==='history'&&<HistoryView/>}{currentSafeView==='library'&&<LibraryHubView/>}{currentSafeView==='admin'&&isAdmin&&<AdminView/>}{currentSafeView==='settings'&&<SettingsView/>}</Suspense></AppLayout>;
+  return <AppLayout currentView={currentSafeView} onNavigate={navigate} betaEnabled={betaEnabled}><Suspense fallback={<ViewFallback/>}>{currentSafeView==='dashboard'&&<DashboardView onNavigate={navigate}/>} {currentSafeView==='wallet'&&<WalletView/>}{currentSafeView==='create-video'&&<CreateHubView initialMode="VIDEO"/>}{currentSafeView==='create-image'&&<CreateHubView initialMode="IMAGE"/>}{currentSafeView==='create-voice'&&<VoiceCreateView/>}{currentSafeView==='community'&&<CommunityView onNavigate={navigate}/>} {currentSafeView==='history'&&<HistoryView/>}{currentSafeView==='library'&&<LibraryHubView/>}{currentSafeView==='admin'&&isAdmin&&<AdminView/>}{currentSafeView==='settings'&&<SettingsView/>}</Suspense></AppLayout>;
 };
 
 export default function App({onSignedOut}:{onSignedOut?:()=>void}={}){const token=typeof window!=='undefined'?new URLSearchParams(window.location.search).get('betaShare'):null;if(token)return <Suspense fallback={<BetaFallback/>}><BetaSharedView token={token}/></Suspense>;return <AuthProvider><MainApp onSignedOut={onSignedOut}/></AuthProvider>;}
