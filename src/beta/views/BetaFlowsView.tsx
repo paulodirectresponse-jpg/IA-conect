@@ -1,10 +1,11 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState}from'react';
-import{Box,ChevronRight,CirclePlus,Database,GitBranch,GripVertical,Link2,LoaderCircle,Network,Plus,Save,Trash2,Unlink2}from'lucide-react';
+import{Box,CheckCircle2,ChevronRight,CirclePlus,Database,GitBranch,GripVertical,Link2,LoaderCircle,Network,Play,Plus,RotateCcw,Save,Trash2,Unlink2,XCircle}from'lucide-react';
 import{apiRequest,ApiError}from'../../services/apiClient.js';
 import{BetaCapability,BetaCapabilityMediaType,BetaCapabilityModel}from'../capabilityClient.js';
 import{betaLibraryClient,BetaProjectView}from'../libraryClient.js';
 import{universalAssetClient,UniversalAssetView}from'../universalAssetClient.js';
 import{betaFlowClient,FlowEdge,FlowNode,FlowRecord}from'../flowClient.js';
+import{betaFlowRuntimeClient,FlowRunView}from'../flowRuntimeClient.js';
 
 const MEDIA:BetaCapabilityMediaType[]=['TEXT','IMAGE','VIDEO','AUDIO','MODEL_3D','MASK','STRUCTURED_DATA'];
 const labels:Record<string,string>={TEXT:'Texto',IMAGE:'Imagem',VIDEO:'Vídeo',AUDIO:'Áudio',MODEL_3D:'3D',MASK:'Máscara',STRUCTURED_DATA:'Dados'};
@@ -49,6 +50,9 @@ export const BetaFlowsView:React.FC=()=>{
  const[busy,setBusy]=useState('');
  const[error,setError]=useState('');
  const[dirty,setDirty]=useState(false);
+ const[run,setRun]=useState<FlowRunView|null>(null);
+ const[runInputs,setRunInputs]=useState<Record<string,string>>({});
+ const[runBusy,setRunBusy]=useState('');
  const drag=useRef<{id:string;dx:number;dy:number}|null>(null);
  const canvas=useRef<HTMLDivElement|null>(null);
 
@@ -69,11 +73,12 @@ export const BetaFlowsView:React.FC=()=>{
 
  useEffect(()=>{void load()},[]);
  const toolCapabilities=useMemo(()=>Array.from(new Set(models.flatMap(model=>model.capabilities.map(cap=>cap.id)))).sort(),[models]);
+ const inputNodes=useMemo(()=>nodes.filter(node=>node.kind==='INPUT'),[nodes]);
  const selected=nodes.find(node=>node.node_id===selectedId)||null;
 
  const apply=(next:FlowRecord|null)=>{
   setCurrent(next);setName(next?.name||'Novo fluxo');setDescription(next?.description||'');setProjectId(next?.project_id||null);
-  setNodes(next?.graph.nodes||[]);setEdges(next?.graph.edges||[]);setSelectedId(null);setLinkFrom(null);setDirty(false);setError('');
+  setNodes(next?.graph.nodes||[]);setEdges(next?.graph.edges||[]);setSelectedId(null);setLinkFrom(null);setDirty(false);setError('');setRun(null);setRunInputs({});
  };
  const openFlow=async(flowId:string)=>{if(!flowId){apply(null);return;}setBusy('open');try{apply(await betaFlowClient.get(flowId));}catch(e){setError(msg(e));}finally{setBusy('');}};
  const touch=()=>setDirty(true);
