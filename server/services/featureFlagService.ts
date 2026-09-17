@@ -4,23 +4,27 @@ import { auditRepository } from '../repositories/auditRepository.js';
 import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
 import { FeatureFlag } from '../../src/types/index.js';
 
-async function ensureTemplatesV1Release(flags:FeatureFlag[]):Promise<FeatureFlag[]>{
-  const markerPath='app_config/beta_templates_v1_release';
-  const marker=await firestoreAdminRest.get(markerPath).catch(()=>({exists:true,data:{}} as any));
+async function ensureRelease(flags:FeatureFlag[],config:{marker:string;flag:string;release:string}):Promise<FeatureFlag[]>{
+  const marker=await firestoreAdminRest.get(config.marker).catch(()=>({exists:true,data:{}} as any));
   if(marker.exists)return flags;
-  const target=flags.find(flag=>flag.flag_key==='beta.templates');
+  const target=flags.find(flag=>flag.flag_key===config.flag);
   if(!target)return flags;
   const released={...target,is_enabled:true,updated_at:new Date().toISOString()};
   try{
     await catalogRepository.saveFeatureFlag(released);
-    await firestoreAdminRest.set(markerPath,{release:'PR-15_TEMPLATES_V1',released_at:released.updated_at});
+    await firestoreAdminRest.set(config.marker,{release:config.release,released_at:released.updated_at});
   }catch{return catalogRepository.listFeatureFlags();}
   return flags.map(flag=>flag.flag_key===released.flag_key?released:flag);
+}
+async function ensureBetaReleases(flags:FeatureFlag[]){
+  let next=await ensureRelease(flags,{marker:'app_config/beta_templates_v1_release',flag:'beta.templates',release:'PR-15_TEMPLATES_V1'});
+  next=await ensureRelease(next,{marker:'app_config/beta_workflow_apps_v1_release',flag:'beta.flow_apps',release:'PR-16_WORKFLOW_APPS_V1'});
+  return next;
 }
 
 export const featureFlagService = {
   async getPublicFlags(): Promise<Record<string, boolean>> {
-    const flags = await ensureTemplatesV1Release(await catalogRepository.listFeatureFlags());
+    const flags = await ensureBetaReleases(await catalogRepository.listFeatureFlags());
     const result: Record<string, boolean> = {};
     for (const f of flags) {
       if (!f.is_private) result[f.flag_key] = f.is_enabled;
@@ -29,7 +33,7 @@ export const featureFlagService = {
   },
 
   async getAllFlags(): Promise<FeatureFlag[]> {
-    return ensureTemplatesV1Release(await catalogRepository.listFeatureFlags());
+    return ensureBetaReleases(await catalogRepository.listFeatureFlags());
   },
 
   async toggleFlag(params: {
