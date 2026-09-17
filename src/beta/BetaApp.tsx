@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
-import { AppWindow, ArrowLeft, Box, FlaskConical, Home, Image as ImageIcon, LayoutTemplate, Library, Music2, Network, Video } from 'lucide-react';
+import { AppWindow, ArrowLeft, Box, FlaskConical, Home, Image as ImageIcon, LayoutTemplate, Library, ListTree, Music2, Network, Video } from 'lucide-react';
 import { BrandMark } from '../components/common/BrandMark.js';
 import { BetaHomeView } from './views/BetaHomeView.js';
 import { BetaLibraryView } from './views/BetaLibraryView.js';
@@ -9,6 +9,7 @@ import { getPublicBetaFlags } from './services/betaAccessService.js';
 import './styles/beta.css';
 import './styles/templates.css';
 import './styles/workflow-apps.css';
+import './styles/batch.css';
 
 interface BetaAppProps { onExit: () => void; }
 const INTENT_KEY='ia-conect:beta:library-intent:v1';
@@ -19,9 +20,10 @@ const BetaVideoView=lazy(()=>import('./views/BetaVideoView.js').then(module=>({d
 const BetaFlowsView=lazy(()=>import('./views/BetaFlowsView.js').then(module=>({default:module.BetaFlowsView})));
 const BetaTemplatesView=lazy(()=>import('./views/BetaTemplatesView.js').then(module=>({default:module.BetaTemplatesView})));
 const BetaWorkflowAppsView=lazy(()=>import('./views/BetaWorkflowAppsView.js').then(module=>({default:module.BetaWorkflowAppsView})));
+const BetaBatchView=lazy(()=>import('./views/BetaBatchView.js').then(module=>({default:module.BetaBatchView})));
 
 export const BetaApp: React.FC<BetaAppProps> = ({ onExit }) => {
-  const [view,setView]=useState<'home'|'library'|'audio'|'three-d'|'image-editor'|'video'|'flows'|'templates'|'apps'>('home');
+  const [view,setView]=useState<'home'|'library'|'audio'|'three-d'|'image-editor'|'video'|'flows'|'templates'|'apps'|'batch'>('home');
   const [flags,setFlags]=useState<Record<string,boolean>>({});
   const [intent,setIntent]=useState<BetaLibraryIntent|null>(()=>{if(typeof window==='undefined')return null;try{return JSON.parse(window.sessionStorage.getItem(INTENT_KEY)||'null');}catch{return null;}});
   useEffect(()=>{void getPublicBetaFlags().then(setFlags).catch(()=>setFlags({}));},[]);
@@ -39,6 +41,7 @@ export const BetaApp: React.FC<BetaAppProps> = ({ onExit }) => {
         {flags['beta.flows']&&<button className={view==='flows'?'is-selected':''} onClick={()=>setView('flows')}><Network/><span>Fluxos</span></button>}
         {flags['beta.templates']&&<button className={view==='templates'?'is-selected':''} onClick={()=>setView('templates')}><LayoutTemplate/><span>Templates</span></button>}
         {flags['beta.flow_apps']&&<button className={view==='apps'?'is-selected':''} onClick={()=>setView('apps')}><AppWindow/><span>Apps</span></button>}
+        {flags['beta.batch']&&<button className={view==='batch'?'is-selected':''} onClick={()=>setView('batch')}><ListTree/><span>Batch</span></button>}
       </nav>
       <div className="ia-beta-navbar-actions"><TaskCenter /><button type="button" className="ia-beta-exit" onClick={onExit}><ArrowLeft aria-hidden="true" /><span>Voltar à versão atual</span></button></div>
     </header>
@@ -51,6 +54,7 @@ export const BetaApp: React.FC<BetaAppProps> = ({ onExit }) => {
       :view==='flows'?<Suspense fallback={<div className="ia-beta-module-loading">Carregando Flows Editor…</div>}><BetaFlowsView/></Suspense>
       :view==='templates'?<Suspense fallback={<div className="ia-beta-module-loading">Carregando Templates…</div>}><BetaTemplatesView onOpenFlow={()=>setView('flows')}/></Suspense>
       :view==='apps'?<Suspense fallback={<div className="ia-beta-module-loading">Carregando Workflow Apps…</div>}><BetaWorkflowAppsView/></Suspense>
+      :view==='batch'?<Suspense fallback={<div className="ia-beta-module-loading">Carregando Batch V1…</div>}><BetaBatchView/></Suspense>
       :<Suspense fallback={<div className="ia-beta-module-loading">Carregando 3D V1…</div>}><BetaThreeDView onOpenLibrary={()=>setView('library')}/></Suspense>}
   </div>;
 };
