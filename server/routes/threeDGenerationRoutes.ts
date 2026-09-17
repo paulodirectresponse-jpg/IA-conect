@@ -1,6 +1,7 @@
 import { Router,Response,NextFunction } from 'express';
 import { requireAuth,AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
+import { assetRepository } from '../repositories/assetRepository.js';
 import { publicCapabilityCatalog } from '../beta/capabilityRegistry.js';
 import { betaCatalogPolicyService } from '../beta/catalog/catalogPolicyService.js';
 import { betaJobOrchestrator } from '../beta/jobs/jobOrchestrator.js';
@@ -79,3 +80,7 @@ threeDGenerationRouter.post('/3d/jobs',async(req:AuthenticatedRequest,res)=>{
 threeDGenerationRouter.get('/3d/jobs/:jobId',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await assertThreeDJob(req.user!.uid,req.params.jobId)});}catch(error:any){return failure(res,error,'Não foi possível carregar a geração 3D.');}});
 threeDGenerationRouter.post('/3d/jobs/:jobId/quote',async(req:AuthenticatedRequest,res)=>{try{await assertThreeDJob(req.user!.uid,req.params.jobId);const job=await betaJobOrchestrator.quote(req.user!.uid,req.params.jobId,idem(req));return res.json({success:true,data:await betaJobOrchestrator.getPublic(req.user!.uid,job.job_id)});}catch(error:any){return failure(res,error,'Não foi possível calcular os créditos do 3D.');}});
 threeDGenerationRouter.post('/3d/jobs/:jobId/queue',async(req:AuthenticatedRequest,res)=>{try{await assertThreeDJob(req.user!.uid,req.params.jobId);const job=await betaJobOrchestrator.queue(req.user!.uid,req.params.jobId,idem(req),requestHost(req),req.user!.idToken);return res.json({success:true,data:await betaJobOrchestrator.getPublic(req.user!.uid,job.job_id)});}catch(error:any){return failure(res,error,'Não foi possível iniciar a geração 3D.');}});
+threeDGenerationRouter.get('/3d/assets/:assetId',async(req:AuthenticatedRequest,res)=>{
+ try{const asset=await assetRepository.getAsset(req.params.assetId,req.user!.uid);if(!asset||asset.type!=='MODEL_3D')return res.status(404).json({success:false,error:{code:'ASSET_NOT_FOUND',message:'Asset 3D não encontrado.'}});return res.json({success:true,data:asset});}
+ catch(error:any){return failure(res,error,'Não foi possível carregar o asset 3D.');}
+});
