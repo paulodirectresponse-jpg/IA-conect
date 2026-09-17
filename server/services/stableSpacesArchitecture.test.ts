@@ -20,7 +20,7 @@ describe('Stable Spaces canvas',()=>{
   expect(view).toContain('pathFor');
   expect(view).toContain('Buscar ferramenta');
   expect(view).toContain('Inspector');
-  expect(view).toContain('minimap');
+  expect(view).toContain('bottom-5 right-5 z-20 h-28 w-44');
  });
  it('uses existing flow runtime, universal assets and capability catalog',()=>{
   const routes=read('server/routes/spacesRoutes.ts');
