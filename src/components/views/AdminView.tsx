@@ -3,6 +3,7 @@ import{Activity,BrainCircuit,Coins,Settings2,Users}from'lucide-react';
 import{Badge}from'../common/Badge.js';
 import{AdminOverviewDashboard}from'../admin/AdminOverviewDashboard.js';
 import{AdminAIProvidersHub}from'../admin/AdminAIProvidersHub.js';
+import{AdminFinanceDashboard}from'../admin/AdminFinanceDashboard.js';
 import{AdminUsersList}from'../admin/AdminUsersList.js';
 import{AdminPricing}from'../admin/AdminPricing.js';
 import{AdminCoupons}from'../admin/AdminCoupons.js';
@@ -33,8 +34,8 @@ export const AdminView:React.FC=()=>{
   {activeTab==='ai'&&<AdminAIProvidersHub/>}
 
   {activeTab==='finance'&&<div className="space-y-4">
-   <div className="ia-admin-panel"><h2>Financeiro</h2><p className="mt-1.5">Preço de varejo, margem, COGS, caixa, créditos, campanhas e economia no mesmo domínio.</p></div>
-   <Section title="Economia & unit economics" description="Caixa, COGS, contribuição, margem, consumo por modelo/provider e gerações recentes." open><AdminEconomics/></Section>
+   <AdminFinanceDashboard/>
+   <Section title="Economia detalhada" description="Ledger econômico, campanhas, subsídios, consumo por origem/modelo e gerações recentes."><AdminEconomics/></Section>
    <Section title="Preços & margem" description="Políticas de preço e pisos de margem usados pelo runtime."><AdminPricing/></Section>
   </div>}
 
