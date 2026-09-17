@@ -159,7 +159,7 @@ export const BetaFlowsView:React.FC=()=>{
 
  return <main className="ia-beta-flows">
   <header className="ia-beta-flows-head">
-   <div><span><Network/> Flows Editor V1</span><h1>Conecte as ferramentas do IA Conect.</h1><p>Monte o grafo visual agora. A execução orquestrada dos nós entra na próxima fase, sem mudar este contrato.</p></div>
+   <div><span><Network/> Flows Runtime V1</span><h1>Conecte e execute as ferramentas do IA Conect.</h1><p>O grafo roda como DAG sobre Universal Jobs, com créditos, retries, idempotência e outputs tipados.</p></div>
    <div className="ia-beta-flows-actions">
     <select value={current?.flow_id||''} onChange={event=>void openFlow(event.target.value)}><option value="">Novo fluxo</option>{flows.map(flow=><option key={flow.flow_id} value={flow.flow_id}>{flow.name} · r{flow.revision}</option>)}</select>
     <button onClick={()=>apply(null)}><Plus/>Novo</button>
@@ -174,6 +174,16 @@ export const BetaFlowsView:React.FC=()=>{
    <label className="is-wide"><span>Descrição</span><input value={description} onChange={event=>{setDescription(event.target.value);touch()}} placeholder="O que este fluxo faz?"/></label>
    <div className="ia-beta-flow-revision"><span>{current?`Revisão ${current.revision}`:'Não salvo'}</span>{dirty&&<strong>Alterações pendentes</strong>}</div>
   </section>
+
+  {current&&<section className="ia-beta-flow-runtime">
+   <div className="ia-beta-flow-runtime-head">
+    <div><span>Execução</span><strong>{run?run.status:'Pronto para executar'}</strong>{run&&<small>Run {run.run_id} · créditos autorizados {run.authorized_credits_total.toLocaleString('pt-BR')}</small>}</div>
+    <div>{run?.status==='FAILED'&&<button onClick={()=>void retryRun()} disabled={Boolean(runBusy)}><RotateCcw/>Retry</button>}{run?.status==='RUNNING'&&<button onClick={()=>void cancelRun()} disabled={Boolean(runBusy)}><XCircle/>Cancelar</button>}<button className="is-primary" onClick={()=>void startRun()} disabled={Boolean(runBusy)||dirty||run?.status==='RUNNING'}>{runBusy==='start'?<LoaderCircle className="is-spin"/>:<Play/>}Executar</button></div>
+   </div>
+   {inputNodes.length>0&&<div className="ia-beta-flow-runtime-inputs">{inputNodes.map(node=><label key={node.node_id}><span>{node.label} · {labels[node.media_type||'TEXT']}</span>{node.media_type==='TEXT'?<textarea rows={3} value={runInputs[node.node_id]||''} onChange={event=>setRunInputs(values=>({...values,[node.node_id]:event.target.value}))}/>:node.media_type==='STRUCTURED_DATA'?<textarea rows={3} value={runInputs[node.node_id]||''} onChange={event=>setRunInputs(values=>({...values,[node.node_id]:event.target.value}))} placeholder='{"chave":"valor"}'/>:<select value={runInputs[node.node_id]||''} onChange={event=>setRunInputs(values=>({...values,[node.node_id]:event.target.value}))}><option value="">Selecione um asset</option>{assets.filter(asset=>node.media_type==='MASK'?asset.type==='IMAGE':asset.type===node.media_type).map(asset=><option key={asset.asset_id} value={asset.asset_id}>{asset.name}</option>)}</select>}</label>)}</div>}
+   {run&&<div className="ia-beta-flow-runtime-status">{run.node_runs.map(item=>{const node=nodes.find(row=>row.node_id===item.node_id);return <div key={item.node_run_id} className={'is-'+item.status.toLowerCase()}><span>{item.status==='SUCCEEDED'?<CheckCircle2/>:item.status==='RUNNING'?<LoaderCircle className="is-spin"/>:item.status==='FAILED'?<XCircle/>:<span className="ia-beta-flow-dot"/>}</span><div><strong>{node?.label||item.node_id}</strong><small>{item.status}{item.retry_count?' · retry '+item.retry_count:''}{item.authorized_credit_price?' · '+item.authorized_credit_price+' créditos':''}</small></div></div>})}</div>}
+   {run?.status==='SUCCEEDED'&&<div className="ia-beta-flow-runtime-outputs"><span>Outputs</span>{Object.entries(run.outputs).map(([nodeId,values])=><div key={nodeId}><strong>{nodes.find(node=>node.node_id===nodeId)?.label||nodeId}</strong>{values.map((value,index)=><div key={index}>{value.text&&<p>{value.text}</p>}{value.structured&&<pre>{JSON.stringify(value.structured,null,2)}</pre>}{(value.asset_ids||[]).map(assetId=>{const asset=assets.find(item=>item.asset_id===assetId);return asset?.public_url?<a key={assetId} href={asset.public_url} target="_blank" rel="noreferrer">{asset.name}</a>:<code key={assetId}>{assetId}</code>})}</div>)}</div>)}</div>}
+  </section>}
 
   <div className="ia-beta-flow-layout">
    <aside className="ia-beta-flow-palette">
