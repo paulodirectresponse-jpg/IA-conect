@@ -6,6 +6,7 @@ export interface WorkflowAppInputField{
   node_id:string;
   label:string;
   media_type:CapabilityMediaType;
+  exposed:boolean;
   required:boolean;
   placeholder:string;
   help_text:string;
@@ -16,6 +17,7 @@ export interface WorkflowAppOutputField{
   node_id:string;
   label:string;
   media_type:CapabilityMediaType;
+  exposed:boolean;
   order:number;
 }
 export interface WorkflowAppRecord{
