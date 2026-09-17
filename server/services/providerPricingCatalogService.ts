@@ -50,6 +50,8 @@ function quantity(rule:ProviderPricingRule,params:ProviderGenerationParams){
 
 export const providerPricingCatalogService={
   pricingId,
+  async get(providerId:string,model:string,capability?:string){return readRule(providerId,model,capability);},
+  async getVerified(providerId:string,model:string,capability?:string){const rule=await readRule(providerId,model,capability);return rule?.verified?rule:null;},
   async quote(providerId:string,params:ProviderGenerationParams):Promise<ProviderCostQuote>{
     const model=String(params.provider_model_identifier||'').trim();
     if(!model)throw Object.assign(new Error('Mapping do provider não possui identificador de modelo.'),{code:'PROVIDER_MAPPING_INVALID'});
