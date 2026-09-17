@@ -10,6 +10,7 @@ export interface WorkflowAppInputField{
   placeholder:string;
   help_text:string;
   order:number;
+  default_value:any;
 }
 export interface WorkflowAppOutputField{
   node_id:string;
@@ -24,10 +25,14 @@ export interface WorkflowAppRecord{
   description:string;
   source_type:WorkflowAppSourceType;
   source_id:string;
+  flow_id:string;
+  flow_revision:number;
+  template_id:string|null;
   runtime_flow_id:string;
   runtime_flow_revision:number;
   status:WorkflowAppStatus;
   visibility:'PRIVATE';
+  revision:number;
   input_schema:WorkflowAppInputField[];
   output_schema:WorkflowAppOutputField[];
   created_at:string;
