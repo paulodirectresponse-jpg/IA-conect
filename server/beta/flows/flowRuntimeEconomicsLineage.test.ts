@@ -1,0 +1,10 @@
+import fs from 'fs';
+import path from 'path';
+import{describe,expect,it}from'vitest';
+const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
+describe('PR-13 Flow Runtime economics and lineage',()=>{
+ it('delegates billing to existing Universal Job and generation credit authority',()=>{const runtime=read('server/beta/flows/flowRuntimeService.ts');const jobs=read('server/beta/jobs/jobOrchestrator.ts');const generation=read('server/services/generationService.ts');expect(runtime).toContain('authorized_credit_price:Number(quoted.quote?.credit_price||0)');expect(runtime).not.toMatch(/creditWalletService|credit_accounts|credit_lots/);expect(jobs).toContain('betaEconomicsService.resolveQuote');expect(generation).toContain('creditWalletService.reserveForGeneration');expect(generation).toContain('creditWalletService.captureForGeneration');});
+ it('sums authorized credits from node quotes without introducing a Flow wallet',()=>{const runtime=read('server/beta/flows/flowRuntimeService.ts');expect(runtime).toContain('sumAuthorized');expect(runtime).toContain('authorized_credits_total:sumAuthorized(runs)');});
+ it('feeds upstream asset outputs as SOURCE references to downstream jobs',()=>{const runtime=read('server/beta/flows/flowRuntimeService.ts');expect(runtime).toContain("role:index===0?'SOURCE':'REFERENCE'");expect(runtime).toContain('output_asset_ids:inputAssetIds(output)');});
+ it('preserves immediate-parent Universal Asset lineage through Job orchestration',()=>{const jobs=read('server/beta/jobs/jobOrchestrator.ts');const generation=read('server/services/generationService.ts');expect(jobs).toContain("request.references.find(ref=>ref.role==='SOURCE')?.asset_id");expect(jobs).toContain('derived_from_asset_id:derivedAssetIdForRequest(running.request)');expect(generation).toContain("origin:generation.derived_from_asset_id?'DERIVED':'GENERATED'");});
+});
