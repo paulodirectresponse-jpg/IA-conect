@@ -12,7 +12,11 @@ export interface SafeProviderRoute{
 }
 
 function pricingMatches(pricing:any,providerId:string,identifier:string,capabilityId?:string){
-  return pricing.some((row:any)=>row.verified&&row.provider_id===providerId&&row.provider_model_identifier===identifier&&(!capabilityId||!row.capability_id||row.capability_id===capabilityId));
+  return pricing.some((row:any)=>{
+    if(!row.verified||row.provider_id!==providerId||row.provider_model_identifier!==identifier)return false;
+    if(capabilityId)return !row.capability_id||row.capability_id===capabilityId;
+    return !row.capability_id;
+  });
 }
 
 export const providerRouteCatalogService={
