@@ -4,6 +4,7 @@ import { providerRegistry } from '../adapters/providerRegistry.js';
 import { ProviderGenerationReference } from '../adapters/videoProviderAdapter.js';
 import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
 import { providerFinanceService, ProviderFinanceSnapshot } from './providerFinanceService.js';
+import { providerCatalogService } from './providerCatalogService.js';
 import { quoteCacheService } from './quoteCacheService.js';
 import { GenerationMode, ProviderStatus, ProviderModelMapping } from '../../src/types/index.js';
 
@@ -50,7 +51,7 @@ export const smartRouterService={
     generation_id?:string;force_live_quote?:boolean;max_allowed_cogs_cents?:number;incurred_cogs_cents?:number;exclude_provider_ids?:string[];
   }):Promise<RoutingDecision>{
     const[providers,baseMappings,financeRows]=await Promise.all([
-      catalogRepository.listProviders(),catalogRepository.listMappings(),
+      providerCatalogService.listProviders(),catalogRepository.listMappings(),
       providerFinanceService.getAll(false).catch(()=>[] as ProviderFinanceSnapshot[]),
     ]);
     const financeById=new Map<string,ProviderFinanceSnapshot>();
@@ -58,7 +59,7 @@ export const smartRouterService={
     const mappings=[...baseMappings];
     if(!mappings.some(m=>m.model_id==='seedance-2-0'&&m.provider_id==='provider-wavespeed'))mappings.push(seedance20WaveMapping);
     const activeMappings=new Map(
-      mappings.filter(m=>m.model_id===params.model_id&&m.status==='ACTIVE').map(m=>[String(m.provider_id),m]),
+      mappings.filter(m=>m.model_id===params.model_id&&m.status==='ACTIVE'&&(!params.capability_id||!m.capabilities?.length||m.capabilities.includes(params.capability_id))).map(m=>[String(m.provider_id),m]),
     );
     const excluded=new Set((params.exclude_provider_ids||[]).map(String));
     const max=Number.isFinite(Number(params.max_allowed_cogs_cents))?Math.max(0,Number(params.max_allowed_cogs_cents)):null;
