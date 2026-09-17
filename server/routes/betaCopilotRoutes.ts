@@ -1,0 +1,13 @@
+import{Router,Response}from'express';
+import{AuthenticatedRequest,requireAuth}from'../middleware/authMiddleware.js';
+import{normalizeBetaPublicError}from'../beta/http/publicError.js';
+import{betaCopilotService}from'../beta/copilot/copilotService.js';
+import{featureFlagService}from'../services/featureFlagService.js';
+export const betaCopilotRouter=Router();
+const failure=(res:Response,e:any,fallback:string)=>{const n=normalizeBetaPublicError(e,fallback);return res.status(n.status).json({success:false,error:n.error});};
+const gate=async(_req:AuthenticatedRequest,res:Response,next:any)=>{const flags=await featureFlagService.getPublicFlags();if(!flags['beta.enabled']||!flags['beta.copilot'])return res.status(404).json({success:false,error:{code:'FEATURE_DISABLED',message:'Copilot Beta indisponível.'}});next();};
+betaCopilotRouter.use('/beta/copilot',requireAuth,gate);
+betaCopilotRouter.post('/beta/copilot/plan',async(req:AuthenticatedRequest,res)=>{try{return res.status(201).json({success:true,data:await betaCopilotService.plan(req.user!.uid,req.body||{})});}catch(e){return failure(res,e,'Não foi possível preparar a proposta.');}});
+betaCopilotRouter.get('/beta/copilot/proposals/:proposalId',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaCopilotService.get(req.user!.uid,req.params.proposalId)});}catch(e){return failure(res,e,'Não foi possível carregar a proposta.');}});
+betaCopilotRouter.post('/beta/copilot/proposals/:proposalId/apply',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaCopilotService.apply(req.user!.uid,req.params.proposalId,req.body||{})});}catch(e){return failure(res,e,'Não foi possível aplicar a proposta.');}});
+betaCopilotRouter.post('/beta/copilot/proposals/:proposalId/cancel',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaCopilotService.cancel(req.user!.uid,req.params.proposalId)});}catch(e){return failure(res,e,'Não foi possível cancelar a proposta.');}});

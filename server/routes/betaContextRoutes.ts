@@ -1,0 +1,15 @@
+import{Router,Response}from'express';
+import{AuthenticatedRequest,requireAuth}from'../middleware/authMiddleware.js';
+import{normalizeBetaPublicError}from'../beta/http/publicError.js';
+import{betaContextService}from'../beta/context/contextService.js';
+import{featureFlagService}from'../services/featureFlagService.js';
+export const betaContextRouter=Router();
+const failure=(res:Response,e:any,fallback:string)=>{const n=normalizeBetaPublicError(e,fallback);return res.status(n.status).json({success:false,error:n.error});};
+const gate=async(_req:AuthenticatedRequest,res:Response,next:any)=>{const flags=await featureFlagService.getPublicFlags();if(!flags['beta.enabled']||!flags['beta.context'])return res.status(404).json({success:false,error:{code:'FEATURE_DISABLED',message:'Contexto Beta indisponível.'}});next();};
+betaContextRouter.use('/beta/context',requireAuth,gate);
+betaContextRouter.get('/beta/context/options',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaContextService.options(req.user!.uid)});}catch(e){return failure(res,e,'Não foi possível carregar as opções de contexto.');}});
+betaContextRouter.get('/beta/context',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaContextService.list(req.user!.uid)});}catch(e){return failure(res,e,'Não foi possível carregar os contextos.');}});
+betaContextRouter.post('/beta/context',async(req:AuthenticatedRequest,res)=>{try{return res.status(201).json({success:true,data:await betaContextService.create(req.user!.uid,req.body||{})});}catch(e){return failure(res,e,'Não foi possível criar o contexto.');}});
+betaContextRouter.get('/beta/context/:contextId',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaContextService.resolve(req.user!.uid,req.params.contextId)});}catch(e){return failure(res,e,'Não foi possível carregar o contexto.');}});
+betaContextRouter.patch('/beta/context/:contextId',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaContextService.update(req.user!.uid,req.params.contextId,req.body||{})});}catch(e){return failure(res,e,'Não foi possível atualizar o contexto.');}});
+betaContextRouter.delete('/beta/context/:contextId',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaContextService.remove(req.user!.uid,req.params.contextId)});}catch(e){return failure(res,e,'Não foi possível remover o contexto.');}});
