@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/authMiddleware.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { providerCatalogService } from '../services/providerCatalogService.js';
+import { providerRouteCatalogService } from '../services/providerRouteCatalogService.js';
 
 export const catalogRouter = Router();
 
@@ -23,6 +24,16 @@ catalogRouter.get('/catalog/providers', requireAuth, async (req, res) => {
     res.json({ success: true, data: providers.map((provider)=>({...provider,is_configured:configured.get(provider.provider_id)??false})) });
   } catch (err: any) {
     res.status(500).json({ success: false, error: { code: 'CATALOG_ERROR', message: 'Erro ao listar provedores.' } });
+  }
+});
+
+catalogRouter.get('/catalog/model-routes', requireAuth, async (req, res) => {
+  try {
+    const capabilityId=String(req.query.capability_id||'').trim()||undefined;
+    const routes=await providerRouteCatalogService.listSafeRoutes(capabilityId);
+    res.json({success:true,data:routes});
+  } catch (err: any) {
+    res.status(500).json({success:false,error:{code:'MODEL_ROUTES_ERROR',message:'Erro ao listar rotas seguras de providers.'}});
   }
 });
 

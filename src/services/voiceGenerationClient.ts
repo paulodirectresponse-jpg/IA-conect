@@ -2,7 +2,8 @@ import { apiRequest } from './apiClient.js';
 
 export type VoiceJobStatus='DRAFT'|'QUOTED'|'QUEUED'|'RUNNING'|'SUCCEEDED'|'FAILED'|'CANCELLED';
 export interface VoiceCapability{ id:string; controls:string[]; }
-export interface VoiceModel{ model_id:string; name:string; category:string; capabilities:VoiceCapability[]; }
+export interface VoiceProviderOption{provider_id:string;name:string;}
+export interface VoiceModel{ model_id:string; name:string; category:string; capabilities:VoiceCapability[]; providers?:VoiceProviderOption[]; }
 export interface VoiceJob{
   job_id:string;
   status:VoiceJobStatus;
@@ -27,7 +28,7 @@ export const voiceGenerationClient={
     const data=await apiRequest<{models:VoiceModel[]}>('/api/voice/catalog');
     return data.models||[];
   },
-  create(request:{model_id:string;prompt:string;controls:{language:string;voice:string;output_format:string}}){
+  create(request:{model_id:string;prompt:string;controls:{language:string;voice:string;output_format:string;pricing_options?:Record<string,string|number|boolean|null|undefined>}}){
     return apiRequest<VoiceJob>('/api/voice/jobs',{
       method:'POST',headers:{'Idempotency-Key':key('create')},body:JSON.stringify(request),
     });

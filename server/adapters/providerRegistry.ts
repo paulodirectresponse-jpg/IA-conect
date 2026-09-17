@@ -1,4 +1,4 @@
-import { VideoProviderAdapter } from './videoProviderAdapter.js';
+import { ProviderGenerationParams, VideoProviderAdapter } from './videoProviderAdapter.js';
 import { AtlasProviderAdapter } from './atlasProviderAdapter.js';
 import { WaveSpeedProviderAdapter } from './wavespeedProviderAdapter.js';
 import {
@@ -10,6 +10,25 @@ import {
   PiApiProviderAdapter,
   KieProviderAdapter,
 } from './multiProviderAdapters.js';
+
+function providerSafeParams(params:ProviderGenerationParams):ProviderGenerationParams{
+  const pricing_options={...(params.pricing_options||{})};
+  delete pricing_options.preferred_provider_id;
+  return{...params,pricing_options};
+}
+
+function protectedAdapter(adapter:VideoProviderAdapter):VideoProviderAdapter{
+  return{
+    providerId:adapter.providerId,
+    name:adapter.name,
+    isConfigured:()=>adapter.isConfigured(),
+    supports:(modelId,mode,providerModelIdentifier)=>adapter.supports(modelId,mode,providerModelIdentifier),
+    quoteCostUsd:adapter.quoteCostUsd?(params)=>adapter.quoteCostUsd!(providerSafeParams(params)):undefined,
+    submitGeneration:(params)=>adapter.submitGeneration(providerSafeParams(params)),
+    checkStatus:(providerJobId)=>adapter.checkStatus(providerJobId),
+    cancelJob:adapter.cancelJob?(providerJobId)=>adapter.cancelJob!(providerJobId):undefined,
+  };
+}
 
 class ProviderRegistry {
   private adapters = new Map<string, VideoProviderAdapter>();
@@ -27,7 +46,7 @@ class ProviderRegistry {
   }
 
   register(adapter: VideoProviderAdapter) {
-    this.adapters.set(adapter.providerId, adapter);
+    this.adapters.set(adapter.providerId, protectedAdapter(adapter));
   }
 
   getAdapter(providerId: string): VideoProviderAdapter | null {

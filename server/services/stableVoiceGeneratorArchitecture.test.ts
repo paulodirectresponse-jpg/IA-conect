@@ -30,13 +30,21 @@ describe('Stable voice generator promotion',()=>{
   expect(routes).not.toMatch(/sound-effects|transcription|subtitles|authorized-voice-clone|dubbing/);
  });
 
- it('keeps providers and final pricing out of the Stable voice frontend',()=>{
+ it('exposes governed provider choice without leaking secrets or hardcoded provider routing',()=>{
   const view=read('src/components/views/VoiceCreateView.tsx');
   const client=read('src/services/voiceGenerationClient.ts');
-  expect(view).not.toMatch(/wavespeed|provider_id|api[_-]?key/i);
-  expect(client).not.toMatch(/wavespeed|provider_id|api[_-]?key/i);
+  const routes=read('server/routes/voiceGenerationRoutes.ts');
+  expect(view).toContain('Provider');
+  expect(view).toContain('AUTO · Mais econômico/saudável');
   expect(view).toContain('Calcular créditos');
   expect(view).toContain('job?.quote?.credit_price');
+  expect(client).toContain('/api/voice/catalog');
+  expect(routes).toContain('providerChoices');
+  expect(routes).toContain("provider.status!=='ACTIVE'");
+  expect(routes).toContain('configured.get');
+  expect(routes).toContain('verifiedPriceKeys');
+  expect(view).not.toMatch(/wavespeed|runware|deepinfra|replicate|aiml|piapi|kie\.ai/i);
+  expect(client).not.toMatch(/api[_-]?key|authorization|bearer/i);
  });
 
  it('reuses central jobs assets wallet and the universal Minhas criações',()=>{
@@ -64,9 +72,9 @@ describe('Stable voice generator promotion',()=>{
   expect(gallery).toContain('assetService.listAssets()');
  });
 
- it('contains only the requested voice controls',()=>{
+ it('contains only the requested voice controls plus governed model and provider routing',()=>{
   const view=read('src/components/views/VoiceCreateView.tsx');
-  for(const label of ['Texto','Voz','Idioma','Formato'])expect(view).toContain(label);
+  for(const label of ['Texto','Voz','Idioma','Formato','IA / modelo','Provider'])expect(view).toContain(label);
   expect(view).not.toContain('Clonar voz');
   expect(view).not.toContain('Transcrever');
   expect(view).not.toContain('Dublar');

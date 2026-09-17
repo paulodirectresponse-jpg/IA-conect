@@ -62,13 +62,18 @@ export const smartRouterService={
       mappings.filter(m=>m.model_id===params.model_id&&m.status==='ACTIVE'&&(!params.capability_id||!m.capabilities?.length||m.capabilities.includes(params.capability_id))).map(m=>[String(m.provider_id),m]),
     );
     const excluded=new Set((params.exclude_provider_ids||[]).map(String));
+    const preferredProviderId=String(params.pricing_options?.preferred_provider_id||'').trim();
+    const providerPricingOptions={...(params.pricing_options||{})};
+    delete providerPricingOptions.preferred_provider_id;
     const max=Number.isFinite(Number(params.max_allowed_cogs_cents))?Math.max(0,Number(params.max_allowed_cogs_cents)):null;
     const incurred=Math.max(0,Number(params.incurred_cogs_cents||0));
     const remaining=max==null?null:Math.max(0,max-incurred);
 
     const attempts=await Promise.all(providers.map(async provider=>{
-      const mapping=activeMappings.get(String(provider.provider_id));
-      if(provider.status==='INACTIVE'||excluded.has(String(provider.provider_id))||!mapping)return null;
+      const providerId=String(provider.provider_id);
+      const mapping=activeMappings.get(providerId);
+      if(preferredProviderId&&providerId!==preferredProviderId)return null;
+      if(provider.status==='INACTIVE'||excluded.has(providerId)||!mapping)return null;
       const adapter=providerRegistry.getAdapter(provider.provider_id as any);
       if(!adapter||!adapter.isConfigured()||!adapter.supports(params.model_id,params.mode,mapping.provider_model_identifier)||!adapter.quoteCostUsd)return null;
       try{
@@ -77,16 +82,16 @@ export const smartRouterService={
           provider_model_identifier:mapping.provider_model_identifier,prompt:params.prompt,negative_prompt:params.negative_prompt,
           duration_seconds:params.duration_seconds,resolution:params.resolution,aspect_ratio:params.aspect_ratio||'16:9',
           number_of_outputs:params.number_of_outputs,seed:params.seed,motion_strength:params.motion_strength,
-          audio_enabled:params.audio_enabled,model_variant:params.model_variant,pricing_options:params.pricing_options,
+          audio_enabled:params.audio_enabled,model_variant:params.model_variant,pricing_options:providerPricingOptions,
           provider_references:params.provider_references,
         },Boolean(params.force_live_quote));
-        const finance=financeById.get(String(provider.provider_id));
+        const finance=financeById.get(providerId);
         if(finance?.balance_brl_cents!=null&&finance.balance_brl_cents<quote.provider_cost_brl_cents)return null;
         const loaded=Number(quote.fully_loaded_safe_cogs_cents||quote.safe_cost_brl_cents);
         if(remaining!=null&&loaded>remaining)return null;
         const low=Boolean(finance?.low_balance);
         return{
-          provider_id:String(provider.provider_id),provider_name:provider.name,
+          provider_id:providerId,provider_name:provider.name,
           provider_model_identifier:mapping.provider_model_identifier,
           provider_cost_cents:quote.provider_cost_brl_cents,safe_cost_cents:quote.safe_cost_brl_cents,
           fully_loaded_safe_cogs_cents:loaded,customer_price_cents:quote.customer_price_cents,
@@ -102,20 +107,24 @@ export const smartRouterService={
     }));
     const candidates=attempts.filter((item):item is RoutingCandidate=>Boolean(item));
     if(!candidates.length){
-      const error:any=new Error(remaining!=null
-        ?'Nenhum provider consegue executar esta configuração dentro do orçamento econômico seguro.'
-        :'Nenhum provider retornou uma cotação segura, possui saldo suficiente e suporta esta configuração.');
-      error.code='NO_SAFE_PROVIDER_AVAILABLE';error.remaining_cogs_budget_cents=remaining;throw error;
+      const error:any=new Error(preferredProviderId
+        ?'O provider escolhido não possui uma rota segura para esta configuração agora.'
+        :remaining!=null
+          ?'Nenhum provider consegue executar esta configuração dentro do orçamento econômico seguro.'
+          :'Nenhum provider retornou uma cotação segura, possui saldo suficiente e suporta esta configuração.');
+      error.code=preferredProviderId?'PREFERRED_PROVIDER_UNAVAILABLE':'NO_SAFE_PROVIDER_AVAILABLE';error.remaining_cogs_budget_cents=remaining;throw error;
     }
     candidates.sort((a,b)=>(a.is_healthy===b.is_healthy
       ?a.fully_loaded_safe_cogs_cents-b.fully_loaded_safe_cogs_cents
       :a.is_healthy?-1:1)||b.priority-a.priority);
     const selected=candidates[0];
-    const reason=`${selected.provider_name} selecionado por custo seguro, disponibilidade e orçamento de COGS.`;
+    const reason=preferredProviderId
+      ?`${selected.provider_name} usado por escolha explícita do usuário, após validação econômica e operacional.`
+      :`${selected.provider_name} selecionado por custo seguro, disponibilidade e orçamento de COGS.`;
     const log={
       log_id:`route_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,generation_id:params.generation_id,
       user_id:params.userId,model_id:params.model_id,capability_id:params.capability_id||null,
-      selected_provider_id:selected.provider_id,strategy:'CHEAPEST_RELIABLE',
+      selected_provider_id:selected.provider_id,strategy:'CHEAPEST_RELIABLE',preferred_provider_id:preferredProviderId||null,
       candidate_providers:candidates.map(candidate=>({
         provider_id:candidate.provider_id,provider_cost_cents:candidate.provider_cost_cents,
         safe_cost_cents:candidate.safe_cost_cents,fully_loaded_safe_cogs_cents:candidate.fully_loaded_safe_cogs_cents,

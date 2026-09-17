@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { providerRegistry } from './providerRegistry.js';
 import {
@@ -33,5 +35,12 @@ describe('multi-provider foundation',()=>{
   it('requires an explicit provider model identifier before claiming support',()=>{
     const adapters=[new RunwareProviderAdapter(),new FalProviderAdapter(),new DeepInfraProviderAdapter(),new ReplicateProviderAdapter(),new AimlProviderAdapter(),new PiApiProviderAdapter(),new KieProviderAdapter()];
     for(const adapter of adapters)expect(adapter.supports('model','TEXT_TO_IMAGE',undefined)).toBe(false);
+  });
+
+  it('strips IA Connect routing metadata before quote and submit calls reach external adapters',()=>{
+    const source=fs.readFileSync(path.join(process.cwd(),'server/adapters/providerRegistry.ts'),'utf8');
+    expect(source).toContain('delete pricing_options.preferred_provider_id');
+    expect(source).toContain('adapter.quoteCostUsd!(providerSafeParams(params))');
+    expect(source).toContain('adapter.submitGeneration(providerSafeParams(params))');
   });
 });
