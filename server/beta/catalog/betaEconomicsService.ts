@@ -3,6 +3,7 @@ import { GenerationMode } from '../../../src/types/index.js';
 import { catalogRepository } from '../../repositories/catalogRepository.js';
 import { billingControlService } from '../../services/billingControlService.js';
 import { creditPricingService, CreditPricingInput } from '../../services/creditPricingService.js';
+import { flowEconomicsContext } from '../flows/flowEconomicsContext.js';
 import { betaCatalogPolicyService } from './catalogPolicyService.js';
 import { catalogPolicyRepository } from './catalogPolicyRepository.js';
 import { BetaEconomicLedgerEvent, BetaPricingPolicy } from './catalogPolicyTypes.js';
@@ -35,6 +36,7 @@ export const betaEconomicsService={
       const preview=await creditPricingService.preview({
         ...params.pricingInput,userId:params.userId,model_id:resolved.model.model_id,mode:params.mode,
       });
+      flowEconomicsContext.authorize(Number(preview?.retail?.retail_credit_price||0));
       return{selected_model_id:resolved.model.model_id,routing_mode:'MANUAL',pricing_policy:resolved.pricingPolicy,preview};
     }
 
@@ -65,6 +67,7 @@ export const betaEconomicsService={
         ||a.candidate.model.model_id.localeCompare(b.candidate.model.model_id);
     });
     const selected=eligible[0];
+    flowEconomicsContext.authorize(Number(selected.preview?.retail?.retail_credit_price||0));
     return{
       selected_model_id:selected.candidate.model.model_id,
       routing_mode:'AUTO',
