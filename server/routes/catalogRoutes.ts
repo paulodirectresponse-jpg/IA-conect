@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
+import { providerCatalogService } from '../services/providerCatalogService.js';
 
 export const catalogRouter = Router();
 
@@ -16,7 +17,7 @@ catalogRouter.get('/catalog/models', requireAuth, async (req, res) => {
 
 catalogRouter.get('/catalog/providers', requireAuth, async (req, res) => {
   try {
-    const providers = await catalogRepository.listProviders();
+    const providers = await providerCatalogService.listProviders();
     const configured=new Map(providerRegistry.listAdapters().map((adapter)=>[adapter.providerId,adapter.isConfigured()]));
     res.json({ success: true, data: providers.map((provider)=>({...provider,is_configured:configured.get(provider.provider_id)??false})) });
   } catch (err: any) {
