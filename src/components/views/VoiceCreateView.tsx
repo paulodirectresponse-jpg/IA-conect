@@ -1,4 +1,4 @@
-import React,{useCallback,useEffect,useMemo,useState}from'react';
+import React,{useCallback,useEffect,useState}from'react';
 import{LoaderCircle,Mic2,RefreshCw,Sparkles,Volume2,WandSparkles}from'lucide-react';
 import{useAuth}from'../../context/AuthContext.js';
 import{assetService}from'../../services/assetService.js';
@@ -28,6 +28,7 @@ const message=(error:any)=>error instanceof ApiError?error.message:error?.messag
 export const VoiceCreateView:React.FC=()=>{
  const{wallet,refreshWallet}=useAuth();
  const[models,setModels]=useState<Array<{model_id:string;name:string}>>([]);
+ const[selectedModelId,setSelectedModelId]=useState('');
  const[text,setText]=useState('');
  const[voice,setVoice]=useState('calm-female');
  const[language,setLanguage]=useState('auto');
@@ -42,13 +43,15 @@ export const VoiceCreateView:React.FC=()=>{
   setBusy(current=>current||'load');setError('');
   try{
    const catalog=await voiceGenerationClient.catalog();
-   setModels(catalog.filter(model=>model.capabilities.some(capability=>capability.id==='text-to-speech')).map(model=>({model_id:model.model_id,name:model.name})));
+   const available=catalog.filter(model=>model.capabilities.some(capability=>capability.id==='text-to-speech')).map(model=>({model_id:model.model_id,name:model.name}));
+   setModels(available);
+   setSelectedModelId(current=>available.some(model=>model.model_id===current)?current:(available.find(model=>model.model_id==='AUTO')?.model_id||available[0]?.model_id||''));
   }catch(err){setError(message(err));}
   finally{setBusy(current=>current==='load'?'':current);}
  },[]);
  useEffect(()=>{void load();},[load]);
 
- const modelId=useMemo(()=>models.find(model=>model.model_id==='AUTO')?.model_id||models[0]?.model_id||'',[models]);
+ const modelId=selectedModelId;
  const invalidate=()=>{setJob(null);setResult(null);setPollCount(0);setError('');};
 
  useEffect(()=>{
@@ -96,13 +99,19 @@ export const VoiceCreateView:React.FC=()=>{
  const price=job?.quote?.credit_price??null;
  const insufficient=price!=null&&balance<price;
  const status=job?.status==='SUCCEEDED'?'Concluído':job?.status==='FAILED'?'Falhou':job?.status==='RUNNING'?'Processando':job?.status==='QUEUED'?'Na fila':job?.status==='QUOTED'?'Preço calculado':'Preparando';
+ const selectedName=models.find(model=>model.model_id===modelId)?.name||modelId;
 
  return <div className="ia-voice-studio">
   <section className="ia-voice-creator" aria-label="Gerador de voz">
    <header className="ia-voice-heading">
     <div className="ia-voice-heading-icon"><Mic2/></div>
-    <div><span>GERADOR DE VOZ</span><h1>Transforme texto em voz.</h1><p>Escreva sua narração, escolha a voz e gere o áudio usando os mesmos créditos e o Minhas criações universal do IA Connect.</p></div>
+    <div><span>GERADOR DE VOZ</span><h1>Transforme texto em voz.</h1><p>Escolha a IA, configure a voz e gere o áudio usando os mesmos créditos e o Minhas criações universal do IA Connect.</p></div>
    </header>
+
+   <div className="ia-voice-modelbar">
+    <label htmlFor="voice-model"><span>IA / modelo</span><select id="voice-model" value={modelId} disabled={busy==='load'||!models.length} onChange={event=>{setSelectedModelId(event.target.value);invalidate();}}>{models.map(model=><option key={model.model_id} value={model.model_id}>{model.model_id==='AUTO'?'AUTO · Melhor rota disponível':model.name}</option>)}</select></label>
+    <div className={`ia-voice-routing ${modelId==='AUTO'?'is-auto':'is-manual'}`}><span>{modelId==='AUTO'?'AUTO':'MODELO FIXO'}</span><strong>{selectedName||'Carregando...'}</strong><small>{modelId==='AUTO'?'O sistema escolhe a rota economicamente segura entre os modelos elegíveis.':'A geração fica vinculada ao modelo escolhido; o Smart Router usa providers ativos com mapping e preço seguros.'}</small></div>
+   </div>
 
    <div className="ia-voice-field ia-voice-text-field">
     <div className="ia-voice-label-row"><label htmlFor="voice-text">Texto</label><span>{text.length.toLocaleString('pt-BR')} caracteres</span></div>
@@ -130,6 +139,7 @@ export const VoiceCreateView:React.FC=()=>{
 
    {job&&<section className="ia-voice-current">
     <div className="ia-voice-current-head"><div><span>Resultado atual</span><strong>{status}</strong></div><Volume2/></div>
+    {job.quote&&<p>Modelo selecionado: <strong>{models.find(model=>model.model_id===job.quote?.selected_model_id)?.name||job.quote.selected_model_id}</strong> · {job.quote.routing_mode==='AUTO'?'roteamento AUTO':'modelo manual'}.</p>}
     {['QUEUED','RUNNING'].includes(job.status)&&<p>A geração continua sendo processada e também pode ser acompanhada pelo sistema de tarefas.</p>}
     {job.status==='FAILED'&&<p>{job.error_message||'A voz não pôde ser gerada.'}</p>}
     {job.status==='SUCCEEDED'&&result?.public_url&&<audio controls preload="metadata" src={result.public_url}/>} 
