@@ -11,7 +11,8 @@ function fail(code:string,message:string):never{throw Object.assign(new Error(me
 async function normalize(userId:string,input:any,current?:BetaContextPackRecord){
  const projectId=input?.project_id===undefined?(current?.project_id||null):(input.project_id?clean(input.project_id,120):null);
  if(projectId&&!await betaLibraryRepository.getProject(projectId,userId))fail('PROJECT_NOT_FOUND','Projeto não encontrado.');
- const assetIds=input?.asset_ids===undefined?(current?.asset_ids||[]):Array.from(new Set((Array.isArray(input.asset_ids)?input.asset_ids:[]).map((v:any)=>clean(v,140)).filter(Boolean))).slice(0,24);
+ const requestedAssetIds:string[]=Array.isArray(input?.asset_ids)?input.asset_ids.map((v:any)=>clean(v,140)).filter((v:string)=>Boolean(v)):[];
+ const assetIds:string[]=input?.asset_ids===undefined?[...(current?.asset_ids||[])]:Array.from(new Set<string>(requestedAssetIds)).slice(0,24);
  for(const assetId of assetIds){if(!await assetRepository.getAsset(assetId,userId))fail('ASSET_NOT_FOUND','Asset não encontrado.');}
  let flow=current?.flow||null;if(input?.flow_id!==undefined){flow=null;if(input.flow_id){const row=await betaFlowService.get(userId,clean(input.flow_id,120));flow={id:row.flow_id,revision:row.revision};}}
  let template=current?.template||null;if(input?.template_id!==undefined){template=null;if(input.template_id){const row:any=await betaTemplateService.get(userId,clean(input.template_id,120));template={id:row.template_id,revision:Number(row.source_flow_revision||1)};}}
