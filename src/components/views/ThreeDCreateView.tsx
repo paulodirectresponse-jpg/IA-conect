@@ -72,7 +72,7 @@ export const ThreeDCreateView:React.FC=()=>{
 
  const toggleImage=(id:string)=>{invalidate();if(tool==='image-to-3d'){setSelectedIds([id]);return;}setSelectedIds(current=>current.includes(id)?current.filter(value=>value!==id):current.length<4?[...current,id]:current);};
  const upload=async(event:React.ChangeEvent<HTMLInputElement>)=>{
-  const files=event.target.files?Array.from(event.target.files):[];event.target.value='';if(!files.length)return;
+  const files:File[]=event.target.files?Array.from(event.target.files):[];event.target.value='';if(!files.length)return;
   setBusy('upload');setError('');
   try{
    const next:Asset[]=[];
