@@ -18,8 +18,12 @@ describe('Stable voice generator promotion',()=>{
 
  it('uses the same full-height create shell as image and video',()=>{
   const layout=read('src/components/layout/AppLayout.tsx');
+  const view=read('src/components/views/VoiceCreateView.tsx');
   expect(layout).toContain("currentView === 'create-voice'");
   expect(layout).toContain('ia-shell-main-create');
+  expect(view).toContain('ia-stable-generator-studio');
+  expect(view).toContain('ia-stable-generator-panel');
+  expect(view).toContain('StableGeneratorModelPicker');
  });
 
  it('keeps the first Stable audio scope restricted to text to speech',()=>{
@@ -30,14 +34,14 @@ describe('Stable voice generator promotion',()=>{
   expect(routes).not.toMatch(/sound-effects|transcription|subtitles|authorized-voice-clone|dubbing/);
  });
 
- it('exposes governed provider choice without leaking secrets or hardcoded provider routing',()=>{
+ it('keeps provider eligibility governed internally without leaking secrets or hardcoded routing',()=>{
   const view=read('src/components/views/VoiceCreateView.tsx');
   const client=read('src/services/voiceGenerationClient.ts');
   const routes=read('server/routes/voiceGenerationRoutes.ts');
-  expect(view).toContain('Provider');
-  expect(view).toContain('AUTO · Mais econômico/saudável');
   expect(view).toContain('Calcular créditos');
   expect(view).toContain('job?.quote?.credit_price');
+  expect(view).not.toContain('preferred_provider_id');
+  expect(view).not.toContain('AUTO · Mais econômico/saudável');
   expect(client).toContain('/api/voice/catalog');
   expect(routes).toContain('providerChoices');
   expect(routes).toContain("provider.status!=='ACTIVE'");
@@ -72,18 +76,21 @@ describe('Stable voice generator promotion',()=>{
   expect(gallery).toContain('assetService.listAssets()');
  });
 
- it('contains only the requested voice controls plus governed model and provider routing',()=>{
+ it('contains only the requested voice controls plus governed model routing',()=>{
   const view=read('src/components/views/VoiceCreateView.tsx');
-  for(const label of ['Texto','Voz','Idioma','Formato','IA / modelo','Provider'])expect(view).toContain(label);
+  for(const label of ['Texto','Voz','Idioma','Formato'])expect(view).toContain(label);
+  expect(view).toContain('StableGeneratorModelPicker');
+  expect(view).not.toContain('Provider');
   expect(view).not.toContain('Clonar voz');
   expect(view).not.toContain('Transcrever');
   expect(view).not.toContain('Dublar');
   expect(view).not.toContain('Efeitos');
  });
 
- it('keeps the voice workspace responsive',()=>{
-  const css=read('src/styles/voice-create.css');
+ it('keeps the voice workspace responsive through the shared generator shell',()=>{
+  const css=read('src/styles/stable-generator-shell.css');
   expect(css).toContain('@media(max-width:1023px)');
   expect(css).toContain('@media(max-width:640px)');
+  expect(css).toContain('width:368px');
  });
 });
