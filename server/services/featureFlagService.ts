@@ -20,6 +20,8 @@ async function ensureBetaReleases(flags:FeatureFlag[]){
   let next=await ensureRelease(flags,{marker:'app_config/beta_templates_v1_release',flag:'beta.templates',release:'PR-15_TEMPLATES_V1'});
   next=await ensureRelease(next,{marker:'app_config/beta_workflow_apps_v1_release',flag:'beta.flow_apps',release:'PR-16_WORKFLOW_APPS_V1'});
   next=await ensureRelease(next,{marker:'app_config/beta_batch_v1_release',flag:'beta.batch',release:'PR-17_BATCH_V1'});
+  next=await ensureRelease(next,{marker:'app_config/beta_context_v1_release',flag:'beta.context',release:'PR-18_CONTEXT_V1'});
+  next=await ensureRelease(next,{marker:'app_config/beta_copilot_v1_release',flag:'beta.copilot',release:'PR-18_COPILOT_V1'});
   return next;
 }
 

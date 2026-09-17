@@ -20,6 +20,8 @@ export const BETA_FEATURE_FLAGS = [
   { flag_key: 'beta.templates', name: 'Beta · Templates', description: 'Libera galeria e templates de Fluxos.', is_enabled: true, is_private: false },
   { flag_key: 'beta.flow_apps', name: 'Beta · Workflow Apps', description: 'Libera Apps construídos a partir de Fluxos.', is_enabled: false, is_private: false },
   { flag_key: 'beta.batch', name: 'Beta · Batch', description: 'Libera execução em lote e fan-out controlado.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.context', name: 'Beta · Contexto', description: 'Libera contextos reutilizáveis e versionados.', is_enabled: false, is_private: false },
+  { flag_key: 'beta.copilot', name: 'Beta · Copilot', description: 'Libera assistência contextual com confirmação explícita antes de mudanças.', is_enabled: false, is_private: false },
   { flag_key: 'beta.brand_kit', name: 'Beta · Brand Kit', description: 'Libera contexto de marca reutilizável.', is_enabled: false, is_private: false },
   { flag_key: 'beta.sharing', name: 'Beta · Compartilhamento', description: 'Libera compartilhamento controlado de recursos Beta.', is_enabled: false, is_private: false },
 ] as const;
