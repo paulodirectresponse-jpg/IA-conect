@@ -60,13 +60,24 @@ describe('Stable music generator promotion',()=>{
   expect(view).not.toContain('Remix');
  });
 
- it('uses shared master controls instead of native selects',()=>{
+ it('uses the exact canonical create shell and controls',()=>{
+  const controls=read('src/components/workspace/GeneratorControls.tsx');
   const view=read('src/components/views/MusicCreateView.tsx');
+  const mobile=read('src/components/workspace/MobileStudioLayout.tsx');
+  const picker=read('src/components/workspace/StableGeneratorModelPicker.tsx');
+  expect(view).toContain('MobileStudioLayout');
+  expect(view).toContain('PromptComposer');
+  expect(view).toContain('GeneratorFooter');
   expect(view).toContain('GeneratorSettingRow');
   expect(view).toContain('GeneratorDiscreteSlider');
   expect(view).toContain('GeneratorOptionGrid');
   expect(view).toContain('GeneratorToggle');
   expect(view).not.toContain('<select');
+  expect(view).not.toContain('ia-stable-generator-studio');
+  expect(view).not.toContain('stable-generator-shell.css');
+  expect(controls).toContain("md:w-[352px] xl:w-[368px]");
+  expect(mobile).toContain('ia-generator-workspace');
+  expect(picker).toContain('CompactModelPicker');
  });
 
  it('reuses the one universal Minhas criações gallery and adds Música as a filter',()=>{
@@ -86,20 +97,5 @@ describe('Stable music generator promotion',()=>{
   expect(routes).toContain('media_metadata');
   expect(routes).toContain('capability_id:CAPABILITY');
   expect(routes).not.toMatch(/music_assets|music_library|music_creations/);
- });
-
- it('keeps the music workspace responsive and in the shared create shell',()=>{
-  const css=read('src/styles/stable-generator-shell.css');
-  const controls=read('src/components/workspace/GeneratorControls.tsx');
-  const layout=read('src/components/layout/AppLayout.tsx');
-  const view=read('src/components/views/MusicCreateView.tsx');
-  expect(css).toContain('@media(max-width:1023px)');
-  expect(css).toContain('@media(min-width:1280px)');
-  expect(css).toContain('grid-template-columns:352px');
-  expect(css).toContain('grid-template-columns:368px');
-  expect(controls).toContain("md:w-[352px] xl:w-[368px]");
-  expect(layout).toContain("currentView === 'create-music'");
-  expect(layout).toContain('ia-shell-main-create');
-  expect(view).toContain('ia-stable-generator-studio');
  });
 });
