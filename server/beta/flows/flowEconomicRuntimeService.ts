@@ -8,7 +8,7 @@ async function decorate(userId:string,run:any){
   const binding=await betaFlowEconomicsRepository.getRun(run.run_id,userId);
   if(!binding)return{...run,economics:null};
   const economics=betaFlowEconomicsService.summarize(binding.budget_credit_limit,run.node_runs||[]);
-  return{...run,flow_quote_id:binding.flow_quote_id,budget_credit_limit:binding.budget_credit_limit,economics};
+  return{...run,flow_quote_id:binding.flow_quote_id,budget_credit_limit:binding.budget_credit_limit,authorized_credits_total:economics.authorized_credits_total,captured_credits_total:economics.captured_credits_total,released_credits_total:economics.released_credits_total,in_flight_credits_total:economics.in_flight_credits_total,remaining_budget_credits:economics.remaining_budget_credits,economic_status:economics.status,economics};
 }
 async function ensureBinding(userId:string,run:any){
   const existing=await betaFlowEconomicsRepository.getRun(run.run_id,userId);
@@ -16,7 +16,7 @@ async function ensureBinding(userId:string,run:any){
   const quote=await betaFlowEconomicsService.quote(userId,run.flow_id,{});
   return betaFlowEconomicsService.bindRun(userId,run,quote);
 }
-async function runWithBudget<T>(userId:string,run:any,binding:any,work:()=>Promise<T>){
+async function runWithBudget<T>(run:any,binding:any,work:()=>Promise<T>){
   const committed=betaFlowEconomicsService.committed(run.node_runs||[]);
   return flowEconomicsContext.run({run_id:run.run_id,budget_credit_limit:binding.budget_credit_limit,committed_credits:committed},work);
 }
@@ -37,14 +37,14 @@ export const betaFlowEconomicRuntimeService={
   async advance(userId:string,runId:string,reqHost?:string,idToken?:string){
     const current=await betaFlowRuntimeService.getPublic(userId,runId);
     const binding=await ensureBinding(userId,current);
-    const run=await runWithBudget(userId,current,binding,()=>betaFlowRuntimeService.advance(userId,runId,reqHost,idToken));
+    const run=await runWithBudget(current,binding,()=>betaFlowRuntimeService.advance(userId,runId,reqHost,idToken));
     return decorate(userId,run);
   },
 
   async retry(userId:string,runId:string,reqHost?:string,idToken?:string){
     const current=await betaFlowRuntimeService.getPublic(userId,runId);
     const binding=await ensureBinding(userId,current);
-    const run=await runWithBudget(userId,current,binding,()=>betaFlowRuntimeService.retry(userId,runId,reqHost,idToken));
+    const run=await runWithBudget(current,binding,()=>betaFlowRuntimeService.retry(userId,runId,reqHost,idToken));
     return decorate(userId,run);
   },
 
