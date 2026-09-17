@@ -59,7 +59,7 @@ describe('Stable voice generator promotion',()=>{
   expect(view).not.toContain('ia-voice-gallery-head');
   expect(view).not.toContain('setCreations');
   expect(view).toContain('refreshWallet');
-  expect(gallery).toContain("export type CreationGalleryFilter='VIDEO'|'IMAGE'|'VOICE'|'MUSIC'|'ALL'");
+  expect(gallery).toContain("export type CreationGalleryFilter='VIDEO'|'IMAGE'|'VOICE'|'MUSIC'|'THREE_D'|'ALL'");
   expect(gallery).toContain("value==='VOICE'?'Voz'");
   expect(gallery).toContain("asset.type==='AUDIO'");
  });

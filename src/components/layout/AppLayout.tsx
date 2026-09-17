@@ -15,7 +15,7 @@ const THEME_KEY = 'ia-connect-theme';
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ currentView, onNavigate, betaEnabled = false, children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const isCreateView = currentView === 'create-video' || currentView === 'create-image' || currentView === 'create-voice' || currentView === 'create-music';
+  const isCreateView = currentView === 'create-video' || currentView === 'create-image' || currentView === 'create-voice' || currentView === 'create-music' || currentView === 'create-3d';
 
   useEffect(() => {
     document.documentElement.dataset.theme = 'dark';

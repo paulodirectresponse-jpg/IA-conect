@@ -65,7 +65,7 @@ describe('Stable music generator promotion',()=>{
   const gallery=read('src/components/workspace/CreationGallery.tsx');
   expect(view).toContain('CreationGallery defaultFilter="MUSIC"');
   expect(view).not.toContain('ia-music-grid');
-  expect(gallery).toContain("'VOICE'|'MUSIC'|'ALL'");
+  expect(gallery).toContain("export type CreationGalleryFilter='VIDEO'|'IMAGE'|'VOICE'|'MUSIC'|'THREE_D'|'ALL'");
   expect(gallery).toContain("value==='MUSIC'?'Música'");
   expect(gallery).toContain("capability==='music'?'MUSIC':'VOICE'");
  });

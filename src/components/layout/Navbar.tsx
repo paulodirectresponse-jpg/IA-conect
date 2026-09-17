@@ -4,6 +4,7 @@ import {
   CreditCard,
   FlaskConical,
   Image as ImageIcon,
+  Layers3,
   LogOut,
   Menu,
   Mic2,
@@ -34,6 +35,7 @@ const viewMeta: Record<string, { title: string; eyebrow: string }> = {
   'create-video': { title: 'Gerar vídeo', eyebrow: 'Criação' },
   'create-voice': { title: 'Gerar voz', eyebrow: 'Criação' },
   'create-music': { title: 'Gerar música', eyebrow: 'Criação' },
+  'create-3d': { title: 'Gerar 3D', eyebrow: 'Criação' },
   community: { title: 'Comunidade', eyebrow: 'Explorar' },
   library: { title: 'Biblioteca', eyebrow: 'Arquivos' },
   assets: { title: 'Biblioteca', eyebrow: 'Arquivos' },
@@ -163,6 +165,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button onClick={() => navigate('create-music')} className="ia-shell-menu-item">
                 <Music2 className="h-4 w-4" />
                 <span><strong>Música</strong><small>Criar música com IA</small></span>
+              </button>
+              <button onClick={() => navigate('create-3d')} className="ia-shell-menu-item">
+                <Layers3 className="h-4 w-4" />
+                <span><strong>3D</strong><small>Criar asset 3D com IA</small></span>
               </button>
             </div>
           )}
