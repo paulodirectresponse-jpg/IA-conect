@@ -37,7 +37,8 @@ export interface ProviderCostQuote {
   list_price_usd?: number | null;
   discount_rate?: number | null;
   estimated?: boolean;
-  source: 'LIVE_API';
+  /** LIVE_API is provider-calculated; CATALOG/MANUAL are allowed only after verification. */
+  source: 'LIVE_API'|'CATALOG'|'MANUAL';
 }
 
 export interface ProviderJobResult {
