@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
-import { AppWindow, ArrowLeft, Box, BrainCircuit, FlaskConical, Home, Image as ImageIcon, LayoutTemplate, Library, ListTree, Music2, Network, Video } from 'lucide-react';
+import { AppWindow, ArrowLeft, Box, BrainCircuit, FlaskConical, Home, Image as ImageIcon, LayoutTemplate, Library, ListTree, Music2, Network, Share2, Video } from 'lucide-react';
 import { BrandMark } from '../components/common/BrandMark.js';
 import { BetaHomeView } from './views/BetaHomeView.js';
 import { BetaLibraryView } from './views/BetaLibraryView.js';
@@ -11,6 +11,7 @@ import './styles/templates.css';
 import './styles/workflow-apps.css';
 import './styles/batch.css';
 import './styles/copilot.css';
+import './styles/sharing.css';
 
 interface BetaAppProps { onExit: () => void; }
 const INTENT_KEY='ia-conect:beta:library-intent:v1';
@@ -23,9 +24,10 @@ const BetaTemplatesView=lazy(()=>import('./views/BetaTemplatesView.js').then(mod
 const BetaWorkflowAppsView=lazy(()=>import('./views/BetaWorkflowAppsView.js').then(module=>({default:module.BetaWorkflowAppsView})));
 const BetaBatchView=lazy(()=>import('./views/BetaBatchView.js').then(module=>({default:module.BetaBatchView})));
 const BetaCopilotView=lazy(()=>import('./views/BetaCopilotView.js').then(module=>({default:module.BetaCopilotView})));
+const BetaSharingView=lazy(()=>import('./views/BetaSharingView.js').then(module=>({default:module.BetaSharingView})));
 
 export const BetaApp: React.FC<BetaAppProps> = ({ onExit }) => {
-  const [view,setView]=useState<'home'|'library'|'audio'|'three-d'|'image-editor'|'video'|'flows'|'templates'|'apps'|'batch'|'copilot'>('home');
+  const [view,setView]=useState<'home'|'library'|'audio'|'three-d'|'image-editor'|'video'|'flows'|'templates'|'apps'|'batch'|'copilot'|'sharing'>('home');
   const [flags,setFlags]=useState<Record<string,boolean>>({});
   const [intent,setIntent]=useState<BetaLibraryIntent|null>(()=>{if(typeof window==='undefined')return null;try{return JSON.parse(window.sessionStorage.getItem(INTENT_KEY)||'null');}catch{return null;}});
   useEffect(()=>{void getPublicBetaFlags().then(setFlags).catch(()=>setFlags({}));},[]);
@@ -45,6 +47,7 @@ export const BetaApp: React.FC<BetaAppProps> = ({ onExit }) => {
         {flags['beta.flow_apps']&&<button className={view==='apps'?'is-selected':''} onClick={()=>setView('apps')}><AppWindow/><span>Apps</span></button>}
         {flags['beta.batch']&&<button className={view==='batch'?'is-selected':''} onClick={()=>setView('batch')}><ListTree/><span>Batch</span></button>}
         {flags['beta.context']&&flags['beta.copilot']&&<button className={view==='copilot'?'is-selected':''} onClick={()=>setView('copilot')}><BrainCircuit/><span>Copilot</span></button>}
+        {flags['beta.sharing']&&flags['beta.analytics']&&<button className={view==='sharing'?'is-selected':''} onClick={()=>setView('sharing')}><Share2/><span>Compartilhar</span></button>}
       </nav>
       <div className="ia-beta-navbar-actions"><TaskCenter /><button type="button" className="ia-beta-exit" onClick={onExit}><ArrowLeft aria-hidden="true" /><span>Voltar à versão atual</span></button></div>
     </header>
@@ -59,6 +62,7 @@ export const BetaApp: React.FC<BetaAppProps> = ({ onExit }) => {
       :view==='apps'?<Suspense fallback={<div className="ia-beta-module-loading">Carregando Workflow Apps…</div>}><BetaWorkflowAppsView/></Suspense>
       :view==='batch'?<Suspense fallback={<div className="ia-beta-module-loading">Carregando Batch V1…</div>}><BetaBatchView/></Suspense>
       :view==='copilot'?<Suspense fallback={<div className="ia-beta-module-loading">Carregando Context / Copilot…</div>}><BetaCopilotView/></Suspense>
+      :view==='sharing'?<Suspense fallback={<div className="ia-beta-module-loading">Carregando Sharing / Analytics…</div>}><BetaSharingView/></Suspense>
       :<Suspense fallback={<div className="ia-beta-module-loading">Carregando 3D V1…</div>}><BetaThreeDView onOpenLibrary={()=>setView('library')}/></Suspense>}
   </div>;
 };

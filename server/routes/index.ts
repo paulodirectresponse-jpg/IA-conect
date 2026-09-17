@@ -28,6 +28,7 @@ import { betaWorkflowAppRouter } from './betaWorkflowAppRoutes.js';
 import { betaBatchRouter } from './betaBatchRoutes.js';
 import { betaContextRouter } from './betaContextRoutes.js';
 import { betaCopilotRouter } from './betaCopilotRoutes.js';
+import { betaSharingRouter } from './betaSharingRoutes.js';
 
 export const apiRootRouter = Router();
 apiRootRouter.use(serverTimingMiddleware);
@@ -60,3 +61,4 @@ apiRootRouter.use(betaWorkflowAppRouter);
 apiRootRouter.use(betaBatchRouter);
 apiRootRouter.use(betaContextRouter);
 apiRootRouter.use(betaCopilotRouter);
+apiRootRouter.use(betaSharingRouter);

@@ -1,0 +1,16 @@
+import{Router,Response}from'express';
+import{AuthenticatedRequest,requireAuth}from'../middleware/authMiddleware.js';
+import{normalizeBetaPublicError}from'../beta/http/publicError.js';
+import{betaSharingService}from'../beta/sharing/sharingService.js';
+import{betaAnalyticsService}from'../beta/sharing/analyticsService.js';
+import{featureFlagService}from'../services/featureFlagService.js';
+export const betaSharingRouter=Router();
+const failure=(res:Response,e:any,fallback:string)=>{const n=normalizeBetaPublicError(e,fallback);return res.status(n.status).json({success:false,error:n.error});};
+const authGate=(flag:string)=>async(_req:AuthenticatedRequest,res:Response,next:any)=>{const flags=await featureFlagService.getPublicFlags();if(!flags['beta.enabled']||!flags[flag])return res.status(404).json({success:false,error:{code:'FEATURE_DISABLED',message:'Recurso Beta indisponível.'}});next();};
+betaSharingRouter.get('/beta/shared/:token',async(req,res)=>{try{const flags=await featureFlagService.getPublicFlags();if(!flags['beta.enabled']||!flags['beta.sharing'])return res.status(404).json({success:false,error:{code:'FEATURE_DISABLED',message:'Compartilhamento Beta indisponível.'}});return res.json({success:true,data:await betaSharingService.resolvePublic(req.params.token)});}catch(e){return failure(res,e,'Link de compartilhamento inválido.');}});
+betaSharingRouter.use('/beta/sharing',requireAuth,authGate('beta.sharing'));
+betaSharingRouter.get('/beta/sharing',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaSharingService.list(req.user!.uid)});}catch(e){return failure(res,e,'Não foi possível carregar os compartilhamentos.');}});
+betaSharingRouter.post('/beta/sharing',async(req:AuthenticatedRequest,res)=>{try{return res.status(201).json({success:true,data:await betaSharingService.create(req.user!.uid,req.body||{})});}catch(e){return failure(res,e,'Não foi possível criar o compartilhamento.');}});
+betaSharingRouter.post('/beta/sharing/:shareId/rotate',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaSharingService.rotate(req.user!.uid,req.params.shareId)});}catch(e){return failure(res,e,'Não foi possível renovar o link.');}});
+betaSharingRouter.delete('/beta/sharing/:shareId',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaSharingService.revoke(req.user!.uid,req.params.shareId)});}catch(e){return failure(res,e,'Não foi possível revogar o compartilhamento.');}});
+betaSharingRouter.get('/beta/analytics',requireAuth,authGate('beta.analytics'),async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaAnalyticsService.overview(req.user!.uid)});}catch(e){return failure(res,e,'Não foi possível carregar o Analytics.');}});
