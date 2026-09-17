@@ -24,6 +24,7 @@ import { betaAudioRouter } from './betaAudioRoutes.js';
 import { betaFlowRouter } from './betaFlowRoutes.js';
 import { betaFlowRuntimeRouter } from './betaFlowRuntimeRoutes.js';
 import { betaTemplateRouter } from './betaTemplateRoutes.js';
+import { betaWorkflowAppRouter } from './betaWorkflowAppRoutes.js';
 
 export const apiRootRouter = Router();
 apiRootRouter.use(serverTimingMiddleware);
@@ -52,3 +53,4 @@ apiRootRouter.use(betaAudioRouter);
 apiRootRouter.use(betaFlowRouter);
 apiRootRouter.use(betaFlowRuntimeRouter);
 apiRootRouter.use(betaTemplateRouter);
+apiRootRouter.use(betaWorkflowAppRouter);
