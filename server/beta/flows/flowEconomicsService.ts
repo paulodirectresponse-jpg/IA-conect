@@ -2,9 +2,9 @@ import crypto from 'crypto';
 import { catalogRepository } from '../../repositories/catalogRepository.js';
 import { creditWalletService } from '../../services/creditWalletService.js';
 import { betaFlowService } from './flowService.js';
-import { BetaFlowNodeRun,BetaFlowRun } from './flowRuntimeTypes.js';
+import { BetaFlowNodeRun } from './flowRuntimeTypes.js';
 import { betaFlowEconomicsRepository } from './flowEconomicsRepository.js';
-import { BetaFlowBudgetQuote,BetaFlowEconomicSummary } from './flowEconomicsTypes.js';
+import { BetaFlowBudgetQuote,BetaFlowEconomicSummary,BetaFlowRunEconomics } from './flowEconomicsTypes.js';
 
 const now=()=>new Date().toISOString();
 const hash=(value:string)=>crypto.createHash('sha256').update(value).digest('hex');
@@ -26,13 +26,14 @@ export const betaFlowEconomicsService={
   async quote(userId:string,flowId:string,input:any):Promise<BetaFlowBudgetQuote>{
     await assertEnabled();
     const flow=await betaFlowService.get(userId,flowId);
-    const limit=budget(input?.max_credits);
+    const account=await creditWalletService.getAccount(userId);
+    const limit=budget(input?.max_credits??account.available_credits);
     const simulation=await creditWalletService.simulateReserve(userId,limit);
     if(!simulation.has_sufficient_credits)fail('FLOW_BUDGET_INSUFFICIENT_CREDITS',`Faltam ${simulation.missing_credits} créditos para autorizar este orçamento.`);
     const timestamp=new Date(),quoteId=`fquote_${crypto.randomUUID()}`;
     const quote:BetaFlowBudgetQuote={
       flow_quote_id:quoteId,user_id:userId,flow_id:flow.flow_id,flow_revision:flow.revision,budget_credit_limit:limit,
-      available_credits:(await creditWalletService.getAccount(userId)).available_credits,covered:true,
+      available_credits:account.available_credits,covered:true,
       signature_hash:hash(`${userId}:${flow.flow_id}:${flow.revision}:${limit}`),created_at:timestamp.toISOString(),expires_at:new Date(timestamp.getTime()+10*60*1000).toISOString(),
     };
     return betaFlowEconomicsRepository.save(quote);
@@ -47,23 +48,28 @@ export const betaFlowEconomicsService={
     if(!simulation.has_sufficient_credits)fail('FLOW_BUDGET_INSUFFICIENT_CREDITS','Os créditos disponíveis mudaram. Autorize um novo orçamento.');
     return quote;
   },
-  summarize(run:Pick<BetaFlowRun,'budget_credit_limit'>,nodeRuns:BetaFlowNodeRun[]):BetaFlowEconomicSummary{
-    const limit=Math.max(0,Number(run.budget_credit_limit||0));
-    const authorized=nodeRuns.reduce((sum,item)=>sum+Math.max(0,Number(item.authorized_credit_price||0)),0);
+  async bindRun(userId:string,run:{run_id:string;flow_id:string;flow_revision:number},quote:BetaFlowBudgetQuote){
+    const timestamp=now();
+    const binding:BetaFlowRunEconomics={run_id:run.run_id,user_id:userId,flow_id:run.flow_id,flow_revision:run.flow_revision,flow_quote_id:quote.flow_quote_id,budget_credit_limit:quote.budget_credit_limit,created_at:timestamp,updated_at:timestamp};
+    return betaFlowEconomicsRepository.bindRun(binding);
+  },
+  async binding(userId:string,runId:string){
+    await assertEnabled();
+    const binding=await betaFlowEconomicsRepository.getRun(runId,userId);
+    if(!binding)fail('FLOW_BUDGET_REQUIRED','Esta execução não possui autorização econômica.');
+    return binding;
+  },
+  summarize(limitValue:number,nodeRuns:BetaFlowNodeRun[]):BetaFlowEconomicSummary{
+    const limit=Math.max(0,Number(limitValue||0));
     const captured=nodeRuns.filter(item=>item.status==='SUCCEEDED').reduce((sum,item)=>sum+Math.max(0,Number(item.authorized_credit_price||0)),0);
     const released=nodeRuns.filter(item=>item.status==='FAILED'||item.status==='CANCELLED').reduce((sum,item)=>sum+Math.max(0,Number(item.authorized_credit_price||0)),0);
     const inFlight=nodeRuns.filter(item=>item.status==='RUNNING').reduce((sum,item)=>sum+Math.max(0,Number(item.authorized_credit_price||0)),0);
+    const authorized=captured+inFlight;
     const remaining=Math.max(0,limit-authorized);
     const status=authorized>limit?'EXCEEDED':authorized===limit&&limit>0?'AT_LIMIT':'WITHIN_BUDGET';
     return{budget_credit_limit:limit,authorized_credits_total:authorized,captured_credits_total:captured,released_credits_total:released,in_flight_credits_total:inFlight,remaining_budget_credits:remaining,status};
   },
-  async assertNodeAuthorization(run:BetaFlowRun,nodeRuns:BetaFlowNodeRun[],nodeId:string,nextCredits:number){
-    await assertEnabled();
-    const limit=Math.max(0,Number(run.budget_credit_limit||0));
-    if(!limit)fail('FLOW_BUDGET_REQUIRED','Este Flow não possui orçamento autorizado.');
-    const other=nodeRuns.filter(item=>item.node_id!==nodeId).reduce((sum,item)=>sum+Math.max(0,Number(item.authorized_credit_price||0)),0);
-    const projected=other+Math.max(0,Number(nextCredits||0));
-    if(projected>limit)fail('FLOW_BUDGET_EXCEEDED',`Este nó elevaria a autorização para ${projected} créditos, acima do limite de ${limit}.`);
-    return projected;
+  committed(nodeRuns:BetaFlowNodeRun[]){
+    return nodeRuns.filter(item=>item.status==='SUCCEEDED'||item.status==='RUNNING').reduce((sum,item)=>sum+Math.max(0,Number(item.authorized_credit_price||0)),0);
   },
 };
