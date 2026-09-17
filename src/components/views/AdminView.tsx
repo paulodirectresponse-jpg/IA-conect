@@ -4,6 +4,8 @@ import{Badge}from'../common/Badge.js';
 import{AdminOverviewDashboard}from'../admin/AdminOverviewDashboard.js';
 import{AdminAIProvidersHub}from'../admin/AdminAIProvidersHub.js';
 import{AdminFinanceDashboard}from'../admin/AdminFinanceDashboard.js';
+import{AdminUsersDashboard}from'../admin/AdminUsersDashboard.js';
+import{AdminSystemDashboard}from'../admin/AdminSystemDashboard.js';
 import{AdminUsersList}from'../admin/AdminUsersList.js';
 import{AdminPricing}from'../admin/AdminPricing.js';
 import{AdminCoupons}from'../admin/AdminCoupons.js';
@@ -40,14 +42,14 @@ export const AdminView:React.FC=()=>{
   </div>}
 
   {activeTab==='users'&&<div className="space-y-4">
-   <div className="ia-admin-panel"><h2>Usuários</h2><p className="mt-1.5">Contas, créditos, consumo e ações comerciais organizados no mesmo lugar.</p></div>
+   <AdminUsersDashboard/>
    <Section title="Usuários & créditos" description="Contas, saldos, status e ajustes administrativos." open><AdminUsersList/></Section>
    <Section title="Cupons" description="Benefícios, regras de resgate, budgets e utilização."><AdminCoupons/></Section>
    <Section title="Promoções" description="Promoções persistentes do catálogo e suas regras."><AdminPromotions/></Section>
   </div>}
 
   {activeTab==='system'&&<div className="space-y-4">
-   <div className="ia-admin-panel"><h2>Sistema</h2><p className="mt-1.5">Configuração operacional, Beta, feature flags e rastreabilidade administrativa.</p></div>
+   <AdminSystemDashboard/>
    <Section title="Feature flags" description="Ative ou interrompa recursos com registro de motivo." open><AdminFeatureFlags/></Section>
    <Section title="Beta · catálogo e políticas" description="Elegibilidade, AUTO routing, policies e ledger econômico do ambiente Beta."><AdminBetaCatalog/></Section>
    <Section title="Auditoria" description="Histórico das alterações administrativas e rastreabilidade."><AdminAuditLogs/></Section>
