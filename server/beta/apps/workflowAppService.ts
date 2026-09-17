@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import { betaFlowRepository } from '../flows/flowRepository.js';
 import { betaFlowRuntimeService } from '../flows/flowRuntimeService.js';
 import { BetaFlowGraph } from '../flows/flowTypes.js';
@@ -11,8 +10,8 @@ const clean=(value:any,max:number)=>String(value||'').trim().replace(/\s+/g,' ')
 function fail(code:string,message:string):never{throw Object.assign(new Error(message),{code});}
 function sourceType(value:any):WorkflowAppSourceType{return String(value||'FLOW').toUpperCase()==='TEMPLATE'?'TEMPLATE':'FLOW';}
 function graphSchemas(graph:BetaFlowGraph){
-  const inputs:WorkflowAppInputField[]=graph.nodes.filter(node=>node.kind==='INPUT'&&node.media_type).map((node,index)=>({node_id:node.node_id,label:node.label,media_type:node.media_type!,required:true,placeholder:'',help_text:'',order:index,default_value:null}));
-  const outputs:WorkflowAppOutputField[]=graph.nodes.filter(node=>node.kind==='OUTPUT'&&node.media_type).map((node,index)=>({node_id:node.node_id,label:node.label,media_type:node.media_type!,order:index}));
+  const inputs:WorkflowAppInputField[]=graph.nodes.filter(node=>node.kind==='INPUT'&&node.media_type).map((node,index)=>({node_id:node.node_id,label:node.label,media_type:node.media_type!,exposed:true,required:true,placeholder:'',help_text:'',order:index,default_value:null}));
+  const outputs:WorkflowAppOutputField[]=graph.nodes.filter(node=>node.kind==='OUTPUT'&&node.media_type).map((node,index)=>({node_id:node.node_id,label:node.label,media_type:node.media_type!,exposed:true,order:index}));
   return{inputs,outputs};
 }
 function normalizeInputs(graph:BetaFlowGraph,raw:any,base?:WorkflowAppInputField[]){
@@ -23,7 +22,7 @@ function normalizeInputs(graph:BetaFlowGraph,raw:any,base?:WorkflowAppInputField
   return items.map((item:any,index:number)=>{
     const nodeId=clean(item?.node_id,80),node=allowed.get(nodeId);if(!node||seen.has(nodeId))fail('WORKFLOW_APP_INPUT_INVALID','Mapeamento de entrada inválido.');seen.add(nodeId);
     const previous=current.get(nodeId);
-    return{node_id:nodeId,label:clean(item?.label,80)||previous?.label||node.label,media_type:node.media_type!,required:item?.required===undefined?(previous?.required??true):Boolean(item.required),placeholder:clean(item?.placeholder,180),help_text:clean(item?.help_text,240),order:Number.isFinite(Number(item?.order))?Number(item.order):index,default_value:item?.default_value===undefined?(previous?.default_value??null):item.default_value};
+    return{node_id:nodeId,label:clean(item?.label,80)||previous?.label||node.label,media_type:node.media_type!,exposed:item?.exposed===undefined?(previous?.exposed??true):Boolean(item.exposed),required:item?.required===undefined?(previous?.required??true):Boolean(item.required),placeholder:clean(item?.placeholder,180),help_text:clean(item?.help_text,240),order:Number.isFinite(Number(item?.order))?Number(item.order):index,default_value:item?.default_value===undefined?(previous?.default_value??null):item.default_value};
   }).sort((a,b)=>a.order-b.order);
 }
 function normalizeOutputs(graph:BetaFlowGraph,raw:any,base?:WorkflowAppOutputField[]){
@@ -31,7 +30,7 @@ function normalizeOutputs(graph:BetaFlowGraph,raw:any,base?:WorkflowAppOutputFie
   const current=new Map((base||[]).map(field=>[field.node_id,field]));
   const items=Array.isArray(raw)?raw:Array.from(allowed.keys()).map(node_id=>current.get(node_id)||{node_id});
   const seen=new Set<string>();
-  return items.map((item:any,index:number)=>{const nodeId=clean(item?.node_id,80),node=allowed.get(nodeId);if(!node||seen.has(nodeId))fail('WORKFLOW_APP_OUTPUT_INVALID','Mapeamento de saída inválido.');seen.add(nodeId);return{node_id:nodeId,label:clean(item?.label,80)||current.get(nodeId)?.label||node.label,media_type:node.media_type!,order:Number.isFinite(Number(item?.order))?Number(item.order):index};}).sort((a,b)=>a.order-b.order);
+  return items.map((item:any,index:number)=>{const nodeId=clean(item?.node_id,80),node=allowed.get(nodeId);if(!node||seen.has(nodeId))fail('WORKFLOW_APP_OUTPUT_INVALID','Mapeamento de saída inválido.');seen.add(nodeId);const previous=current.get(nodeId);return{node_id:nodeId,label:clean(item?.label,80)||previous?.label||node.label,media_type:node.media_type!,exposed:item?.exposed===undefined?(previous?.exposed??true):Boolean(item.exposed),order:Number.isFinite(Number(item?.order))?Number(item.order):index};}).sort((a,b)=>a.order-b.order);
 }
 async function sourceSnapshot(userId:string,type:WorkflowAppSourceType,id:string){
   if(type==='FLOW'){
@@ -59,7 +58,7 @@ export const workflowAppService={
     if(app.status==='PUBLISHED'&&input?.source_id)fail('WORKFLOW_APP_PUBLISHED_PINNED','Atualize a revisão pelo comando explícito de atualização.');
     return workflowAppRepository.save({...app,name:input?.name===undefined?app.name:(clean(input.name,100)||app.name),description:input?.description===undefined?app.description:clean(input.description,400),input_schema:input?.input_schema===undefined?app.input_schema:normalizeInputs(runtime.graph,input.input_schema,app.input_schema),output_schema:input?.output_schema===undefined?app.output_schema:normalizeOutputs(runtime.graph,input.output_schema,app.output_schema)});
   },
-  async publish(userId:string,appId:string){const app=await this.get(userId,appId);if(!app.input_schema.length&&!app.output_schema.length)fail('WORKFLOW_APP_SCHEMA_REQUIRED','Configure entradas ou saídas antes de publicar.');return workflowAppRepository.save({...app,status:'PUBLISHED',published_at:app.published_at||new Date().toISOString()});},
+  async publish(userId:string,appId:string){const app=await this.get(userId,appId);for(const field of app.input_schema){if(!field.exposed&&field.required&&(field.default_value===null||field.default_value===undefined||field.default_value===''))fail('WORKFLOW_APP_HIDDEN_INPUT_DEFAULT_REQUIRED',`A entrada oculta “${field.label}” precisa de valor padrão.`);}return workflowAppRepository.save({...app,status:'PUBLISHED',published_at:app.published_at||new Date().toISOString()});},
   async refreshRevision(userId:string,appId:string){
     const app=await this.get(userId,appId),source=await sourceSnapshot(userId,app.source_type,app.source_id),runtime=await runtimeSnapshot(userId,source);
     return workflowAppRepository.save({...app,flow_revision:source.source_revision,runtime_flow_id:runtime.flow_id,runtime_flow_revision:runtime.revision,revision:app.revision+1,input_schema:normalizeInputs(source.graph,undefined,app.input_schema),output_schema:normalizeOutputs(source.graph,undefined,app.output_schema)});
@@ -68,9 +67,9 @@ export const workflowAppService={
     const app=await this.get(userId,appId);if(app.status!=='PUBLISHED')fail('WORKFLOW_APP_NOT_PUBLISHED','Publique o App antes de executar.');
     if(!idempotencyKey)fail('IDEMPOTENCY_KEY_REQUIRED','Idempotency-Key obrigatório.');
     const provided=input?.inputs||{},mapped:Record<string,any>={};
-    for(const field of app.input_schema){const value=provided[field.node_id]??provided[field.label]??field.default_value;if(field.required&&(value===undefined||value===null||value===''))fail('WORKFLOW_APP_INPUT_REQUIRED',`Preencha “${field.label}”.`);if(value!==undefined&&value!==null&&value!=='')mapped[field.node_id]=value;}
+    for(const field of app.input_schema){const value=field.exposed?(provided[field.node_id]??provided[field.label]??field.default_value):field.default_value;if(field.required&&(value===undefined||value===null||value===''))fail('WORKFLOW_APP_INPUT_REQUIRED',`Preencha “${field.label}”.`);if(value!==undefined&&value!==null&&value!=='')mapped[field.node_id]=value;}
     const run:any=await betaFlowRuntimeService.start(userId,app.runtime_flow_id,{inputs:mapped},idempotency(app,idempotencyKey),reqHost,idToken);
-    const visibleOutputs:Record<string,any>={};for(const field of app.output_schema){if(run.outputs?.[field.node_id]!==undefined)visibleOutputs[field.node_id]=run.outputs[field.node_id];}
+    const visibleOutputs:Record<string,any>={};for(const field of app.output_schema.filter(item=>item.exposed)){if(run.outputs?.[field.node_id]!==undefined)visibleOutputs[field.node_id]=run.outputs[field.node_id];}
     return{app_id:app.app_id,app_revision:app.revision,flow_run:run,outputs:visibleOutputs};
   },
   async remove(userId:string,appId:string){return workflowAppRepository.remove(await this.get(userId,appId));},
