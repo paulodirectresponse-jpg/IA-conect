@@ -184,7 +184,7 @@ async function validateRequest(request:BetaJobRequest,resolvedModelId?:string,us
     if(request.capability_id==='last-frame'&&(assets.length!==2||assets.some(asset=>asset.type!=='IMAGE')))throw Object.assign(new Error('Selecione exatamente os frames inicial e final.'),{code:'REFERENCE_REQUIRED'});
     if(['video-extend','video-edit'].includes(request.capability_id)&&(assets.length!==1||first?.type!=='VIDEO'))throw Object.assign(new Error('Selecione exatamente um vídeo de origem.'),{code:'REFERENCE_REQUIRED'});
     if(request.capability_id==='transcription'&&(!first||first.type!=='AUDIO'))throw Object.assign(new Error('Selecione um áudio para transcrever.'),{code:'REFERENCE_REQUIRED'});
-    if(request.capability_id==='subtitles'&&(!first||first.type!=='VIDEO'))throw Object.assign(new Error('Selecione um vídeo para gerar legendas.'),{code:'REFERENCE_REQUIRED'});
+    if(request.capability_id==='subtitles'&&(!first||!['VIDEO','AUDIO'].includes(first.type)))throw Object.assign(new Error('Selecione um vídeo ou áudio para gerar legendas.'),{code:'REFERENCE_REQUIRED'});
     if(request.capability_id==='authorized-voice-clone'){
       if(!first||first.type!=='AUDIO')throw Object.assign(new Error('Selecione um áudio autorizado para clonar a voz.'),{code:'REFERENCE_REQUIRED'});
       if(request.controls.voice_clone_consent!==true)throw Object.assign(new Error('Confirme que você possui autorização para usar esta voz.'),{code:'VOICE_CLONE_CONSENT_REQUIRED'});
