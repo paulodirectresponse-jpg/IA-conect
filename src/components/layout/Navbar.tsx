@@ -7,6 +7,7 @@ import {
   LogOut,
   Menu,
   Mic2,
+  Music2,
   Plus,
   Settings,
   Shield,
@@ -32,6 +33,7 @@ const viewMeta: Record<string, { title: string; eyebrow: string }> = {
   'create-image': { title: 'Gerar imagem', eyebrow: 'Criação' },
   'create-video': { title: 'Gerar vídeo', eyebrow: 'Criação' },
   'create-voice': { title: 'Gerar voz', eyebrow: 'Criação' },
+  'create-music': { title: 'Gerar música', eyebrow: 'Criação' },
   community: { title: 'Comunidade', eyebrow: 'Explorar' },
   library: { title: 'Biblioteca', eyebrow: 'Arquivos' },
   assets: { title: 'Biblioteca', eyebrow: 'Arquivos' },
@@ -148,24 +150,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="ia-shell-popover absolute right-0 mt-2 w-52 p-1.5">
               <button onClick={() => navigate('create-image')} className="ia-shell-menu-item">
                 <ImageIcon className="h-4 w-4" />
-                <span>
-                  <strong>Imagem</strong>
-                  <small>Gerar imagem com IA</small>
-                </span>
+                <span><strong>Imagem</strong><small>Gerar imagem com IA</small></span>
               </button>
               <button onClick={() => navigate('create-video')} className="ia-shell-menu-item">
                 <Video className="h-4 w-4" />
-                <span>
-                  <strong>Vídeo</strong>
-                  <small>Gerar vídeo com IA</small>
-                </span>
+                <span><strong>Vídeo</strong><small>Gerar vídeo com IA</small></span>
               </button>
               <button onClick={() => navigate('create-voice')} className="ia-shell-menu-item">
                 <Mic2 className="h-4 w-4" />
-                <span>
-                  <strong>Voz</strong>
-                  <small>Transformar texto em voz</small>
-                </span>
+                <span><strong>Voz</strong><small>Transformar texto em voz</small></span>
+              </button>
+              <button onClick={() => navigate('create-music')} className="ia-shell-menu-item">
+                <Music2 className="h-4 w-4" />
+                <span><strong>Música</strong><small>Criar música com IA</small></span>
               </button>
             </div>
           )}
@@ -177,9 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={`ia-shell-account-trigger ${accountOpen ? 'is-open' : ''}`}
             aria-expanded={accountOpen}
           >
-            <div className="grid h-7 w-7 place-items-center rounded-full border border-[var(--ia-line-strong)] bg-[var(--ia-surface-2)] text-[10px] font-bold text-[var(--ia-text-1)]">
-              {initial}
-            </div>
+            <div className="grid h-7 w-7 place-items-center rounded-full border border-[var(--ia-line-strong)] bg-[var(--ia-surface-2)] text-[10px] font-bold text-[var(--ia-text-1)]">{initial}</div>
             <ChevronDown className={`ia-shell-account-chevron h-3.5 w-3.5 text-[var(--ia-text-4)] transition-transform ${accountOpen ? 'rotate-180' : ''}`} />
           </button>
 
@@ -189,28 +184,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <p className="truncate text-[12px] font-semibold text-[var(--ia-text-1)]">{profile?.display_name || 'Minha conta'}</p>
                 <p className="mt-0.5 truncate text-[10px] text-[var(--ia-text-4)]">{profile?.email}</p>
               </div>
-
               <div className="p-1.5">
-                <button onClick={() => navigate('settings')} className="ia-shell-account-item">
-                  <UserRound className="h-4 w-4" /> Conta e perfil
-                </button>
-                <button onClick={() => navigate('wallet')} className="ia-shell-account-item">
-                  <CreditCard className="h-4 w-4" /> Carteira e créditos
-                </button>
-                <button onClick={() => navigate('settings')} className="ia-shell-account-item">
-                  <Settings className="h-4 w-4" /> Configurações
-                </button>
-                {isAdmin && (
-                  <button onClick={() => navigate('admin')} className="ia-shell-account-item">
-                    <Shield className="h-4 w-4" /> Administração
-                  </button>
-                )}
+                <button onClick={() => navigate('settings')} className="ia-shell-account-item"><UserRound className="h-4 w-4" /> Conta e perfil</button>
+                <button onClick={() => navigate('wallet')} className="ia-shell-account-item"><CreditCard className="h-4 w-4" /> Carteira e créditos</button>
+                <button onClick={() => navigate('settings')} className="ia-shell-account-item"><Settings className="h-4 w-4" /> Configurações</button>
+                {isAdmin && <button onClick={() => navigate('admin')} className="ia-shell-account-item"><Shield className="h-4 w-4" /> Administração</button>}
               </div>
-
               <div className="border-t border-[var(--ia-line)] p-1.5">
-                <button onClick={logout} className="ia-shell-account-item text-rose-300 hover:bg-rose-500/[0.07]">
-                  <LogOut className="h-4 w-4" /> Sair
-                </button>
+                <button onClick={logout} className="ia-shell-account-item text-rose-300 hover:bg-rose-500/[0.07]"><LogOut className="h-4 w-4" /> Sair</button>
               </div>
             </div>
           )}
