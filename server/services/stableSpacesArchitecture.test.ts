@@ -7,8 +7,8 @@ describe('Stable Spaces canvas',()=>{
  it('exposes Spaces as a Stable full-height destination',()=>{
   const app=read('src/App.tsx'),sidebar=read('src/components/layout/Sidebar.tsx'),layout=read('src/components/layout/AppLayout.tsx');
   expect(app).toContain("currentSafeView==='spaces'");
-  expect(sidebar).toContain("id:'spaces'");
-  expect(sidebar).toContain("label:'Spaces'");
+  expect(sidebar).toContain("id: 'spaces'");
+  expect(sidebar).toContain("label: 'Spaces'");
   expect(layout).toContain("currentView === 'spaces'");
  });
  it('provides the requested visual canvas interactions',()=>{
