@@ -1,5 +1,6 @@
 import { CapabilityMediaType } from '../capabilityRegistry.js';
 import { BetaFlowGraph } from './flowTypes.js';
+import { BetaFlowEconomicStatus } from './flowEconomicsTypes.js';
 
 export type BetaFlowRunStatus='RUNNING'|'SUCCEEDED'|'FAILED'|'CANCELLED';
 export type BetaFlowNodeRunStatus='WAITING'|'RUNNING'|'SUCCEEDED'|'FAILED'|'CANCELLED';
@@ -21,7 +22,14 @@ export interface BetaFlowRun{
   active_node_ids:string[];
   inputs:Record<string,BetaFlowValue>;
   outputs:Record<string,BetaFlowValue[]>;
+  flow_quote_id?:string;
+  budget_credit_limit?:number;
   authorized_credits_total:number;
+  captured_credits_total?:number;
+  released_credits_total?:number;
+  in_flight_credits_total?:number;
+  remaining_budget_credits?:number;
+  economic_status?:BetaFlowEconomicStatus;
   error_code?:string|null;
   error_message?:string|null;
   idempotency_fingerprint:string;
