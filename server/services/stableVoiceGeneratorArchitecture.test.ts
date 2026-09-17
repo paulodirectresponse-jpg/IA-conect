@@ -16,14 +16,18 @@ describe('Stable voice generator promotion',()=>{
   expect(navbar).toContain("'create-voice': { title: 'Gerar voz'");
  });
 
- it('uses the same full-height create shell as image and video',()=>{
+ it('uses the same full-height create shell and shared generator primitives as image and video',()=>{
   const layout=read('src/components/layout/AppLayout.tsx');
   const view=read('src/components/views/VoiceCreateView.tsx');
+  const controls=read('src/components/workspace/GeneratorControls.tsx');
   expect(layout).toContain("currentView === 'create-voice'");
   expect(layout).toContain('ia-shell-main-create');
   expect(view).toContain('ia-stable-generator-studio');
-  expect(view).toContain('ia-stable-generator-panel');
+  expect(view).toContain('GeneratorPanel');
+  expect(view).toContain('GeneratorSettingRow');
+  expect(view).toContain('GeneratorOptionGrid');
   expect(view).toContain('StableGeneratorModelPicker');
+  expect(controls).toContain("md:w-[352px] xl:w-[368px]");
  });
 
  it('keeps the first Stable audio scope restricted to text to speech',()=>{
@@ -89,8 +93,11 @@ describe('Stable voice generator promotion',()=>{
 
  it('keeps the voice workspace responsive through the shared generator shell',()=>{
   const css=read('src/styles/stable-generator-shell.css');
+  const controls=read('src/components/workspace/GeneratorControls.tsx');
   expect(css).toContain('@media(max-width:1023px)');
-  expect(css).toContain('@media(max-width:640px)');
-  expect(css).toContain('width:368px');
+  expect(css).toContain('@media(min-width:1280px)');
+  expect(css).toContain('grid-template-columns:352px');
+  expect(css).toContain('grid-template-columns:368px');
+  expect(controls).toContain("md:w-[352px] xl:w-[368px]");
  });
 });

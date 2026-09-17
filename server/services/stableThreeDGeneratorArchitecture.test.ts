@@ -27,6 +27,11 @@ describe('Stable 3D generator foundation',()=>{
   expect(routes).toContain("getFeatureFlag('beta.three_d')");expect(routes).toContain('assetRepository.getAsset');expect(routes).toContain("asset.type!=='MODEL_3D'");
   expect(routes).toContain("listUserAssets(req.user!.uid,{type:'MODEL_3D',includeUniversal:true})");expect(routes).not.toMatch(/three_d_assets|3d_library|model3d_library/);
  });
+ it('uses shared master controls instead of native selects',()=>{
+  const view=read('src/components/views/ThreeDCreateView.tsx');
+  expect(view).toContain('GeneratorSettingRow');expect(view).toContain('GeneratorOptionGrid');expect(view).toContain('GeneratorRangeSlider');expect(view).toContain('GeneratorToggle');
+  expect(view).not.toContain('<select');
+ });
  it('uses the same universal Minhas criações with a 3D filter and preview',()=>{
   const gallery=read('src/components/workspace/CreationGallery.tsx'),view=read('src/components/views/ThreeDCreateView.tsx'),preview=read('src/components/workspace/StableModel3DPreview.tsx');
   expect(gallery).toContain("'THREE_D'");expect(gallery).toContain('threeDGenerationClient.listAssets');expect(gallery).toContain('StableModel3DPreview');
@@ -34,9 +39,9 @@ describe('Stable 3D generator foundation',()=>{
   expect(view).not.toMatch(/ThreeDGallery|Model3DLibrary|three-d-creations-list/);
  });
  it('uses the shared Stable create shell and responsive workspace',()=>{
-  const layout=read('src/components/layout/AppLayout.tsx'),css=read('src/styles/stable-generator-shell.css'),view=read('src/components/views/ThreeDCreateView.tsx');
+  const layout=read('src/components/layout/AppLayout.tsx'),css=read('src/styles/stable-generator-shell.css'),controls=read('src/components/workspace/GeneratorControls.tsx'),view=read('src/components/views/ThreeDCreateView.tsx');
   expect(layout).toContain("currentView === 'create-3d'");expect(layout).toContain('ia-shell-main-create');
-  expect(css).toContain('@media(max-width:1023px)');expect(css).toContain('@media(max-width:640px)');expect(css).toContain('width:368px');
-  expect(view).toContain('ia-stable-generator-studio');expect(view).toContain('CreationGallery');
+  expect(css).toContain('@media(max-width:1023px)');expect(css).toContain('@media(min-width:1280px)');expect(css).toContain('grid-template-columns:352px');expect(css).toContain('grid-template-columns:368px');
+  expect(controls).toContain("md:w-[352px] xl:w-[368px]");expect(view).toContain('ia-stable-generator-studio');expect(view).toContain('CreationGallery');
  });
 });

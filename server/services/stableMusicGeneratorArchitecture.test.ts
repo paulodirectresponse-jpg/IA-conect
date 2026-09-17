@@ -60,6 +60,15 @@ describe('Stable music generator promotion',()=>{
   expect(view).not.toContain('Remix');
  });
 
+ it('uses shared master controls instead of native selects',()=>{
+  const view=read('src/components/views/MusicCreateView.tsx');
+  expect(view).toContain('GeneratorSettingRow');
+  expect(view).toContain('GeneratorDiscreteSlider');
+  expect(view).toContain('GeneratorOptionGrid');
+  expect(view).toContain('GeneratorToggle');
+  expect(view).not.toContain('<select');
+ });
+
  it('reuses the one universal Minhas criações gallery and adds Música as a filter',()=>{
   const view=read('src/components/views/MusicCreateView.tsx');
   const gallery=read('src/components/workspace/CreationGallery.tsx');
@@ -81,11 +90,14 @@ describe('Stable music generator promotion',()=>{
 
  it('keeps the music workspace responsive and in the shared create shell',()=>{
   const css=read('src/styles/stable-generator-shell.css');
+  const controls=read('src/components/workspace/GeneratorControls.tsx');
   const layout=read('src/components/layout/AppLayout.tsx');
   const view=read('src/components/views/MusicCreateView.tsx');
   expect(css).toContain('@media(max-width:1023px)');
-  expect(css).toContain('@media(max-width:640px)');
-  expect(css).toContain('width:368px');
+  expect(css).toContain('@media(min-width:1280px)');
+  expect(css).toContain('grid-template-columns:352px');
+  expect(css).toContain('grid-template-columns:368px');
+  expect(controls).toContain("md:w-[352px] xl:w-[368px]");
   expect(layout).toContain("currentView === 'create-music'");
   expect(layout).toContain('ia-shell-main-create');
   expect(view).toContain('ia-stable-generator-studio');
