@@ -1,8 +1,7 @@
-import React,{useEffect,useState}from'react';
-import{Users,Coins,Layers,Server,Activity,Tag,ChartNoAxesCombined,Route,ScanSearch}from'lucide-react';
-import{adminService,SystemHealthSnapshot}from'../../services/adminService.js';
-import{Card}from'../common/Card.js';
+import React,{useState}from'react';
+import{Activity,BrainCircuit,Coins,Settings2,Users}from'lucide-react';
 import{Badge}from'../common/Badge.js';
+import{AdminOverviewDashboard}from'../admin/AdminOverviewDashboard.js';
 import{AdminUsersList}from'../admin/AdminUsersList.js';
 import{AdminModels}from'../admin/AdminModels.js';
 import{AdminProviders}from'../admin/AdminProviders.js';
@@ -11,51 +10,54 @@ import{AdminPricing}from'../admin/AdminPricing.js';
 import{AdminCoupons}from'../admin/AdminCoupons.js';
 import{AdminEconomics}from'../admin/AdminEconomics.js';
 import{AdminBetaCatalog}from'../admin/AdminBetaCatalog.js';
+import{AdminFeatureFlags}from'../admin/AdminFeatureFlags.js';
+import{AdminAuditLogs}from'../admin/AdminAuditLogs.js';
+import{AdminPromotions}from'../admin/AdminPromotions.js';
 
-type AdminTab='overview'|'users'|'models'|'providers'|'provider-scan'|'pricing'|'coupons'|'economics'|'beta-catalog';
-const healthClass=(status:'OK'|'DEGRADED'|'ERROR')=>status==='OK'?'text-emerald-300 bg-emerald-300/[0.06] border-emerald-300/15':status==='DEGRADED'?'text-amber-300 bg-amber-300/[0.06] border-amber-300/15':'text-rose-300 bg-rose-300/[0.06] border-rose-300/15';
+type AdminTab='overview'|'ai'|'finance'|'users'|'system';
+
+const Section:React.FC<{title:string;description:string;open?:boolean;children:React.ReactNode}>=({title,description,open=false,children})=><details open={open} className="group ia-admin-panel p-0 overflow-hidden"><summary className="list-none cursor-pointer px-4 sm:px-5 py-4 flex items-center justify-between gap-4 select-none"><div><h2 className="text-xs font-black text-white">{title}</h2><p className="mt-1 text-[10px] text-zinc-500 leading-relaxed">{description}</p></div><span className="text-[10px] font-bold text-zinc-500 group-open:text-sky-300">{open?'':'+'}</span></summary><div className="border-t border-white/[0.06] p-4 sm:p-5">{children}</div></details>;
 
 export const AdminView:React.FC=()=>{
- const[activeTab,setActiveTab]=useState<AdminTab>('overview'),[stats,setStats]=useState<any>(null),[health,setHealth]=useState<SystemHealthSnapshot|null>(null);
- useEffect(()=>{
-  Promise.all([adminService.getDashboardStats(),adminService.getSystemHealth()])
-   .then(([s,h])=>{setStats(s);setHealth(h)})
-   .catch(err=>console.error('Falha ao carregar resumo operacional:',err));
- },[]);
+ const[activeTab,setActiveTab]=useState<AdminTab>('overview');
  const tabs=[
-  {id:'overview'as const,label:'Resumo',icon:<Activity className="w-4 h-4"/>},
-  {id:'users'as const,label:'Usuários & créditos',icon:<Users className="w-4 h-4"/>},
-  {id:'models'as const,label:'Modelos',icon:<Layers className="w-4 h-4"/>},
-  {id:'providers'as const,label:'Provedores',icon:<Server className="w-4 h-4"/>},
-  {id:'provider-scan'as const,label:'APIs & Scan',icon:<ScanSearch className="w-4 h-4"/>},
-  {id:'pricing'as const,label:'Preços & margem',icon:<Coins className="w-4 h-4"/>},
-  {id:'coupons'as const,label:'Cupons',icon:<Tag className="w-4 h-4"/>},
-  {id:'economics'as const,label:'Economia',icon:<ChartNoAxesCombined className="w-4 h-4"/>},
-  {id:'beta-catalog'as const,label:'Beta · Catálogo',icon:<Route className="w-4 h-4"/>},
+  {id:'overview'as const,label:'Visão Geral',icon:<Activity className="w-4 h-4"/>},
+  {id:'ai'as const,label:'IA & Providers',icon:<BrainCircuit className="w-4 h-4"/>},
+  {id:'finance'as const,label:'Financeiro',icon:<Coins className="w-4 h-4"/>},
+  {id:'users'as const,label:'Usuários',icon:<Users className="w-4 h-4"/>},
+  {id:'system'as const,label:'Sistema',icon:<Settings2 className="w-4 h-4"/>},
  ];
  return <div className="ia-admin space-y-7">
-  <header className="ia-view-header"><div className="flex items-center gap-2.5"><h1 className="ia-view-title">Administração</h1><Badge variant="neutral">Operacional</Badge></div><p className="ia-view-description">Créditos, preços de varejo, cupons, provedores e economia do IA Connect.</p></header>
+  <header className="ia-view-header"><div className="flex items-center gap-2.5"><h1 className="ia-view-title">Administração</h1><Badge variant="neutral">Operacional</Badge></div><p className="ia-view-description">Operação, IA, providers, finanças, usuários e sistema em uma única visão sincronizada.</p></header>
   <nav className="ia-admin-tabs flex items-center gap-1 overflow-x-auto pb-2">{tabs.map(t=><button key={t.id} onClick={()=>setActiveTab(t.id)} className={`ia-admin-tab flex h-10 items-center gap-2 px-3 rounded-lg text-[11px] font-semibold whitespace-nowrap ${activeTab===t.id?'is-active':''}`}>{t.icon}{t.label}</button>)}</nav>
-  {activeTab==='overview'&&<div className="space-y-5">
-   <div className="ia-admin-stats grid grid-cols-2 lg:grid-cols-4">
-    <Card id="admin-stat-users"><span>Usuários</span><div>{stats?.total_users??'—'}</div><small>{stats?.active_users??0} ativos</small></Card>
-    <Card id="admin-stat-credits"><span>Créditos em contas</span><div>{Number(stats?.total_platform_credits||0).toLocaleString('pt-BR')}</div><small>disponíveis + reservados</small></Card>
-    <Card id="admin-stat-models"><span>Modelos</span><div>{stats?.models_count??'—'}</div><small>catálogo ativo</small></Card>
-    <Card id="admin-stat-providers"><span>Provedores</span><div>{stats?.providers_count??'—'}</div><small>catálogo de provedores</small></Card>
-   </div>
-   <section className="ia-admin-panel">
-    <div className="flex items-center justify-between gap-3"><div><h2>Saúde operacional</h2><p>Diagnóstico da arquitetura ativa.</p></div>{health&&<span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${healthClass(health.status)}`}>{health.status}</span>}</div>
-    {health?<div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-2">{health.checks.map(check=><div key={check.key} className={`ia-admin-health rounded-[11px] border p-3 ${healthClass(check.status)}`}><div className="flex items-center justify-between gap-2"><p className="text-[11px] font-semibold text-white">{check.label}</p><span className="text-[9px] font-bold">{check.status}</span></div><p className="mt-1.5 text-[10px] leading-relaxed opacity-80">{check.detail}</p></div>)}</div>:<p className="mt-3 text-[11px] text-zinc-600">Carregando diagnóstico...</p>}
-   </section>
-   <section className="ia-admin-panel"><h2>Fonte de verdade financeira</h2><p className="mt-2">Os créditos operacionais são registrados exclusivamente no Credit Ledger. O BRL é usado apenas para pagamentos, caixa, COGS e análise econômica.</p></section>
+
+  {activeTab==='overview'&&<AdminOverviewDashboard/>}
+
+  {activeTab==='ai'&&<div className="space-y-4">
+   <div className="ia-admin-panel"><h2>IA & Providers</h2><p className="mt-1.5">Uma única área para catálogo canônico, modelos Stable/Beta, providers, credenciais detectadas, scan, mappings e roteamento. O scan não publica modelos automaticamente.</p></div>
+   <Section title="Catálogo de modelos" description="Modelos do runtime e metadados editáveis. A próxima etapa unifica aqui também todas as 86 posições canônicas." open><AdminModels/></Section>
+   <Section title="Providers & saldos" description="Estado operacional, saldo, prioridade e disponibilidade dos nove providers."><AdminProviders/></Section>
+   <Section title="Scan, acervo e mappings" description="86 posições planejadas, descoberta por provider, correspondências, preços verificados e Safe Routing." open><AdminProviderScan/></Section>
   </div>}
-  {activeTab==='users'&&<AdminUsersList/>}
-  {activeTab==='models'&&<AdminModels/>}
-  {activeTab==='providers'&&<AdminProviders/>}
-  {activeTab==='provider-scan'&&<AdminProviderScan/>}
-  {activeTab==='pricing'&&<AdminPricing/>}
-  {activeTab==='coupons'&&<AdminCoupons/>}
-  {activeTab==='economics'&&<AdminEconomics/>}
-  {activeTab==='beta-catalog'&&<AdminBetaCatalog/>}
+
+  {activeTab==='finance'&&<div className="space-y-4">
+   <div className="ia-admin-panel"><h2>Financeiro</h2><p className="mt-1.5">Preço de varejo, margem, COGS, caixa, créditos, campanhas e economia passam a viver no mesmo domínio.</p></div>
+   <Section title="Economia & unit economics" description="Caixa, COGS, contribuição, margem, consumo por modelo/provider e gerações recentes." open><AdminEconomics/></Section>
+   <Section title="Preços & margem" description="Políticas de preço e pisos de margem usados pelo runtime."><AdminPricing/></Section>
+  </div>}
+
+  {activeTab==='users'&&<div className="space-y-4">
+   <div className="ia-admin-panel"><h2>Usuários</h2><p className="mt-1.5">Contas, créditos, consumo e ações comerciais organizados no mesmo lugar.</p></div>
+   <Section title="Usuários & créditos" description="Contas, saldos, status e ajustes administrativos." open><AdminUsersList/></Section>
+   <Section title="Cupons" description="Benefícios, regras de resgate, budgets e utilização."><AdminCoupons/></Section>
+   <Section title="Promoções" description="Promoções persistentes do catálogo e suas regras."><AdminPromotions/></Section>
+  </div>}
+
+  {activeTab==='system'&&<div className="space-y-4">
+   <div className="ia-admin-panel"><h2>Sistema</h2><p className="mt-1.5">Configuração operacional, Beta, feature flags e rastreabilidade administrativa.</p></div>
+   <Section title="Feature flags" description="Ative ou interrompa recursos com registro de motivo." open><AdminFeatureFlags/></Section>
+   <Section title="Beta · catálogo e políticas" description="Elegibilidade, AUTO routing, policies e ledger econômico do ambiente Beta."><AdminBetaCatalog/></Section>
+   <Section title="Auditoria" description="Histórico das alterações administrativas e rastreabilidade."><AdminAuditLogs/></Section>
+  </div>}
  </div>;
 };
