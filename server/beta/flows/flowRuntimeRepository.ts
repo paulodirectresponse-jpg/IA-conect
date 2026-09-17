@@ -19,7 +19,7 @@ function idemKey(value:string){
 export const betaFlowRuntimeRepository={
   makeRunId:runId,
   makeNodeRunId:nodeRunId,
-  async createIdempotent(params:{userId:string;flowId:string;idempotencyKey:string;run:BetaFlowRun}){
+  async createIdempotent(params:{userId:string;flowId:string;idempotencyKey:string;run:BetaFlowRun}):Promise<BetaFlowRun>{
     const key=idemKey(params.idempotencyKey),fingerprint=hash(`${params.userId}:${params.flowId}:${key}`);
     const path=`${IDEM}/${fingerprint}`,existing=await firestoreAdminRest.get(path);
     if(existing.exists){
@@ -27,7 +27,7 @@ export const betaFlowRuntimeRepository={
       if(prior)return prior;
       throw Object.assign(new Error('Registro idempotente do Flow inconsistente.'),{code:'FLOW_IDEMPOTENCY_INCONSISTENT'});
     }
-    const run={...params.run,idempotency_fingerprint:fingerprint};
+    const run:BetaFlowRun={...params.run,idempotency_fingerprint:fingerprint};
     try{
       await firestoreAdminRest.commit([
         {update:{name:firestoreAdminRest.docName(`${RUNS}/${safe(run.run_id)}`),fields:firestoreAdminRest.fields(run)},currentDocument:{exists:false}},
@@ -49,11 +49,11 @@ export const betaFlowRuntimeRepository={
     const run=doc.data as BetaFlowRun;
     return run.user_id===userId?run:null;
   },
-  async saveRun(run:BetaFlowRun){
+  async saveRun(run:BetaFlowRun):Promise<BetaFlowRun>{
     await firestoreAdminRest.set(`${RUNS}/${safe(run.run_id)}`,run);
     return run;
   },
-  async listRuns(userId:string,limit=50){
+  async listRuns(userId:string,limit=50):Promise<BetaFlowRun[]>{
     const rows=await firestoreAdminRest.runQuery({
       from:[{collectionId:RUNS}],
       where:{fieldFilter:{field:{fieldPath:'user_id'},op:'EQUAL',value:{stringValue:userId}}},
@@ -67,16 +67,16 @@ export const betaFlowRuntimeRepository={
     const item=doc.data as BetaFlowNodeRun;
     return item.user_id===userId&&item.run_id===run?item:null;
   },
-  async saveNodeRun(item:BetaFlowNodeRun){
+  async saveNodeRun(item:BetaFlowNodeRun):Promise<BetaFlowNodeRun>{
     await firestoreAdminRest.set(`${NODES}/${safe(item.node_run_id)}`,item);
     return item;
   },
-  async listNodeRuns(run:string,userId:string){
+  async listNodeRuns(run:string,userId:string):Promise<BetaFlowNodeRun[]>{
     const rows=await firestoreAdminRest.runQuery({
       from:[{collectionId:NODES}],
       where:{fieldFilter:{field:{fieldPath:'run_id'},op:'EQUAL',value:{stringValue:run}}},
       limit:150,
     });
-    return rows.map((row:any)=>row.data as BetaFlowNodeRun).filter(row=>row.user_id===userId);
+    return rows.map((row:any)=>row.data as BetaFlowNodeRun).filter((row:BetaFlowNodeRun)=>row.user_id===userId);
   },
 };
