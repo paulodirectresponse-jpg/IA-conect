@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Globe2, Home, Image as ImageIcon, Layers3, Mic2, Music2, ShieldCheck, Video, X } from 'lucide-react';
+import { BookOpen, Globe2, Home, Image as ImageIcon, Images, Layers3, Mic2, Music2, ShieldCheck, Video, WandSparkles, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { BrandMark } from '../common/BrandMark.js';
 
@@ -35,6 +35,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpe
     { id: 'create-voice', label: 'Voz', icon: Mic2 },
     { id: 'create-music', label: 'Música', icon: Music2 },
     { id: 'create-3d', label: '3D', icon: Layers3 },
+  ];
+
+  const edit: NavItem[] = [
+    { id: 'edit-image', label: 'Editor de imagem', icon: Images },
+    { id: 'edit-video', label: 'Editor de vídeo', icon: WandSparkles },
   ];
 
   const item = ({ id, label, icon: Icon }: NavItem) => {
@@ -77,6 +82,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpe
             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--ia-text-4)]">Criar</p>
           </div>
           <nav className="space-y-1">{create.map(item)}</nav>
+
+          <div className="mb-2 mt-6 px-3">
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--ia-text-4)]">Editar</p>
+          </div>
+          <nav className="space-y-1">{edit.map(item)}</nav>
 
           {isAdmin && (
             <>
