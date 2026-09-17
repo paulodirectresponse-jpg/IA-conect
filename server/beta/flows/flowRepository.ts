@@ -15,7 +15,7 @@ async function owned(userId:string){
 }
 export const betaFlowRepository={
   async list(userId:string){
-    return (await owned(userId)).filter(row=>!row.deleted_at).sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at));
+    return (await owned(userId)).filter(row=>!row.deleted_at&&row.system_kind!=='WORKFLOW_APP').sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at));
   },
   async get(flowId:string,userId:string):Promise<BetaFlowRecord|null>{
     const doc=await firestoreAdminRest.get(`beta_flows/${safe(flowId)}`);
