@@ -18,12 +18,14 @@ function normalizeCapabilities(model:ModelRegistryItem,input:any):CapabilityId[]
 
 async function defaultModelPolicy(model:ModelRegistryItem):Promise<BetaModelPolicy>{
   const timestamp=now();
+  const mappings=await catalogRepository.listMappings();
+  const hasActiveMapping=mappings.some(mapping=>mapping.model_id===model.model_id&&mapping.status==='ACTIVE');
   return{
     model_id:model.model_id,
     pricing_policy_id:DEFAULT_POLICY_ID,
     capability_ids:capabilityIdsForModel(model),
-    enabled:model.status!=='INACTIVE',
-    auto_routing_enabled:model.status==='ACTIVE',
+    enabled:model.status!=='INACTIVE'&&hasActiveMapping,
+    auto_routing_enabled:model.status==='ACTIVE'&&hasActiveMapping,
     created_at:timestamp,
     updated_at:timestamp,
     updated_by:null,
