@@ -19,6 +19,7 @@ export const threeDGenerationClient={
  async catalog(){const data=await apiRequest<{models:ThreeDModel[]}>('/api/3d/catalog');return data.models||[];},
  create(request:{capability_id:ThreeDCapability;model_id:string;prompt:string;references:Array<{asset_id:string;slot_type:'GENERAL'}>;controls:{output_format:string;mesh_mode:'TEXTURED'|'LOW_POLY'|'GEOMETRY';pbr:boolean;target_faces:number;topology:'TRIANGLE'|'QUAD';pricing_options?:Record<string,string|number|boolean|null|undefined>}}){return apiRequest<ThreeDJob>('/api/3d/jobs',{method:'POST',headers:{'Idempotency-Key':key('create')},body:JSON.stringify(request)});},
  get(jobId:string){return apiRequest<ThreeDJob>(`/api/3d/jobs/${encodeURIComponent(jobId)}`);},
+ listAssets(){return apiRequest<Asset[]>('/api/3d/assets');},
  asset(assetId:string){return apiRequest<Asset>(`/api/3d/assets/${encodeURIComponent(assetId)}`);},
  quote(jobId:string){return mutation(jobId,'quote','quote');},
  queue(jobId:string){return mutation(jobId,'queue','queue');},
