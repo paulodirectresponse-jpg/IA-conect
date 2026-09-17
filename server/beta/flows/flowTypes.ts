@@ -29,6 +29,8 @@ export interface BetaFlowRecord{
   project_id:string|null;
   status:'DRAFT';
   graph:BetaFlowGraph;
+  system_kind?:'WORKFLOW_APP'|null;
+  source_app_id?:string|null;
   revision:number;
   created_at:string;
   updated_at:string;
