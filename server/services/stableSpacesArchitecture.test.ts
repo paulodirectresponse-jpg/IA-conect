@@ -35,6 +35,14 @@ describe('Stable Spaces canvas',()=>{
   for(const capability of ['text-to-image','image-edit','text-to-video','video-extend','video-edit','text-to-speech','music','text-to-3d','image-to-3d','multi-image-to-3d'])expect(routes).toContain(`'${capability}'`);
   for(const futureCapability of ['sound-effects','transcription','subtitles','authorized-voice-clone','dubbing','texture-3d'])expect(routes).not.toContain(`'${futureCapability}'`);
  });
+ it('only exposes provider-ready and priced model capabilities',()=>{
+  const routes=read('server/routes/spacesRoutes.ts');
+  expect(routes).toContain('providerCatalogService.listProviders');
+  expect(routes).toContain('providerPricingCatalogService.list');
+  expect(routes).toContain('providerRegistry.listAdapters');
+  expect(routes).toContain('configured.get');
+  expect(routes).toContain('verifiedPriceKeys');
+ });
  it('does not depend on beta.enabled for Stable Spaces access',()=>{
   const routes=read('server/routes/spacesRoutes.ts');
   expect(routes).toContain("getFeatureFlag('beta.flows')");
