@@ -10,7 +10,14 @@ import { catalogRepository } from '../repositories/catalogRepository.js';
 export const providerScanRouter=express.Router();
 
 providerScanRouter.get('/admin/provider-scan',requireAuth,requireAdmin,async(_req,res)=>{
-  try{res.json({success:true,data:{latest:await providerModelScanService.latest(),pricing:await providerPricingCatalogService.list()}});}
+  try{
+    const [latest,pricing,mappings]=await Promise.all([
+      providerModelScanService.latest(),
+      providerPricingCatalogService.list(),
+      catalogRepository.listMappings(),
+    ]);
+    res.json({success:true,data:{latest,pricing,mappings}});
+  }
   catch(err:any){res.status(500).json({success:false,error:{code:'PROVIDER_SCAN_READ_ERROR',message:err?.message||'Falha ao carregar scans.'}});}
 });
 
