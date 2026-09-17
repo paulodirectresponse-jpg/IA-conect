@@ -5,6 +5,9 @@ import { publicCapabilityCatalog } from '../beta/capabilityRegistry.js';
 import { betaCatalogPolicyService } from '../beta/catalog/catalogPolicyService.js';
 import { betaJobOrchestrator } from '../beta/jobs/jobOrchestrator.js';
 import { normalizeBetaPublicError } from '../beta/http/publicError.js';
+import { providerCatalogService } from '../services/providerCatalogService.js';
+import { providerPricingCatalogService } from '../services/providerPricingCatalogService.js';
+import { providerRegistry } from '../adapters/providerRegistry.js';
 
 export const voiceGenerationRouter=Router();
 const CAPABILITY='text-to-speech';
@@ -40,22 +43,44 @@ async function assertVoiceJob(userId:string,jobId:string){
 
 voiceGenerationRouter.use('/voice',requireAuth,requireVoiceEnabled);
 
-voiceGenerationRouter.get('/voice/catalog',async(req:AuthenticatedRequest,res)=>{
+voiceGenerationRouter.get('/voice/catalog',async(_req:AuthenticatedRequest,res)=>{
   try{
-    const models=await catalogRepository.listModels();
+    const[models,policies,mappings,providers,pricing]=await Promise.all([
+      catalogRepository.listModels(),
+      betaCatalogPolicyService.listCatalog(),
+      catalogRepository.listMappings(),
+      providerCatalogService.listProviders(),
+      providerPricingCatalogService.list(),
+    ]);
     const base=publicCapabilityCatalog(models);
-    const policies=await betaCatalogPolicyService.listCatalog();
     const policyByModel=new Map(policies.map(policy=>[policy.model_id,policy]));
+    const providerById=new Map(providers.map(provider=>[String(provider.provider_id),provider]));
+    const configured=new Map(providerRegistry.listAdapters().map(adapter=>[String(adapter.providerId),adapter.isConfigured()]));
+    const verifiedPriceKeys=new Set(pricing.filter(row=>row.verified).flatMap(row=>[
+      `${row.provider_id}|${row.provider_model_identifier}|${row.capability_id||''}`,
+      row.capability_id?null:`${row.provider_id}|${row.provider_model_identifier}|${CAPABILITY}`,
+    ].filter(Boolean) as string[]));
+    const providerChoices=(modelId:string)=>mappings
+      .filter(mapping=>mapping.model_id===modelId&&mapping.status==='ACTIVE'&&(!mapping.capabilities?.length||mapping.capabilities.includes(CAPABILITY)))
+      .flatMap(mapping=>{
+        const provider=providerById.get(String(mapping.provider_id));
+        const priced=verifiedPriceKeys.has(`${mapping.provider_id}|${mapping.provider_model_identifier}|${CAPABILITY}`)||verifiedPriceKeys.has(`${mapping.provider_id}|${mapping.provider_model_identifier}|`);
+        if(!provider||provider.status!=='ACTIVE'||!configured.get(String(mapping.provider_id))||!priced)return[];
+        return[{provider_id:String(provider.provider_id),name:provider.name}];
+      })
+      .filter((row,index,rows)=>rows.findIndex(item=>item.provider_id===row.provider_id)===index);
+
     const governed=base.flatMap(model=>{
       const policy=policyByModel.get(model.model_id);
       if(!policy?.eligible||!policy.capability_ids.includes(CAPABILITY as any))return[];
       const capability=model.capabilities.find(item=>item.id===CAPABILITY);
-      return capability?[{...model,capabilities:[capability],pricing_policy_id:policy.pricing_policy_id}]:[];
+      return capability?[{...model,capabilities:[capability],pricing_policy_id:policy.pricing_policy_id,providers:providerChoices(model.model_id)}]:[];
     });
     const autoEligible=policies.some(policy=>policy.eligible&&policy.auto_routing_enabled&&policy.capability_ids.includes(CAPABILITY as any));
     if(autoEligible){
       const sample=governed.find(model=>model.capabilities.length)?.capabilities[0];
-      if(sample)governed.unshift({model_id:'AUTO',name:'AUTO',category:'AUTO',capabilities:[sample],pricing_policy_id:null} as any);
+      const autoProviders=governed.flatMap((model:any)=>model.providers||[]).filter((row:any,index:number,rows:any[])=>rows.findIndex(item=>item.provider_id===row.provider_id)===index);
+      if(sample)governed.unshift({model_id:'AUTO',name:'AUTO',category:'AUTO',capabilities:[sample],pricing_policy_id:null,providers:autoProviders} as any);
     }
     return res.json({success:true,data:{models:governed}});
   }catch(error:any){return failure(res,error,'Não foi possível carregar o gerador de voz.');}
