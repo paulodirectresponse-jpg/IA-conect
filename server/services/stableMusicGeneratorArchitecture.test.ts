@@ -27,6 +27,13 @@ describe('Stable music generator promotion',()=>{
   expect(view).not.toMatch(/provider_id|api[_-]?key|wavespeed/i);
  });
 
+ it('keeps the existing audio and music kill switches authoritative',()=>{
+  const routes=read('server/routes/musicGenerationRoutes.ts');
+  expect(routes).toContain("getFeatureFlag('beta.audio')");
+  expect(routes).toContain("getFeatureFlag('beta.audio.music')");
+  expect(routes).toContain("code:'AUDIO_CAPABILITY_DISABLED'");
+ });
+
  it('keeps the initial music scope text-to-music only',()=>{
   const routes=read('server/routes/musicGenerationRoutes.ts');
   const view=read('src/components/views/MusicCreateView.tsx');
@@ -51,6 +58,7 @@ describe('Stable music generator promotion',()=>{
 
  it('tags generated music assets without creating a second asset system',()=>{
   const routes=read('server/routes/musicGenerationRoutes.ts');
+  expect(routes).toContain('assetRepository.getAsset');
   expect(routes).toContain('assetRepository.updateAsset');
   expect(routes).toContain('media_metadata');
   expect(routes).toContain('capability_id:CAPABILITY');
