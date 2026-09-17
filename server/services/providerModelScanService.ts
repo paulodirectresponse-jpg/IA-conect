@@ -3,6 +3,7 @@ import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { providerCatalogService } from './providerCatalogService.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
+import { curatedModelMatchService, ProviderModelMatchProposal } from './curatedModelMatchService.js';
 
 export type ProviderDiscoveryMode='CATALOG_API'|'SEARCH_API'|'CURATED_REQUIRED';
 export interface ProviderScanCandidate{
@@ -21,13 +22,17 @@ export interface ProviderScanResult{
   configured:boolean;
   discovery_mode:ProviderDiscoveryMode;
   candidate_count:number;
+  candidate_sample_count:number;
   candidates:ProviderScanCandidate[];
+  matched_count:number;
+  matches:ProviderModelMatchProposal[];
   warning?:string|null;
   error?:string|null;
   scanned_at:string;
 }
 
 const timeout=15_000;
+const RAW_SAMPLE_LIMIT=125;
 function trim(v:string|undefined,fallback:string){return String(v||fallback).replace(/\/+$/,'');}
 async function json(url:string,init:RequestInit={}){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
@@ -52,7 +57,7 @@ async function deepinfra():Promise<ProviderScanCandidate[]>{
   const rows=body?.data??body?.models??body??[];return uniq((Array.isArray(rows)?rows:[]).map((r:any)=>candidate('provider-deepinfra',r.model_name??r.id,r.display_name??r.name,r)));
 }
 async function aiml():Promise<ProviderScanCandidate[]>{
-  const key=String(process.env.AIML_API_KEY||'').trim();const headers:keyof any=undefined as any;
+  const key=String(process.env.AIML_API_KEY||'').trim();
   const body=await json(`${trim(process.env.AIML_BASE_URL,'https://api.aimlapi.com')}/models`,{headers:key?{Authorization:`Bearer ${key}`,Accept:'application/json'}:{Accept:'application/json'}});
   const rows=body?.data??body?.models??body??[];return uniq((Array.isArray(rows)?rows:[]).map((r:any)=>candidate('provider-aiml',r.id??r.model,r.name??r.info?.name,r)));
 }
@@ -64,7 +69,12 @@ async function replicate():Promise<ProviderScanCandidate[]>{
 async function runware():Promise<ProviderScanCandidate[]>{
   const key=String(process.env.RUNWARE_API_KEY||'').trim();if(!key)return[];
   const root=trim(process.env.RUNWARE_BASE_URL,'https://api.runware.ai/v1');
-  const queries=['nano banana','flux','seedream','gpt image','veo','seedance','wan','kling','minimax','elevenlabs','trellis','hunyuan','rodin','meshy','tripo'];
+  const queries=[
+    'nano banana','flux','seedream','gpt image','imagen','recraft','qwen image','grok imagine',
+    'veo','seedance','wan','kling','minimax','runway','luma','pixverse','ltx',
+    'elevenlabs','inworld','qwen tts','chatterbox','ace step','udio','stable audio','yue','sonilo','mmaudio','thinksound',
+    'trellis','hunyuan','rodin','meshy','tripo','sam 3d',
+  ];
   const rows:ProviderScanCandidate[]=[];
   for(const search of queries){
     const taskUUID=crypto.randomUUID();const body=await json(root,{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify([{taskType:'modelSearch',taskUUID,search,visibility:'public',limit:100,offset:0}])});
@@ -87,11 +97,13 @@ export const providerModelScanService={
   async scanProvider(providerId:string):Promise<ProviderScanResult>{
     const provider=await providerCatalogService.getProvider(providerId);if(!provider)throw Object.assign(new Error('Provider desconhecido.'),{code:'PROVIDER_NOT_FOUND'});
     const adapter=providerRegistry.getAdapter(providerId),configured=Boolean(adapter?.isConfigured()),mode=modes[providerId]||'CURATED_REQUIRED',scanId=`scan_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-    let candidates:ProviderScanCandidate[]=[],error:string|null=null,warning:string|null=null;
+    let allCandidates:ProviderScanCandidate[]=[],error:string|null=null,warning:string|null=null;
     if(!configured&&mode!=='CURATED_REQUIRED')warning='API key ausente; catálogo autenticado não foi consultado.';
-    try{candidates=await discover(providerId);}catch(err:any){error=err?.message||'Falha ao consultar catálogo do provider.';}
-    if(mode==='CURATED_REQUIRED')warning='Este provider não expõe uma listagem pública estável suficiente para ativação automática. O scan usa mappings curados e exige validação de schema/preço por modelo.';
-    const result:ProviderScanResult={scan_id:scanId,provider_id:providerId,provider_name:provider.name,configured,discovery_mode:mode,candidate_count:candidates.length,candidates,warning,error,scanned_at:new Date().toISOString()};
+    try{allCandidates=await discover(providerId);}catch(err:any){error=err?.message||'Falha ao consultar catálogo do provider.';}
+    const matches=await curatedModelMatchService.propose(providerId,allCandidates);
+    if(mode==='CURATED_REQUIRED')warning='Este provider exige curadoria de endpoint. O scan reutiliza mappings aprovados; novos mappings exigem identificador explícito, schema/capability e preço verificados.';
+    const candidates=allCandidates.slice(0,RAW_SAMPLE_LIMIT);
+    const result:ProviderScanResult={scan_id:scanId,provider_id:providerId,provider_name:provider.name,configured,discovery_mode:mode,candidate_count:allCandidates.length,candidate_sample_count:candidates.length,candidates,matched_count:matches.length,matches,warning,error,scanned_at:new Date().toISOString()};
     await firestoreAdminRest.set(`provider_scan_runs/${encodeURIComponent(scanId)}`,result).catch(()=>{});
     await firestoreAdminRest.set(`provider_scan_latest/${encodeURIComponent(providerId)}`,result).catch(()=>{});
     return result;
