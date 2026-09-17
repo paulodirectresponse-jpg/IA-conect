@@ -1,14 +1,20 @@
-import { ProviderRegistryItem } from '../../src/types/index.js';
+import { ProviderRegistryItem, ModelRegistryItem } from '../../src/types/index.js';
 import { CURATED_MODEL_SEEDS } from '../../src/config/curatedModelInventory.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 
 const now=()=>new Date().toISOString();
 
 /**
- * Canonical provider control-plane catalog. Existing Firestore rows win so Admin
- * status/priority changes remain authoritative. Missing rows are seeded lazily.
- * Curated model positions are also seeded here as EXPERIMENTAL/Beta-only until
- * a provider mapping + capability + verified pricing rule are approved.
+ * Canonical provider control-plane catalog.
+ *
+ * IMPORTANT FOR CLOUDFLARE WORKERS:
+ * Read paths must not seed the full curated model inventory. Doing dozens of
+ * Firestore writes inside one request can exceed the Worker subrequest budget
+ * and return a platform-level 503 before Express can serialize JSON.
+ *
+ * Provider definitions are therefore merged in memory with persisted Admin
+ * overrides. Provider/model rows are persisted lazily only when an operation
+ * actually needs a durable record (for example, approving a mapping).
  */
 export const PROVIDER_DEFINITIONS:ProviderRegistryItem[]=[
   {provider_id:'provider-wavespeed',name:'WaveSpeed AI',slug:'wavespeed',status:'ACTIVE',priority:110,is_configured:false,created_at:now(),updated_at:now()},
@@ -22,37 +28,58 @@ export const PROVIDER_DEFINITIONS:ProviderRegistryItem[]=[
   {provider_id:'provider-kie',name:'Kie.ai',slug:'kie',status:'ACTIVE',priority:65,is_configured:false,created_at:now(),updated_at:now()},
 ];
 
-let seeding:Promise<void>|null=null;
-async function ensureSeeded(){
-  if(seeding)return seeding;
-  seeding=(async()=>{
-    const existingProviders=await catalogRepository.listProviders();
-    const providerIds=new Set(existingProviders.map(item=>String(item.provider_id)));
-    for(const item of PROVIDER_DEFINITIONS){
-      if(providerIds.has(item.provider_id))continue;
-      await catalogRepository.saveProvider(item);
-      providerIds.add(item.provider_id);
-    }
+const definitionById=new Map(PROVIDER_DEFINITIONS.map(item=>[item.provider_id,item]));
+const modelSeedById=new Map(CURATED_MODEL_SEEDS.map(item=>[item.model_id,item]));
 
-    const existingModels=await catalogRepository.listModels();
-    const modelIds=new Set(existingModels.map(item=>String(item.model_id)));
-    for(const model of CURATED_MODEL_SEEDS){
-      if(modelIds.has(model.model_id))continue;
-      await catalogRepository.saveModel(model);
-      modelIds.add(model.model_id);
-    }
-  })().finally(()=>{seeding=null;});
-  return seeding;
+function mergeProviders(existing:ProviderRegistryItem[]){
+  const stored=new Map(existing.map(item=>[String(item.provider_id),item]));
+  const canonical=PROVIDER_DEFINITIONS.map(definition=>{
+    const override=stored.get(definition.provider_id);
+    return override?{...definition,...override,provider_id:definition.provider_id}:definition;
+  });
+  const known=new Set(PROVIDER_DEFINITIONS.map(item=>item.provider_id));
+  const custom=existing.filter(item=>!known.has(String(item.provider_id)));
+  return [...canonical,...custom];
 }
 
+async function listProviders(){
+  const existing=await catalogRepository.listProviders();
+  return mergeProviders(existing);
+}
+
+async function getProvider(providerId:string){
+  const existing=await catalogRepository.getProvider(providerId);
+  if(existing)return existing;
+  return definitionById.get(providerId)||null;
+}
+
+async function ensureProviderRecord(providerId:string){
+  const existing=await catalogRepository.getProvider(providerId);
+  if(existing)return existing;
+  const definition=definitionById.get(providerId);
+  if(!definition)return null;
+  return catalogRepository.saveProvider({...definition,created_at:now(),updated_at:now()});
+}
+
+async function ensureCuratedModel(modelId:string):Promise<ModelRegistryItem|null>{
+  const existing=await catalogRepository.getModel(modelId);
+  if(existing)return existing;
+  const seed=modelSeedById.get(modelId);
+  if(!seed)return null;
+  return catalogRepository.saveModel({...seed,created_at:seed.created_at||now(),updated_at:now()});
+}
+
+/**
+ * Backwards-compatible hook used by older catalog routes.
+ * It is intentionally read-only now. Curated models are created lazily via
+ * ensureCuratedModel() when a verified mapping is approved.
+ */
+async function ensureSeeded(){return;}
+
 export const providerCatalogService={
-  async listProviders(){
-    await ensureSeeded();
-    return catalogRepository.listProviders();
-  },
-  async getProvider(providerId:string){
-    await ensureSeeded();
-    return catalogRepository.getProvider(providerId);
-  },
+  listProviders,
+  getProvider,
+  ensureProviderRecord,
+  ensureCuratedModel,
   ensureSeeded,
 };
