@@ -1,6 +1,7 @@
 import { Router,Response,NextFunction } from 'express';
 import { requireAuth,AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
+import { assetRepository } from '../repositories/assetRepository.js';
 import { publicCapabilityCatalog } from '../beta/capabilityRegistry.js';
 import { betaCatalogPolicyService } from '../beta/catalog/catalogPolicyService.js';
 import { betaJobOrchestrator } from '../beta/jobs/jobOrchestrator.js';
@@ -30,11 +31,25 @@ async function requireMusicEnabled(_req:AuthenticatedRequest,res:Response,next:N
   }
 }
 
+async function tagMusicAssets(userId:string,job:any){
+  if(job?.status!=='SUCCEEDED'||!Array.isArray(job.result_asset_ids))return;
+  await Promise.all(job.result_asset_ids.map(async(assetId:string)=>{
+    const asset=await assetRepository.getAsset(assetId,userId).catch(()=>null);
+    if(!asset||asset.media_metadata?.capability_id===CAPABILITY)return;
+    await assetRepository.updateAsset(assetId,userId,{
+      name:String(asset.name||'').startsWith('Áudio gerado')?String(asset.name).replace('Áudio gerado','Música gerada'):asset.name,
+      duration_seconds:Number(job.request?.controls?.duration_seconds||asset.duration_seconds||0)||asset.duration_seconds||null,
+      media_metadata:{...(asset.media_metadata||{}),capability_id:CAPABILITY,instrumental:Boolean(job.request?.controls?.instrumental)},
+    });
+  }));
+}
+
 async function assertMusicJob(userId:string,jobId:string){
   const job=await betaJobOrchestrator.getPublic(userId,jobId);
   if(job?.request?.capability_id!==CAPABILITY){
     throw Object.assign(new Error('Geração de música não encontrada.'),{code:'JOB_NOT_FOUND'});
   }
+  await tagMusicAssets(userId,job);
   return job;
 }
 
@@ -86,6 +101,8 @@ musicGenerationRouter.post('/music/jobs/:jobId/queue',async(req:AuthenticatedReq
   try{
     await assertMusicJob(req.user!.uid,req.params.jobId);
     const job=await betaJobOrchestrator.queue(req.user!.uid,req.params.jobId,idem(req),requestHost(req),req.user!.idToken);
-    return res.json({success:true,data:await betaJobOrchestrator.getPublic(req.user!.uid,job.job_id)});
+    const publicJob=await betaJobOrchestrator.getPublic(req.user!.uid,job.job_id);
+    await tagMusicAssets(req.user!.uid,publicJob);
+    return res.json({success:true,data:publicJob});
   }catch(error:any){return failure(res,error,'Não foi possível iniciar a geração de música.');}
 });
