@@ -1,0 +1,67 @@
+import fs from 'fs';
+import path from 'path';
+import {describe,expect,it} from 'vitest';
+
+const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
+
+describe('Stable voice generator promotion',()=>{
+ it('exposes voice as a first-class Stable create destination',()=>{
+  const app=read('src/App.tsx');
+  const sidebar=read('src/components/layout/Sidebar.tsx');
+  const navbar=read('src/components/layout/Navbar.tsx');
+  expect(app).toContain("currentSafeView==='create-voice'");
+  expect(app).toContain("VoiceCreateView");
+  expect(sidebar).toContain("id: 'create-voice'");
+  expect(navbar).toContain("navigate('create-voice')");
+  expect(navbar).toContain("'create-voice': { title: 'Gerar voz'");
+ });
+
+ it('uses the same full-height create shell as image and video',()=>{
+  const layout=read('src/components/layout/AppLayout.tsx');
+  expect(layout).toContain("currentView === 'create-voice'");
+  expect(layout).toContain('ia-shell-main-create');
+ });
+
+ it('keeps the first Stable audio scope restricted to text to speech',()=>{
+  const routes=read('server/routes/voiceGenerationRoutes.ts');
+  expect(routes).toContain("const CAPABILITY='text-to-speech'");
+  expect(routes).toContain("capability_id:CAPABILITY");
+  expect(routes).toContain('references:[]');
+  expect(routes).not.toMatch(/sound-effects|transcription|subtitles|authorized-voice-clone|dubbing/);
+ });
+
+ it('keeps providers and final pricing out of the Stable voice frontend',()=>{
+  const view=read('src/components/views/VoiceCreateView.tsx');
+  const client=read('src/services/voiceGenerationClient.ts');
+  expect(view).not.toMatch(/wavespeed|provider_id|api[_-]?key/i);
+  expect(client).not.toMatch(/wavespeed|provider_id|api[_-]?key/i);
+  expect(view).toContain('Calcular créditos');
+  expect(view).toContain('job?.quote?.credit_price');
+ });
+
+ it('reuses central jobs assets wallet and generated creations',()=>{
+  const routes=read('server/routes/voiceGenerationRoutes.ts');
+  const view=read('src/components/views/VoiceCreateView.tsx');
+  expect(routes).toContain('betaJobOrchestrator.create');
+  expect(routes).toContain('betaJobOrchestrator.quote');
+  expect(routes).toContain('betaJobOrchestrator.queue');
+  expect(view).toContain("assetService.listAssets({type:'AUDIO',origin:'GENERATED'})");
+  expect(view).toContain('refreshWallet');
+  expect(view).toContain('MINHAS CRIAÇÕES');
+ });
+
+ it('contains only the requested voice controls',()=>{
+  const view=read('src/components/views/VoiceCreateView.tsx');
+  for(const label of ['Texto','Voz','Idioma','Formato'])expect(view).toContain(label);
+  expect(view).not.toContain('Clonar voz');
+  expect(view).not.toContain('Transcrever');
+  expect(view).not.toContain('Dublar');
+  expect(view).not.toContain('Efeitos');
+ });
+
+ it('keeps the voice workspace responsive',()=>{
+  const css=read('src/styles/voice-create.css');
+  expect(css).toContain('@media(max-width:1023px)');
+  expect(css).toContain('@media(max-width:640px)');
+ });
+});
