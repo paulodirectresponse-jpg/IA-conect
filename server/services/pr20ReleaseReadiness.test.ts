@@ -33,8 +33,8 @@ describe('PR-20 Final QA / Rollout release readiness',()=>{
   it('keeps public sharing read-only and revocable',()=>{
     const routes=read('server/routes/betaSharingRoutes.ts');
     const sharing=read('server/beta/sharing/sharingService.ts');
-    expect(routes).toContain("get('/shared/:token'");
-    expect(routes).not.toMatch(/post\('\/shared\/:token|put\('\/shared\/:token|patch\('\/shared\/:token|delete\('\/shared\/:token/i);
+    expect(routes).toContain("get('/beta/shared/:token'");
+    expect(routes).not.toMatch(/post\('\/beta\/shared\/:token|put\('\/beta\/shared\/:token|patch\('\/beta\/shared\/:token|delete\('\/beta\/shared\/:token/i);
     expect(sharing).toContain("status:'REVOKED'");
     expect(sharing).toContain("createHash('sha256')");
   });
