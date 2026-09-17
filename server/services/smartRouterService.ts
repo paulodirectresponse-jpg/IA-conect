@@ -63,6 +63,8 @@ export const smartRouterService={
     );
     const excluded=new Set((params.exclude_provider_ids||[]).map(String));
     const preferredProviderId=String(params.pricing_options?.preferred_provider_id||'').trim();
+    const providerPricingOptions={...(params.pricing_options||{})};
+    delete providerPricingOptions.preferred_provider_id;
     const max=Number.isFinite(Number(params.max_allowed_cogs_cents))?Math.max(0,Number(params.max_allowed_cogs_cents)):null;
     const incurred=Math.max(0,Number(params.incurred_cogs_cents||0));
     const remaining=max==null?null:Math.max(0,max-incurred);
@@ -80,7 +82,7 @@ export const smartRouterService={
           provider_model_identifier:mapping.provider_model_identifier,prompt:params.prompt,negative_prompt:params.negative_prompt,
           duration_seconds:params.duration_seconds,resolution:params.resolution,aspect_ratio:params.aspect_ratio||'16:9',
           number_of_outputs:params.number_of_outputs,seed:params.seed,motion_strength:params.motion_strength,
-          audio_enabled:params.audio_enabled,model_variant:params.model_variant,pricing_options:params.pricing_options,
+          audio_enabled:params.audio_enabled,model_variant:params.model_variant,pricing_options:providerPricingOptions,
           provider_references:params.provider_references,
         },Boolean(params.force_live_quote));
         const finance=financeById.get(providerId);
