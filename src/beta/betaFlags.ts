@@ -15,6 +15,8 @@ export const BETA_FEATURE_FLAGS = [
   { flag_key: 'beta.flows', name: 'Beta · Fluxos', description: 'Libera o editor visual de Fluxos.', is_enabled: true, is_private: false },
   { flag_key: 'beta.flow_runtime', name: 'Beta · Flow Runtime', description: 'Libera execução de Fluxos pelo runtime DAG.', is_enabled: true, is_private: false },
   { flag_key: 'beta.flow_runtime.execution', name: 'Beta · Flow Runtime Execution', description: 'Kill switch de novas execuções do Flow Runtime.', is_enabled: true, is_private: true },
+  { flag_key: 'beta.flow_economics', name: 'Beta · Flow Economics', description: 'Libera orçamento, limites e métricas econômicas dos Fluxos.', is_enabled: true, is_private: false },
+  { flag_key: 'beta.flow_economics.budget_guard', name: 'Beta · Flow Budget Guard', description: 'Kill switch da proteção de orçamento por Flow.', is_enabled: true, is_private: true },
   { flag_key: 'beta.templates', name: 'Beta · Templates', description: 'Libera galeria e templates de Fluxos.', is_enabled: false, is_private: false },
   { flag_key: 'beta.flow_apps', name: 'Beta · Workflow Apps', description: 'Libera Apps construídos a partir de Fluxos.', is_enabled: false, is_private: false },
   { flag_key: 'beta.batch', name: 'Beta · Batch', description: 'Libera execução em lote e fan-out controlado.', is_enabled: false, is_private: false },
