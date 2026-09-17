@@ -2,81 +2,66 @@
 
 ## Scope
 
-Final source-level QA pass after the premium redesign phases.
+Final source-level and CI-backed QA pass after the Stable redesign, mobile hardening and Beta PR-00 → PR-20 roadmap.
 
-Validated in code:
-- semantic design tokens
-- shell hierarchy
-- image/video generators
-- model picker
-- prompt and generation CTA
-- dashboard and creative surfaces
-- wallet/settings/admin/auth
-- public landing page
-- reduced-motion behavior
-- mobile layout safeguards
-- light/dark theme compatibility
-- CI lint/build/tests
+Validated by repository contracts and the native CI pipeline:
 
-## Motion
+- semantic design tokens and shell hierarchy;
+- image/video generators and model picker;
+- Dashboard, Community, Library, Wallet, History, Settings and Admin;
+- auth/public landing surfaces;
+- Stable/Beta isolation;
+- reduced-motion behavior;
+- mobile layout safeguards;
+- dark/light Stable compatibility;
+- typecheck, production build, tests and performance budget;
+- Browser Performance QA under Fast 3G and 4G.
+
+## Motion and accessibility
 
 - Shared motion durations remain restrained.
-- Reduced-motion users no longer receive autoplay loops on the landing hero or model showcase.
-- Smooth scrolling falls back to instant scrolling when reduced motion is enabled.
-- Decorative hover transforms are suppressed for reduced motion.
-- Loading animations are disabled under reduced motion.
-- Generator CTA remains visible at the bottom of the mobile configuration panel.
-
-## Accessibility
-
-- Shared focus-visible treatment is present for buttons, links, form controls and role=button elements.
-- Important financial and generation states continue to use text plus semantic styling.
-- Auto model mode remains generic and does not expose internal routing.
-- Media retains a high-contrast stage in light theme.
-- Primary CTA, price and wallet balance remain visually distinguishable.
+- `prefers-reduced-motion` disables or collapses decorative motion where required.
+- Focus-visible treatment remains present for interactive controls.
+- Financial and generation states retain textual meaning instead of relying only on color.
+- AUTO model mode stays generic and does not expose provider routing.
+- Generated media remains the primary visual hierarchy.
 
 ## Responsive
 
-Source-level checks were made for:
-- sidebar overlay behavior
-- mobile navbar
-- generator panel height
-- generator CTA reachability
-- horizontal media galleries
-- landing hero typography
-- landing CTA stacking
-- history rows
-- community and library grids
+Repository QA contracts cover the mobile shell, Dashboard, Library and final mobile stage safeguards. The final layout keeps desktop behavior isolated from mobile-specific adaptations and preserves reachability of primary generation actions.
 
-## Browser QA status
+## Browser Performance QA status
 
-Automated browser validation with Playwright MCP is still pending because the Playwright MCP server is not connected to this ChatGPT environment.
+Browser QA is no longer pending on an external Playwright MCP server. The repository CI itself is the authoritative automated browser gate.
 
-The repository CI is still the gate for:
-- lint
-- production build
-- tests
+The workflow `.github/workflows/ci.yml` builds the production bundle, starts the Vite preview and runs Lighthouse twice:
 
-A browser QA pass should later cover:
-- 390px mobile
-- 768px tablet
-- 1440px desktop
-- dark and light authenticated themes
-- login/register
-- image generation
-- video generation
-- wallet checkout
-- community modal
-- library/project navigation
+- Fast 3G simulation: RTT 150 ms, throughput 1600 Kbps, CPU slowdown 4x;
+- 4G simulation: RTT 40 ms, throughput 9000 Kbps, CPU slowdown 2x.
+
+Reference post-PR19 run (`main@cf1f3fe0a6da3af027dc2645e313329ddeb6355b`):
+
+| Profile | Score | LCP | CLS | TBT | Speed Index |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Fast 3G | 95 | 1987 ms | 0.000 | 227 ms | 1948 ms |
+| 4G | 99 | 1879 ms | 0.000 | 0 ms | 1802 ms |
+
+These synthetic measurements are release gates, not a substitute for real-user p75 field metrics.
+
+## Functional coverage
+
+Stable regressions remain protected by existing architecture, economics, storage, mobile and route suites. Beta regressions are protected per capability/module, including Universal Assets, Library, Catalog, Audio, 3D, Image Editor, Video, Flows, Flow Runtime/Economics, Templates, Workflow Apps, Batch, Context/Copilot and Sharing/Analytics.
+
+The PR-20 release-readiness contract additionally verifies that these protections and the CI gates remain wired before rollout.
 
 ## Design outcome
 
-The redesign now follows one hierarchy:
+The product keeps one hierarchy:
 
-1. generated media and primary task
-2. prompt/model/configuration
-3. financial/generation truth
-4. navigation and operational context
-5. secondary discovery
+1. generated media and primary task;
+2. prompt/model/configuration;
+3. financial/generation truth;
+4. navigation and operational context;
+5. secondary discovery.
 
-Decorative gradients, glows and card nesting are intentionally reduced outside brand, media and primary-action moments.
+Decorative gradients, glows and card nesting remain intentionally restrained outside brand, media and primary-action moments.
