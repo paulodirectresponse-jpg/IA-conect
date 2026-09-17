@@ -24,7 +24,21 @@ describe('Stable music generator promotion',()=>{
   expect(routes).toContain('betaJobOrchestrator.quote');
   expect(routes).toContain('betaJobOrchestrator.queue');
   expect(view).toContain('job?.quote?.credit_price');
-  expect(view).not.toMatch(/provider_id|api[_-]?key|wavespeed/i);
+ });
+
+ it('exposes governed provider choice without frontend secrets or hardcoded providers',()=>{
+  const routes=read('server/routes/musicGenerationRoutes.ts');
+  const view=read('src/components/views/MusicCreateView.tsx');
+  const client=read('src/services/musicGenerationClient.ts');
+  expect(view).toContain('IA / modelo');
+  expect(view).toContain('Provider');
+  expect(view).toContain('AUTO · Mais econômico/saudável');
+  expect(routes).toContain('providerChoices');
+  expect(routes).toContain("provider.status!=='ACTIVE'");
+  expect(routes).toContain('configured.get');
+  expect(routes).toContain('verifiedPriceKeys');
+  expect(view).not.toMatch(/wavespeed|runware|deepinfra|replicate|aiml|piapi|kie\.ai/i);
+  expect(client).not.toMatch(/api[_-]?key|authorization|bearer/i);
  });
 
  it('keeps the existing audio and music kill switches authoritative',()=>{
