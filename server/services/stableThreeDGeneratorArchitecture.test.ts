@@ -7,7 +7,7 @@ describe('Stable 3D generator foundation',()=>{
  it('exposes 3D as a first-class Stable create destination',()=>{
   const app=read('src/App.tsx'),sidebar=read('src/components/layout/Sidebar.tsx'),navbar=read('src/components/layout/Navbar.tsx');
   expect(app).toContain("currentSafeView==='create-3d'");expect(app).toContain('ThreeDCreateView');
-  expect(sidebar).toContain("id:'create-3d'");expect(navbar).toContain("navigate('create-3d')");expect(navbar).toContain("'create-3d':{title:'Gerar 3D'");
+  expect(sidebar).toContain("id: 'create-3d'");expect(navbar).toContain("navigate('create-3d')");expect(navbar).toContain("'create-3d': { title: 'Gerar 3D'");
  });
  it('supports text, image and multi-image 3D without a second job system',()=>{
   const routes=read('server/routes/threeDGenerationRoutes.ts'),view=read('src/components/views/ThreeDCreateView.tsx');
@@ -24,7 +24,13 @@ describe('Stable 3D generator foundation',()=>{
  it('preserves the 3D kill switch and existing Universal Assets ownership',()=>{
   const routes=read('server/routes/threeDGenerationRoutes.ts');
   expect(routes).toContain("getFeatureFlag('beta.three_d')");expect(routes).toContain('assetRepository.getAsset');expect(routes).toContain("asset.type!=='MODEL_3D'");
-  expect(routes).not.toMatch(/three_d_assets|3d_library|model3d_library/);
+  expect(routes).toContain("listUserAssets(req.user!.uid,{type:'MODEL_3D',includeUniversal:true})");expect(routes).not.toMatch(/three_d_assets|3d_library|model3d_library/);
+ });
+ it('uses the same universal Minhas criações with a 3D filter and preview',()=>{
+  const gallery=read('src/components/workspace/CreationGallery.tsx'),view=read('src/components/views/ThreeDCreateView.tsx'),preview=read('src/components/workspace/StableModel3DPreview.tsx');
+  expect(gallery).toContain("'THREE_D'");expect(gallery).toContain('threeDGenerationClient.listAssets');expect(gallery).toContain('StableModel3DPreview');
+  expect(view).toContain('defaultFilter="THREE_D"');expect(view).toContain('CreationGallery');expect(preview).toContain('parseGlb');
+  expect(view).not.toMatch(/ThreeDGallery|Model3DLibrary|three-d-creations-list/);
  });
  it('uses the shared Stable create shell and responsive workspace',()=>{
   const layout=read('src/components/layout/AppLayout.tsx'),css=read('src/styles/three-d-create.css'),view=read('src/components/views/ThreeDCreateView.tsx');
