@@ -32,7 +32,7 @@ export interface ProviderScanResult{
   scanned_at:string;
 }
 
-const timeout=10_000;
+const timeout=6_000;
 const RAW_SAMPLE_LIMIT=125;
 function trim(v:string|undefined,fallback:string){return String(v||fallback).replace(/\/+$/,'');}
 async function json(url:string,init:RequestInit={}){
@@ -77,15 +77,13 @@ async function runwareSearch(root:string,key:string,search:string):Promise<Provi
 async function runware():Promise<ProviderScanCandidate[]>{
   const key=String(process.env.RUNWARE_API_KEY||'').trim();if(!key)return[];
   const root=trim(process.env.RUNWARE_BASE_URL,'https://api.runware.ai/v1');
-  // Curated family queries only. The previous implementation performed dozens
-  // of serial searches and could exhaust a Cloudflare Worker request budget.
   const queries=[
-    'nano banana','flux','seedream','gpt image','recraft','qwen image','grok imagine',
+    'nano banana','flux','seedream','gpt image','qwen image','recraft','grok imagine',
     'veo','seedance','wan','kling','minimax','runway','luma',
-    'elevenlabs','music','sound effects','trellis','hunyuan 3d','meshy',
+    'elevenlabs','music','3d',
   ];
   const rows:ProviderScanCandidate[]=[];
-  const BATCH=5;
+  const BATCH=6;
   for(let index=0;index<queries.length;index+=BATCH){
     const chunk=queries.slice(index,index+BATCH);
     const results=await Promise.allSettled(chunk.map(search=>runwareSearch(root,key,search)));
@@ -117,7 +115,7 @@ async function buildScan(provider:ProviderRegistryItem,mappings:ProviderModelMap
   let allCandidates:ProviderScanCandidate[]=[],error:string|null=null;
   const warnings:string[]=[];
   if(!configured)warnings.push('API key ausente; o provider ainda não pode ser validado com credenciais reais.');
-  try{allCandidates=await discover(providerId,mappings);}catch(err:any){error=err?.message||'Falha ao consultar catálogo do provider.';}
+  try{allCandidates=await discover(providerId,mappings);}catch(err:any){error=err?.name==='AbortError'?'Timeout ao consultar catálogo do provider.':err?.message||'Falha ao consultar catálogo do provider.';}
   const matches=await curatedModelMatchService.propose(providerId,allCandidates,mappings);
   if(mode==='CURATED_REQUIRED')warnings.push('Este provider exige curadoria de endpoint. O scan reutiliza mappings aprovados; novos mappings exigem identificador explícito, schema/capability e preço verificados.');
   const candidates=allCandidates.slice(0,RAW_SAMPLE_LIMIT);
@@ -134,11 +132,22 @@ export const providerModelScanService={
     return buildScan(provider,mappings,true);
   },
   async scanAll(){
-    // Shared catalog reads + latest-only persistence keep the entire request
-    // below the Cloudflare subrequest ceiling. Individual scans retain history.
     const [providers,mappings]=await Promise.all([providerCatalogService.listProviders(),catalogRepository.listMappings()]);
     const out:ProviderScanResult[]=[];
-    for(const provider of providers)out.push(await buildScan(provider,mappings,false));
+
+    // Runware performs several model-search requests, so it runs alone first.
+    const runwareProvider=providers.find(provider=>provider.provider_id==='provider-runware');
+    if(runwareProvider)out.push(await buildScan(runwareProvider,mappings,false));
+
+    // The remaining providers are scanned in small batches. Each batch stays
+    // below Cloudflare outbound-connection limits while keeping wall time low.
+    const remaining=providers.filter(provider=>provider.provider_id!=='provider-runware');
+    const BATCH=3;
+    for(let index=0;index<remaining.length;index+=BATCH){
+      const chunk=remaining.slice(index,index+BATCH);
+      const results=await Promise.all(chunk.map(provider=>buildScan(provider,mappings,false)));
+      out.push(...results);
+    }
     return out;
   },
   async latest(){const rows=await firestoreAdminRest.runQuery({from:[{collectionId:'provider_scan_latest'}],limit:50}).catch(()=>[] as any[]);return rows.map((r:any)=>r.data as ProviderScanResult);},
