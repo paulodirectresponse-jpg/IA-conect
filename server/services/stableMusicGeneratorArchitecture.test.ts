@@ -26,13 +26,13 @@ describe('Stable music generator promotion',()=>{
   expect(view).toContain('job?.quote?.credit_price');
  });
 
- it('exposes governed provider choice without frontend secrets or hardcoded providers',()=>{
+ it('keeps provider eligibility governed internally without frontend secrets or hardcoded providers',()=>{
   const routes=read('server/routes/musicGenerationRoutes.ts');
   const view=read('src/components/views/MusicCreateView.tsx');
   const client=read('src/services/musicGenerationClient.ts');
-  expect(view).toContain('IA / modelo');
-  expect(view).toContain('Provider');
-  expect(view).toContain('AUTO · Mais econômico/saudável');
+  expect(view).toContain('StableGeneratorModelPicker');
+  expect(view).not.toContain('preferred_provider_id');
+  expect(view).not.toContain('AUTO · Mais econômico/saudável');
   expect(routes).toContain('providerChoices');
   expect(routes).toContain("provider.status!=='ACTIVE'");
   expect(routes).toContain('configured.get');
@@ -80,11 +80,14 @@ describe('Stable music generator promotion',()=>{
  });
 
  it('keeps the music workspace responsive and in the shared create shell',()=>{
-  const css=read('src/styles/music-create.css');
+  const css=read('src/styles/stable-generator-shell.css');
   const layout=read('src/components/layout/AppLayout.tsx');
+  const view=read('src/components/views/MusicCreateView.tsx');
   expect(css).toContain('@media(max-width:1023px)');
   expect(css).toContain('@media(max-width:640px)');
+  expect(css).toContain('width:368px');
   expect(layout).toContain("currentView === 'create-music'");
   expect(layout).toContain('ia-shell-main-create');
+  expect(view).toContain('ia-stable-generator-studio');
  });
 });
