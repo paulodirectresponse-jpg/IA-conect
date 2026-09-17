@@ -239,16 +239,17 @@ export const betaFlowRuntimeService={
 
           const timestamp=now();
           nodeRun=nodeRun||{...emptyNodeRun(run,node),inputs:values,input_asset_ids:inputAssetIds(values),started_at:timestamp,updated_at:timestamp};
-          const createKey=`flow:${run.run_id}:node:${node.node_id}:create`;
+          const attemptIndex=Math.max(0,Number(nodeRun?.retry_count||0));
+          const createKey=`flow:${run.run_id}:node:${node.node_id}:attempt:${attemptIndex}:create`;
           const job=await betaJobOrchestrator.create(userId,jobRequest(node,values),createKey);
           nodeRun={...nodeRun,job_id:job.job_id,status:'RUNNING',inputs:values,input_asset_ids:inputAssetIds(values),started_at:nodeRun.started_at||timestamp,updated_at:now(),error_code:null,error_message:null};
           await betaFlowRuntimeRepository.saveNodeRun(nodeRun);runs.set(node.node_id,nodeRun);
 
-          const quoted=await betaJobOrchestrator.quote(userId,job.job_id,`flow:${run.run_id}:node:${node.node_id}:quote`);
+          const quoted=await betaJobOrchestrator.quote(userId,job.job_id,`flow:${run.run_id}:node:${node.node_id}:attempt:${attemptIndex}:quote`);
           nodeRun={...nodeRun,authorized_credit_price:Number(quoted.quote?.credit_price||0),updated_at:now()};
           await betaFlowRuntimeRepository.saveNodeRun(nodeRun);runs.set(node.node_id,nodeRun);
 
-          const queued=await betaJobOrchestrator.queue(userId,job.job_id,`flow:${run.run_id}:node:${node.node_id}:queue`,reqHost,idToken);
+          const queued=await betaJobOrchestrator.queue(userId,job.job_id,`flow:${run.run_id}:node:${node.node_id}:attempt:${attemptIndex}:queue`,reqHost,idToken);
           if(queued.status==='SUCCEEDED'){
             const output=await valuesFromJob(userId,node,queued),done={...nodeRun,status:'SUCCEEDED' as const,outputs:output,output_asset_ids:inputAssetIds(output),updated_at:now(),completed_at:now()};
             await betaFlowRuntimeRepository.saveNodeRun(done);runs.set(node.node_id,done);
@@ -286,20 +287,8 @@ export const betaFlowRuntimeService={
     if(!failed.length)fail('FLOW_RUN_RETRY_UNAVAILABLE','Nenhum nó falho foi encontrado.');
     for(const item of failed){
       if(item.retry_count>=3)fail('FLOW_NODE_RETRY_LIMIT','O limite de tentativas deste nó foi atingido.');
-      const next={...item,status:'WAITING' as const,retry_count:item.retry_count+1,error_code:null,error_message:null,completed_at:null,updated_at:now()};
+      const next={...item,status:'WAITING' as const,job_id:null,retry_count:item.retry_count+1,authorized_credit_price:0,outputs:[],output_asset_ids:[],error_code:null,error_message:null,completed_at:null,updated_at:now()};
       await betaFlowRuntimeRepository.saveNodeRun(next);
-      if(item.job_id){
-        const job=await betaJobOrchestrator.get(userId,item.job_id,true);
-        if(job.status==='FAILED'||job.status==='CANCELLED'||job.status==='DRAFT'){
-          try{
-            const quoted=await betaJobOrchestrator.quote(userId,item.job_id,`flow:${runId}:node:${item.node_id}:retry:${next.retry_count}:quote`);
-            const refreshed={...next,status:'RUNNING' as const,authorized_credit_price:Number(quoted.quote?.credit_price||0),updated_at:now()};
-            await betaFlowRuntimeRepository.saveNodeRun(refreshed);
-            const queued=await betaJobOrchestrator.queue(userId,item.job_id,`flow:${runId}:node:${item.node_id}:retry:${next.retry_count}:queue`,reqHost,idToken);
-            if(queued.status==='FAILED'||queued.status==='CANCELLED')await saveNodeFailure(run,run.graph.nodes.find(node=>node.node_id===item.node_id)!,refreshed,{code:queued.error_code,message:queued.error_message});
-          }catch{}
-        }
-      }
     }
     run=await betaFlowRuntimeRepository.saveRun({...run,status:'RUNNING',failed_at:null,error_code:null,error_message:null,updated_at:now()});
     return this.advance(userId,runId,reqHost,idToken);
