@@ -6,6 +6,7 @@ import {
   Image as ImageIcon,
   LogOut,
   Menu,
+  Mic2,
   Plus,
   Settings,
   Shield,
@@ -30,6 +31,7 @@ const viewMeta: Record<string, { title: string; eyebrow: string }> = {
   dashboard: { title: 'Início', eyebrow: 'Estúdio' },
   'create-image': { title: 'Gerar imagem', eyebrow: 'Criação' },
   'create-video': { title: 'Gerar vídeo', eyebrow: 'Criação' },
+  'create-voice': { title: 'Gerar voz', eyebrow: 'Criação' },
   community: { title: 'Comunidade', eyebrow: 'Explorar' },
   library: { title: 'Biblioteca', eyebrow: 'Arquivos' },
   assets: { title: 'Biblioteca', eyebrow: 'Arquivos' },
@@ -156,6 +158,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>
                   <strong>Vídeo</strong>
                   <small>Gerar vídeo com IA</small>
+                </span>
+              </button>
+              <button onClick={() => navigate('create-voice')} className="ia-shell-menu-item">
+                <Mic2 className="h-4 w-4" />
+                <span>
+                  <strong>Voz</strong>
+                  <small>Transformar texto em voz</small>
                 </span>
               </button>
             </div>
