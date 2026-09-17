@@ -19,14 +19,17 @@ function failure(res:Response,error:any,fallback:string){
 
 async function requireMusicEnabled(_req:AuthenticatedRequest,res:Response,next:NextFunction){
   try{
-    const audio=await catalogRepository.getFeatureFlag('beta.audio');
-    if(!audio?.is_enabled){
-      const normalized=normalizeBetaPublicError({code:'AUDIO_MODULE_DISABLED'});
+    const[audio,music]=await Promise.all([
+      catalogRepository.getFeatureFlag('beta.audio'),
+      catalogRepository.getFeatureFlag('beta.audio.music'),
+    ]);
+    if(!audio?.is_enabled||!music?.is_enabled){
+      const normalized=normalizeBetaPublicError({code:'AUDIO_CAPABILITY_DISABLED'});
       return res.status(normalized.status).json({success:false,error:normalized.error});
     }
     next();
   }catch{
-    const normalized=normalizeBetaPublicError({code:'AUDIO_MODULE_DISABLED'});
+    const normalized=normalizeBetaPublicError({code:'AUDIO_CAPABILITY_DISABLED'});
     return res.status(normalized.status).json({success:false,error:normalized.error});
   }
 }
