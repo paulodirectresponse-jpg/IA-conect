@@ -15,7 +15,7 @@ const THEME_KEY = 'ia-connect-theme';
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ currentView, onNavigate, betaEnabled = false, children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const isCreateView = currentView === 'create-video' || currentView === 'create-image' || currentView === 'create-voice' || currentView === 'create-music';
+  const isCreateView = currentView === 'create-video' || currentView === 'create-image' || currentView === 'create-voice' || currentView === 'create-music' || currentView === 'create-3d';
 
   useEffect(() => {
     document.documentElement.dataset.theme = 'dark';
@@ -63,22 +63,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ currentView, onNavigate, b
 
   return (
     <div data-theme="dark" style={enterpriseVisualStyle} className="ia-shell flex h-screen overflow-hidden font-sans antialiased text-[var(--ia-text-1)]">
-      <Sidebar
-        currentView={currentView}
-        onNavigate={onNavigate}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-
+      <Sidebar currentView={currentView} onNavigate={onNavigate} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="ia-shell-workspace flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Navbar
-          currentView={currentView}
-          sidebarOpen={sidebarOpen}
-          onToggleSidebar={() => setSidebarOpen((value) => !value)}
-          onNavigate={onNavigate}
-          betaEnabled={betaEnabled}
-        />
-
+        <Navbar currentView={currentView} sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen((value) => !value)} onNavigate={onNavigate} betaEnabled={betaEnabled} />
         <main className={`ia-shell-main min-w-0 flex-1 ${isCreateView ? 'ia-shell-main-create flex flex-col overflow-hidden' : 'ia-shell-main-standard overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 xl:px-10 lg:py-8'}`}>
           {isCreateView ? children : <div className="mx-auto w-full max-w-[1480px]">{children}</div>}
         </main>
