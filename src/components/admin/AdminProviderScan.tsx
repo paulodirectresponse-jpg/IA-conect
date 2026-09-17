@@ -54,11 +54,28 @@ export const AdminProviderScan:React.FC=()=>{
  const runScan=async(providerId?:string)=>{
   setScanning(providerId||'ALL');setError(null);setMessage(null);
   try{
-   const result=await adminService.scanProviders(providerId);
-   const rows=Array.isArray(result)?result:[result];
-   const configured=rows.filter(row=>row.configured).length;
-   const matches=rows.reduce((sum,row)=>sum+Number(row.matched_count||0),0);
-   setMessage(providerId?`Scan concluído: ${rows[0]?.provider_name||providerId} · ${rows[0]?.candidate_count||0} candidatos · ${matches} correspondências.`:`Scan geral concluído: ${configured}/${rows.length} providers configurados · ${matches} correspondências com o acervo.`);
+   if(providerId){
+    const result=await adminService.scanProviders(providerId);
+    const row=Array.isArray(result)?result[0]:result;
+    setMessage(`Scan concluído: ${row?.provider_name||providerId} · ${row?.candidate_count||0} candidatos · ${row?.matched_count||0} correspondências.`);
+   }else{
+    const targets=providers.filter(provider=>provider.is_configured);
+    const completed:ProviderScanResult[]=[];
+    const failures:string[]=[];
+    for(let index=0;index<targets.length;index++){
+     const provider=targets[index];
+     setMessage(`Escaneando ${index+1}/${targets.length}: ${provider.name}...`);
+     try{
+      const result=await adminService.scanProviders(provider.provider_id);
+      completed.push(Array.isArray(result)?result[0]:result);
+     }catch(err:any){
+      failures.push(`${provider.name}: ${err?.message||'falha no scan'}`);
+     }
+    }
+    const matches=completed.reduce((sum,row)=>sum+Number(row?.matched_count||0),0);
+    setMessage(`Scan geral concluído: ${completed.length}/${targets.length} providers · ${matches} correspondências com o acervo.`);
+    if(failures.length)setError(`Alguns providers falharam sem interromper os demais: ${failures.join(' | ')}`);
+   }
    await load();
   }catch(err:any){setError(err?.message||'Falha ao executar o scan dos providers.');}
   finally{setScanning(null);}
