@@ -10,6 +10,11 @@ export interface FlowRuntimeValue{
   structured?:Record<string,any>|null;
   source_node_id?:string|null;
 }
+declare global{
+  interface ObjectConstructor{
+    entries(o:Record<string,FlowRuntimeValue[]>):[string,FlowRuntimeValue[]][];
+  }
+}
 export interface FlowNodeRunView{
   node_run_id:string;run_id:string;flow_id:string;user_id:string;node_id:string;status:'WAITING'|'RUNNING'|'SUCCEEDED'|'FAILED'|'CANCELLED';
   job_id?:string|null;retry_count:number;authorized_credit_price:number;inputs:FlowRuntimeValue[];outputs:FlowRuntimeValue[];
@@ -17,7 +22,7 @@ export interface FlowNodeRunView{
 }
 export interface FlowRunView{
   run_id:string;flow_id:string;flow_revision:number;user_id:string;status:FlowRunStatus;graph:FlowGraph;active_node_ids:string[];
-  inputs:Record<string,FlowRuntimeValue>;outputs:any;authorized_credits_total:number;
+  inputs:Record<string,FlowRuntimeValue>;outputs:Record<string,FlowRuntimeValue[]>;authorized_credits_total:number;
   error_code?:string|null;error_message?:string|null;created_at:string;updated_at:string;started_at:string;completed_at?:string|null;failed_at?:string|null;cancelled_at?:string|null;
   node_runs:FlowNodeRunView[];
 }
