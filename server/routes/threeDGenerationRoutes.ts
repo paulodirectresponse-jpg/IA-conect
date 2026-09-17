@@ -80,6 +80,10 @@ threeDGenerationRouter.post('/3d/jobs',async(req:AuthenticatedRequest,res)=>{
 threeDGenerationRouter.get('/3d/jobs/:jobId',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await assertThreeDJob(req.user!.uid,req.params.jobId)});}catch(error:any){return failure(res,error,'Não foi possível carregar a geração 3D.');}});
 threeDGenerationRouter.post('/3d/jobs/:jobId/quote',async(req:AuthenticatedRequest,res)=>{try{await assertThreeDJob(req.user!.uid,req.params.jobId);const job=await betaJobOrchestrator.quote(req.user!.uid,req.params.jobId,idem(req));return res.json({success:true,data:await betaJobOrchestrator.getPublic(req.user!.uid,job.job_id)});}catch(error:any){return failure(res,error,'Não foi possível calcular os créditos do 3D.');}});
 threeDGenerationRouter.post('/3d/jobs/:jobId/queue',async(req:AuthenticatedRequest,res)=>{try{await assertThreeDJob(req.user!.uid,req.params.jobId);const job=await betaJobOrchestrator.queue(req.user!.uid,req.params.jobId,idem(req),requestHost(req),req.user!.idToken);return res.json({success:true,data:await betaJobOrchestrator.getPublic(req.user!.uid,job.job_id)});}catch(error:any){return failure(res,error,'Não foi possível iniciar a geração 3D.');}});
+threeDGenerationRouter.get('/3d/assets',async(req:AuthenticatedRequest,res)=>{
+ try{const assets=await assetRepository.listUserAssets(req.user!.uid,{type:'MODEL_3D',includeUniversal:true});return res.json({success:true,data:assets});}
+ catch(error:any){return failure(res,error,'Não foi possível carregar suas criações 3D.');}
+});
 threeDGenerationRouter.get('/3d/assets/:assetId',async(req:AuthenticatedRequest,res)=>{
  try{const asset=await assetRepository.getAsset(req.params.assetId,req.user!.uid);if(!asset||asset.type!=='MODEL_3D')return res.status(404).json({success:false,error:{code:'ASSET_NOT_FOUND',message:'Asset 3D não encontrado.'}});return res.json({success:true,data:asset});}
  catch(error:any){return failure(res,error,'Não foi possível carregar o asset 3D.');}
