@@ -2,7 +2,8 @@ import { apiRequest } from './apiClient.js';
 
 export type MusicJobStatus='DRAFT'|'QUOTED'|'QUEUED'|'RUNNING'|'SUCCEEDED'|'FAILED'|'CANCELLED';
 export interface MusicCapability{ id:string; controls:string[]; supported_durations?:number[]; }
-export interface MusicModel{ model_id:string; name:string; category:string; supported_durations?:number[]; capabilities:MusicCapability[]; }
+export interface MusicProviderOption{provider_id:string;name:string;}
+export interface MusicModel{ model_id:string; name:string; category:string; supported_durations?:number[]; capabilities:MusicCapability[]; providers?:MusicProviderOption[]; }
 export interface MusicJob{
   job_id:string;
   status:MusicJobStatus;
@@ -27,7 +28,7 @@ export const musicGenerationClient={
     const data=await apiRequest<{models:MusicModel[]}>('/api/music/catalog');
     return data.models||[];
   },
-  create(request:{model_id:string;prompt:string;controls:{duration_seconds:number;instrumental:boolean;output_format:string;seed?:number|null}}){
+  create(request:{model_id:string;prompt:string;controls:{duration_seconds:number;instrumental:boolean;output_format:string;seed?:number|null;pricing_options?:Record<string,string|number|boolean|null|undefined>}}){
     return apiRequest<MusicJob>('/api/music/jobs',{
       method:'POST',headers:{'Idempotency-Key':key('create')},body:JSON.stringify(request),
     });
