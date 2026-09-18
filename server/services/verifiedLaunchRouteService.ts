@@ -1,5 +1,6 @@
 import { ModelRegistryItem, ProviderModelMapping } from '../../src/types/index.js';
 import { betaCatalogPolicyService } from '../beta/catalog/catalogPolicyService.js';
+import { catalogPolicyRepository } from '../beta/catalog/catalogPolicyRepository.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { providerCatalogService } from './providerCatalogService.js';
@@ -104,16 +105,18 @@ export const verifiedLaunchRouteService={
   definitions(){return VERIFIED_LAUNCH_ROUTES;},
 
   async listStatus(){
-    const[providers,mappings,pricing,models,policies]=await Promise.all([
+    const[providers,mappings,pricing,pricingPolicies,modelRows,policyRows]=await Promise.all([
       providerCatalogService.listProviders(),
       catalogRepository.listMappings(),
       providerPricingCatalogService.list(),
-      catalogRepository.listModels(),
-      betaCatalogPolicyService.listCatalog(),
+      catalogPolicyRepository.listPricingPolicies(),
+      Promise.all(VERIFIED_LAUNCH_ROUTES.map(route=>catalogRepository.getModel(route.model_id))),
+      Promise.all(VERIFIED_LAUNCH_ROUTES.map(route=>catalogPolicyRepository.getModelPolicy(route.model_id))),
     ]);
     const providerById=new Map(providers.map(provider=>[String(provider.provider_id),provider]));
-    const modelById=new Map(models.map(model=>[model.model_id,model]));
-    const policyById=new Map(policies.map(policy=>[policy.model_id,policy]));
+    const modelById=new Map(modelRows.filter(Boolean).map(model=>[model!.model_id,model!]));
+    const policyById=new Map(policyRows.filter(Boolean).map(policy=>[policy!.model_id,policy!]));
+    const pricingPolicyById=new Map(pricingPolicies.map(policy=>[policy.pricing_policy_id,policy]));
     return VERIFIED_LAUNCH_ROUTES.map(route=>{
       const provider=providerById.get(route.provider_id);
       const adapter=providerRegistry.getAdapter(route.provider_id);
@@ -122,7 +125,8 @@ export const verifiedLaunchRouteService={
       const provider_ready=Boolean(provider?.status==='ACTIVE'&&adapter?.isConfigured());
       const mapping_ready=mappingReady(mappings,route);
       const pricing_ready=pricingReady(pricing,route);
-      const policy_ready=Boolean(policy?.eligible&&route.capability_ids.every(capability=>policy.capability_ids.includes(capability as any)));
+      const pricingPolicy=policy?pricingPolicyById.get(policy.pricing_policy_id):null;
+      const policy_ready=Boolean(policy?.enabled&&pricingPolicy?.active&&route.capability_ids.every(capability=>policy.capability_ids.includes(capability as any)));
       const model_ready=Boolean(model?.status==='ACTIVE'&&model?.beta_only!==true);
       return{
         key:route.key,label:route.label,media:route.media,model_id:route.model_id,model_name:route.model_name,
