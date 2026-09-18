@@ -55,7 +55,7 @@ function statusFor(model:ModelRegistryItem,data:Awaited<ReturnType<typeof snapsh
   const published=model.status==='ACTIVE'&&model.beta_only!==true;
   return{
     model_id:model.model_id,name:model.name,status:model.status,beta_only:model.beta_only===true,published,
-    ready:supported.length>0&&missing.length===0,
+    ready:readyCaps.length>0,
     supported_capability_ids:supported,
     ready_capability_ids:readyCaps,
     missing_capability_ids:missing,
@@ -74,11 +74,11 @@ export const stableModelPublicationService={
     const model=data.models.find(row=>row.model_id===modelId);
     if(!model)throw Object.assign(new Error('Modelo não encontrado no runtime.'),{code:'MODEL_NOT_FOUND'});
     const status=statusFor(model,data);
-    if(!status.ready)throw Object.assign(new Error(`Modelo ainda não pode ser publicado. Capabilities pendentes: ${status.missing_capability_ids.join(', ')||'rota segura'}.`),{code:'MODEL_NOT_STABLE_READY',details:status});
+    if(!status.ready)throw Object.assign(new Error('Modelo ainda não pode ser publicado: nenhuma capability possui rota segura com preço verificado.'),{code:'MODEL_NOT_STABLE_READY',details:status});
 
-    const next=await catalogRepository.saveModel({...model,status:'ACTIVE',beta_only:false,updated_at:new Date().toISOString()});
+    const next=await catalogRepository.saveModel({...model,status:'ACTIVE',beta_only:false,beta_capability_ids:status.ready_capability_ids,updated_at:new Date().toISOString()});
     const policy=await betaCatalogPolicyService.saveModelPolicy(modelId,{
-      capability_ids:status.supported_capability_ids,
+      capability_ids:status.ready_capability_ids,
       enabled:true,
       auto_routing_enabled:true,
     },updatedBy);
