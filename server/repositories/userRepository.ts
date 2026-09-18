@@ -2,6 +2,11 @@ import { UserProfile, UserStatus } from '../../src/types/index.js';
 import { firestoreAdminRest } from './firestoreAdminRest.js';
 
 const safe = (value:string) => encodeURIComponent(value);
+const USER_CACHE_TTL_MS=60_000;
+const USER_MISS_TTL_MS=5_000;
+const userCache=new Map<string,{expiresAt:number;value:UserProfile|null}>();
+const userInflight=new Map<string,Promise<UserProfile|null>>();
+const cacheUser=(userId:string,value:UserProfile|null)=>userCache.set(userId,{expiresAt:Date.now()+(value?USER_CACHE_TTL_MS:USER_MISS_TTL_MS),value});
 const dateValue = (value?:string) => {
   const ms = value ? Date.parse(value) : NaN;
   return Number.isFinite(ms) ? ms : 0;
@@ -44,8 +49,17 @@ async function allUsers(limit=500):Promise<UserProfile[]> {
 
 export const userRepository = {
   async getById(userId:string):Promise<UserProfile|null> {
-    const doc = await firestoreAdminRest.get(`users/${safe(userId)}`);
-    return doc.exists ? normalizeUser(doc.data as any) : null;
+    const cached=userCache.get(userId);
+    if(cached&&cached.expiresAt>Date.now())return cached.value;
+    const pending=userInflight.get(userId);
+    if(pending)return pending;
+    const request=firestoreAdminRest.get(`users/${safe(userId)}`).then(doc=>{
+      const value=doc.exists?normalizeUser(doc.data as any):null;
+      cacheUser(userId,value);
+      return value;
+    }).finally(()=>userInflight.delete(userId));
+    userInflight.set(userId,request);
+    return request;
   },
 
   async getByEmail(email:string):Promise<UserProfile|null> {
@@ -69,6 +83,7 @@ export const userRepository = {
       updated_at:user.updated_at || new Date().toISOString(),
     });
     await firestoreAdminRest.set(`users/${safe(user.user_id)}`, normalized);
+    cacheUser(user.user_id,normalized);
     return normalized;
   },
 
@@ -104,5 +119,5 @@ export const userRepository = {
     };
   },
 
-  clearForTesting() {},
+  clearForTesting() { userCache.clear(); userInflight.clear(); },
 };
