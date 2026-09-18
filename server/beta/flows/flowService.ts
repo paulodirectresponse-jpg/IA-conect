@@ -48,7 +48,9 @@ async function validateGraph(userId:string,input:any):Promise<BetaFlowGraph>{
       if(!node.model_id)fail('FLOW_GRAPH_INVALID','Modelo obrigatório no nó de ferramenta.');
       const requestedControls=Object.keys(node.controls||{});
       if(node.model_id==='AUTO'){
-        if(!(await betaCatalogPolicyService.eligibleModels(node.capability_id,requestedControls)).length)fail('AUTO_NO_ELIGIBLE_MODEL','Nenhum modelo elegível para este nó.');
+        // Draft Spaces must stay editable even when provider/model availability is temporarily degraded.
+        // AUTO is resolved and economically validated again by the runtime when the flow is executed.
+        await betaCatalogPolicyService.eligibleModels(node.capability_id,requestedControls);
       }else{
         const resolved=await betaCatalogPolicyService.resolveModel(node.model_id,node.capability_id,false);
         const validation=validateModelCapability(resolved.model,node.capability_id,requestedControls);
