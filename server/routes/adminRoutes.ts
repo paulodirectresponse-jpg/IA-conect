@@ -10,6 +10,7 @@ import { generationRepository } from '../repositories/generationRepository.js';
 import { systemHealthService } from '../services/systemHealthService.js';
 import { providerCatalogService } from '../services/providerCatalogService.js';
 import { stableModelPublicationService } from '../services/stableModelPublicationService.js';
+import { stableLaunchSetService } from '../services/stableLaunchSetService.js';
 
 export const adminRouter = Router();
 
@@ -101,6 +102,17 @@ adminRouter.post('/admin/models/:modelId/publish-stable', requireAuth, requireAd
     res.json({success:true,data:result});
   } catch (err:any) {
     res.status(400).json({success:false,error:{code:err?.code||'MODEL_PUBLISH_ERROR',message:err?.message||'Falha ao publicar modelo no Stable.',details:err?.details}});
+  }
+});
+
+adminRouter.post('/admin/models/publish-launch-set', requireAuth, requireAdmin, async (req:AuthenticatedRequest, res) => {
+  try {
+    const cursor=Math.max(0,Math.floor(Number(req.body?.cursor)||0));
+    const limit=Math.min(3,Math.max(1,Math.floor(Number(req.body?.limit)||2)));
+    const result=await stableLaunchSetService.apply(cursor,limit);
+    res.json({success:true,data:result});
+  } catch (err:any) {
+    res.status(400).json({success:false,error:{code:err?.code||'LAUNCH_SET_PUBLISH_ERROR',message:err?.message||'Falha ao publicar o launch set pronto.'}});
   }
 });
 
