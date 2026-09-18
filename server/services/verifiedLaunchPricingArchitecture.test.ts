@@ -62,10 +62,10 @@ describe('verified Stable launch pricing',()=>{
   });
   it('uses bounded WaveSpeed pricing preflight for exact priority matches only',()=>{
     const scan=read('server/services/providerModelScanService.ts');
-    expect(scan).toContain('const livePriceBudget=6');
+    expect(scan).toContain('const livePriceBudget=12');
     expect(scan).toContain("match.confidence>=0.95&&match.match_reason==='exact_alias'");
     expect(scan).toContain("body:JSON.stringify({model_id:match.provider_model_identifier,inputs:null})");
-    expect(scan).toContain("['VOICE','MUSIC','THREE_D'].includes(match.function_id)");
+    expect(scan).toContain("['IMAGE_GENERATION','IMAGE_EDIT','VIDEO_GENERATION','VIDEO_EDIT','VIDEO_EXTEND','VOICE','MUSIC','THREE_D'].includes(match.function_id)");
   });
 
   it('reconciles system-seeded policy after a verified mapping is approved',()=>{
