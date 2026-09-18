@@ -57,12 +57,42 @@ describe('Immersive image editor workspace',()=>{
   expect(canvas).toContain('Comparar');
  });
 
- it('keeps library selection contextual and upload functional',()=>{
+ it('keeps library selection contextual and uses the same global asset source as Biblioteca',()=>{
   const picker=read('src/components/editors/shared/EditorAssetPicker.tsx');
   const view=read('src/components/views/ImageEditorView.tsx');
   expect(picker).toContain('Buscar na Biblioteca');
+  expect(picker).toContain('Biblioteca Global');
+  expect(picker).toContain('thumbnail_url||asset.public_url');
   expect(picker).toContain('accept="image/*"');
+  expect(view).toContain('assetService.listAssets()');
+  expect(view).toContain("filter(asset=>asset.type==='IMAGE')");
+  expect(view).not.toContain("assetService.listAssets({type:'IMAGE'})");
   expect(view).toContain("assetService.uploadAsset");
   expect(view).toContain('setPickerOpen(false)');
+ });
+
+ it('does not let a catalog failure lock the library or editing tool navigation',()=>{
+  const view=read('src/components/views/ImageEditorView.tsx');
+  expect(view).toContain('loadCatalog');
+  expect(view).toContain('loadImages');
+  expect(view).not.toContain('Promise.all([editorClient.catalog(),assetService.listAssets');
+  expect(view).not.toContain('disabled={!available}');
+  expect(view).toContain('onClick={()=>setTool(item.id)}');
+ });
+
+ it('always exposes Auto plus manual IA selection through the shared model picker',()=>{
+  const view=read('src/components/views/ImageEditorView.tsx');
+  const picker=read('src/components/workspace/StableGeneratorModelPicker.tsx');
+  expect(view).toContain('StableGeneratorModelPicker');
+  expect(view).toContain("modelId==='AUTO'?'AUTO':model.model_id");
+  expect(view).toContain("setModelId('AUTO')");
+  expect(picker).toContain('CompactModelPicker');
+ });
+
+ it('keeps the editor catalog useful when optional provider metadata is degraded',()=>{
+  const routes=read('server/routes/editorRoutes.ts');
+  expect(routes).toContain('Promise.allSettled');
+  expect(routes).toContain("providersResult.status==='fulfilled'");
+  expect(routes).toContain("pricingResult.status==='fulfilled'");
  });
 });
