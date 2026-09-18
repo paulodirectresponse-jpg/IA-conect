@@ -9,6 +9,7 @@ import { smartRouterService } from '../services/smartRouterService.js';
 import { generationRepository } from '../repositories/generationRepository.js';
 import { systemHealthService } from '../services/systemHealthService.js';
 import { providerCatalogService } from '../services/providerCatalogService.js';
+import { stableModelPublicationService } from '../services/stableModelPublicationService.js';
 
 export const adminRouter = Router();
 
@@ -71,6 +72,51 @@ adminRouter.post('/admin/users/:userId/status', requireAuth, requireAdmin, async
 });
 
 // Admin Model Registry management
+adminRouter.get('/admin/models', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    res.json({success:true,data:await catalogRepository.listModels()});
+  } catch (err:any) {
+    res.status(500).json({success:false,error:{code:'ADMIN_MODELS_LIST_ERROR',message:err?.message||'Falha ao carregar modelos do runtime.'}});
+  }
+});
+
+adminRouter.get('/admin/models/publication-status', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    res.json({success:true,data:await stableModelPublicationService.listStatus()});
+  } catch (err:any) {
+    res.status(500).json({success:false,error:{code:'MODEL_PUBLICATION_STATUS_ERROR',message:err?.message||'Falha ao calcular prontidão Stable.'}});
+  }
+});
+
+adminRouter.post('/admin/models/:modelId/publish-stable', requireAuth, requireAdmin, async (req:AuthenticatedRequest, res) => {
+  try {
+    const result=await stableModelPublicationService.publish(req.params.modelId,req.user!.uid);
+    await auditRepository.record({
+      log_id:`aud_${Date.now()}_${Math.random().toString(36).slice(2,10)}`,
+      admin_id:req.user!.uid,admin_email:req.user!.email,
+      action:'MODEL_PUBLISHED_STABLE',entity_type:'MODEL',entity_id:req.params.modelId,
+      before:null,after:result.status,reason:'Publicação Stable após provider, mapping e pricing verificados para todas as capabilities do modelo.',
+      created_at:new Date().toISOString(),
+    });
+    res.json({success:true,data:result});
+  } catch (err:any) {
+    res.status(400).json({success:false,error:{code:err?.code||'MODEL_PUBLISH_ERROR',message:err?.message||'Falha ao publicar modelo no Stable.',details:err?.details}});
+  }
+});
+
+adminRouter.post('/admin/models/publish-stable-bulk', requireAuth, requireAdmin, async (req:AuthenticatedRequest, res) => {
+  try {
+    const ids=Array.isArray(req.body?.model_ids)?Array.from(new Set(req.body.model_ids.map(String).filter(Boolean))):[];
+    if(!ids.length)return res.status(400).json({success:false,error:{code:'VALIDATION_ERROR',message:'Selecione pelo menos um modelo pronto.'}});
+    if(ids.length>5)return res.status(400).json({success:false,error:{code:'BULK_LIMIT_EXCEEDED',message:'Publique no máximo 5 modelos por lote.'}});
+    const published:any[]=[];
+    for(const id of ids)published.push(await stableModelPublicationService.publish(String(id),req.user!.uid));
+    res.json({success:true,data:{published}});
+  } catch (err:any) {
+    res.status(400).json({success:false,error:{code:err?.code||'MODEL_PUBLISH_BULK_ERROR',message:err?.message||'Falha ao publicar modelos no Stable.',details:err?.details}});
+  }
+});
+
 adminRouter.post('/admin/models', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const saved = await catalogRepository.saveModel({
