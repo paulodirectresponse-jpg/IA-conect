@@ -1,6 +1,7 @@
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { betaCatalogPolicyService } from '../beta/catalog/catalogPolicyService.js';
 import { createStableLaunchSnapshot, readyCapabilitiesForModel } from './stableLaunchReadinessService.js';
+import { capabilityIdsForModel } from '../beta/capabilityRegistry.js';
 
 export interface LaunchSetRow{model_id:string;name:string;published:boolean;ready_capabilities:string[];isolated_capabilities:string[];}
 export interface LaunchSetResult{cursor:number;next_cursor:number|null;done:boolean;total_models:number;processed:number;published_models:number;isolated_models:number;rows:LaunchSetRow[];}
@@ -12,9 +13,8 @@ export const stableLaunchSetService={
   const safeCursor=Math.max(0,Math.floor(Number(cursor)||0)),safeLimit=Math.min(3,Math.max(1,Math.floor(Number(limit)||2))),batch=models.slice(safeCursor,safeCursor+safeLimit);
   const rows:LaunchSetRow[]=[];
   for(const model of batch){
-   const ready=readyCapabilitiesForModel(model,data),supported=(model.beta_capability_ids?.length?model.beta_capability_ids:[]);
-   const allSupported=Array.from(new Set([...(model.beta_capability_ids||[]),...ready]));
-   const isolated=allSupported.filter(cap=>!ready.includes(cap as any));
+   const ready=readyCapabilitiesForModel(model,data),supported=capabilityIdsForModel(model);
+   const isolated=supported.filter(cap=>!ready.includes(cap));
    if(ready.length){
     await catalogRepository.saveModel({...model,status:'ACTIVE',beta_only:false,beta_capability_ids:ready,updated_at:new Date().toISOString()});
     await betaCatalogPolicyService.saveModelPolicy(model.model_id,{capability_ids:ready,enabled:true,auto_routing_enabled:true},'system:launch-set');
