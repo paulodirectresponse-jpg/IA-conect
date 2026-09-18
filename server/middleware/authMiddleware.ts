@@ -27,21 +27,36 @@ export async function requireAuth(req:AuthenticatedRequest,res:Response,next:Nex
   if(!authHeader?.startsWith('Bearer ')){
     return res.status(401).json({success:false,error:{code:'AUTH_REQUIRED',message:'Autenticação necessária.'}});
   }
-  try{
-    const token=authHeader.slice('Bearer '.length).trim();
-    const decoded=await verifyFirebaseIdToken(token);
-    req.user={...decoded,idToken:token};
 
+  const token=authHeader.slice('Bearer '.length).trim();
+  let decoded:{uid:string;email:string;name?:string};
+  try{
+    decoded=await verifyFirebaseIdToken(token);
+  }catch(error:any){
+    console.warn('[Auth] Firebase session validation failed:',error?.message||error);
+    return res.status(401).json({success:false,error:{code:'AUTH_SESSION_INVALID',message:'Sessão inválida ou expirada. Faça login novamente.'}});
+  }
+
+  req.user={...decoded,idToken:token};
+
+  try{
     const profile=await userRepository.getById(decoded.uid);
     if(profile?.status==='SUSPENDED'){
       return res.status(403).json({success:false,error:{code:'USER_SUSPENDED',message:'Sua conta está suspensa.'}});
     }
     if(profile)req.userProfile=profile;
-    next();
   }catch(error:any){
-    console.warn('[Auth] Session validation failed:',error?.message||error);
-    return res.status(401).json({success:false,error:{code:'AUTH_SESSION_INVALID',message:'Sessão inválida ou expirada. Faça login novamente.'}});
+    console.error('[Auth] Account datastore unavailable:',error?.message||error);
+    return res.status(503).json({
+      success:false,
+      error:{
+        code:'AUTH_BACKEND_UNAVAILABLE',
+        message:'A sessão está válida, mas os dados da conta estão temporariamente indisponíveis.',
+      },
+    });
   }
+
+  next();
 }
 
 export function requireAdmin(req:AuthenticatedRequest,res:Response,next:NextFunction){
