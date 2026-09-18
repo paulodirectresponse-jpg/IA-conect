@@ -81,7 +81,7 @@ export const stableModelPublicationService={
       capability_ids:status.ready_capability_ids,
       enabled:true,
       auto_routing_enabled:true,
-    },updatedBy);
+    },'system:stable-publish');
     return{model:next,policy,status:{...status,status:'ACTIVE',beta_only:false,published:true}};
   },
 };
