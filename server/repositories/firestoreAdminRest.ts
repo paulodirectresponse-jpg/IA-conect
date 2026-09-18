@@ -2,6 +2,10 @@ import crypto from 'crypto';
 import { getFirebaseConfig } from './firestoreClient.js';
 
 let cachedToken:{value:string;expiresAt:number}|null=null;
+let firestoreRateLimitedUntil=0;
+const QUERY_CACHE_TTL_MS=3_000;
+const queryCache=new Map<string,{expiresAt:number;value:any[]}>();
+const queryInflight=new Map<string,Promise<any[]>>();
 
 function b64url(input:string|Uint8Array){
   const bytes=typeof input==='string'?new TextEncoder().encode(input):input;
@@ -42,7 +46,38 @@ function unwrap(v:any):any{if(!v||typeof v!=='object')return v;if('stringValue'i
 function unwrapFields(fields:any){const out:Record<string,any>={};for(const[k,v]of Object.entries(fields||{}))out[k]=unwrap(v);return out;}
 
 function base(){const cfg=getFirebaseConfig();const db=cfg.firestoreDatabaseId||'(default)';return `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${db}`;}
-async function req(url:string,init:RequestInit={}){const token=await accessToken();const r=await fetch(url,{...init,headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',...(init.headers||{})}});const text=await r.text();let body:any={};try{body=text?JSON.parse(text):{};}catch{body={raw:text};}if(!r.ok){const e:any=new Error(body?.error?.message||`Firestore REST ${r.status}`);e.status=r.status;e.body=body;throw e;}return body;}
+function rateLimitError(){
+  const e:any=new Error('Firestore temporariamente limitado por cota.');
+  e.status=429;
+  e.code='FIRESTORE_RATE_LIMIT_ACTIVE';
+  e.retry_after_ms=Math.max(0,firestoreRateLimitedUntil-Date.now());
+  return e;
+}
+function assertFirestoreWindow(){if(Date.now()<firestoreRateLimitedUntil)throw rateLimitError();}
+function noteRateLimit(response:Response){
+  if(response.status!==429)return;
+  const raw=Number(response.headers.get('retry-after')||0);
+  const delay=Number.isFinite(raw)&&raw>0?Math.min(60_000,raw*1000):15_000;
+  firestoreRateLimitedUntil=Math.max(firestoreRateLimitedUntil,Date.now()+delay);
+}
+function clearReadCaches(){queryCache.clear();}
+async function req(url:string,init:RequestInit={}){
+  assertFirestoreWindow();
+  const token=await accessToken();
+  const r=await fetch(url,{...init,headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',...(init.headers||{})}});
+  const text=await r.text();
+  let body:any={};
+  try{body=text?JSON.parse(text):{};}catch{body={raw:text};}
+  if(!r.ok){
+    noteRateLimit(r);
+    const e:any=new Error(body?.error?.message||`Firestore REST ${r.status}`);
+    e.status=r.status;
+    e.body=body;
+    e.retry_after=r.headers.get('retry-after')||'';
+    throw e;
+  }
+  return body;
+}
 
 function parseJsonStream(text:string){
   const trimmed=text.trim();
@@ -71,6 +106,7 @@ export const firestoreAdminRest={
     const size=Math.max(1,Math.min(100,chunkSize));
     for(let i=0;i<unique.length;i+=size){
       const chunk=unique.slice(i,i+size);
+      assertFirestoreWindow();
       const token=await accessToken();
       const response=await fetch(`${base()}/documents:batchGet`,{
         method:'POST',
@@ -79,10 +115,11 @@ export const firestoreAdminRest={
       });
       const text=await response.text();
       if(!response.ok){
+        noteRateLimit(response);
         let body:any={};
         try{body=text?JSON.parse(text):{};}catch{body={raw:text};}
         const e:any=new Error(body?.error?.message||`Firestore REST ${response.status}`);
-        e.status=response.status;e.body=body;throw e;
+        e.status=response.status;e.body=body;e.retry_after=response.headers.get('retry-after')||'';throw e;
       }
       for(const row of parseJsonStream(text)){
         if(row?.found?.name){
@@ -100,9 +137,22 @@ export const firestoreAdminRest={
     }
     return result;
   },
-  async set(path:string,data:any){const d=await req(`${base()}/documents/${path}`,{method:'PATCH',body:JSON.stringify({fields:fsFields(data)})});return{data:unwrapFields(d.fields||{}),updateTime:d.updateTime};},
-  async runQuery(structuredQuery:any){const rows=await req(`${base()}/documents:runQuery`,{method:'POST',body:JSON.stringify({structuredQuery})});return(rows||[]).filter((x:any)=>x.document).map((x:any)=>({name:x.document.name,data:unwrapFields(x.document.fields||{}),updateTime:x.document.updateTime}));},
-  async commit(writes:any[]){return req(`${base()}/documents:commit`,{method:'POST',body:JSON.stringify({writes})});},
+  async set(path:string,data:any){const d=await req(`${base()}/documents/${path}`,{method:'PATCH',body:JSON.stringify({fields:fsFields(data)})});clearReadCaches();return{data:unwrapFields(d.fields||{}),updateTime:d.updateTime};},
+  async runQuery(structuredQuery:any){
+    const key=JSON.stringify(structuredQuery);
+    const cached=queryCache.get(key);
+    if(cached&&cached.expiresAt>Date.now())return cached.value;
+    const pending=queryInflight.get(key);
+    if(pending)return pending;
+    const request=req(`${base()}/documents:runQuery`,{method:'POST',body:JSON.stringify({structuredQuery})}).then(rows=>{
+      const value=(rows||[]).filter((x:any)=>x.document).map((x:any)=>({name:x.document.name,data:unwrapFields(x.document.fields||{}),updateTime:x.document.updateTime}));
+      queryCache.set(key,{expiresAt:Date.now()+QUERY_CACHE_TTL_MS,value});
+      return value;
+    }).finally(()=>queryInflight.delete(key));
+    queryInflight.set(key,request);
+    return request;
+  },
+  async commit(writes:any[]){const result=await req(`${base()}/documents:commit`,{method:'POST',body:JSON.stringify({writes})});clearReadCaches();return result;},
   docName(path:string){const cfg=getFirebaseConfig();const db=cfg.firestoreDatabaseId||'(default)';return `projects/${cfg.projectId}/databases/${db}/documents/${path}`;},
   fields:fsFields,
 };
