@@ -25,7 +25,7 @@ export interface PricingAuditRow{
  retail_pricing_id?:string|null;retail_credit_price?:number|null;retail_version?:number|null;
  attempts:PricingAuditAttempt[];
 }
-export interface PricingAuditResult{checked_at:string;models_checked:number;routes_checked:number;missing_price_count:number;priced_count:number;stage_counts:Record<string,number>;rows:PricingAuditRow[];}
+export interface PricingAuditResult{checked_at:string;models_checked:number;routes_checked:number;missing_price_count:number;priced_count:number;stage_counts:Record<string,number>;rows:PricingAuditRow[];cursor:number;next_cursor:number|null;done:boolean;total_targets:number;}
 
 const STAGES:PricingAuditStage[]=['MODEL','CAPABILITY','MAPPING','PROVIDER','IDENTIFIER','PRICING','QUOTE','SMART_ROUTER','RETAIL_PRICING'];
 const statusRecord=()=>Object.fromEntries(STAGES.map(stage=>[stage,{ok:false,detail:'Não avaliado.'}])) as PricingAuditRow['stages'];
@@ -33,7 +33,7 @@ function signatureFor(profile:NonNullable<ReturnType<typeof routePricingProfile>
 function quoteInput(modelId:string,capabilityId:string,identifier:string,profile:NonNullable<ReturnType<typeof routePricingProfile>>){const p=profile.params;return{userId:'pricing-audit',model_id:modelId,mode:p.mode,capability_id:capabilityId,provider_model_identifier:identifier,prompt:p.prompt,duration_seconds:p.duration_seconds,resolution:p.resolution,aspect_ratio:p.aspect_ratio,number_of_outputs:1,audio_enabled:p.audio_enabled,model_variant:p.model_variant,pricing_options:p.pricing_options,provider_references:p.references};}
 
 export const pricingChainAuditService={
- async run():Promise<PricingAuditResult>{
+ async run(cursor=0,limit=2):Promise<PricingAuditResult>{
   const checkedAt=new Date().toISOString();
   const[models,mappings,providers,catalog,finance]=await Promise.all([catalogRepository.listModels(),catalogRepository.listMappings(),providerCatalogService.listProviders(),betaCatalogPolicyService.listCatalog(),providerFinanceService.getAll(false).catch(()=>[] as ProviderFinanceSnapshot[])]);
   const providerById=new Map(providers.map(provider=>[String(provider.provider_id),provider] as const));
@@ -41,10 +41,13 @@ export const pricingChainAuditService={
   const financeById=new Map<string,ProviderFinanceSnapshot>(finance.map(item=>[String(item.provider_id),item] as const));
   const adapterById=new Map(providerRegistry.listAdapters().map(adapter=>[String(adapter.providerId),adapter] as const));
   const published=models.filter(model=>model.status==='ACTIVE'&&model.beta_only!==true);
+  const targets=published.flatMap(model=>capabilityIdsForModel(model).map(capability_id=>({model,capability_id})));
+  const safeCursor=Math.max(0,Math.floor(Number(cursor)||0)),safeLimit=Math.min(3,Math.max(1,Math.floor(Number(limit)||2)));
+  const batch=targets.slice(safeCursor,safeCursor+safeLimit);
   const rows:PricingAuditRow[]=[];
-  for(const model of published){
+  for(const target of batch){
+   const model=target.model,capabilityId=target.capability_id;
    const policy=policyByModel.get(model.model_id);
-   for(const capabilityId of capabilityIdsForModel(model)){
     const stages=statusRecord();
     stages.MODEL={ok:true,detail:'Modelo ACTIVE e publicado no Stable.'};
     const capabilityEnabled=Boolean(policy?.enabled&&policy?.eligible&&policy.capability_ids.includes(capabilityId));
@@ -76,9 +79,9 @@ export const pricingChainAuditService={
     stages.RETAIL_PRICING={ok:Boolean(retail),detail:retail?'Retail pricing ativo encontrado para a assinatura baseline.':'Retail pricing ativo não encontrado para a assinatura baseline.'};
     const failed=STAGES.find(stage=>!stages[stage].ok)||null;
     rows.push({model_id:model.model_id,model_name:model.name,category:model.category,capability_id:capabilityId,mode,price_available:!failed,failed_stage:failed,failure_reason:failed?stages[failed].detail:null,stages,retail_pricing_id:retail?.retail_pricing_id||null,retail_credit_price:retail?.retail_credit_price??null,retail_version:retail?.version??null,attempts});
-   }
   }
   const missing=rows.filter(row=>!row.price_available),stageCounts:Record<string,number>={};for(const row of missing)stageCounts[row.failed_stage||'UNKNOWN']=(stageCounts[row.failed_stage||'UNKNOWN']||0)+1;
-  return{checked_at:checkedAt,models_checked:published.length,routes_checked:rows.length,missing_price_count:missing.length,priced_count:rows.length-missing.length,stage_counts:stageCounts,rows:missing.sort((a,b)=>a.model_name.localeCompare(b.model_name)||a.capability_id.localeCompare(b.capability_id))};
+  const next=safeCursor+batch.length<targets.length?safeCursor+batch.length:null;
+  return{checked_at:checkedAt,models_checked:published.length,routes_checked:rows.length,missing_price_count:missing.length,priced_count:rows.length-missing.length,stage_counts:stageCounts,rows:missing.sort((a,b)=>a.model_name.localeCompare(b.model_name)||a.capability_id.localeCompare(b.capability_id)),cursor:safeCursor,next_cursor:next,done:next===null,total_targets:targets.length};
  }
 };

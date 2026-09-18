@@ -27,6 +27,26 @@ describe('missing price chain audit',()=>{
   expect(routes).toContain("post('/admin/pricing/audit',requireAuth,requireAdmin");
  });
 
+ it('bounds each Worker audit invocation and lets the client advance sequentially',()=>{
+  const service=read('server/services/pricingChainAuditService.ts');
+  const routes=read('server/routes/adminPricingRoutes.ts');
+  const ui=read('src/components/admin/AdminPricing.tsx');
+  expect(service).toContain('Math.min(3');
+  expect(service).toContain('targets.slice(safeCursor,safeCursor+safeLimit)');
+  expect(service).toContain('next_cursor');
+  expect(routes).toContain('req.body?.cursor');
+  expect(routes).toContain('req.body?.limit');
+  expect(ui).toContain('while(true)');
+  expect(ui).toContain('runPricingAudit(cursor,2)');
+ });
+
+ it('does not trigger a full pricing sync just by opening the admin screen',()=>{
+  const routes=read('server/routes/adminPricingRoutes.ts');
+  const live=routes.slice(routes.indexOf("get('/admin/pricing/live"),routes.indexOf("get('/admin/pricing/settings"));
+  expect(live).toContain('pricingSyncService.getLatestSnapshot()');
+  expect(live).not.toContain('runHourlySync');
+ });
+
  it('renders the audit in Pricing & Credits',()=>{
   const ui=read('src/components/admin/AdminPricing.tsx');
   expect(ui).toContain('Auditar sem preço');
