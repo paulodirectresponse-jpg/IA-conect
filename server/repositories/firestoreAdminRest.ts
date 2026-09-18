@@ -24,7 +24,7 @@ async function accessToken(){
   const sig=new Uint8Array(await subtle.sign('RSASSA-PKCS1-v1_5',key,new TextEncoder().encode(unsigned)));
   const assertion=`${unsigned}.${b64url(sig)}`;
   const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion}).toString()});
-  const body:any=await r.json(); if(!r.ok||!body.access_token)throw new Error(body?.error_description||'Falha ao autenticar service account.');
+  const body:any=await r.json(); if(!r.ok||!body.access_token){const error:any=new Error(body?.error_description||'Falha ao autenticar service account.');error.status=r.status;error.code='FIREBASE_SERVICE_ACCOUNT_TOKEN_ERROR';error.oauth_error=String(body?.error||'');throw error;}
   cachedToken={value:String(body.access_token),expiresAt:Date.now()+Number(body.expires_in||3600)*1000}; return cachedToken.value;
 }
 
