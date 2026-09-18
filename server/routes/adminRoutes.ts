@@ -8,6 +8,7 @@ import { assetReferenceResolver } from '../services/assetReferenceResolver.js';
 import { smartRouterService } from '../services/smartRouterService.js';
 import { generationRepository } from '../repositories/generationRepository.js';
 import { systemHealthService } from '../services/systemHealthService.js';
+import { providerCatalogService } from '../services/providerCatalogService.js';
 
 export const adminRouter = Router();
 
@@ -80,6 +81,29 @@ adminRouter.post('/admin/models', requireAuth, requireAdmin, async (req: Authent
     res.json({ success: true, data: saved });
   } catch (err: any) {
     res.status(400).json({ success: false, error: { code: 'MODEL_CREATE_ERROR', message: err.message } });
+  }
+});
+
+adminRouter.post('/admin/models/bulk-curated', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const modelIds=Array.isArray(req.body?.model_ids)?req.body.model_ids.map(String):[];
+    if(!modelIds.length) {
+      return res.status(400).json({success:false,error:{code:'VALIDATION_ERROR',message:'Selecione pelo menos um modelo do acervo canônico.'}});
+    }
+    if(modelIds.length>50) {
+      return res.status(400).json({success:false,error:{code:'BULK_LIMIT_EXCEEDED',message:'Adicione no máximo 50 modelos por operação.'}});
+    }
+    const result=await providerCatalogService.ensureCuratedModels(modelIds);
+    res.json({
+      success:true,
+      data:{
+        added:result.added.map(model=>({model_id:model.model_id,name:model.name,status:model.status,beta_only:model.beta_only===true})),
+        already_present:result.alreadyPresent.map(model=>({model_id:model.model_id,name:model.name})),
+        rejected:result.rejected,
+      },
+    });
+  } catch (err:any) {
+    res.status(400).json({success:false,error:{code:err?.code||'MODEL_BULK_CREATE_ERROR',message:err?.message||'Falha ao adicionar modelos em massa.'}});
   }
 });
 
