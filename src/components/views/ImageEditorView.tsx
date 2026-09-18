@@ -143,7 +143,7 @@ export const ImageEditorView:React.FC=()=>{
 
  return <>
   <EditorWorkspaceShell topbar={topbar} tools={tools} canvas={canvas} inspector={inspector}/>
-  <EditorAssetPicker open={pickerOpen} assets={images} selectedId={sourceId} busy={busy==='upload'||assetsLoading} onClose={()=>setPickerOpen(false)} onSelect={selectAsset} onUpload={upload}/>{assetsError&&pickerOpen&&<div className="fixed bottom-5 left-1/2 z-[100] -translate-x-1/2 rounded-xl border border-rose-400/20 bg-[#170d13] px-4 py-2 text-[9px] text-rose-300 shadow-xl">Não foi possível atualizar a Biblioteca. <button onClick={()=>void loadImages()} className="ml-2 font-bold underline">Tentar novamente</button></div>}
+  <EditorAssetPicker open={pickerOpen} assets={images} selectedId={sourceId} uploading={busy==='upload'} loading={assetsLoading} onClose={()=>setPickerOpen(false)} onSelect={selectAsset} onUpload={upload}/>{assetsError&&pickerOpen&&<div className="fixed bottom-5 left-1/2 z-[100] -translate-x-1/2 rounded-xl border border-rose-400/20 bg-[#170d13] px-4 py-2 text-[9px] text-rose-300 shadow-xl">Não foi possível atualizar a Biblioteca. <button onClick={()=>void loadImages()} className="ml-2 font-bold underline">Tentar novamente</button></div>}
  </>;
 };
 
