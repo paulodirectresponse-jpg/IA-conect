@@ -63,6 +63,6 @@ describe('canonical model identity across generation and editors',()=>{
   it('lets WaveSpeed use an exact verified mapping identifier for newly added image models',()=>{
     const adapter=read('server/adapters/wavespeedProviderAdapter.ts');
     expect(adapter).toContain("IMAGE_ENDPOINTS[modelId]?.[mode]||providerModelIdentifier");
-    expect(adapter).toContain("family.endsWith('/'+suffix)?family");
+    expect(adapter).toContain('normalizeVideoIdentifier');
   });
 });
