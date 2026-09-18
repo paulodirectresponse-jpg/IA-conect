@@ -41,6 +41,26 @@ export const betaCatalogPolicyService={
     catch{return (await catalogPolicyRepository.getModelPolicy(model.model_id))||seeded;}
   },
 
+  async reconcileModelPolicy(model:ModelRegistryItem){
+    const existing=await catalogPolicyRepository.getModelPolicy(model.model_id);
+    if(!existing)return this.ensureModelPolicy(model);
+    // Policies changed explicitly by an admin remain authoritative. Automatic
+    // reconciliation is only for system-seeded policies that became stale
+    // after a mapping was approved.
+    if(existing.updated_by)return existing;
+    const mappings=await catalogRepository.listMappings();
+    const hasActiveMapping=mappings.some(mapping=>mapping.model_id===model.model_id&&mapping.status==='ACTIVE');
+    const next={
+      ...existing,
+      capability_ids:capabilityIdsForModel(model),
+      enabled:model.status!=='INACTIVE'&&hasActiveMapping,
+      auto_routing_enabled:model.status==='ACTIVE'&&hasActiveMapping,
+    };
+    if(next.enabled===existing.enabled&&next.auto_routing_enabled===existing.auto_routing_enabled&&
+      next.capability_ids.length===existing.capability_ids.length&&next.capability_ids.every(id=>existing.capability_ids.includes(id)))return existing;
+    return catalogPolicyRepository.saveModelPolicy(next);
+  },
+
   async listCatalog(){
     const models=await catalogRepository.listModels();
     const policies=await Promise.all(models.map(model=>this.ensureModelPolicy(model)));

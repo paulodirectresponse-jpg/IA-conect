@@ -59,4 +59,39 @@ describe('verified Stable launch pricing',()=>{
     expect(adapter).toContain("fr:'French'");
     expect(adapter).toContain("de:'German'");
   });
+  it('uses bounded WaveSpeed pricing preflight for exact priority matches only',()=>{
+    const scan=read('server/services/providerModelScanService.ts');
+    expect(scan).toContain('const livePriceBudget=6');
+    expect(scan).toContain("match.confidence>=0.95&&match.match_reason==='exact_alias'");
+    expect(scan).toContain("body:JSON.stringify({model_id:match.provider_model_identifier,inputs:null})");
+    expect(scan).toContain("['VOICE','MUSIC','THREE_D'].includes(match.function_id)");
+  });
+
+  it('reconciles system-seeded policy after a verified mapping is approved',()=>{
+    const policy=read('server/beta/catalog/catalogPolicyService.ts');
+    const routes=read('server/routes/providerScanRoutes.ts');
+    expect(policy).toContain('async reconcileModelPolicy(model:ModelRegistryItem)');
+    expect(policy).toContain('if(existing.updated_by)return existing');
+    expect(routes).toContain('betaCatalogPolicyService.reconcileModelPolicy(model)');
+  });
+
+  it('keeps bulk mapping approval small and blocks non-exact scan matches',()=>{
+    const routes=read('server/routes/providerScanRoutes.ts');
+    const admin=read('src/components/admin/AdminProviderScan.tsx');
+    expect(routes).toContain("'/admin/provider-scan/approve-mappings-bulk'");
+    expect(routes).toContain('if(items.length>5)');
+    expect(routes).toContain("proposal.confidence<0.95||proposal.match_reason!=='exact_alias'");
+    expect(admin).toContain('Adicionar IAs em massa');
+    expect(admin).toContain('for(let index=0;index<eligible.length;index+=5)');
+  });
+
+  it('shows Auto only when the governed Stable catalog exposes an eligible Auto route',()=>{
+    const picker=read('src/components/workspace/StableGeneratorModelPicker.tsx');
+    const compact=read('src/components/workspace/CompactModelPicker.tsx');
+    expect(picker).toContain("models.some(model=>model.model_id==='AUTO')");
+    expect(picker).toContain("models.filter(model=>model.model_id!=='AUTO')");
+    expect(compact).toContain('showAuto?:boolean');
+    expect(compact).toContain('p.showAuto!==false');
+  });
+
 });
