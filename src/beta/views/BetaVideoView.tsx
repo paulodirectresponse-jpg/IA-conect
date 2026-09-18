@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useState}from'react';
-import{CheckCircle2,Clapperboard,Film,Image as ImageIcon,LoaderCircle,RefreshCw,Sparkles,Upload,Video,VideoIcon,WandSparkles}from'lucide-react';
+import{CheckCircle2,Clapperboard,Film,Image as ImageIcon,LoaderCircle,RefreshCw,Sparkles,Upload,Video,WandSparkles}from'lucide-react';
 import{betaVideoClient}from'../videoClient.js';
 import{BetaCapabilityModel}from'../capabilityClient.js';
 import{betaJobClient,BetaJobView}from'../jobClient.js';
@@ -13,8 +13,6 @@ const TOOLS:Array<{id:Tool;label:string;description:string;icon:React.ComponentT
  {id:'image-to-video',label:'Imagem → Vídeo',description:'Anime uma imagem da sua Library.',icon:ImageIcon},
  {id:'first-frame',label:'Frame inicial',description:'Controle explicitamente o primeiro frame.',icon:Film},
  {id:'last-frame',label:'Inicial + final',description:'Defina os frames inicial e final.',icon:Film},
- {id:'video-extend',label:'Estender',description:'Continue um vídeo preservando a continuidade.',icon:VideoIcon},
- {id:'video-edit',label:'Editar vídeo',description:'Reinterprete um vídeo com instruções.',icon:WandSparkles},
 ];
 const DEFAULT_DURATIONS=[5];
 const DEFAULT_RESOLUTIONS=['720p'];
@@ -28,7 +26,7 @@ export const BetaVideoView:React.FC<{initialAssetId?:string|null;initialAssetTyp
  const[catalog,setCatalog]=useState<BetaCapabilityModel[]>([]);
  const[images,setImages]=useState<UniversalAssetView[]>([]);
  const[videos,setVideos]=useState<UniversalAssetView[]>([]);
- const[tool,setTool]=useState<Tool>(initialAssetType==='VIDEO'?'video-edit':initialAssetType==='IMAGE'?'image-to-video':'text-to-video');
+ const[tool,setTool]=useState<Tool>(initialAssetType==='IMAGE'?'image-to-video':'text-to-video');
  const[modelId,setModelId]=useState('AUTO');
  const[prompt,setPrompt]=useState('');
  const[firstImageId,setFirstImageId]=useState(initialAssetType==='IMAGE'?initialAssetId||'':'');
