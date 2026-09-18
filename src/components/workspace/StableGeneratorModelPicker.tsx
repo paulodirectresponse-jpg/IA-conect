@@ -7,7 +7,8 @@ interface Props{models:StableGeneratorModelOption[];selectedModelId:string;onSel
 
 const now='1970-01-01T00:00:00.000Z';
 export const StableGeneratorModelPicker:React.FC<Props>=({models,selectedModelId,onSelect,loading=false})=>{
- const adapted=useMemo<ModelRegistryItem[]>(()=>models.map(model=>({
+ const autoAvailable=models.some(model=>model.model_id==='AUTO');
+ const adapted=useMemo<ModelRegistryItem[]>(()=>models.filter(model=>model.model_id!=='AUTO').map(model=>({
   model_id:model.model_id,
   name:model.name,
   slug:model.model_id,
@@ -36,10 +37,11 @@ export const StableGeneratorModelPicker:React.FC<Props>=({models,selectedModelId
  return <div className={loading?'pointer-events-none opacity-60':''} aria-busy={loading||undefined}>
   <CompactModelPicker
    models={adapted}
-   selectionMode={selectedModelId==='AUTO'?'AUTO':'MANUAL'}
+   selectionMode={autoAvailable&&selectedModelId==='AUTO'?'AUTO':'MANUAL'}
    selectedModelId={manualId}
    autoResolvedModel={null}
    onSelectAuto={()=>onSelect('AUTO')}
+   showAuto={autoAvailable}
    onSelectModel={model=>onSelect(model.model_id)}
    favoriteModelIds={[]}
    recentModelIds={[]}
