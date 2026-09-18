@@ -50,6 +50,7 @@ export const adminService = {
   async adjustCredits(userId:string,type:'ADMIN_CREDIT'|'ADMIN_DEBIT',amount_credits:number,reason:string,idempotency_key?:string){return mutate<{account:CreditAccount}>(`/api/admin/users/${userId}/adjust-credits`,{method:'POST',body:JSON.stringify({type,amount_credits,reason,idempotency_key})});},
   async listModels(){return cachedGet<ModelRegistryItem[]>('/api/catalog/models');},
   async saveModel(data:Partial<ModelRegistryItem>){return mutate<ModelRegistryItem>('/api/admin/models',{method:'POST',body:JSON.stringify(data)});},
+  async bulkAddCuratedModels(model_ids:string[]){return mutate<{added:Array<{model_id:string;name:string;status:string;beta_only:boolean}>;already_present:Array<{model_id:string;name:string}>;rejected:string[]}>('/api/admin/models/bulk-curated',{method:'POST',body:JSON.stringify({model_ids})});},
   async updateModel(modelId:string,data:Partial<ModelRegistryItem>){return mutate<ModelRegistryItem>(`/api/admin/models/${modelId}`,{method:'PATCH',body:JSON.stringify(data)});},
   async listProviders(){return cachedGet<ProviderRegistryItem[]>('/api/catalog/providers');},
   async getProviderFinance(refresh=false){
