@@ -74,8 +74,9 @@ describe('Immersive video editor workspace',()=>{
 
  it('allows a generated result to become the next non-destructive source',()=>{
   const view=read('src/components/views/VideoEditorView.tsx');
+  const preview=read('src/components/editors/video/VideoEditorPreview.tsx');
   expect(view).toContain('useResultAsSource');
   expect(view).toContain("setPreviewMode('result')");
-  expect(view).toContain('Original preservado');
+  expect(preview).toContain('Original preservado');
  });
 });
