@@ -49,11 +49,19 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
   readonly providerId='provider-wavespeed';readonly name='WaveSpeed AI';
   private get apiKey(){return process.env.WAVESPEED_API_KEY?.trim();}private get baseUrl(){return base(process.env.WAVESPEED_BASE_URL);}
   isConfigured(){return Boolean(this.apiKey);}
-  supports(modelId:string,mode:GenerationMode,providerModelIdentifier?:string){if(isAudioMode(mode)||isThreeDMode(mode))return Boolean(providerModelIdentifier);if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE')return Boolean(IMAGE_ENDPOINTS[modelId]?.[mode]||(providerModelIdentifier&&mode==='IMAGE_TO_IMAGE'));if((modelId==='seedance-2-5'||modelId==='seedance-2-0'||modelId==='kling-3-0')&&mode==='REFERENCE_TO_VIDEO')return false;return Boolean((providerModelIdentifier||VIDEO_FAMILIES[modelId])&&videoSuffix(mode));}
+  supports(modelId:string,mode:GenerationMode,providerModelIdentifier?:string){if(isAudioMode(mode)||isThreeDMode(mode))return Boolean(providerModelIdentifier);if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE')return Boolean(IMAGE_ENDPOINTS[modelId]?.[mode]||providerModelIdentifier);if((modelId==='seedance-2-5'||modelId==='seedance-2-0'||modelId==='kling-3-0')&&mode==='REFERENCE_TO_VIDEO')return false;return Boolean((providerModelIdentifier||VIDEO_FAMILIES[modelId])&&videoSuffix(mode));}
   private modelName(modelId:string,mode:GenerationMode,providerModelIdentifier?:string){
     if(isAudioMode(mode)){if(!providerModelIdentifier)throw Object.assign(new Error('Mapping de áudio indisponível na WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return providerModelIdentifier;}
-    if(isThreeDMode(mode)){if(!providerModelIdentifier)throw Object.assign(new Error('Mapping 3D indisponível na WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return `${providerModelIdentifier}/${mode==='TEXT_TO_3D'?'text-to-3d':'image-to-3d'}`;}
-if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE'){const endpoint=IMAGE_ENDPOINTS[modelId]?.[mode]||(providerModelIdentifier&&mode==='IMAGE_TO_IMAGE'?providerModelIdentifier+'/edit':null);if(!endpoint)throw Object.assign(new Error('Modelo/modo de imagem não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return endpoint;}const family=providerModelIdentifier||VIDEO_FAMILIES[modelId],suffix=videoSuffix(mode);if(!family||!suffix||!this.supports(modelId,mode,providerModelIdentifier))throw Object.assign(new Error('Modelo/modo não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});return`${family}/${suffix}`;}
+    if(isThreeDMode(mode)){if(!providerModelIdentifier)throw Object.assign(new Error('Mapping 3D indisponível na WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});const suffix=mode==='TEXT_TO_3D'?'text-to-3d':'image-to-3d';return providerModelIdentifier.endsWith('/'+suffix)?providerModelIdentifier:`${providerModelIdentifier}/${suffix}`;}
+    if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE'){
+      const endpoint=IMAGE_ENDPOINTS[modelId]?.[mode]||providerModelIdentifier;
+      if(!endpoint)throw Object.assign(new Error('Modelo/modo de imagem não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});
+      return endpoint;
+    }
+    const family=providerModelIdentifier||VIDEO_FAMILIES[modelId],suffix=videoSuffix(mode);
+    if(!family||!suffix||!this.supports(modelId,mode,providerModelIdentifier))throw Object.assign(new Error('Modelo/modo não suportado pela WaveSpeed.'),{code:'PROVIDER_INCOMPATIBLE'});
+    return family.endsWith('/'+suffix)?family:`${family}/${suffix}`;
+  }
 
   private imagePayload(params:ProviderGenerationParams){
     const refs=params.references.filter(r=>r.type==='IMAGE'),endpoint=this.modelName(params.model_id,params.mode,params.provider_model_identifier),capability=String(params.capability_id||'');
