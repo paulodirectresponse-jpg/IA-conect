@@ -5,6 +5,7 @@ import { catalogRepository } from '../repositories/catalogRepository.js';
 import { providerCatalogService } from './providerCatalogService.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { curatedModelMatchService, ProviderModelMatchProposal } from './curatedModelMatchService.js';
+import { providerPricingCatalogService } from './providerPricingCatalogService.js';
 
 export type ProviderDiscoveryMode='CATALOG_API'|'SEARCH_API'|'CURATED_REQUIRED';
 export interface ProviderScanCandidate{
@@ -27,6 +28,8 @@ export interface ProviderScanResult{
   candidates:ProviderScanCandidate[];
   matched_count:number;
   matches:ProviderModelMatchProposal[];
+  pricing_synced_count?:number;
+  pricing_sync_error?:string|null;
   warning?:string|null;
   error?:string|null;
   scanned_at:string;
@@ -45,6 +48,68 @@ function candidate(providerId:string,id:any,name:any,raw:any):ProviderScanCandid
   return{provider_id:providerId,provider_model_identifier:identifier,name:String(name||identifier),category:String(raw?.type||raw?.category||raw?.kind||'')||null,capabilities,pricing:raw?.pricing??raw?.price??raw?.base_price,metadata:{deprecated:Boolean(raw?.deprecated),replaced_by:raw?.replaced_by??null,source:raw?.source??null}};
 }
 function uniq(rows:(ProviderScanCandidate|null)[]){const map=new Map<string,ProviderScanCandidate>();for(const row of rows)if(row&&!map.has(row.provider_model_identifier))map.set(row.provider_model_identifier,row);return Array.from(map.values());}
+
+function numericPrice(value:unknown){
+  if(typeof value==='number'&&Number.isFinite(value)&&value>=0)return value;
+  if(typeof value==='string'&&value.trim()&&Number.isFinite(Number(value)))return Number(value);
+  if(value&&typeof value==='object'){
+    const row=value as any;
+    for(const key of ['discounted_price','price','base_price','unit_price','amount']){
+      const parsed=numericPrice(row?.[key]);
+      if(parsed!==null)return parsed;
+    }
+  }
+  return null;
+}
+
+async function syncAuthoritativePricing(providerId:string,candidates:ProviderScanCandidate[],matches:ProviderModelMatchProposal[],mappings:ProviderModelMapping[]){
+  if(providerId==='provider-wavespeed'){
+    const byIdentifier=new Map(candidates.map(row=>[row.provider_model_identifier,row]));
+    const rules=matches.flatMap(match=>{
+      const candidate=byIdentifier.get(match.provider_model_identifier);
+      const basePrice=numericPrice(candidate?.pricing);
+      if(basePrice===null)return[];
+      return [{
+        provider_id:providerId,
+        provider_model_identifier:match.provider_model_identifier,
+        capability_id:match.capability_id||null,
+        unit:'REQUEST' as const,
+        unit_price_usd:basePrice,
+        minimum_usd:null,
+        verified:true,
+        source:'LIVE_CATALOG' as const,
+        quote_mode:'LIVE_PROVIDER' as const,
+        base_price_usd:basePrice,
+        verified_at:new Date().toISOString(),
+      }];
+    });
+    const unique=new Map(rules.map(rule=>[`${rule.provider_id}|${rule.provider_model_identifier}|${rule.capability_id||''}`,rule]));
+    return providerPricingCatalogService.saveMany([...unique.values()]);
+  }
+
+  if(providerId==='provider-atlas'){
+    const rules=mappings.filter(mapping=>mapping.provider_id===providerId&&mapping.status==='ACTIVE').flatMap(mapping=>
+      (mapping.capabilities?.length?mapping.capabilities:[null]).map(capability=>({
+        provider_id:providerId,
+        provider_model_identifier:mapping.provider_model_identifier,
+        capability_id:capability||null,
+        unit:'REQUEST' as const,
+        unit_price_usd:0,
+        minimum_usd:null,
+        verified:true,
+        source:'LIVE_CATALOG' as const,
+        quote_mode:'LIVE_PROVIDER' as const,
+        base_price_usd:null,
+        verified_at:new Date().toISOString(),
+      }))
+    );
+    const unique=new Map(rules.map(rule=>[`${rule.provider_id}|${rule.provider_model_identifier}|${rule.capability_id||''}`,rule]));
+    return providerPricingCatalogService.saveMany([...unique.values()]);
+  }
+
+  return[];
+}
+
 
 async function wavespeed():Promise<ProviderScanCandidate[]>{
   const key=String(process.env.WAVESPEED_API_KEY||'').trim();if(!key)return[];
@@ -117,9 +182,17 @@ async function buildScan(provider:ProviderRegistryItem,mappings:ProviderModelMap
   if(!configured)warnings.push('API key ausente; o provider ainda não pode ser validado com credenciais reais.');
   try{allCandidates=await discover(providerId,mappings);}catch(err:any){error=err?.name==='AbortError'?'Timeout ao consultar catálogo do provider.':err?.message||'Falha ao consultar catálogo do provider.';}
   const matches=await curatedModelMatchService.propose(providerId,allCandidates,mappings);
+  let pricingSyncedCount=0,pricingSyncError:string|null=null;
+  if(configured&&!error){
+    try{pricingSyncedCount=(await syncAuthoritativePricing(providerId,allCandidates,matches,mappings)).length;}
+    catch(err:any){pricingSyncError=err?.message||'Falha ao sincronizar preços do catálogo.';}
+  }
   if(mode==='CURATED_REQUIRED')warnings.push('Este provider exige curadoria de endpoint. O scan reutiliza mappings aprovados; novos mappings exigem identificador explícito, schema/capability e preço verificados.');
+  if(providerId==='provider-runware')warnings.push('A busca pública da Runware não fornece preço pré-execução. O scan descobre modelos e capabilities, mas o preço continua pendente até validação específica.');
+  if(pricingSyncedCount)warnings.push(`${pricingSyncedCount} preço(s) autoritativo(s) sincronizado(s) automaticamente.`);
+  if(pricingSyncError)warnings.push(`Pricing sync: ${pricingSyncError}`);
   const candidates=allCandidates.slice(0,RAW_SAMPLE_LIMIT);
-  const result:ProviderScanResult={scan_id:scanId,provider_id:providerId,provider_name:provider.name,configured,discovery_mode:mode,candidate_count:allCandidates.length,candidate_sample_count:candidates.length,candidates,matched_count:matches.length,matches,warning:warnings.length?warnings.join(' '):null,error,scanned_at:new Date().toISOString()};
+  const result:ProviderScanResult={scan_id:scanId,provider_id:providerId,provider_name:provider.name,configured,discovery_mode:mode,candidate_count:allCandidates.length,candidate_sample_count:candidates.length,candidates,matched_count:matches.length,matches,pricing_synced_count:pricingSyncedCount,pricing_sync_error:pricingSyncError,warning:warnings.length?warnings.join(' '):null,error,scanned_at:new Date().toISOString()};
   if(persistHistory)await firestoreAdminRest.set(`provider_scan_runs/${encodeURIComponent(scanId)}`,result).catch(()=>{});
   await firestoreAdminRest.set(`provider_scan_latest/${encodeURIComponent(providerId)}`,result).catch(()=>{});
   return result;
