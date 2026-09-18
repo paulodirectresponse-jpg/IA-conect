@@ -9,14 +9,21 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for production deployment
-        run: sleep 20
       - name: Probe IA Conect production dependencies
         shell: bash
         run: |
           set +e
           echo '=== /health ==='
           curl -sS --max-time 20 -w '\nHTTP_STATUS:%{http_code}\n' https://iaconnect.ia.br/health
-          echo '=== /api/runtime-health ==='
-          curl -sS --max-time 30 -w '\nHTTP_STATUS:%{http_code}\n' https://iaconnect.ia.br/api/runtime-health
-          exit 0
+          echo '=== waiting for deployed /api/runtime-health ==='
+          for attempt in $(seq 1 20); do
+            body=$(curl -sS --max-time 30 -w '\nHTTP_STATUS:%{http_code}\n' https://iaconnect.ia.br/api/runtime-health)
+            echo "ATTEMPT:${attempt}"
+            echo "$body"
+            if echo "$body" | grep -q 'firebase-service-account'; then
+              exit 0
+            fi
+            sleep 15
+          done
+          echo 'runtime-health endpoint did not become available within probe window'
+          exit 1
