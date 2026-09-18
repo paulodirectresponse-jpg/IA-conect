@@ -8,7 +8,7 @@ describe('PR-10 Image Editor economics',()=>{
   it('uses the existing image per-output credit pricing authority',()=>{
     const pricing=read('server/services/creditPricingService.ts');
     expect(pricing).toContain("function isImageMode(mode:GenerationMode){return mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE';}");
-    expect(pricing).toContain("pricing_unit:image?'PER_OUTPUT'");
+    expect(pricing).toContain("image?'PER_OUTPUT':perRequest?'PER_REQUEST':'PER_SECOND'");
     const jobs=read('server/beta/jobs/jobOrchestrator.ts');
     expect(jobs).toContain('betaEconomicsService.resolveQuote');
   });

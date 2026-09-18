@@ -5,11 +5,12 @@ import { describe,expect,it } from 'vitest';
 const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
 
 describe('PR-08 Audio V1 economics',()=>{
-  it('prices non-duration audio capabilities per request and music/SFX by duration',()=>{
+  it('prices TTS by character, other non-duration audio per request and music/SFX by duration',()=>{
     const pricing=read('server/services/creditPricingService.ts');
-    expect(pricing).toContain("'TEXT_TO_SPEECH','AUDIO_TO_TEXT','MEDIA_TO_TEXT','AUDIO_TO_AUDIO','MEDIA_DUBBING'");
-    expect(pricing).toContain("perRequest?'PER_REQUEST':'PER_SECOND'");
-    expect(pricing).toContain('billingUnits=image?');
+    expect(pricing).toContain("function isCharacterPricing(input:CreditPricingInput)");
+    expect(pricing).toContain("'AUDIO_TO_TEXT','MEDIA_TO_TEXT','AUDIO_TO_AUDIO','MEDIA_DUBBING'");
+    expect(pricing).toContain("pricing_unit:character?'PER_CHARACTER':image?'PER_OUTPUT':perRequest?'PER_REQUEST':'PER_SECOND'");
+    expect(pricing).toContain('billingUnits=character?characterCount*outputs:image?outputs');
   });
 
   it('uses owned media in live provider quotes without trusting frontend provider data',()=>{
