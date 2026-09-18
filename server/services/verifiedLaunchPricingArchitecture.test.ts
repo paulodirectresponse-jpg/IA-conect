@@ -38,6 +38,19 @@ describe('verified Stable launch pricing',()=>{
     expect(view).toContain('output_format:supportsFormat?format:undefined');
   });
 
+  it('restores authoritative pricing sync without reintroducing provider fan-out',()=>{
+    const scan=read('server/services/providerModelScanService.ts');
+    const pricing=read('server/services/providerPricingCatalogService.ts');
+    expect(scan).toContain("providerId==='provider-wavespeed'");
+    expect(scan).toContain("quote_mode:'LIVE_PROVIDER'");
+    expect(scan).toContain('pricing_synced_count');
+    expect(scan).toContain("providerId==='provider-runware'");
+    expect(scan).toContain('A busca pública da Runware não fornece preço pré-execução');
+    expect(pricing).toContain('async saveMany');
+    expect(pricing).toContain('const BATCH=100');
+    expect(pricing).toContain("rule.quote_mode==='LIVE_PROVIDER'");
+  });
+
   it('normalizes Stable voice locale codes before WaveSpeed submission',()=>{
     const adapter=read('server/adapters/wavespeedProviderAdapter.ts');
     expect(adapter).toContain("pt:'Portuguese'");
