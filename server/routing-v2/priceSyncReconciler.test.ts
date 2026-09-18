@@ -23,7 +23,7 @@ function route(validUntil=future):RoutingV2ProviderRoute{
     pricing_snapshot:{
       billing_config:{type:'PER_SECOND',currency:'USD',price_per_second:0.1},source:'PROVIDER_CATALOG_API',
       provider_cost_reference:0.1,safe_cogs_brl:0.55,retail_price_credits:102,expected_margin_percent:40,
-      fx_rate_usd_brl:5.2,fetched_at:now,valid_until,
+      fx_rate_usd_brl:5.2,fetched_at:now,valid_until:validUntil,
     },
     priority:100,last_price_sync_at:now,last_runtime_check_at:now,created_at:now,updated_at:now,
   };
