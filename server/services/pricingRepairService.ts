@@ -11,7 +11,7 @@ import { betaCatalogPolicyService } from '../beta/catalog/catalogPolicyService.j
 import { catalogPolicyRepository } from '../beta/catalog/catalogPolicyRepository.js';
 
 export type PricingRepairAction='RETAIL_BOOTSTRAPPED'|'PRICING_VERIFIED'|'CAPABILITY_ENABLED'|'CAPABILITY_DISABLED'|'MAPPING_DISABLED'|'ALREADY_HEALTHY';
-export interface PricingRepairRow{model_id:string;model_name:string;capability_id:string;actions:PricingRepairAction[];quote_successes:number;quote_failures:number;best_safe_cogs_cents:number|null;retail_credit_price:number|null;remaining_enabled_capabilities:string[];notes:string[];}
+export interface PricingRepairRow{model_id:string;model_name:string;capability_id:string;actions:PricingRepairAction[];quote_successes:number;quote_failures:number;best_safe_cogs_cents:number|null;retail_credit_price:number|null;retail_verified:boolean;remaining_enabled_capabilities:string[];notes:string[];}
 export interface PricingRepairResult{checked_at:string;cursor:number;next_cursor:number|null;done:boolean;total_targets:number;processed:number;fixed:number;disabled:number;rows:PricingRepairRow[];}
 
 function signatureFor(profile:NonNullable<ReturnType<typeof routePricingProfile>>){const p=profile.params;return pricingSignatureService.create({model_id:p.model_id,mode:p.mode,resolution:p.resolution,duration_seconds:p.mode==='TEXT_TO_SPEECH'?1:p.duration_seconds,aspect_ratio:p.aspect_ratio,number_of_outputs:1,audio_enabled:p.audio_enabled,reference_mode:p.references.length?'reference':'none',reference_count:p.references.length,model_variant:p.model_variant,pricing_options:p.pricing_options});}
@@ -49,10 +49,16 @@ export const pricingRepairService={
      if(bestSafe===null||safe<bestSafe){bestSafe=safe;bestSignature=signature;}
     }catch(err:any){quoteFailures++;notes.push(`${providerId}: ${String(err?.code||err?.message||'quote failed')}`);}
    }
-   let nextCaps=[...(policy.capability_ids||[])];let retailCredit:number|null=null;
+   let nextCaps=[...(policy.capability_ids||[])];let retailCredit:number|null=null,retailVerified=false;
    if(bestSafe!==null&&bestSignature){
+    const before=await retailPricingService.get(bestSignature.hash);
+    const retail=await retailPricingService.resolveOrBootstrap(bestSignature,bestSafe);
+    const reread=await retailPricingService.get(bestSignature.hash);
+    retailVerified=Boolean(reread?.active&&reread.pricing_signature_hash===bestSignature.hash&&Number(reread.retail_credit_price)>0);
+    if(!retailVerified)throw new Error(`Retail pricing ${bestSignature.hash} não ficou ativo após persistência.`);
+    retailCredit=Number(reread!.retail_credit_price);
+    if(!before?.active)actions.push('RETAIL_BOOTSTRAPPED');
     if(!nextCaps.includes(capabilityId)){nextCaps=Array.from(new Set([...nextCaps,capabilityId]));actions.push('CAPABILITY_ENABLED');}
-    const before=await retailPricingService.get(bestSignature.hash);const retail=await retailPricingService.resolveOrBootstrap(bestSignature,bestSafe);retailCredit=retail.retail_credit_price;if(!before)actions.push('RETAIL_BOOTSTRAPPED');
    }else{
     if(nextCaps.includes(capabilityId)){nextCaps=nextCaps.filter(id=>id!==capabilityId);actions.push('CAPABILITY_DISABLED');notes.push('Nenhuma rota ativa retornou quote válida; capability removida da exposição pública.');}
     for(const mapping of activeMappings){
@@ -65,9 +71,9 @@ export const pricingRepairService={
    const changed=nextCaps.length!==policy.capability_ids.length||nextCaps.some(id=>!policy.capability_ids.includes(id));
    if(changed){await catalogPolicyRepository.saveModelPolicy({...policy,capability_ids:nextCaps,enabled:nextCaps.length>0,auto_routing_enabled:nextCaps.length>0,updated_by:'system:pricing-repair'});}
    if(!actions.length)actions.push('ALREADY_HEALTHY');
-   rows.push({model_id:model.model_id,model_name:model.name,capability_id:capabilityId,actions:Array.from(new Set(actions)),quote_successes:quoteSuccesses,quote_failures:quoteFailures,best_safe_cogs_cents:bestSafe,retail_credit_price:retailCredit,remaining_enabled_capabilities:nextCaps,notes});
+   rows.push({model_id:model.model_id,model_name:model.name,capability_id:capabilityId,actions:Array.from(new Set(actions)),quote_successes:quoteSuccesses,quote_failures:quoteFailures,best_safe_cogs_cents:bestSafe,retail_credit_price:retailCredit,retail_verified:retailVerified,remaining_enabled_capabilities:nextCaps,notes});
   }
   const next=safeCursor+batch.length<targets.length?safeCursor+batch.length:null;
-  return{checked_at:checkedAt,cursor:safeCursor,next_cursor:next,done:next===null,total_targets:targets.length,processed:rows.length,fixed:rows.filter(row=>row.actions.some(action=>['RETAIL_BOOTSTRAPPED','PRICING_VERIFIED','CAPABILITY_ENABLED'].includes(action))).length,disabled:rows.filter(row=>row.actions.includes('CAPABILITY_DISABLED')).length,rows};
+  return{checked_at:checkedAt,cursor:safeCursor,next_cursor:next,done:next===null,total_targets:targets.length,processed:rows.length,fixed:rows.filter(row=>row.retail_verified).length,disabled:rows.filter(row=>row.actions.includes('CAPABILITY_DISABLED')).length,rows};
  }
 };
