@@ -45,7 +45,8 @@ describe('verified Stable launch pricing',()=>{
     expect(scan).toContain("quote_mode:'LIVE_PROVIDER'");
     expect(scan).toContain('pricing_synced_count');
     expect(scan).toContain("providerId==='provider-runware'");
-    expect(scan).toContain('A busca pública da Runware não fornece preço pré-execução');
+    expect(scan).toContain('https://content.runware.ai/models/');
+    expect(scan).toContain('Rotas com preço variável continuam bloqueadas até normalização determinística.');
     expect(pricing).toContain('async saveMany');
     expect(pricing).toContain('const BATCH=100');
     expect(pricing).toContain("rule.quote_mode==='LIVE_PROVIDER'");
