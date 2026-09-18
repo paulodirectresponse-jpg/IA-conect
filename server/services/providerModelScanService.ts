@@ -131,23 +131,27 @@ async function syncAuthoritativePricing(providerId:string,candidates:ProviderSca
   }
 
   if(providerId==='provider-atlas'){
-    const rules=mappings.filter(mapping=>mapping.provider_id===providerId&&mapping.status==='ACTIVE').flatMap(mapping=>
-      (mapping.capabilities?.length?mapping.capabilities:[null]).map(capability=>({
-        provider_id:providerId,
-        provider_model_identifier:mapping.provider_model_identifier,
-        capability_id:capability||null,
-        unit:'REQUEST' as const,
-        unit_price_usd:0,
-        minimum_usd:null,
-        verified:true,
-        source:'LIVE_CATALOG' as const,
-        quote_mode:'LIVE_PROVIDER' as const,
-        base_price_usd:null,
-        verified_at:new Date().toISOString(),
-      }))
-    );
-    const unique=new Map(rules.map(rule=>[`${rule.provider_id}|${rule.provider_model_identifier}|${rule.capability_id||''}`,rule]));
-    return providerPricingCatalogService.saveMany([...unique.values()]);
+    const adapter=providerRegistry.getAdapter(providerId);
+    if(!adapter?.quoteCostUsd)return[];
+    const rules:any[]=[];
+    const targets=mappings.filter(mapping=>mapping.provider_id===providerId&&mapping.status==='ACTIVE'&&mapping.capabilities?.includes('text-to-video')).slice(0,6);
+    for(const mapping of targets){
+      try{
+        const quote=await adapter.quoteCostUsd({
+          generation_id:'pricing-scan',user_id:'admin-scan',model_id:mapping.model_id,mode:'TEXT_TO_VIDEO',
+          capability_id:'text-to-video',provider_model_identifier:mapping.provider_model_identifier,
+          prompt:'Pricing verification probe',duration_seconds:5,resolution:'720p',aspect_ratio:'16:9',number_of_outputs:1,references:[],
+        });
+        if(!Number.isFinite(Number(quote.effective_price_usd))||Number(quote.effective_price_usd)<0)continue;
+        rules.push({
+          provider_id:providerId,provider_model_identifier:mapping.provider_model_identifier,capability_id:'text-to-video',
+          unit:'REQUEST' as const,unit_price_usd:Number(quote.effective_price_usd),minimum_usd:null,verified:true,
+          source:'LIVE_CATALOG' as const,quote_mode:'LIVE_PROVIDER' as const,base_price_usd:Number(quote.effective_price_usd),
+          verified_at:new Date().toISOString(),
+        });
+      }catch{}
+    }
+    return providerPricingCatalogService.saveMany(rules);
   }
 
   return[];
