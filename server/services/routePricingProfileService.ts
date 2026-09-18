@@ -74,7 +74,11 @@ export function routePricingProfile(model:ModelRegistryItem,mapping:ProviderMode
   if(['transcription','authorized-voice-clone'].includes(capabilityId))references.push(ref('AUDIO',AUDIO_REF));
   if(['subtitles','dubbing'].includes(capabilityId))references.push(ref('VIDEO',VIDEO_REF));
   const prompt=capabilityId==='text-to-speech'?'x'.repeat(1000):capabilityId==='video-extend'?'Continue the source video naturally while preserving continuity.':'Pricing verification probe';
-  const params:ProviderGenerationParams={generation_id:'pricing-sync',user_id:'pricing-sync',model_id:model.model_id,mode,capability_id:capabilityId,provider_model_identifier:mapping.provider_model_identifier,prompt,duration_seconds:Number(duration)||1,resolution:firstResolution(model,capabilityId),aspect_ratio:firstAspect(model,capabilityId),number_of_outputs:1,references,audio_enabled:false,model_variant:'default',pricing_options:{pricing_probe:true,text_chars:capabilityId==='text-to-speech'?1000:undefined}};
+  const audioDefault=['wan-3-0','wan-3-0-prime','seedance-2-5','seedance-2-0','kling-3-0'].includes(model.model_id);
+  const pricingOptions:Record<string,string|number|boolean|undefined>={};
+  if(capabilityId==='text-to-speech')pricingOptions.billing_basis='CHARACTER_1000';
+  if(['text-to-3d','image-to-3d','multi-image-to-3d'].includes(capabilityId)){pricingOptions.mesh_mode='TEXTURED';pricingOptions.pbr=false;pricingOptions.target_faces=500000;pricingOptions.topology='TRIANGLE';}
+  const params:ProviderGenerationParams={generation_id:'pricing-sync',user_id:'pricing-sync',model_id:model.model_id,mode,capability_id:capabilityId,provider_model_identifier:mapping.provider_model_identifier,prompt,duration_seconds:Number(duration)||1,resolution:firstResolution(model,capabilityId),aspect_ratio:firstAspect(model,capabilityId),number_of_outputs:1,references,audio_enabled:audioDefault,model_variant:'default',pricing_options:pricingOptions};
   const baselineQuantity=unit==='CHARACTER'?1000:unit==='SECOND'?Math.max(1,params.duration_seconds):unit==='MINUTE'?Math.max(1,params.duration_seconds)/60:1;
   return{capability_id:capabilityId,mode,pricing_unit:unit,baseline_quantity:baselineQuantity,params};
 }
