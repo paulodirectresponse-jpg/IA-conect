@@ -22,6 +22,7 @@ export interface EconomicCampaign {campaign_id:string;name:string;type:'BETA'|'F
 export interface BetaCatalogAdminModel {model_id:string;name:string;category:string;status:string;capability_ids:string[];supported_capability_ids:string[];pricing_policy_id:string;enabled:boolean;eligible:boolean;auto_routing_enabled:boolean;quote_ttl_seconds:number;}
 export interface BetaPricingPolicyAdmin {pricing_policy_id:string;name:string;quote_ttl_seconds:number;active:boolean;created_at:string;updated_at:string;updated_by?:string|null;}
 export interface BetaEconomicLedgerAdmin {event_id:string;event_type:string;user_id:string;job_id:string;generation_id?:string|null;requested_model_id:string;selected_model_id:string;routing_mode:'MANUAL'|'AUTO';pricing_policy_id:string;retail_pricing_id:string;pricing_signature_hash:string;credit_price:number;quote_expires_at:string;created_at:string;}
+export interface StablePublicationStatus {model_id:string;name:string;status:string;beta_only:boolean;published:boolean;ready:boolean;supported_capability_ids:string[];ready_capability_ids:string[];missing_capability_ids:string[];ready_routes:number;}
 
 const ADMIN_CACHE_TTL_MS=30*60*1000;
 type CacheEntry<T=unknown>={expires:number;value?:T;promise?:Promise<T>};
@@ -48,7 +49,10 @@ export const adminService = {
   async getUserDetails(userId:string){return cachedGet<{user:UserProfile;wallet:CreditAccount;recent_transactions:CreditTransaction[]}>(`/api/admin/users/${userId}`);},
   async updateUserStatus(userId:string,status:'ACTIVE'|'SUSPENDED',reason:string){return mutate<UserProfile>(`/api/admin/users/${userId}/status`,{method:'POST',body:JSON.stringify({status,reason})});},
   async adjustCredits(userId:string,type:'ADMIN_CREDIT'|'ADMIN_DEBIT',amount_credits:number,reason:string,idempotency_key?:string){return mutate<{account:CreditAccount}>(`/api/admin/users/${userId}/adjust-credits`,{method:'POST',body:JSON.stringify({type,amount_credits,reason,idempotency_key})});},
-  async listModels(){return cachedGet<ModelRegistryItem[]>('/api/catalog/models');},
+  async listModels(){return cachedGet<ModelRegistryItem[]>('/api/admin/models');},
+  async listStablePublicationStatus(){return cachedGet<StablePublicationStatus[]>('/api/admin/models/publication-status');},
+  async publishStableModel(modelId:string){return mutate<any>(`/api/admin/models/${encodeURIComponent(modelId)}/publish-stable`,{method:'POST',body:'{}'});},
+  async publishStableModelsBulk(model_ids:string[]){return mutate<{published:any[]}>('/api/admin/models/publish-stable-bulk',{method:'POST',body:JSON.stringify({model_ids})});},
   async saveModel(data:Partial<ModelRegistryItem>){return mutate<ModelRegistryItem>('/api/admin/models',{method:'POST',body:JSON.stringify(data)});},
   async bulkAddCuratedModels(model_ids:string[]){return mutate<{added:Array<{model_id:string;name:string;status:string;beta_only:boolean}>;already_present:Array<{model_id:string;name:string}>;rejected:string[]}>('/api/admin/models/bulk-curated',{method:'POST',body:JSON.stringify({model_ids})});},
   async updateModel(modelId:string,data:Partial<ModelRegistryItem>){return mutate<ModelRegistryItem>(`/api/admin/models/${modelId}`,{method:'PATCH',body:JSON.stringify(data)});},
