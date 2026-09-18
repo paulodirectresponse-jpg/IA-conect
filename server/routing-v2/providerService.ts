@@ -1,5 +1,6 @@
 import { routingV2Repository } from './repository.js';
 import { RoutingV2Provider, RoutingV2ProviderStatus, RoutingV2ProviderType } from './domain.js';
+import { routingV2AdapterRegistry } from './adapterRegistry.js';
 
 const now=()=>new Date().toISOString();
 const slugify=(value:string)=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
@@ -11,9 +12,6 @@ export interface CreateRoutingV2ProviderInput{
   adapter_id:string;
   secret_reference?:string|null;
   priority?:number;
-  supports_catalog_sync?:boolean;
-  supports_pricing_sync?:boolean;
-  supports_balance?:boolean;
 }
 
 export interface UpdateRoutingV2ProviderInput{
@@ -22,9 +20,6 @@ export interface UpdateRoutingV2ProviderInput{
   priority?:number;
   adapter_id?:string;
   secret_reference?:string|null;
-  supports_catalog_sync?:boolean;
-  supports_pricing_sync?:boolean;
-  supports_balance?:boolean;
 }
 
 function validateId(value:string,label:string){
@@ -49,6 +44,8 @@ export const routingV2ProviderService={
     const adapterId=validateId(input.adapter_id,'adapter_id');
     if(!name)throw new Error('Nome do provider é obrigatório.');
     if(await routingV2Repository.getProvider(providerId))throw new Error('Provider V2 já existe.');
+    const adapter=routingV2AdapterRegistry.get(adapterId);
+    if(!adapter)throw new Error('Adapter V2 não registrado.');
 
     const timestamp=now();
     const provider:RoutingV2Provider={
@@ -60,9 +57,9 @@ export const routingV2ProviderService={
       priority:Number.isFinite(Number(input.priority))?Number(input.priority):100,
       adapter_id:adapterId,
       secret_reference:input.secret_reference?.trim()||null,
-      supports_catalog_sync:Boolean(input.supports_catalog_sync),
-      supports_pricing_sync:Boolean(input.supports_pricing_sync),
-      supports_balance:Boolean(input.supports_balance),
+      supports_catalog_sync:Boolean(adapter.listModels),
+      supports_pricing_sync:Boolean(adapter.getPrice),
+      supports_balance:Boolean(adapter.balance),
       balance_amount:null,
       balance_currency:null,
       balance_updated_at:null,
@@ -77,17 +74,20 @@ export const routingV2ProviderService={
   async update(providerId:string,input:UpdateRoutingV2ProviderInput){
     const current=await routingV2Repository.getProvider(providerId);
     if(!current)throw new Error('Provider V2 não encontrado.');
+    const adapterId=input.adapter_id===undefined?current.adapter_id:validateId(input.adapter_id,'adapter_id');
+    const adapter=routingV2AdapterRegistry.get(adapterId);
+    if(!adapter)throw new Error('Adapter V2 não registrado.');
     const next:RoutingV2Provider={
       ...current,
       name:input.name===undefined?current.name:String(input.name).trim()||current.name,
       slug:input.name===undefined?current.slug:slugify(String(input.name))||current.slug,
       status:input.status??current.status,
       priority:input.priority===undefined?current.priority:Number(input.priority),
-      adapter_id:input.adapter_id===undefined?current.adapter_id:validateId(input.adapter_id,'adapter_id'),
+      adapter_id:adapterId,
       secret_reference:input.secret_reference===undefined?current.secret_reference:(input.secret_reference?.trim()||null),
-      supports_catalog_sync:input.supports_catalog_sync===undefined?current.supports_catalog_sync:Boolean(input.supports_catalog_sync),
-      supports_pricing_sync:input.supports_pricing_sync===undefined?current.supports_pricing_sync:Boolean(input.supports_pricing_sync),
-      supports_balance:input.supports_balance===undefined?current.supports_balance:Boolean(input.supports_balance),
+      supports_catalog_sync:Boolean(adapter.listModels),
+      supports_pricing_sync:Boolean(adapter.getPrice),
+      supports_balance:Boolean(adapter.balance),
       updated_at:now(),
     };
     if(!Number.isFinite(next.priority))throw new Error('Prioridade do provider é inválida.');
