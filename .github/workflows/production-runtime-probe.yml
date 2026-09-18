@@ -20,7 +20,7 @@ jobs:
             body=$(curl -sS --max-time 30 -w '\nHTTP_STATUS:%{http_code}\n' https://iaconnect.ia.br/api/runtime-health)
             echo "ATTEMPT:${attempt}"
             echo "$body"
-            if echo "$body" | grep -q 'firebase-service-account'; then
+            if echo "$body" | grep -q 'project_matches_runtime'; then
               exit 0
             fi
             sleep 15
