@@ -86,7 +86,7 @@ async function syncAuthoritativePricing(providerId:string,candidates:ProviderSca
     const byIdentifier=new Map(candidates.map(row=>[row.provider_model_identifier,row]));
     const timestamp=new Date().toISOString();
     const rules:any[]=[];
-    const livePriceBudget=6;
+    const livePriceBudget=12;
     let livePriceRequests=0;
     const root=trim(process.env.WAVESPEED_BASE_URL,'https://api.wavespeed.ai').replace(/\/api\/v3$/,'');
     const key=String(process.env.WAVESPEED_API_KEY||'').trim();
@@ -98,7 +98,7 @@ async function syncAuthoritativePricing(providerId:string,candidates:ProviderSca
       // aliases only, use WaveSpeed's official pricing endpoint in base-price
       // mode. This is deliberately sequential and capped to protect the Worker
       // subrequest budget.
-      if(basePrice===null&&key&&livePriceRequests<livePriceBudget&&match.confidence>=0.95&&match.match_reason==='exact_alias'&&['VOICE','MUSIC','THREE_D'].includes(match.function_id)){
+      if(basePrice===null&&key&&livePriceRequests<livePriceBudget&&match.confidence>=0.95&&match.match_reason==='exact_alias'&&['IMAGE_GENERATION','IMAGE_EDIT','VIDEO_GENERATION','VIDEO_EDIT','VIDEO_EXTEND','VOICE','MUSIC','THREE_D'].includes(match.function_id)){
         livePriceRequests++;
         try{
           const response=await json(`${root}/api/v3/model/price`,{
