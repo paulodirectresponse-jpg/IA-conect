@@ -20,13 +20,34 @@ function isPerRequestMode(mode:GenerationMode){return ['AUDIO_TO_TEXT','MEDIA_TO
 function isCharacterPricing(input:CreditPricingInput){return input.mode==='TEXT_TO_SPEECH'||input.capability_id==='text-to-speech';}
 function retailPricingOptions(input:CreditPricingInput){const options={...(input.pricing_options||{})};if(isCharacterPricing(input)){delete options.text_chars;options.billing_basis='CHARACTER_1000';}return options;}
 function cachedCandidate(row:any){return{provider_id:String(row?.provider_id||'persisted-pricing'),provider_name:String(row?.provider_name||'Snapshot persistido'),provider_cost_usd:Number(row?.provider_cost_usd||0),provider_cost_cents:Number(row?.provider_cost_brl_cents||0),safe_cost_cents:Number(row?.safe_cost_brl_cents||row?.provider_cost_brl_cents||0),fully_loaded_safe_cogs_cents:Number(row?.fully_loaded_safe_cogs_cents||row?.safe_cost_brl_cents||row?.provider_cost_brl_cents||0),billing_policy:'UNKNOWN',quoted_at:String(row?.checked_at||new Date(0).toISOString()),quote_estimated:true,is_healthy:row?.status==='OK'};}
+function inferredCapability(input:CreditPricingInput){
+ if(input.capability_id)return input.capability_id;
+ if(input.mode==='TEXT_TO_IMAGE')return'text-to-image';
+ if(input.mode==='IMAGE_TO_IMAGE')return'image-to-image';
+ if(input.mode==='TEXT_TO_VIDEO')return'text-to-video';
+ if(input.mode==='IMAGE_TO_VIDEO')return'image-to-video';
+ if(input.mode==='TEXT_TO_SPEECH')return'text-to-speech';
+ if(input.mode==='TEXT_TO_AUDIO')return'music';
+ return'';
+}
+function compatibleSnapshotRow(row:any,input:CreditPricingInput,unitSignature:PricingSignature){
+ const capability=inferredCapability(input);
+ if(row?.status!=='OK'||row?.model_id!==input.model_id||row?.mode!==input.mode)return false;
+ if(capability&&row?.capability_id&&row.capability_id!==capability)return false;
+ if(String(row?.resolution||'').toLowerCase()!==String(unitSignature.resolution||'').toLowerCase())return false;
+ if(Number(row?.duration_seconds||1)!==Number(unitSignature.duration_seconds||1))return false;
+ if(isCharacterPricing(input)&&row?.pricing_unit&&row.pricing_unit!=='CHARACTER')return false;
+ return true;
+}
 async function persistedDecision(input:CreditPricingInput,unitSignature:PricingSignature){
  const snapshot=await pricingSyncService.getLatestSnapshot();
- const rows=(snapshot.rows||[]).filter((r:any)=>r.status==='OK'&&r.model_id===input.model_id&&r.mode===input.mode&&(!input.capability_id||!r.capability_id||r.capability_id===input.capability_id));
- const row=rows.find((r:any)=>r.pricing_signature_hash===unitSignature.hash);
- if(!row)throw Object.assign(new Error('Cotação operacional persistida indisponível para esta configuração exata.'),{code:'PERSISTED_PRICING_UNAVAILABLE'});
+ const rows=(snapshot.rows||[]).filter((r:any)=>compatibleSnapshotRow(r,input,unitSignature));
+ const exact=rows.find((r:any)=>r.pricing_signature_hash===unitSignature.hash);
+ const compatible=rows.sort((a:any,b:any)=>Date.parse(String(b.checked_at||0))-Date.parse(String(a.checked_at||0)))[0];
+ const row=exact||compatible;
+ if(!row)throw Object.assign(new Error('Cotação operacional persistida indisponível para esta configuração compatível.'),{code:'PERSISTED_PRICING_UNAVAILABLE'});
  const selected=cachedCandidate(row);
- return{selected,candidates:[selected],strategy:'PERSISTED_PRICING_SNAPSHOT',reason:'Custo operacional lido do snapshot persistido.'};
+ return{selected,candidates:[selected],strategy:'PERSISTED_PRICING_SNAPSHOT',reason:exact?'Custo operacional lido do snapshot exato.':'Custo operacional lido de snapshot economicamente compatível.'};
 }
 export const creditPricingService={
  async preview(input:CreditPricingInput){

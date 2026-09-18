@@ -45,11 +45,23 @@ describe('unified route pricing engine',()=>{
   expect(pricing).toContain('characterCount/1000');
  });
 
- it('does not reuse approximate persisted snapshots when the exact price signature is absent',()=>{
+ it('prefers exact pricing signatures and safely falls back only to economically compatible snapshots',()=>{
   const pricing=read('server/services/creditPricingService.ts');
   expect(pricing).toContain('pricing_signature_hash===unitSignature.hash');
-  expect(pricing).toContain('configuração exata');
-  expect(pricing).not.toContain('rows.sort((a:any,b:any)=>Number(a.fully_loaded_safe_cogs_cents');
+  expect(pricing).toContain('compatibleSnapshotRow');
+  expect(pricing).toContain("row.capability_id!==capability");
+  expect(pricing).toContain("row?.mode!==input.mode");
+  expect(pricing).toContain("row?.duration_seconds||1");
+  expect(pricing).toContain("row?.resolution||''");
+  expect(pricing).not.toContain('fully_loaded_safe_cogs_cents||Infinity');
+ });
+
+ it('keeps a recent last-known-good route price during short provider outages',()=>{
+  const sync=read('server/services/pricingSyncService.ts');
+  expect(sync).toContain('recoverRecentGoodRows');
+  expect(sync).toContain('2*60*60*1000');
+  expect(sync).toContain('stale:true');
+  expect(sync).toContain('usando último preço válido por até 2h');
  });
 
  it('uses video probes for video edit and extend pricing',()=>{
