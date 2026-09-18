@@ -44,9 +44,14 @@ editorRouter.use('/editors',requireAuth,requireEditorsEnabled);
 
 editorRouter.get('/editors/catalog',async(_req:AuthenticatedRequest,res)=>{
  try{
-  const[models,policies,mappings,providers,pricing,imageFlag,videoFlag]=await Promise.all([
-   catalogRepository.listModels(),betaCatalogPolicyService.listCatalog(),catalogRepository.listMappings(),providerCatalogService.listProviders(),providerPricingCatalogService.list(),catalogRepository.getFeatureFlag('beta.image_editor'),catalogRepository.getFeatureFlag('beta.video'),
+  const[models,policies,mappings,imageFlag,videoFlag]=await Promise.all([
+   catalogRepository.listModels(),betaCatalogPolicyService.listCatalog(),catalogRepository.listMappings(),catalogRepository.getFeatureFlag('beta.image_editor'),catalogRepository.getFeatureFlag('beta.video'),
   ]);
+  const[providersResult,pricingResult]=await Promise.allSettled([
+   providerCatalogService.listProviders(),providerPricingCatalogService.list(),
+  ]);
+  const providers=providersResult.status==='fulfilled'?providersResult.value:[];
+  const pricing=pricingResult.status==='fulfilled'?pricingResult.value:[];
   const enabledCapabilities=new Set<string>([
    ...(imageFlag?.is_enabled?IMAGE_CAPABILITIES:[]),
    ...(videoFlag?.is_enabled?VIDEO_CAPABILITIES:[]),
