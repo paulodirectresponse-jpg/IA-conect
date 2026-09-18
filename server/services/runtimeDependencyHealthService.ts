@@ -27,6 +27,7 @@ function classifyFirestoreError(error:any){
     return 'FIREBASE_SERVICE_ACCOUNT_TOKEN_ERROR';
   }
   if(/PRIVATE KEY|PKCS8/i.test(message))return 'FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY_INVALID';
+  if(String(error?.status)==='429'||error?.code==='FIRESTORE_RATE_LIMIT_ACTIVE')return 'FIRESTORE_RESOURCE_EXHAUSTED';
   if(upper.includes('PERMISSION_DENIED')||String(error?.status)==='403')return 'FIRESTORE_PERMISSION_DENIED';
   if(upper.includes('UNAUTHENTICATED')||String(error?.status)==='401')return 'FIRESTORE_AUTH_FAILED';
   if(upper.includes('NOT_FOUND')||String(error?.status)==='404')return 'FIRESTORE_DATABASE_NOT_FOUND';
@@ -75,6 +76,9 @@ export const runtimeDependencyHealthService={
           http_status:Number(error?.status||0),
           oauth_error:String(error?.oauth_error||''),
           reason:safeErrorMessage(error),
+          response_error_status:String(error?.body?.error?.status||''),
+          response_message:safeErrorMessage(error?.body?.error?.message||error?.body?.raw||''),
+          retry_after:String(error?.retry_after||error?.retry_after_ms||''),
         },
       });
     }

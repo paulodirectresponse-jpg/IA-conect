@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Fingerprint, LogOut, ShieldCheck, UserRoun
 import { useAuth } from '../../context/AuthContext.js';
 
 export const SettingsView: React.FC = () => {
-  const { profile, isAdmin, claimBootstrapAdmin, logout } = useAuth();
+  const { profile, isAdmin, authError, claimBootstrapAdmin, logout } = useAuth();
   const [bootstrapSecret, setBootstrapSecret] = useState('');
   const [bootstrapLoading, setBootstrapLoading] = useState(false);
   const [bootstrapMessage, setBootstrapMessage] = useState<string | null>(null);
@@ -26,6 +26,8 @@ export const SettingsView: React.FC = () => {
         <p className="ia-view-description">Gerencie sua identidade, segurança e permissões do estúdio.</p>
       </header>
 
+      {authError && !profile && <div className="rounded-[14px] border border-rose-400/15 bg-rose-400/[0.06] px-4 py-3 text-[11px] text-rose-200 flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0"/>Sua autenticação permanece ativa, mas os dados da conta não puderam ser carregados agora. Não refaça o cadastro nem reivindique administrador.</div>}
+
       <section className={`${panel} ia-settings-profile p-5 sm:p-6`}>
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="ia-settings-avatar">{initial}</div>
@@ -38,7 +40,7 @@ export const SettingsView: React.FC = () => {
         </div>
       </section>
 
-      {!isAdmin && (
+      {profile && !isAdmin && (
         <section className={`${panel} p-5 sm:p-6`}>
           <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-amber-400"/><h2 className="text-[14px] font-semibold text-white">Configuração administrativa inicial</h2></div>
           <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">Use esta opção apenas na configuração inicial da plataforma.</p>
