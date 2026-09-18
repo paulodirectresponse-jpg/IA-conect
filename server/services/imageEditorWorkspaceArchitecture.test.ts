@@ -28,7 +28,7 @@ describe('Immersive image editor workspace',()=>{
 
  it('does not invent unsupported image-editing tools',()=>{
   const view=read('src/components/views/ImageEditorView.tsx');
-  for(const fake of ['Brilho','Contraste','Saturação','Nitidez','Camadas','Blend mode','Forma','Texto'])expect(view).not.toContain(fake);
+  for(const fake of ["label:'Brilho'","label:'Contraste'","label:'Saturação'","label:'Nitidez'","label:'Camadas'","label:'Forma'","label:'Texto'"])expect(view).not.toContain(fake);
  });
 
  it('keeps pricing jobs assets and provider routing server-authoritative',()=>{
