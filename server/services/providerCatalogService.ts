@@ -69,6 +69,24 @@ async function ensureCuratedModel(modelId:string):Promise<ModelRegistryItem|null
   return catalogRepository.saveModel({...seed,created_at:seed.created_at||now(),updated_at:now()});
 }
 
+async function ensureCuratedModels(modelIds:string[]){
+  const ids=Array.from(new Set(modelIds.map(String).map(value=>value.trim()).filter(Boolean))).slice(0,50);
+  const existing=await catalogRepository.listModels();
+  const existingById=new Map(existing.map(model=>[model.model_id,model]));
+  const added:ModelRegistryItem[]=[];
+  const alreadyPresent:ModelRegistryItem[]=[];
+  const rejected:string[]=[];
+  for(const modelId of ids){
+    const current=existingById.get(modelId);
+    if(current){alreadyPresent.push(current);continue;}
+    const seed=modelSeedById.get(modelId);
+    if(!seed){rejected.push(modelId);continue;}
+    added.push({...seed,created_at:seed.created_at||now(),updated_at:now()});
+  }
+  if(added.length)await catalogRepository.saveModelsBulk(added);
+  return{added,alreadyPresent,rejected};
+}
+
 /**
  * Backwards-compatible hook used by older catalog routes.
  * It is intentionally read-only now. Curated models are created lazily via
@@ -81,5 +99,6 @@ export const providerCatalogService={
   getProvider,
   ensureProviderRecord,
   ensureCuratedModel,
+  ensureCuratedModels,
   ensureSeeded,
 };
