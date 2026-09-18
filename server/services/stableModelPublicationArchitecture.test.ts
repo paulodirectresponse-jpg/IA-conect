@@ -14,11 +14,13 @@ describe('Stable model publication and provider pricing recovery',()=>{
     expect(admin).toContain("cachedGet<ModelRegistryItem[]>('/api/admin/models')");
   });
 
-  it('publishes only models whose declared capabilities have safe priced routes',()=>{
+  it('publishes only models whose declared capabilities have safe retail-ready routes',()=>{
     const service=read('server/services/stableModelPublicationService.ts');
+    const readiness=read('server/services/stableLaunchReadinessService.ts');
     expect(service).toContain('missing_capability_ids');
-    expect(service).toContain("provider.status!=='ACTIVE'");
-    expect(service).toContain('priceMatches');
+    expect(readiness).toContain("provider.status!=='ACTIVE'");
+    expect(readiness).toContain('priceMatches');
+    expect(readiness).toContain('retailHashes.has(hash)');
     expect(service).toContain("status:'ACTIVE',beta_only:false");
     expect(service).toContain('auto_routing_enabled:true');
   });
