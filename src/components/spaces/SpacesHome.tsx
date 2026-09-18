@@ -1,14 +1,16 @@
 import React from'react';
-import{ArrowRight,LoaderCircle,Network,Plus,Sparkles}from'lucide-react';
+import{ArrowRight,LoaderCircle,Network,Plus,Sparkles,Trash2}from'lucide-react';
 import type{FlowRecord}from'../../beta/flowClient.js';
 
 interface Props{
  flows:FlowRecord[];
  loading:boolean;
  creating:boolean;
+ deletingId?:string|null;
  error?:string;
  onCreate:()=>void;
  onOpen:(flowId:string)=>void;
+ onDelete:(flow:FlowRecord)=>void;
 }
 
 const ago=(iso:string)=>{const ts=new Date(iso).getTime();if(!Number.isFinite(ts))return'';const diff=Math.max(0,Date.now()-ts),min=Math.floor(diff/60000),hour=Math.floor(min/60),day=Math.floor(hour/24);if(day>0)return day===1?'há 1 dia':`há ${day} dias`;if(hour>0)return hour===1?'há 1 hora':`há ${hour} horas`;if(min>0)return min===1?'há 1 min':`há ${min} min`;return'agora';};
@@ -24,7 +26,7 @@ const Preview:React.FC<{flow:FlowRecord}>=({flow})=>{
  </div>;
 };
 
-export const SpacesHome:React.FC<Props>=({flows,loading,creating,error,onCreate,onOpen})=><div className="h-full overflow-y-auto bg-[#090d12] px-5 py-7 text-zinc-100 sm:px-7 lg:px-9 xl:px-10">
+export const SpacesHome:React.FC<Props>=({flows,loading,creating,deletingId,error,onCreate,onOpen,onDelete})=><div className="h-full overflow-y-auto bg-[#090d12] px-5 py-7 text-zinc-100 sm:px-7 lg:px-9 xl:px-10">
  <div className="mx-auto w-full max-w-[1500px]">
   <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
    <div><span className="text-[9px] font-black uppercase tracking-[.18em] text-cyan-300">Workspace visual</span><h1 className="mt-1 text-3xl font-black tracking-tight text-white sm:text-4xl">Spaces</h1><p className="mt-2 max-w-2xl text-[11px] leading-relaxed text-zinc-500">Abra um fluxo existente ou crie um novo espaço para gerar, editar e conectar conteúdo visualmente.</p></div>
@@ -33,10 +35,13 @@ export const SpacesHome:React.FC<Props>=({flows,loading,creating,error,onCreate,
   {error&&<div className="mt-5 rounded-xl border border-rose-400/15 bg-rose-400/[0.05] px-3 py-2 text-[10px] text-rose-300">{error}</div>}
   <div className="mt-8">
    <div className="mb-3 flex items-center justify-between"><h2 className="text-[11px] font-bold text-zinc-300">Seus Spaces</h2><span className="text-[9px] text-zinc-650">{flows.length}</span></div>
-   {loading?<div className="grid min-h-[320px] place-items-center rounded-2xl border border-white/[0.05] bg-white/[0.015]"><div className="text-center"><LoaderCircle className="mx-auto h-5 w-5 animate-spin text-cyan-300"/><p className="mt-2 text-[10px] text-zinc-500">Carregando Spaces…</p></div></div>:flows.length?<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{flows.map(flow=><button key={flow.flow_id} onClick={()=>onOpen(flow.flow_id)} className="group overflow-hidden rounded-2xl border border-white/[0.065] bg-[#11161d] text-left transition hover:-translate-y-0.5 hover:border-white/[0.14] hover:shadow-2xl">
-      <div className="aspect-[16/9] overflow-hidden border-b border-white/[0.05]"><Preview flow={flow}/></div>
-      <div className="p-3.5"><div className="flex items-start gap-3"><div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-cyan-400/10 bg-cyan-400/[0.05] text-cyan-300"><Network className="h-4 w-4"/></div><div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-white">{flow.name||'Space sem título'}</strong><p className="mt-1 line-clamp-2 min-h-[28px] text-[9px] leading-relaxed text-zinc-600">{flow.description||'Workspace visual de criação.'}</p></div><ArrowRight className="mt-1 h-3.5 w-3.5 text-zinc-700 transition group-hover:translate-x-0.5 group-hover:text-cyan-300"/></div><div className="mt-3 flex items-center justify-between border-t border-white/[0.05] pt-2.5"><span className="text-[8px] text-zinc-700">{(flow.graph?.nodes||[]).length} nodes</span><span className="text-[8px] text-zinc-700">Atualizado {ago(flow.updated_at)}</span></div></div>
-     </button>)}</div>:<button onClick={onCreate} className="grid min-h-[320px] w-full place-items-center rounded-2xl border border-dashed border-white/[0.07] bg-white/[0.012] text-center hover:border-cyan-400/20 hover:bg-cyan-400/[0.02]"><div><span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-white/[0.07] bg-white/[0.025]"><Plus className="h-5 w-5 text-zinc-600"/></span><strong className="mt-3 block text-[12px] text-zinc-300">Crie seu primeiro Space</strong><span className="mt-1 block text-[9px] text-zinc-600">Comece com um canvas vazio e conecte suas ideias.</span></div></button>}
+   {loading?<div className="grid min-h-[320px] place-items-center rounded-2xl border border-white/[0.05] bg-white/[0.015]"><div className="text-center"><LoaderCircle className="mx-auto h-5 w-5 animate-spin text-cyan-300"/><p className="mt-2 text-[10px] text-zinc-500">Carregando Spaces…</p></div></div>:flows.length?<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{flows.map(flow=><article key={flow.flow_id} className="group overflow-hidden rounded-2xl border border-white/[0.065] bg-[#11161d] transition hover:-translate-y-0.5 hover:border-white/[0.14] hover:shadow-2xl">
+      <button onClick={()=>onOpen(flow.flow_id)} className="block w-full text-left">
+       <div className="aspect-[16/9] overflow-hidden border-b border-white/[0.05]"><Preview flow={flow}/></div>
+       <div className="p-3.5 pb-2.5"><div className="flex items-start gap-3"><div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-cyan-400/10 bg-cyan-400/[0.05] text-cyan-300"><Network className="h-4 w-4"/></div><div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-white">{flow.name||'Space sem título'}</strong><p className="mt-1 line-clamp-2 min-h-[28px] text-[9px] leading-relaxed text-zinc-600">{flow.description||'Workspace visual de criação.'}</p></div><ArrowRight className="mt-1 h-3.5 w-3.5 text-zinc-700 transition group-hover:translate-x-0.5 group-hover:text-cyan-300"/></div></div>
+      </button>
+      <div className="mx-3.5 flex items-center justify-between border-t border-white/[0.05] py-2.5"><div><span className="text-[8px] text-zinc-700">{(flow.graph?.nodes||[]).length} nodes</span><span className="mx-2 text-zinc-800">·</span><span className="text-[8px] text-zinc-700">Atualizado {ago(flow.updated_at)}</span></div><button type="button" onClick={()=>onDelete(flow)} disabled={deletingId===flow.flow_id} title="Excluir Space" aria-label={`Excluir ${flow.name||'Space sem título'}`} className="grid h-7 w-7 place-items-center rounded-lg border border-transparent text-zinc-700 transition hover:border-rose-400/15 hover:bg-rose-400/[0.07] hover:text-rose-300 disabled:cursor-wait disabled:opacity-60">{deletingId===flow.flow_id?<LoaderCircle className="h-3.5 w-3.5 animate-spin"/>:<Trash2 className="h-3.5 w-3.5"/>}</button></div>
+     </article>)}</div>:<button onClick={onCreate} className="grid min-h-[320px] w-full place-items-center rounded-2xl border border-dashed border-white/[0.07] bg-white/[0.012] text-center hover:border-cyan-400/20 hover:bg-cyan-400/[0.02]"><div><span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-white/[0.07] bg-white/[0.025]"><Plus className="h-5 w-5 text-zinc-600"/></span><strong className="mt-3 block text-[12px] text-zinc-300">Crie seu primeiro Space</strong><span className="mt-1 block text-[9px] text-zinc-600">Comece com um canvas vazio e conecte suas ideias.</span></div></button>}
   </div>
  </div>
 </div>;

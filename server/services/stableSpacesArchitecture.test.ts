@@ -20,6 +20,9 @@ describe('Stable Spaces visual workspace',()=>{
   expect(home).toContain('Seus Spaces');
   expect(home).not.toContain('Templates');
   expect(home).not.toContain('Compartilhado');
+  expect(home).toContain('Excluir Space');
+  expect(view).toContain('spacesClient.remove');
+  expect(view).toContain('window.confirm');
  });
  it('provides the requested visual canvas interactions',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
