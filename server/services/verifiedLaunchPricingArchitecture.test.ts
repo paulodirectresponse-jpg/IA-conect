@@ -72,7 +72,7 @@ describe('verified Stable launch pricing',()=>{
     const policy=read('server/beta/catalog/catalogPolicyService.ts');
     const routes=read('server/routes/providerScanRoutes.ts');
     expect(policy).toContain('async reconcileModelPolicy(model:ModelRegistryItem)');
-    expect(policy).toContain('if(existing.updated_by)return existing');
+    expect(policy).toContain("!String(existing.updated_by).startsWith('system:')");
     expect(routes).toContain('betaCatalogPolicyService.reconcileModelPolicy(model)');
   });
 

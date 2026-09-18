@@ -27,6 +27,8 @@ export type PricingAuditStage='MODEL'|'CAPABILITY'|'MAPPING'|'PROVIDER'|'IDENTIF
 export interface PricingAuditAttempt {provider_id:string;provider_name:string;provider_model_identifier:string;provider_active:boolean;provider_configured:boolean;identifier_valid:boolean;pricing_verified:boolean;pricing_unit?:string|null;pricing_source?:string|null;quote_mode?:string|null;quote_ok:boolean;quote_error?:string|null;provider_cost_usd?:number|null;safe_cogs_cents?:number|null;smart_router_eligible:boolean;smart_router_reason?:string|null;}
 export interface PricingAuditRow {model_id:string;model_name:string;category:string;capability_id:string;mode:string|null;price_available:boolean;failed_stage:PricingAuditStage|null;failure_reason:string|null;retail_pricing_id?:string|null;retail_credit_price?:number|null;retail_version?:number|null;attempts:PricingAuditAttempt[];}
 export interface PricingAuditResult {checked_at:string;models_checked:number;routes_checked:number;missing_price_count:number;priced_count:number;stage_counts:Record<string,number>;rows:PricingAuditRow[];cursor:number;next_cursor:number|null;done:boolean;total_targets:number;}
+export interface PricingRepairRow {model_id:string;model_name:string;capability_id:string;actions:string[];quote_successes:number;quote_failures:number;best_safe_cogs_cents:number|null;retail_credit_price:number|null;remaining_enabled_capabilities:string[];notes:string[];}
+export interface PricingRepairResult {checked_at:string;cursor:number;next_cursor:number|null;done:boolean;total_targets:number;processed:number;fixed:number;disabled:number;rows:PricingRepairRow[];}
 
 const ADMIN_CACHE_TTL_MS=30*60*1000;
 type CacheEntry<T=unknown>={expires:number;value?:T;promise?:Promise<T>};
@@ -79,6 +81,7 @@ export const adminService = {
   async updateProvider(providerId:string,data:Partial<ProviderRegistryItem>){return mutate<ProviderRegistryItem>(`/api/admin/providers/${providerId}`,{method:'PATCH',body:JSON.stringify(data)});},
   async getPricingSettings(){return cachedGet<PricingSettings>('/api/admin/pricing/settings');},
   async runPricingAudit(cursor=0,limit=2){return apiRequest<PricingAuditResult>('/api/admin/pricing/audit',{method:'POST',body:JSON.stringify({cursor,limit})});},
+  async runPricingRepair(cursor=0,limit=2){return apiRequest<PricingRepairResult>('/api/admin/pricing/repair',{method:'POST',body:JSON.stringify({cursor,limit})});},
   async updatePricingSettings(gross_margin_percent:number){return mutate<{settings:PricingSettings;snapshot:any}>('/api/admin/pricing/settings',{method:'POST',body:JSON.stringify({gross_margin_percent})});},
   async listPromotions(){return cachedGet<PromotionEntry[]>('/api/catalog/promotions');},
   async savePromotion(data:Partial<PromotionEntry>){return mutate<PromotionEntry>('/api/admin/promotions',{method:'POST',body:JSON.stringify(data)});},

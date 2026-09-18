@@ -48,7 +48,7 @@ export const betaCatalogPolicyService={
     // Policies changed explicitly by an admin remain authoritative. Automatic
     // reconciliation is only for system-seeded policies that became stale
     // after a mapping was approved.
-    if(existing.updated_by)return existing;
+    if(existing.updated_by&&!String(existing.updated_by).startsWith('system:'))return existing;
     const mappings=await catalogRepository.listMappings();
     const hasActiveMapping=mappings.some(mapping=>mapping.model_id===model.model_id&&mapping.status==='ACTIVE');
     const next={

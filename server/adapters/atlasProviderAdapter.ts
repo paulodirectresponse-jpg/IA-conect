@@ -16,12 +16,9 @@ const VIDEO_FAMILIES: Record<string, string> = {
   'minimax-h3': 'minimax/h3',
 };
 
-function videoSuffixFor(mode: GenerationMode) {
-  if (mode === 'TEXT_TO_VIDEO') return 'text-to-video';
-  if (mode === 'IMAGE_TO_VIDEO') return 'image-to-video';
-  if (mode === 'REFERENCE_TO_VIDEO') return 'reference-to-video';
-  return null;
-}
+function videoSuffixFor(mode:GenerationMode,capabilityId?:string){if(mode==='TEXT_TO_VIDEO')return'text-to-video';if(mode==='IMAGE_TO_VIDEO')return'image-to-video';if(mode==='REFERENCE_TO_VIDEO'){if(capabilityId==='video-edit')return'video-edit';if(capabilityId==='video-extend')return'video-extend';return'reference-to-video';}return null;}
+const VIDEO_OPERATION_SUFFIXES=['text-to-video','image-to-video','reference-to-video','video-edit','video-extend'];
+function normalizeVideoIdentifier(identifier:string,suffix:string){const clean=String(identifier||'').replace(/\/+$/,'');const current=VIDEO_OPERATION_SUFFIXES.find(op=>clean.endsWith('/'+op));if(current)return current===suffix?clean:clean.slice(0,-current.length)+suffix;return clean+'/'+suffix;}
 function trimBase(value:string|undefined){return (value||'https://api.atlascloud.ai').replace(/\/+$/,'').replace(/\/api\/v1$/,'');}
 function groups(params:ProviderGenerationParams){return {
   images:params.references.filter((r)=>r.type==='IMAGE'),
@@ -47,15 +44,15 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
     return Boolean((providerModelIdentifier||VIDEO_FAMILIES[modelId])&&videoSuffixFor(mode));
   }
 
-  private modelName(modelId:string,mode:GenerationMode,providerModelIdentifier?:string){
+  private modelName(modelId:string,mode:GenerationMode,providerModelIdentifier?:string,capabilityId?:string){
     const family=providerModelIdentifier||VIDEO_FAMILIES[modelId];
-    const suffix=videoSuffixFor(mode);
+    const suffix=videoSuffixFor(mode,capabilityId);
     if(!family||!suffix)throw Object.assign(new Error('Modelo/modo não suportado pela Atlas.'),{code:'PROVIDER_INCOMPATIBLE'});
-    return `${family}/${suffix}`;
+    return normalizeVideoIdentifier(family,suffix);
   }
 
   private buildPayload(params:ProviderGenerationParams){
-    const model=this.modelName(params.model_id,params.mode,params.provider_model_identifier);
+    const model=this.modelName(params.model_id,params.mode,params.provider_model_identifier,String(params.capability_id||''));
     const {images,videos,audios}=groups(params);
     const prompt=compileProviderReferencePrompt(params,'atlas');
 
