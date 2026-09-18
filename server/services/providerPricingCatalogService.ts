@@ -14,6 +14,8 @@ export interface ProviderPricingRule{
   resolution_prices_usd?:Record<string,number>;
   verified:boolean;
   source:'LIVE_CATALOG'|'PROVIDER_DOCS'|'MANUAL_VERIFIED';
+  quote_mode?:'STATIC_RULE'|'LIVE_PROVIDER';
+  base_price_usd?:number|null;
   verified_at:string;
   updated_at:string;
 }
@@ -57,6 +59,7 @@ export const providerPricingCatalogService={
     if(!model)throw Object.assign(new Error('Mapping do provider não possui identificador de modelo.'),{code:'PROVIDER_MAPPING_INVALID'});
     const rule=await readRule(providerId,model,String(params.capability_id||''));
     if(!rule||!rule.verified)throw Object.assign(new Error('Preço do provider ainda não foi verificado para este modelo/capability.'),{code:'PROVIDER_PRICE_UNVERIFIED'});
+    if(rule.quote_mode==='LIVE_PROVIDER')throw Object.assign(new Error('Esta rota exige cotação ao vivo pelo adapter do provider.'),{code:'PROVIDER_LIVE_QUOTE_REQUIRED'});
     const resolution=String(params.resolution||'');
     const resolutionPrice=rule.resolution_prices_usd?.[resolution]??rule.resolution_prices_usd?.[resolution.toLowerCase()];
     const unitPrice=Number.isFinite(Number(resolutionPrice))?Number(resolutionPrice):Number(rule.unit_price_usd);
@@ -70,6 +73,23 @@ export const providerPricingCatalogService={
     await firestoreAdminRest.set(`provider_pricing/${safe(id)}`,next);
     cache.delete(id);
     return next;
+  },
+  async saveMany(rules:Array<Omit<ProviderPricingRule,'pricing_id'|'updated_at'>>){
+    if(!rules.length)return[] as ProviderPricingRule[];
+    const timestamp=new Date().toISOString();
+    const rows=rules.map(rule=>{
+      const id=pricingId(rule.provider_id,rule.provider_model_identifier,String(rule.capability_id||''));
+      return{...rule,pricing_id:id,updated_at:timestamp} as ProviderPricingRule;
+    });
+    const BATCH=100;
+    for(let index=0;index<rows.length;index+=BATCH){
+      const chunk=rows.slice(index,index+BATCH);
+      await firestoreAdminRest.commit(chunk.map(row=>({
+        update:{name:firestoreAdminRest.docName(`provider_pricing/${safe(row.pricing_id)}`),fields:firestoreAdminRest.fields(row)},
+      })));
+    }
+    for(const row of rows)cache.delete(row.pricing_id);
+    return rows;
   },
   async list(limit=500){
     const rows=await firestoreAdminRest.runQuery({from:[{collectionId:'provider_pricing'}],limit}).catch(()=>[] as any[]);
