@@ -20,7 +20,9 @@ describe('Stable Spaces visual workspace',()=>{
   expect(home).toContain('Seus Spaces');
   expect(home).not.toContain('Templates');
   expect(home).not.toContain('Compartilhado');
-  expect(home).toContain('Excluir Space');
+  expect(home).toContain('Excluir Space inteiro');
+  expect(home).toContain("aspect-[4/3]");
+  expect(home).toContain("absolute inset-0 block h-full w-full");
   expect(view).toContain('spacesClient.remove');
   expect(view).toContain('window.confirm');
  });
@@ -34,7 +36,20 @@ describe('Stable Spaces visual workspace',()=>{
   expect(workspace).toContain('onDrop={onDrop}');
   expect(workspace).toContain('O que deseja fazer com esta saída?');
   expect(workspace).toContain('Arraste para conectar');
+  expect(workspace).toContain('onContextMenu={onCanvasContext}');
+  expect(workspace).toContain('ResizeObserver');
+  expect(workspace).toContain('block h-auto w-full rounded-xl');
+  expect(workspace).not.toContain('h-[92px] w-full rounded-xl object-cover');
  });
+ it('lets users add generator/editor nodes even when catalog routing is temporarily degraded',()=>{
+  const workspace=read('src/components/spaces/SpaceWorkspace.tsx'),flowService=read('server/beta/flows/flowService.ts');
+  expect(workspace).toContain("model?.model_id||'AUTO'");
+  expect(workspace).not.toContain('disabled={!enabled}');
+  expect(workspace).toContain("label:'Gerar imagem'");
+  expect(workspace).toContain("label:'Gerar vídeo'");
+  expect(flowService).not.toContain("fail('AUTO_NO_ELIGIBLE_MODEL'");
+ });
+
  it('keeps the V1 focused on image/video generation and editing',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
   for(const capability of ['text-to-image','image-to-image','image-edit','text-to-video','image-to-video','video-edit','video-extend'])expect(workspace).toContain(capability);
