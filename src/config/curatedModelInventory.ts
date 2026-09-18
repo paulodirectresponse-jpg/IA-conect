@@ -40,16 +40,16 @@ export const CURATED_MODEL_BLUEPRINTS:CuratedModelBlueprint[]=[
   c('IMAGE_GENERATION','qwen-image-3-pro','Qwen Image 3 Pro',false,['qwen image 3','qwen-image-3','alibaba/qwen-image-3']),
 
   // Image editor — 10
-  c('IMAGE_EDIT','gpt-image-2-edit','GPT Image 2 Edit',false,['openai/gpt-image-2/edit','gpt image 2 edit']),
-  c('IMAGE_EDIT','nano-banana-2-edit','Google Nano Banana 2 Edit',false,['google/nano-banana-2/edit','nano banana 2 edit']),
-  c('IMAGE_EDIT','nano-banana-pro-edit','Google Nano Banana Pro Edit',false,['google/nano-banana-pro/edit','nano banana pro edit']),
-  c('IMAGE_EDIT','seedream-5-pro-edit','Seedream 5.0 Pro Edit',false,['bytedance/seedream-v5.0-pro/edit','seedream 5 pro edit']),
-  c('IMAGE_EDIT','seedream-4-5-edit','Seedream 4.5 Edit',false,['seedream 4.5 edit','bytedance/seedream-4.5/edit']),
-  c('IMAGE_EDIT','flux-2-max-edit','FLUX.2 Max Edit',false,['flux 2 max edit','black-forest-labs/flux-2-max']),
-  c('IMAGE_EDIT','flux-2-pro-edit','FLUX.2 Pro Edit',false,['flux 2 pro edit','black-forest-labs/flux-2-pro']),
-  c('IMAGE_EDIT','qwen-image-3-pro-edit','Qwen Image 3 Pro Edit',false,['qwen image 3 edit','qwen-image-3/edit']),
-  c('IMAGE_EDIT','wan-2-7-image-edit','Wan 2.7 Image Edit',false,['wan 2.7 image edit','alibaba/wan-2.7/image-edit']),
-  c('IMAGE_EDIT','flux-fill-pro-edit','FLUX Fill Pro',false,['black-forest-labs/flux-fill-pro','flux fill pro']),
+  c('IMAGE_EDIT','gpt-image-2','GPT Image 2',true,['openai/gpt-image-2/edit','gpt image 2 edit']),
+  c('IMAGE_EDIT','nano-banana-2-image','Google Nano Banana 2',true,['google/nano-banana-2/edit','nano banana 2 edit']),
+  c('IMAGE_EDIT','nano-banana-pro-image','Google Nano Banana Pro',true,['google/nano-banana-pro/edit','nano banana pro edit']),
+  c('IMAGE_EDIT','seedream-5-pro-image','Seedream 5.0 Pro',true,['bytedance/seedream-v5.0-pro/edit','seedream 5 pro edit']),
+  c('IMAGE_EDIT','seedream-4-5-image','Seedream 4.5',false,['seedream 4.5 edit','bytedance/seedream-4.5/edit']),
+  c('IMAGE_EDIT','flux-2-max-image','FLUX.2 Max',false,['flux 2 max edit','black-forest-labs/flux-2-max']),
+  c('IMAGE_EDIT','flux-2-pro-image','FLUX.2 Pro',false,['flux 2 pro edit','black-forest-labs/flux-2-pro']),
+  c('IMAGE_EDIT','qwen-image-3-pro','Qwen Image 3 Pro',false,['qwen image 3 edit','qwen-image-3/edit']),
+  c('IMAGE_EDIT','wan-2-7-image','Wan 2.7 Image',false,['wan 2.7 image edit','alibaba/wan-2.7/image-edit']),
+  c('IMAGE_EDIT','flux-fill-pro-image','FLUX Fill Pro',false,['black-forest-labs/flux-fill-pro','flux fill pro']),
 
   // Video generation — 12
   c('VIDEO_GENERATION','wan-3-0-prime','WAN 3.0 Prime',true,['alibaba/wan-3.0-prime']),
@@ -66,28 +66,28 @@ export const CURATED_MODEL_BLUEPRINTS:CuratedModelBlueprint[]=[
   c('VIDEO_GENERATION','grok-imagine-video','Grok Imagine Video',false,['x-ai/grok-imagine-video','xai/grok-imagine-video']),
 
   // Video editor — 10
-  c('VIDEO_EDIT','seedance-2-5-video-edit','Seedance 2.5 Video Edit',false,['bytedance/seedance-2.5/video-edit']),
-  c('VIDEO_EDIT','seedance-2-5-video-edit-turbo','Seedance 2.5 Video Edit Turbo',false,['bytedance/seedance-2.5/video-edit-turbo']),
-  c('VIDEO_EDIT','wan-3-0-prime-video-edit','WAN 3.0 Prime Video Edit',false,['alibaba/wan-3.0-prime/video-edit']),
-  c('VIDEO_EDIT','wan-3-0-video-edit','WAN 3.0 Video Edit',false,['alibaba/wan-3.0/video-edit']),
-  c('VIDEO_EDIT','minimax-h3-video-edit','MiniMax H3 Video Edit',false,['wavespeed-ai/minimax-h3/video-edit']),
-  c('VIDEO_EDIT','kling-o3-pro-video-edit','Kling O3 Pro Video Edit',false,['kwaivgi/kling-video-o3-pro/video-edit','kling o3 pro video edit']),
-  c('VIDEO_EDIT','luma-ray-3-2-video-edit','Luma Ray 3.2 Video Edit',false,['luma/ray-3.2/video-edit']),
-  c('VIDEO_EDIT','gemini-omni-1-1-flash-video-edit','Gemini Omni 1.1 Flash Video Edit',false,['google/gemini-omni-1.1-flash/video-edit']),
-  c('VIDEO_EDIT','kling-o3-4k-video-edit','Kling O3 4K Video Edit',false,['kwaivgi/kling-video-o3-4k/video-edit']),
-  c('VIDEO_EDIT','kling-o1-video-edit','Kling O1 Video Edit',false,['kwaivgi/kling-video-o1/video-edit','kling omni o1 video edit']),
+  c('VIDEO_EDIT','seedance-2-5','Seedance 2.5',true,['bytedance/seedance-2.5/video-edit']),
+  c('VIDEO_EDIT','seedance-2-5','Seedance 2.5',true,['bytedance/seedance-2.5/video-edit-turbo']),
+  c('VIDEO_EDIT','wan-3-0-prime','WAN 3.0 Prime',true,['alibaba/wan-3.0-prime/video-edit']),
+  c('VIDEO_EDIT','wan-3-0','WAN 3.0',true,['alibaba/wan-3.0/video-edit']),
+  c('VIDEO_EDIT','minimax-h3','MiniMax H3',true,['wavespeed-ai/minimax-h3/video-edit']),
+  c('VIDEO_EDIT','kling-o3-pro','Kling O3 Pro',false,['kwaivgi/kling-video-o3-pro/video-edit','kling o3 pro video edit']),
+  c('VIDEO_EDIT','luma-ray-3-2','Luma Ray 3.2',false,['luma/ray-3.2/video-edit']),
+  c('VIDEO_EDIT','google-omni-flash','Google Omni Flash',true,['google/gemini-omni-1.1-flash/video-edit']),
+  c('VIDEO_EDIT','kling-o3-4k','Kling O3 4K',false,['kwaivgi/kling-video-o3-4k/video-edit']),
+  c('VIDEO_EDIT','kling-o1','Kling O1',false,['kwaivgi/kling-video-o1/video-edit','kling omni o1 video edit']),
 
   // Video extend — 10
-  c('VIDEO_EXTEND','seedance-2-5-video-extend','Seedance 2.5 Video Extend',false,['bytedance/seedance-2.5/video-extend']),
-  c('VIDEO_EXTEND','wan-3-0-prime-video-extend','WAN 3.0 Prime Video Extend',false,['alibaba/wan-3.0-prime/video-extend']),
-  c('VIDEO_EXTEND','wan-3-0-video-extend','WAN 3.0 Video Extend',false,['alibaba/wan-3.0/video-extend']),
-  c('VIDEO_EXTEND','minimax-h3-video-extend','MiniMax H3 Video Extend',false,['wavespeed-ai/minimax-h3/video-extend']),
-  c('VIDEO_EXTEND','veo-3-1-video-extend','Veo 3.1 Video Extend',false,['google/veo3.1/video-extend']),
-  c('VIDEO_EXTEND','veo-3-1-fast-video-extend','Veo 3.1 Fast Video Extend',false,['google/veo3.1-fast/video-extend']),
-  c('VIDEO_EXTEND','ltx-2-3-video-extend','LTX 2.3 Video Extend',false,['wavespeed-ai/ltx-2.3/video-extend']),
-  c('VIDEO_EXTEND','wan-2-7-video-extend','WAN 2.7 Video Extend',false,['alibaba/wan-2.7/video-extend']),
-  c('VIDEO_EXTEND','pixverse-v6-video-extend','PixVerse V6 Video Extend',false,['pixverse/pixverse-v6/extend']),
-  c('VIDEO_EXTEND','grok-imagine-video-extend','Grok Imagine Video Extend',false,['x-ai/grok-imagine-video/video-extend']),
+  c('VIDEO_EXTEND','seedance-2-5','Seedance 2.5',true,['bytedance/seedance-2.5/video-extend']),
+  c('VIDEO_EXTEND','wan-3-0-prime','WAN 3.0 Prime',true,['alibaba/wan-3.0-prime/video-extend']),
+  c('VIDEO_EXTEND','wan-3-0','WAN 3.0',true,['alibaba/wan-3.0/video-extend']),
+  c('VIDEO_EXTEND','minimax-h3','MiniMax H3',true,['wavespeed-ai/minimax-h3/video-extend']),
+  c('VIDEO_EXTEND','veo-3-1','Veo 3.1',false,['google/veo3.1/video-extend']),
+  c('VIDEO_EXTEND','veo-3-1-fast','Veo 3.1 Fast',false,['google/veo3.1-fast/video-extend']),
+  c('VIDEO_EXTEND','ltx-2-3','LTX 2.3',false,['wavespeed-ai/ltx-2.3/video-extend']),
+  c('VIDEO_EXTEND','wan-2-7-video','WAN 2.7 Video',false,['alibaba/wan-2.7/video-extend']),
+  c('VIDEO_EXTEND','pixverse-v6','PixVerse V6',false,['pixverse/pixverse-v6/extend']),
+  c('VIDEO_EXTEND','grok-imagine-video','Grok Imagine Video',false,['x-ai/grok-imagine-video/video-extend']),
 
   // Voice — 10
   c('VOICE','minimax-speech-2-6-turbo','MiniMax Speech 2.6 Turbo',false,['minimax/speech-2.6-turbo']),
@@ -150,7 +150,41 @@ function seedFromBlueprint(row:CuratedModelBlueprint):ModelRegistryItem{
   }
 }
 
-export const CURATED_MODEL_SEEDS:ModelRegistryItem[]=CURATED_MODEL_BLUEPRINTS.filter(row=>!row.existing).map(seedFromBlueprint);
+function mergeSeedModels(base:ModelRegistryItem,next:ModelRegistryItem):ModelRegistryItem{
+  const uniq=<T,>(values:T[])=>Array.from(new Set(values));
+  return{
+    ...base,
+    name:base.name||next.name,
+    category:base.category,
+    description:base.description,
+    best_for:base.best_for,
+    supported_modes:uniq([...(base.supported_modes||[]),...(next.supported_modes||[])]),
+    supported_resolutions:uniq([...(base.supported_resolutions||[]),...(next.supported_resolutions||[])]),
+    supported_durations:uniq([...(base.supported_durations||[]),...(next.supported_durations||[])]).sort((a,b)=>Number(a)-Number(b)),
+    supported_aspect_ratios:uniq([...(base.supported_aspect_ratios||[]),...(next.supported_aspect_ratios||[])]),
+    supports_image_reference:Boolean(base.supports_image_reference||next.supports_image_reference),
+    supports_multiple_images:Boolean(base.supports_multiple_images||next.supports_multiple_images),
+    supports_video_reference:Boolean(base.supports_video_reference||next.supports_video_reference),
+    supports_audio_reference:Boolean(base.supports_audio_reference||next.supports_audio_reference),
+    supports_negative_prompt:Boolean(base.supports_negative_prompt||next.supports_negative_prompt),
+    supports_seed:Boolean(base.supports_seed||next.supports_seed),
+    supports_start_end_image:Boolean(base.supports_start_end_image||next.supports_start_end_image),
+    max_reference_images:Math.max(base.max_reference_images||0,next.max_reference_images||0),
+    max_reference_videos:Math.max(base.max_reference_videos||0,next.max_reference_videos||0),
+    max_reference_audio:Math.max(base.max_reference_audio||0,next.max_reference_audio||0),
+    max_prompt_length:Math.max(base.max_prompt_length||0,next.max_prompt_length||0),
+    beta_capability_ids:uniq([...(base.beta_capability_ids||[]),...(next.beta_capability_ids||[])]),
+  };
+}
+
+const canonicalSeedById=new Map<string,ModelRegistryItem>();
+for(const row of CURATED_MODEL_BLUEPRINTS){
+  const seed=seedFromBlueprint(row);
+  const current=canonicalSeedById.get(row.model_id);
+  canonicalSeedById.set(row.model_id,current?mergeSeedModels(current,seed):seed);
+}
+export const CURATED_CANONICAL_MODELS:ModelRegistryItem[]=Array.from(canonicalSeedById.values());
+export const CURATED_MODEL_SEEDS:ModelRegistryItem[]=CURATED_CANONICAL_MODELS.filter(model=>!CURATED_MODEL_BLUEPRINTS.some(row=>row.model_id===model.model_id&&row.existing));
 
 export const CURATED_MODEL_POSITION_COUNTS=CURATED_MODEL_BLUEPRINTS.reduce<Record<CuratedModelFunction,number>>((acc,row)=>{
   acc[row.function_id]=(acc[row.function_id]||0)+1;return acc;

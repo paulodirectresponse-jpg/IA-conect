@@ -9,6 +9,8 @@ import { firestoreAdminRest } from './firestoreAdminRest.js';
 import { INITIAL_FEATURE_FLAGS } from '../../src/config/constants.js';
 import { BETA_FEATURE_FLAGS } from '../../src/beta/betaFlags.js';
 import { STUDIO_SEED_MODELS } from '../../src/config/studioCatalog.js';
+import { canonicalModelId } from '../../src/config/modelCanonicalization.js';
+import { CURATED_CANONICAL_MODELS } from '../../src/config/curatedModelInventory.js';
 
 const now=()=>new Date().toISOString();
 const safe=(value:string)=>encodeURIComponent(value);
@@ -22,6 +24,45 @@ async function cachedRows<T>(key:string,loader:()=>Promise<T[]>):Promise<T[]>{
   return value;
 }
 function invalidateCatalog(key?:string){if(key)catalogCache.delete(key);else catalogCache.clear();}
+const curatedCanonicalById=new Map(CURATED_CANONICAL_MODELS.map(model=>[model.model_id,model]));
+function uniq<T>(values:T[]){return Array.from(new Set(values));}
+function mergeCanonicalModels(rows:ModelRegistryItem[]){
+  const grouped=new Map<string,ModelRegistryItem[]>();
+  for(const row of rows){
+    const id=canonicalModelId(row.model_id),list=grouped.get(id)||[];
+    list.push(row);
+    grouped.set(id,list);
+  }
+  return Array.from(grouped.entries()).map(([id,list])=>{
+    const preferred=list.find(row=>row.model_id===id)||list.find(row=>row.name&&!/\b(edit|extend)\b/i.test(row.name))||list[0];
+    const merged=list.reduce<ModelRegistryItem>((base,row)=>({
+      ...base,
+      model_id:id,
+      slug:id,
+      name:base.name||row.name,
+      supported_modes:uniq([...(base.supported_modes||[]),...(row.supported_modes||[])]),
+      supported_resolutions:uniq([...(base.supported_resolutions||[]),...(row.supported_resolutions||[])]),
+      supported_durations:uniq([...(base.supported_durations||[]),...(row.supported_durations||[])]).sort((a,b)=>Number(a)-Number(b)),
+      supported_aspect_ratios:uniq([...(base.supported_aspect_ratios||[]),...(row.supported_aspect_ratios||[])]),
+      supports_image_reference:Boolean(base.supports_image_reference||row.supports_image_reference),
+      supports_multiple_images:Boolean(base.supports_multiple_images||row.supports_multiple_images),
+      supports_video_reference:Boolean(base.supports_video_reference||row.supports_video_reference),
+      supports_audio_reference:Boolean(base.supports_audio_reference||row.supports_audio_reference),
+      supports_negative_prompt:Boolean(base.supports_negative_prompt||row.supports_negative_prompt),
+      supports_seed:Boolean(base.supports_seed||row.supports_seed),
+      supports_start_end_image:Boolean(base.supports_start_end_image||row.supports_start_end_image),
+      max_reference_images:Math.max(base.max_reference_images||0,row.max_reference_images||0),
+      max_reference_videos:Math.max(base.max_reference_videos||0,row.max_reference_videos||0),
+      max_reference_audio:Math.max(base.max_reference_audio||0,row.max_reference_audio||0),
+      max_prompt_length:Math.max(base.max_prompt_length||0,row.max_prompt_length||0),
+      beta_capability_ids:uniq([...(base.beta_capability_ids||[]),...(row.beta_capability_ids||[])]),
+      beta_only:list.every(item=>item.beta_only===true),
+      status:list.some(item=>item.status==='ACTIVE')?'ACTIVE':list.some(item=>item.status==='EXPERIMENTAL')?'EXPERIMENTAL':'INACTIVE',
+    }),{...preferred,model_id:id,slug:id});
+    const curated=curatedCanonicalById.get(id);
+    return curated?{...merged,name:curated.name}:merged;
+  });
+}
 
 /** Seeds only. Runtime source of truth is Firestore. */
 export const MODEL_CATALOG:ModelRegistryItem[]=STUDIO_SEED_MODELS;
@@ -218,24 +259,27 @@ async function applyAudioV1ReleaseFlags(rows:FeatureFlag[]):Promise<FeatureFlag[
 export const catalogRepository={
   async listModels(){
     const rows=await cachedRows<ModelRegistryItem>('models',async()=>applyBetaOnlyModelIsolation(await ensureSeed<ModelRegistryItem>('models','model_id',MODEL_CATALOG)));
-    const seedOrder=new Map(MODEL_CATALOG.map((model,index)=>[model.model_id,index]));
-    return rows.filter((row)=>row.status!=='INACTIVE').sort((a,b)=>{
+    const canonicalRows=mergeCanonicalModels(rows);
+    const seedOrder=new Map(MODEL_CATALOG.map((model,index)=>[canonicalModelId(model.model_id),index]));
+    return canonicalRows.filter((row)=>row.status!=='INACTIVE').sort((a,b)=>{
       const ai=seedOrder.get(a.model_id)??Number.MAX_SAFE_INTEGER;
       const bi=seedOrder.get(b.model_id)??Number.MAX_SAFE_INTEGER;
       return ai-bi||a.name.localeCompare(b.name);
     });
   },
   async getModel(id:string){
-    const model=(await this.listModels()).find((row)=>row.model_id===id)||null;
+    const canonicalId=canonicalModelId(id);
+    const model=(await this.listModels()).find((row)=>row.model_id===canonicalId)||null;
     return model&&model.status!=='INACTIVE'?model:null;
   },
   async saveModel(value:ModelRegistryItem){
-    const saved=await save('models',value.model_id,value);
+    const canonicalId=canonicalModelId(value.model_id),canonicalValue={...value,model_id:canonicalId,slug:canonicalId};
+    const saved=await save('models',canonicalId,canonicalValue);
     invalidateCatalog('models');
     return saved;
   },
   async saveModelsBulk(values:ModelRegistryItem[]){
-    const unique=Array.from(new Map(values.filter(value=>value?.model_id).map(value=>[String(value.model_id),value])).values());
+    const unique=Array.from(new Map(values.filter(value=>value?.model_id).map(value=>{const id=canonicalModelId(String(value.model_id));return[id,{...value,model_id:id,slug:id}]})).values());
     const chunkSize=25;
     for(let index=0;index<unique.length;index+=chunkSize){
       const chunk=unique.slice(index,index+chunkSize);
@@ -264,10 +308,11 @@ export const catalogRepository={
   },
 
   async listMappings(){
-    return cachedRows<ProviderModelMapping>('provider_models',()=>ensureSeed<ProviderModelMapping>('provider_models','mapping_id',MODEL_MAPPINGS));
+    const rows=await cachedRows<ProviderModelMapping>('provider_models',()=>ensureSeed<ProviderModelMapping>('provider_models','mapping_id',MODEL_MAPPINGS));
+    return rows.map(row=>({...row,model_id:canonicalModelId(row.model_id)}));
   },
   async saveMapping(value:ProviderModelMapping){
-    const saved=await save('provider_models',value.mapping_id,value);
+    const saved=await save('provider_models',value.mapping_id,{...value,model_id:canonicalModelId(value.model_id)});
     invalidateCatalog('provider_models');
     return saved;
   },

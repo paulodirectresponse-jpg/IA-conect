@@ -7,17 +7,17 @@ import type { ProviderScanCandidate } from './providerModelScanService.js';
 function row(id:string,name=id):ProviderScanCandidate{return{provider_id:'provider-wavespeed',provider_model_identifier:id,name};}
 
 describe('curated provider model matching',()=>{
-  it('keeps video edit separate from the base generation family',async()=>{
+  it('maps video edit to the same canonical model with a distinct capability',async()=>{
     const matches=await curatedModelMatchService.propose('provider-wavespeed',[row('bytedance/seedance-2.5/video-edit')]);
     expect(matches).toHaveLength(1);
-    expect(matches[0].model_id).toBe('seedance-2-5-video-edit');
+    expect(matches[0].model_id).toBe('seedance-2-5');
     expect(matches[0].capability_id).toBe('video-edit');
   });
 
-  it('keeps Veo Fast extension separate from ordinary Veo generation',async()=>{
+  it('maps Veo Fast extension to the same canonical model with extend capability',async()=>{
     const matches=await curatedModelMatchService.propose('provider-wavespeed',[row('google/veo3.1-fast/video-extend')]);
     expect(matches).toHaveLength(1);
-    expect(matches[0].model_id).toBe('veo-3-1-fast-video-extend');
+    expect(matches[0].model_id).toBe('veo-3-1-fast');
     expect(matches[0].capability_id).toBe('video-extend');
   });
 
