@@ -74,9 +74,12 @@ editorRouter.get('/editors/catalog',async(_req:AuthenticatedRequest,res)=>{
   }).filter((row,index,rows)=>rows.findIndex(item=>item.provider_id===row.provider_id)===index);
   const governed=base.flatMap(model=>{
    const policy=policyByModel.get(model.model_id);
-   const capabilities=model.capabilities.filter(item=>enabledCapabilities.has(item.id)&&policy?.capability_ids.includes(item.id as any));
+   const choices=providerChoices(model.model_id);
+   const readyCapabilityIds=new Set(choices.flatMap(choice=>choice.capability_ids));
+   const capabilities=model.capabilities.filter(item=>enabledCapabilities.has(item.id)&&policy?.capability_ids.includes(item.id as any)&&readyCapabilityIds.has(item.id as any));
    if(!policy?.eligible||!capabilities.length)return[];
-   return[{...model,capabilities,pricing_policy_id:policy.pricing_policy_id,providers:providerChoices(model.model_id)}];
+   const providers=choices.filter(choice=>choice.capability_ids.some(id=>capabilities.some(cap=>cap.id===id)));
+   return[{...model,capabilities,pricing_policy_id:policy.pricing_policy_id,providers}];
   });
   const autoEligible=policies.some(policy=>policy.eligible&&policy.auto_routing_enabled&&policy.capability_ids.some(id=>enabledCapabilities.has(String(id))));
   if(autoEligible&&governed.length){
