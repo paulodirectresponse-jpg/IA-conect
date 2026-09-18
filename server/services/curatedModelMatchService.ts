@@ -14,6 +14,7 @@ export interface ProviderModelMatchProposal{
   confidence:number;
   match_reason:string;
   already_mapped:boolean;
+  provider_pricing_metadata?:unknown;
 }
 
 const capabilityByFunction:Record<CuratedModelFunction,string>={
