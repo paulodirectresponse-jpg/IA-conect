@@ -37,7 +37,7 @@ describe('Stable image and video editors',()=>{
   expect(routes).toContain('assetRepository.getAsset');
   expect(image).toContain('EditorAssetPicker');
   expect(picker).toContain('Biblioteca');
-  expect(video).toContain('CreationGallery defaultFilter="VIDEO"');
+  expect(video).toContain('EditorAssetPicker');
   expect(image).toContain('refreshWallet');
   expect(video).toContain('refreshWallet');
   expect(image).toContain("new CustomEvent('creations:updated'");
