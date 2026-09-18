@@ -38,4 +38,18 @@ describe('canonical model identity across generation and editors',()=>{
     expect(match).toContain('const byCapability=new Map<string,ProviderModelMatchProposal>()');
     expect(match).toContain('${best.model_id}::${best.capability_id}');
   });
+
+  it('routes generator quotes only through generation mappings for the canonical model',()=>{
+    const router=read('server/services/smartRouterService.ts');
+    expect(router).toContain('function mappingMatchesOperation');
+    expect(router).toContain("IMAGE_GENERATION_CAPS");
+    expect(router).toContain("VIDEO_GENERATION_CAPS");
+    expect(router).toContain('activeMappingsByProvider');
+  });
+
+  it('only exposes editor capabilities backed by a configured priced provider route',()=>{
+    const route=read('server/routes/editorRoutes.ts');
+    expect(route).toContain('const readyCapabilityIds=new Set');
+    expect(route).toContain('readyCapabilityIds.has(item.id as any)');
+  });
 });
