@@ -63,7 +63,7 @@ describe('Immersive image editor workspace',()=>{
   expect(picker).toContain('Buscar na Biblioteca');
   expect(picker).toContain('Biblioteca Global');
   expect(picker).toContain('thumbnail_url||asset.public_url');
-  expect(picker).toContain('accept="image/*"');
+  expect(picker).toContain("accept={isVideo?'video/*':'image/*'}");
   expect(view).toContain('assetService.listAssets()');
   expect(view).toContain("filter(asset=>asset.type==='IMAGE')");
   expect(view).not.toContain("assetService.listAssets({type:'IMAGE'})");
