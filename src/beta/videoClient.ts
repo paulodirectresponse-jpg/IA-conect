@@ -1,7 +1,7 @@
 import { apiRequest } from '../services/apiClient.js';
 import { BetaCapabilityModel } from './capabilityClient.js';
 
-const VIDEO_CAPS=new Set(['text-to-video','image-to-video','first-frame','last-frame','video-extend','video-edit']);
+const VIDEO_CAPS=new Set(['text-to-video','image-to-video','first-frame','last-frame']);
 
 export const betaVideoClient={
   async catalog(){
