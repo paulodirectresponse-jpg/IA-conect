@@ -29,6 +29,8 @@ export interface PricingAuditRow {model_id:string;model_name:string;category:str
 export interface PricingAuditResult {checked_at:string;models_checked:number;routes_checked:number;missing_price_count:number;priced_count:number;stage_counts:Record<string,number>;rows:PricingAuditRow[];cursor:number;next_cursor:number|null;done:boolean;total_targets:number;}
 export interface PricingRepairRow {model_id:string;model_name:string;capability_id:string;actions:string[];quote_successes:number;quote_failures:number;best_safe_cogs_cents:number|null;retail_credit_price:number|null;retail_verified:boolean;remaining_enabled_capabilities:string[];notes:string[];}
 export interface PricingRepairResult {checked_at:string;cursor:number;next_cursor:number|null;done:boolean;total_targets:number;processed:number;fixed:number;disabled:number;rows:PricingRepairRow[];}
+export interface LaunchSetRow {model_id:string;name:string;published:boolean;ready_capabilities:string[];isolated_capabilities:string[];}
+export interface LaunchSetResult {cursor:number;next_cursor:number|null;done:boolean;total_models:number;processed:number;published_models:number;isolated_models:number;rows:LaunchSetRow[];}
 
 const ADMIN_CACHE_TTL_MS=30*60*1000;
 type CacheEntry<T=unknown>={expires:number;value?:T;promise?:Promise<T>};
@@ -59,6 +61,7 @@ export const adminService = {
   async listStablePublicationStatus(){return cachedGet<StablePublicationStatus[]>('/api/admin/models/publication-status');},
   async publishStableModel(modelId:string){return mutate<any>(`/api/admin/models/${encodeURIComponent(modelId)}/publish-stable`,{method:'POST',body:'{}'});},
   async publishStableModelsBulk(model_ids:string[]){return mutate<{published:any[]}>('/api/admin/models/publish-stable-bulk',{method:'POST',body:JSON.stringify({model_ids})});},
+  async publishReadyLaunchSet(cursor=0,limit=2){return apiRequest<LaunchSetResult>('/api/admin/models/publish-launch-set',{method:'POST',body:JSON.stringify({cursor,limit})});},
   async saveModel(data:Partial<ModelRegistryItem>){return mutate<ModelRegistryItem>('/api/admin/models',{method:'POST',body:JSON.stringify(data)});},
   async bulkAddCuratedModels(model_ids:string[]){return mutate<{added:Array<{model_id:string;name:string;status:string;beta_only:boolean}>;already_present:Array<{model_id:string;name:string}>;rejected:string[]}>('/api/admin/models/bulk-curated',{method:'POST',body:JSON.stringify({model_ids})});},
   async updateModel(modelId:string,data:Partial<ModelRegistryItem>){return mutate<ModelRegistryItem>(`/api/admin/models/${modelId}`,{method:'PATCH',body:JSON.stringify(data)});},

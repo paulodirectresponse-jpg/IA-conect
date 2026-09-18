@@ -1,7 +1,4 @@
-import { catalogRepository } from '../repositories/catalogRepository.js';
-import { providerRegistry } from '../adapters/providerRegistry.js';
-import { providerCatalogService } from './providerCatalogService.js';
-import { providerPricingCatalogService } from './providerPricingCatalogService.js';
+import { createStableLaunchSnapshot, readyCapabilitiesForModel, readyRoutesForCapability } from './stableLaunchReadinessService.js';
 
 export interface SafeProviderRoute{
   model_id:string;
@@ -11,36 +8,24 @@ export interface SafeProviderRoute{
   capabilities:string[];
 }
 
-function pricingMatches(pricing:any,providerId:string,identifier:string,capabilityId?:string){
-  return pricing.some((row:any)=>{
-    if(!row.verified||row.provider_id!==providerId||row.provider_model_identifier!==identifier)return false;
-    if(capabilityId)return !row.capability_id||row.capability_id===capabilityId;
-    return true;
-  });
-}
-
 export const providerRouteCatalogService={
   async listSafeRoutes(capabilityId?:string):Promise<SafeProviderRoute[]>{
-    const[providers,mappings,pricing]=await Promise.all([
-      providerCatalogService.listProviders(),
-      catalogRepository.listMappings(),
-      providerPricingCatalogService.list(),
-    ]);
-    const providerById=new Map(providers.map(provider=>[String(provider.provider_id),provider]));
-    const configured=new Map(providerRegistry.listAdapters().map(adapter=>[String(adapter.providerId),adapter.isConfigured()]));
-    return mappings.flatMap(mapping=>{
+    const data=await createStableLaunchSnapshot();
+    const modelById=new Map(data.models.map(model=>[model.model_id,model] as const));
+    return data.mappings.flatMap(mapping=>{
       if(mapping.status!=='ACTIVE')return[];
-      if(capabilityId&&mapping.capabilities?.length&&!mapping.capabilities.includes(capabilityId))return[];
-      const provider=providerById.get(String(mapping.provider_id));
-      if(!provider||provider.status!=='ACTIVE'||!configured.get(String(mapping.provider_id)))return[];
-      if(!pricingMatches(pricing,String(mapping.provider_id),mapping.provider_model_identifier,capabilityId))return[];
-      return[{
-        model_id:mapping.model_id,
-        provider_id:String(mapping.provider_id),
-        provider_name:provider.name,
-        provider_model_identifier:mapping.provider_model_identifier,
-        capabilities:mapping.capabilities||[],
-      }];
+      const model=modelById.get(mapping.model_id);
+      if(!model||model.status!=='ACTIVE'||model.beta_only===true)return[];
+      const ready=readyCapabilitiesForModel(model,data).map(String);
+      const exposed=(model.beta_capability_ids?.length?model.beta_capability_ids.map(String):ready).filter(cap=>ready.includes(cap));
+      if(capabilityId&&!exposed.includes(capabilityId))return[];
+      const provider=data.providerById.get(String(mapping.provider_id));
+      if(!provider||provider.status!=='ACTIVE'||!data.configured.get(String(mapping.provider_id)))return[];
+      const caps=(mapping.capabilities?.length?mapping.capabilities.map(String):exposed).filter(cap=>exposed.includes(cap));
+      const retailReadyCaps=caps.filter(cap=>readyRoutesForCapability(model,cap as any,data).some(route=>route.provider_id===mapping.provider_id&&route.provider_model_identifier===mapping.provider_model_identifier));
+      const selected=capabilityId?retailReadyCaps.filter(cap=>cap===capabilityId):retailReadyCaps;
+      if(!selected.length)return[];
+      return[{model_id:mapping.model_id,provider_id:String(mapping.provider_id),provider_name:provider.name,provider_model_identifier:mapping.provider_model_identifier,capabilities:selected}];
     });
   },
 };
