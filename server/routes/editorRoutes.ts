@@ -25,7 +25,7 @@ function failure(res:Response,error:any,fallback:string){const normalized=normal
 function capabilityOf(value:any):EditorCapability{const id=String(value||'');if(!capabilitySet.has(id))throw Object.assign(new Error('Ferramenta de edição inválida.'),{code:'VALIDATION_ERROR'});return id as EditorCapability;}
 
 async function assertCapabilityEnabled(capability:string){
- const flagName=imageSet.has(capability)?'beta.image_editor':'beta.video';
+ const flagName=imageSet.has(capability)?'beta.image_editor':'beta.video_editor';
  const flag=await catalogRepository.getFeatureFlag(flagName);
  if(!flag?.is_enabled)throw Object.assign(new Error('Editor temporariamente indisponível.'),{code:'CAPABILITY_DISABLED'});
 }
@@ -45,7 +45,7 @@ editorRouter.use('/editors',requireAuth,requireEditorsEnabled);
 editorRouter.get('/editors/catalog',async(_req:AuthenticatedRequest,res)=>{
  try{
   const[models,policies,mappings,imageFlag,videoFlag]=await Promise.all([
-   catalogRepository.listModels(),betaCatalogPolicyService.listCatalog(),catalogRepository.listMappings(),catalogRepository.getFeatureFlag('beta.image_editor'),catalogRepository.getFeatureFlag('beta.video'),
+   catalogRepository.listModels(),betaCatalogPolicyService.listCatalog(),catalogRepository.listMappings(),catalogRepository.getFeatureFlag('beta.image_editor'),catalogRepository.getFeatureFlag('beta.video_editor'),
   ]);
   const[providersResult,pricingResult]=await Promise.allSettled([
    providerCatalogService.listProviders(),providerPricingCatalogService.list(),

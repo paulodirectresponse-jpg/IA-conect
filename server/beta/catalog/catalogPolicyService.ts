@@ -62,12 +62,32 @@ export const betaCatalogPolicyService={
   },
 
   async listCatalog(){
-    const models=await catalogRepository.listModels();
-    const policies=await Promise.all(models.map(model=>this.ensureModelPolicy(model)));
-    const pricingPolicies=await catalogPolicyRepository.listPricingPolicies();
+    // Read path must stay cheap under Cloudflare: load models, mappings and
+    // policies in bulk. Missing policies are derived in memory instead of
+    // performing one Firestore read/write per model.
+    const[models,storedPolicies,mappings,pricingPolicies]=await Promise.all([
+      catalogRepository.listModels(),
+      catalogPolicyRepository.listModelPolicies(),
+      catalogRepository.listMappings(),
+      catalogPolicyRepository.listPricingPolicies(),
+    ]);
+    const policyByModel=new Map(storedPolicies.map(policy=>[policy.model_id,policy]));
+    const activeMappingModels=new Set(mappings.filter(mapping=>mapping.status==='ACTIVE').map(mapping=>mapping.model_id));
     const pricingById=new Map(pricingPolicies.map(policy=>[policy.pricing_policy_id,policy]));
-    return models.map((model,index)=>{
-      const policy=policies[index];
+    return models.map(model=>{
+      const derivedCapabilities=capabilityIdsForModel(model);
+      const stored=policyByModel.get(model.model_id);
+      const hasActiveMapping=activeMappingModels.has(model.model_id);
+      const policy=stored||{
+        model_id:model.model_id,
+        pricing_policy_id:DEFAULT_POLICY_ID,
+        capability_ids:derivedCapabilities,
+        enabled:model.status!=='INACTIVE'&&hasActiveMapping,
+        auto_routing_enabled:model.status==='ACTIVE'&&hasActiveMapping,
+        created_at:now(),
+        updated_at:now(),
+        updated_by:null,
+      };
       const pricing=pricingById.get(policy.pricing_policy_id)||null;
       return{
         model_id:model.model_id,
@@ -75,7 +95,7 @@ export const betaCatalogPolicyService={
         category:model.category,
         status:model.status,
         capability_ids:policy.capability_ids,
-        supported_capability_ids:capabilityIdsForModel(model),
+        supported_capability_ids:derivedCapabilities,
         pricing_policy_id:policy.pricing_policy_id,
         enabled:policy.enabled,
         eligible:policy.enabled&&Boolean(pricing?.active)&&policy.capability_ids.length>0,

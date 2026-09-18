@@ -84,21 +84,26 @@ async function hydrateRunwarePricingMetadata(candidates:ProviderScanCandidate[],
 async function syncAuthoritativePricing(providerId:string,candidates:ProviderScanCandidate[],matches:ProviderModelMatchProposal[],mappings:ProviderModelMapping[]){
   if(providerId==='provider-wavespeed'){
     const byIdentifier=new Map(candidates.map(row=>[row.provider_model_identifier,row]));
+    const existingPricing=await providerPricingCatalogService.list();
+    const verifiedExisting=new Set(existingPricing.filter(row=>row.verified&&row.provider_id===providerId).map(row=>`${row.provider_model_identifier}|${row.capability_id||''}`));
     const timestamp=new Date().toISOString();
     const rules:any[]=[];
-    const livePriceBudget=6;
+    const livePriceBudget=12;
     let livePriceRequests=0;
     const root=trim(process.env.WAVESPEED_BASE_URL,'https://api.wavespeed.ai').replace(/\/api\/v3$/,'');
     const key=String(process.env.WAVESPEED_API_KEY||'').trim();
 
     for(const match of matches){
+      const exactKey=`${match.provider_model_identifier}|${match.capability_id||''}`;
+      const genericKey=`${match.provider_model_identifier}|`;
+      if(verifiedExisting.has(exactKey)||verifiedExisting.has(genericKey))continue;
       const candidate=byIdentifier.get(match.provider_model_identifier);
       let basePrice=numericPrice(candidate?.pricing);
       // The models catalog does not always embed pricing. For exact curated
       // aliases only, use WaveSpeed's official pricing endpoint in base-price
       // mode. This is deliberately sequential and capped to protect the Worker
       // subrequest budget.
-      if(basePrice===null&&key&&livePriceRequests<livePriceBudget&&match.confidence>=0.95&&match.match_reason==='exact_alias'&&['VOICE','MUSIC','THREE_D'].includes(match.function_id)){
+      if(basePrice===null&&key&&livePriceRequests<livePriceBudget&&match.confidence>=0.95&&match.match_reason==='exact_alias'&&['IMAGE_GENERATION','IMAGE_EDIT','VIDEO_GENERATION','VIDEO_EDIT','VIDEO_EXTEND','VOICE','MUSIC','THREE_D'].includes(match.function_id)){
         livePriceRequests++;
         try{
           const response=await json(`${root}/api/v3/model/price`,{
