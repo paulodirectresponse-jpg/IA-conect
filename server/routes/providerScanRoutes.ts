@@ -10,6 +10,7 @@ import { verifiedLaunchRouteService } from '../services/verifiedLaunchRouteServi
 import { auditRepository } from '../repositories/auditRepository.js';
 import { betaCatalogPolicyService } from '../beta/catalog/catalogPolicyService.js';
 import { capabilityIdsForModel } from '../beta/capabilityRegistry.js';
+import { stableModelPublicationService } from '../services/stableModelPublicationService.js';
 
 export const providerScanRouter=express.Router();
 
@@ -108,7 +109,10 @@ async function approveMapping(body:any){
     mapping_id:`map-curated-${hash}`,model_id:modelId,provider_id:providerId,provider_model_identifier:identifier,status:'ACTIVE',capabilities:[capabilityId],updated_at:new Date().toISOString(),
   });
   const policy=await betaCatalogPolicyService.reconcileModelPolicy(model);
-  return{mapping,pricing:verifiedPrice,policy,model_status:model.status,beta_only:model.beta_only===true};
+  let publication:any=null;
+  try{publication=await stableModelPublicationService.publish(model.model_id);}catch{}
+  const publishedModel=publication?.model||model;
+  return{mapping,pricing:verifiedPrice,policy:publication?.policy||policy,model_status:publishedModel.status,beta_only:publishedModel.beta_only===true,published:Boolean(publication)};
 }
 
 providerScanRouter.post('/admin/provider-scan/approve-mapping',requireAuth,requireAdmin,async(req:AuthenticatedRequest,res)=>{
