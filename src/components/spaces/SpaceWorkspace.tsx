@@ -1,11 +1,11 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState}from'react';
 import{ArrowLeft,Check,ChevronDown,Copy,Image as ImageIcon,LoaderCircle,Maximize2,Minus,MousePointer2,Play,Plus,RefreshCw,Save,Search,Trash2,Video,WandSparkles,ZoomIn,ZoomOut}from'lucide-react';
-import type{BetaCapability,BetaCapabilityMediaType,BetaCapabilityModel}from'../../../beta/capabilityClient.js';
-import type{FlowEdge,FlowNode,FlowRecord}from'../../../beta/flowClient.js';
-import type{FlowRunView}from'../../../beta/flowRuntimeClient.js';
-import{assetService}from'../../../services/assetService.js';
-import{ApiError}from'../../../services/apiClient.js';
-import{spacesClient,SpaceAsset}from'../../../services/spacesClient.js';
+import type{BetaCapability,BetaCapabilityMediaType,BetaCapabilityModel}from'../../beta/capabilityClient.js';
+import type{FlowEdge,FlowNode,FlowRecord}from'../../beta/flowClient.js';
+import type{FlowRunView}from'../../beta/flowRuntimeClient.js';
+import{assetService}from'../../services/assetService.js';
+import{ApiError}from'../../services/apiClient.js';
+import{spacesClient,SpaceAsset}from'../../services/spacesClient.js';
 
 const WORLD_W=8000,WORLD_H=5000,NODE_W=260,NODE_H=170;
 type QuickAction={id:string;label:string;capability:string;icon:React.ComponentType<{className?:string}>;description:string};
