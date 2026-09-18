@@ -35,6 +35,8 @@ const VOICES:Record<string,string>={
   'calm-female':'Calm_Woman','wise-female':'Wise_Woman','friendly':'Friendly_Person',
   'casual-male':'Casual_Guy','narrator-male':'Deep_Voice_Man','narrator-female':'Elegant_Man',
 };
+const LANGUAGE_BOOSTS:Record<string,string>={auto:'auto',pt:'Portuguese',en:'English',es:'Spanish',fr:'French',de:'German'};
+function languageBoost(value:any){const key=String(value||'auto').trim();return LANGUAGE_BOOSTS[key]||key||'auto';}
 function isAudioMode(mode:GenerationMode){return AUDIO_MODES.has(mode);}
 function isThreeDMode(mode:GenerationMode){return THREE_D_MODES.has(mode);}
 function option(params:ProviderGenerationParams,key:string,fallback?:any){const value=params.pricing_options?.[key];return value===undefined?fallback:value;}
@@ -86,7 +88,7 @@ if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE'){const endpoint=IMAGE_ENDPOIN
     if(capability==='text-to-speech'){
       const out:any={text:params.prompt,voice_id:String(params.provider_runtime_options?.provider_voice_id||logicalVoice(option(params,'voice','calm-female'))),format,
         speed:Number(option(params,'speed',1)),volume:Number(option(params,'volume',1)),pitch:Number(option(params,'pitch',0)),
-        language_boost:String(option(params,'language','auto')),english_normalization:true};
+        language_boost:languageBoost(option(params,'language','auto')),english_normalization:true};
       const style=String(option(params,'style','')).trim();if(style)out.emotion=style;return out;
     }
     if(capability==='sound-effects')return{prompt:params.prompt,duration:Math.max(1,Math.min(180,params.duration_seconds)),audio_format:format};
@@ -102,7 +104,7 @@ if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE'){const endpoint=IMAGE_ENDPOIN
     if(capability==='authorized-voice-clone'){
       const audio=firstRef(params,'AUDIO');if(!audio)throw Object.assign(new Error('Áudio autorizado obrigatório para clonagem.'),{code:'REFERENCE_REQUIRED'});
       return{audio:audio.provider_accessible_url,custom_voice_id:cloneVoiceId(params),model:'speech-2.6-turbo',
-        noise_reduction:true,volume_normalization:true,accuracy:0.8,language_boost:String(option(params,'language','auto'))};
+        noise_reduction:true,volume_normalization:true,accuracy:0.8,language_boost:languageBoost(option(params,'language','auto'))};
     }
     if(capability==='dubbing'){
       const video=firstRef(params,'VIDEO'),audio=firstRef(params,'AUDIO'),media=video||audio;

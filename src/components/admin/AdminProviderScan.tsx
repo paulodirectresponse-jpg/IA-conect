@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useState}from'react';
 import{Activity,CheckCircle2,Database,KeyRound,Link2,RefreshCw,ScanSearch,ShieldCheck,TriangleAlert}from'lucide-react';
-import{adminService,CuratedModelFunction,CuratedModelInventory,ProviderModelMatchProposal,ProviderPricingAdmin,ProviderScanResult}from'../../services/adminService.js';
+import{adminService,CuratedModelFunction,CuratedModelInventory,ProviderModelMatchProposal,ProviderPricingAdmin,ProviderScanResult,VerifiedLaunchRouteAdmin}from'../../services/adminService.js';
 import{ProviderModelMapping,ProviderRegistryItem}from'../../types/index.js';
 import{Button}from'../common/Button.js';
 import{Card}from'../common/Card.js';
@@ -28,16 +28,18 @@ export const AdminProviderScan:React.FC=()=>{
  const[pricing,setPricing]=useState<ProviderPricingAdmin[]>([]);
  const[mappings,setMappings]=useState<ProviderModelMapping[]>([]);
  const[inventory,setInventory]=useState<CuratedModelInventory|null>(null);
+ const[launchRoutes,setLaunchRoutes]=useState<VerifiedLaunchRouteAdmin[]>([]);
  const[loading,setLoading]=useState(true);
  const[scanning,setScanning]=useState<string|null>(null);
+ const[activating,setActivating]=useState<string|null>(null);
  const[message,setMessage]=useState<string|null>(null);
  const[error,setError]=useState<string|null>(null);
 
  const load=async()=>{
   setLoading(true);setError(null);
   try{
-   const[p,s,i]=await Promise.all([adminService.listProviders(),adminService.getProviderScans(),adminService.getProviderScanInventory()]);
-   setProviders(p);setScans(s.latest||[]);setPricing(s.pricing||[]);setMappings(s.mappings||[]);setInventory(i);
+   const[p,s,i,routes]=await Promise.all([adminService.listProviders(),adminService.getProviderScans(),adminService.getProviderScanInventory(),adminService.listVerifiedLaunchRoutes()]);
+   setProviders(p);setScans(s.latest||[]);setPricing(s.pricing||[]);setMappings(s.mappings||[]);setInventory(i);setLaunchRoutes(routes||[]);
   }catch(err:any){setError(err?.message||'Não foi possível carregar o centro de scan.');}
   finally{setLoading(false);}
  };
@@ -81,6 +83,16 @@ export const AdminProviderScan:React.FC=()=>{
   finally{setScanning(null);}
  };
 
+ const activateRoute=async(route:VerifiedLaunchRouteAdmin)=>{
+  setActivating(route.key);setError(null);setMessage(null);
+  try{
+   await adminService.applyVerifiedLaunchRoute(route.key);
+   setMessage(`${route.label} ativado com pricing e mapping verificados.`);
+   await load();
+  }catch(err:any){setError(err?.message||'Não foi possível ativar a rota verificada.');}
+  finally{setActivating(null);}
+ };
+
  const approve=async(match:ProviderModelMatchProposal)=>{
   setError(null);setMessage(null);
   try{
@@ -108,6 +120,16 @@ export const AdminProviderScan:React.FC=()=>{
   </div>
 
   {inventory&&<section className="rounded-xl border border-[var(--ia-line)] bg-[var(--ia-surface-1)] p-4"><div className="flex items-center gap-2"><Database className="h-4 w-4 text-violet-300"/><h3 className="text-xs font-bold text-[var(--ia-text-1)]">Acervo canônico</h3></div><div className="mt-3 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">{Object.entries(inventory.counts).map(([fn,count])=><div key={fn} className="rounded-lg border border-[var(--ia-line)] bg-[var(--ia-surface-2)] px-3 py-2.5"><div className="text-[10px] text-[var(--ia-text-3)]">{FUNCTION_LABELS[fn as CuratedModelFunction]||fn}</div><div className="mt-1 text-sm font-bold text-[var(--ia-text-1)]">{count}</div></div>)}</div></section>}
+
+  <section className="rounded-xl border border-cyan-400/15 bg-cyan-400/[0.035] p-4">
+   <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-cyan-300"/><h3 className="text-xs font-bold text-[var(--ia-text-1)]">Rotas verificadas para lançamento</h3></div><p className="mt-1 text-[10px] text-[var(--ia-text-3)]">Ativação pequena e explícita: preço documentado, endpoint validado, mapping governado e policy Stable. Cada ação aplica somente uma rota.</p></div><span className="rounded-full border border-cyan-400/15 bg-cyan-400/[0.06] px-2.5 py-1 text-[9px] font-bold text-cyan-300">{launchRoutes.filter(route=>route.ready).length}/{launchRoutes.length} prontas</span></div>
+   <div className="mt-3 grid gap-2 lg:grid-cols-3">{launchRoutes.map(route=><div key={route.key} className="rounded-xl border border-white/[0.07] bg-black/15 p-3">
+    <div className="flex items-start justify-between gap-2"><div><div className="text-[11px] font-bold text-[var(--ia-text-1)]">{route.label}</div><div className="mt-1 font-mono text-[8px] text-[var(--ia-text-3)]">{route.provider_model_identifier}</div></div>{route.ready?<span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/15 bg-emerald-400/[0.06] px-2 py-1 text-[8px] font-bold text-emerald-300"><CheckCircle2 className="h-3 w-3"/>Pronta</span>:<span className="rounded-full border border-amber-400/15 bg-amber-400/[0.05] px-2 py-1 text-[8px] font-bold text-amber-300">Pendente</span>}</div>
+    <div className="mt-2 text-[10px] font-semibold text-cyan-200">{route.pricing_label}</div>
+    <div className="mt-2 grid grid-cols-2 gap-1 text-[8px] text-[var(--ia-text-3)]"><span>Provider {route.provider_ready?'✓':'—'}</span><span>Preço {route.pricing_ready?'✓':'—'}</span><span>Mapping {route.mapping_ready?'✓':'—'}</span><span>Policy {route.policy_ready?'✓':'—'}</span></div>
+    <div className="mt-3 flex items-center justify-between gap-2"><a href={route.source_url} target="_blank" rel="noreferrer" className="text-[9px] text-cyan-300 hover:underline">Fonte oficial</a><Button id={`activate-${route.key}`} size="sm" variant={route.ready?'secondary':'primary'} disabled={route.ready||Boolean(activating)} isLoading={activating===route.key} onClick={()=>void activateRoute(route)} icon={<ShieldCheck className="h-3.5 w-3.5"/>}>{route.ready?'Ativa':'Ativar rota'}</Button></div>
+   </div>)}</div>
+  </section>
 
   <Card id="provider-scan-status-card">
    <div className="mb-4"><h3 className="text-xs font-bold text-[var(--ia-text-1)]">Status por provider</h3><p className="mt-1 text-[10px] text-[var(--ia-text-3)]">A chave é detectada no servidor. Providers sem API pública de catálogo continuam em modo de curadoria e validação explícita.</p></div>

@@ -67,6 +67,7 @@ function controlsForModel(model:ModelRegistryItem,id:CapabilityId):CapabilityCon
     if(control==='reference_image')return Boolean(model.supports_image_reference);
     if(control==='first_frame'||control==='last_frame')return Boolean(model.supports_start_end_image);
     if(control==='duration')return (model.supported_durations||[]).length>0;
+    if(control==='output_format'&&id==='music'&&model.model_id==='ace-step-music')return false;
     if(control==='resolution')return (model.supported_resolutions||[]).length>0;
     if(control==='aspect_ratio')return (model.supported_aspect_ratios||[]).length>0;
     if(['language','voice','output_format','style','instrumental','timestamps','source_language','target_language','voice_clone_consent','voice_label','mesh_mode','pbr','target_faces','topology','background_mode','variation_strength'].includes(control))return true;

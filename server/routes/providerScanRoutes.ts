@@ -6,6 +6,8 @@ import { providerModelScanService } from '../services/providerModelScanService.j
 import { providerPricingCatalogService } from '../services/providerPricingCatalogService.js';
 import { providerCatalogService } from '../services/providerCatalogService.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
+import { verifiedLaunchRouteService } from '../services/verifiedLaunchRouteService.js';
+import { auditRepository } from '../repositories/auditRepository.js';
 
 export const providerScanRouter=express.Router();
 
@@ -36,6 +38,29 @@ providerScanRouter.post('/admin/provider-scan',requireAuth,requireAdmin,async(re
     const data=providerId?await providerModelScanService.scanProvider(providerId):await providerModelScanService.scanAll();
     res.json({success:true,data});
   }catch(err:any){res.status(400).json({success:false,error:{code:err?.code||'PROVIDER_SCAN_ERROR',message:err?.message||'Falha no scan de providers.'}});}
+});
+
+providerScanRouter.get('/admin/provider-launch-routes',requireAuth,requireAdmin,async(_req,res)=>{
+  try{return res.json({success:true,data:await verifiedLaunchRouteService.listStatus()});}
+  catch(err:any){return res.status(500).json({success:false,error:{code:'VERIFIED_ROUTE_LIST_ERROR',message:err?.message||'Falha ao carregar rotas verificadas.'}});}
+});
+
+providerScanRouter.post('/admin/provider-launch-routes/:routeKey/apply',requireAuth,requireAdmin,async(req:AuthenticatedRequest,res)=>{
+  try{
+    const before=(await verifiedLaunchRouteService.listStatus()).find(route=>route.key===req.params.routeKey)||null;
+    const applied=await verifiedLaunchRouteService.apply(req.params.routeKey,req.user!.uid);
+    const after=(await verifiedLaunchRouteService.listStatus()).find(route=>route.key===req.params.routeKey)||null;
+    await auditRepository.record({
+      log_id:`aud_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+      admin_id:req.user!.uid,admin_email:req.user!.email,
+      action:'VERIFIED_PROVIDER_ROUTE_APPLIED',entity_type:'PROVIDER',entity_id:req.params.routeKey,
+      before,after,reason:'Ativação explícita de rota com endpoint, capability e preço verificados.',
+      created_at:new Date().toISOString(),
+    });
+    return res.json({success:true,data:{...applied,status:after}});
+  }catch(err:any){
+    return res.status(400).json({success:false,error:{code:err?.code||'VERIFIED_ROUTE_APPLY_ERROR',message:err?.message||'Falha ao ativar rota verificada.'}});
+  }
 });
 
 providerScanRouter.post('/admin/provider-pricing',requireAuth,requireAdmin,async(req:AuthenticatedRequest,res)=>{
