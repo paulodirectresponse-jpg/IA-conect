@@ -3,6 +3,7 @@ import { providerCatalogService } from './providerCatalogService.js';
 import { providerPricingCatalogService, ProviderPricingRule, ProviderPricingUnit } from './providerPricingCatalogService.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { pricingCapabilities, routePricingProfile } from './routePricingProfileService.js';
+import { quoteCacheService } from './quoteCacheService.js';
 
 const LIVE_PROVIDERS=new Set(['provider-wavespeed','provider-atlas']);
 const timeoutMs=6000;
@@ -43,7 +44,7 @@ export const providerPricingRefreshService={
      try{
       let rule:Omit<ProviderPricingRule,'pricing_id'|'updated_at'>|null=null;
       if(LIVE_PROVIDERS.has(providerId)&&adapter?.quoteCostUsd&&adapter.supports(model.model_id,profile.mode,mapping.provider_model_identifier)){
-       const quote=await adapter.quoteCostUsd(profile.params);const total=Number(quote.effective_price_usd);
+       const quote=await quoteCacheService.getOrQuote(adapter,{userId:'pricing-sync',model_id:model.model_id,mode:profile.mode,capability_id:capabilityId,provider_model_identifier:mapping.provider_model_identifier,prompt:profile.params.prompt,duration_seconds:profile.params.duration_seconds,resolution:profile.params.resolution,aspect_ratio:profile.params.aspect_ratio,number_of_outputs:1,audio_enabled:profile.params.audio_enabled,model_variant:profile.params.model_variant,pricing_options:profile.params.pricing_options,provider_references:profile.params.references},true);const total=Number(quote.provider_cost_usd);
        if(Number.isFinite(total)&&total>=0)rule={provider_id:providerId,provider_model_identifier:mapping.provider_model_identifier,capability_id:capabilityId,unit:profile.pricing_unit,unit_price_usd:normalizeUnitPrice(total,profile.pricing_unit,profile.baseline_quantity),minimum_usd:null,verified:true,source:'LIVE_CATALOG',quote_mode:'LIVE_PROVIDER',base_price_usd:total,verified_at:new Date().toISOString()};
       }else if(providerId==='provider-runware'){
        const metadata=await getJson('https://content.runware.ai/models/'+encodeURIComponent(mapping.provider_model_identifier)+'/pricing');
