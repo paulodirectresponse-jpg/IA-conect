@@ -15,7 +15,7 @@ function pricingMatches(pricing:any,providerId:string,identifier:string,capabili
   return pricing.some((row:any)=>{
     if(!row.verified||row.provider_id!==providerId||row.provider_model_identifier!==identifier)return false;
     if(capabilityId)return !row.capability_id||row.capability_id===capabilityId;
-    return !row.capability_id;
+    return true;
   });
 }
 
