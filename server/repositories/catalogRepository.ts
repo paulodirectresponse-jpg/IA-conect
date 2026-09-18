@@ -10,6 +10,7 @@ import { INITIAL_FEATURE_FLAGS } from '../../src/config/constants.js';
 import { BETA_FEATURE_FLAGS } from '../../src/beta/betaFlags.js';
 import { STUDIO_SEED_MODELS } from '../../src/config/studioCatalog.js';
 import { canonicalModelId } from '../../src/config/modelCanonicalization.js';
+import { CURATED_CANONICAL_MODELS } from '../../src/config/curatedModelInventory.js';
 
 const now=()=>new Date().toISOString();
 const safe=(value:string)=>encodeURIComponent(value);
@@ -23,6 +24,7 @@ async function cachedRows<T>(key:string,loader:()=>Promise<T[]>):Promise<T[]>{
   return value;
 }
 function invalidateCatalog(key?:string){if(key)catalogCache.delete(key);else catalogCache.clear();}
+const curatedCanonicalById=new Map(CURATED_CANONICAL_MODELS.map(model=>[model.model_id,model]));
 function uniq<T>(values:T[]){return Array.from(new Set(values));}
 function mergeCanonicalModels(rows:ModelRegistryItem[]){
   const grouped=new Map<string,ModelRegistryItem[]>();
@@ -33,7 +35,7 @@ function mergeCanonicalModels(rows:ModelRegistryItem[]){
   }
   return Array.from(grouped.entries()).map(([id,list])=>{
     const preferred=list.find(row=>row.model_id===id)||list.find(row=>row.name&&!/\b(edit|extend)\b/i.test(row.name))||list[0];
-    return list.reduce<ModelRegistryItem>((base,row)=>({
+    const merged=list.reduce<ModelRegistryItem>((base,row)=>({
       ...base,
       model_id:id,
       slug:id,
@@ -57,6 +59,8 @@ function mergeCanonicalModels(rows:ModelRegistryItem[]){
       beta_only:list.every(item=>item.beta_only===true),
       status:list.some(item=>item.status==='ACTIVE')?'ACTIVE':list.some(item=>item.status==='EXPERIMENTAL')?'EXPERIMENTAL':'INACTIVE',
     }),{...preferred,model_id:id,slug:id});
+    const curated=curatedCanonicalById.get(id);
+    return curated?{...merged,name:curated.name}:merged;
   });
 }
 
@@ -264,7 +268,8 @@ export const catalogRepository={
     });
   },
   async getModel(id:string){
-    const model=(await this.listModels()).find((row)=>row.model_id===id)||null;
+    const canonicalId=canonicalModelId(id);
+    const model=(await this.listModels()).find((row)=>row.model_id===canonicalId)||null;
     return model&&model.status!=='INACTIVE'?model:null;
   },
   async saveModel(value:ModelRegistryItem){
