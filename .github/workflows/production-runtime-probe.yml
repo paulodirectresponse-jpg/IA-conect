@@ -1,0 +1,22 @@
+name: Production Runtime Probe
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for production deployment
+        run: sleep 20
+      - name: Probe IA Conect production dependencies
+        shell: bash
+        run: |
+          set +e
+          echo '=== /health ==='
+          curl -sS --max-time 20 -w '\nHTTP_STATUS:%{http_code}\n' https://iaconnect.ia.br/health
+          echo '=== /api/runtime-health ==='
+          curl -sS --max-time 30 -w '\nHTTP_STATUS:%{http_code}\n' https://iaconnect.ia.br/api/runtime-health
+          exit 0
