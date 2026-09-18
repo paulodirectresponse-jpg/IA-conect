@@ -53,7 +53,7 @@ providerScanRouter.post('/admin/provider-launch-routes/:routeKey/apply',requireA
     await auditRepository.record({
       log_id:`aud_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
       admin_id:req.user!.uid,admin_email:req.user!.email,
-      action:'VERIFIED_PROVIDER_ROUTE_APPLIED',entity_type:'PROVIDER_ROUTE',entity_id:req.params.routeKey,
+      action:'VERIFIED_PROVIDER_ROUTE_APPLIED',entity_type:'PROVIDER',entity_id:req.params.routeKey,
       before,after,reason:'Ativação explícita de rota com endpoint, capability e preço verificados.',
       created_at:new Date().toISOString(),
     });
