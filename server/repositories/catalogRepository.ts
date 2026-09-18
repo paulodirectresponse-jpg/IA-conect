@@ -234,6 +234,21 @@ export const catalogRepository={
     invalidateCatalog('models');
     return saved;
   },
+  async saveModelsBulk(values:ModelRegistryItem[]){
+    const unique=Array.from(new Map(values.filter(value=>value?.model_id).map(value=>[String(value.model_id),value])).values());
+    const chunkSize=25;
+    for(let index=0;index<unique.length;index+=chunkSize){
+      const chunk=unique.slice(index,index+chunkSize);
+      await firestoreAdminRest.commit(chunk.map(value=>({
+        update:{
+          name:firestoreAdminRest.docName(`models/${safe(value.model_id)}`),
+          fields:firestoreAdminRest.fields(value),
+        },
+      })));
+    }
+    invalidateCatalog('models');
+    return unique;
+  },
 
   async listProviders(){
     const rows=await cachedRows<ProviderRegistryItem>('providers',()=>ensureSeed<ProviderRegistryItem>('providers','provider_id',PROVIDER_CATALOG));
