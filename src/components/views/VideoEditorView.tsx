@@ -1,55 +1,127 @@
 import React,{useCallback,useEffect,useMemo,useState}from'react';
-import{CheckCircle2,LoaderCircle,RefreshCw,Sparkles,Upload,Video,VideoIcon,WandSparkles}from'lucide-react';
+import{CheckCircle2,Download,FolderOpen,LoaderCircle,RefreshCw,Sparkles,Upload,VideoIcon,WandSparkles}from'lucide-react';
 import{useAuth}from'../../context/AuthContext.js';
 import{assetService}from'../../services/assetService.js';
 import{ApiError}from'../../services/apiClient.js';
 import{editorClient,EditorCapability,EditorJobView}from'../../services/editorClient.js';
 import{Asset}from'../../types/index.js';
-import{CreationGallery}from'../workspace/CreationGallery.js';
+import{EditorWorkspaceShell}from'../editors/shared/EditorWorkspaceShell.js';
+import{EditorAssetPicker}from'../editors/shared/EditorAssetPicker.js';
+import{VideoEditorPreview,VideoPreviewMode}from'../editors/video/VideoEditorPreview.js';
+import{VideoNavigationTimeline}from'../editors/video/VideoNavigationTimeline.js';
+import{StableGeneratorModelPicker}from'../workspace/StableGeneratorModelPicker.js';
 
 type Tool=Extract<EditorCapability,'video-extend'|'video-edit'>;
-const TOOLS:Array<{id:Tool;label:string;description:string;icon:React.ComponentType<{className?:string}>}>=[
- {id:'video-extend',label:'Estender vídeo',description:'Continue um vídeo preservando a continuidade.',icon:VideoIcon},
- {id:'video-edit',label:'Editar vídeo',description:'Transforme o vídeo a partir de instruções.',icon:WandSparkles},
+const TOOLS:Array<{id:Tool;label:string;shortLabel:string;description:string;icon:React.ComponentType<{className?:string}>}>=[
+ {id:'video-edit',label:'Editar vídeo',shortLabel:'Editar',description:'Transforme um vídeo a partir de instruções, preservando o original.',icon:WandSparkles},
+ {id:'video-extend',label:'Estender vídeo',shortLabel:'Estender',description:'Continue a duração do vídeo mantendo a continuidade visual.',icon:VideoIcon},
 ];
 const errorText=(error:any)=>error instanceof ApiError?error.message:error?.message||'Não foi possível concluir esta operação.';
 const status=(job:EditorJobView|null)=>job?.status==='SUCCEEDED'?'Concluído':job?.status==='FAILED'?'Falhou':job?.status==='RUNNING'?'Processando':job?.status==='QUEUED'?'Na fila':job?.status==='QUOTED'?'Preço calculado':'Preparando';
 
 export const VideoEditorView:React.FC=()=>{
  const{wallet,refreshWallet}=useAuth();
- const[tool,setTool]=useState<Tool>('video-edit'),[models,setModels]=useState<any[]>([]),[videos,setVideos]=useState<Asset[]>([]),[sourceVideoId,setSourceVideoId]=useState(''),[modelId,setModelId]=useState('AUTO'),[prompt,setPrompt]=useState(''),[duration,setDuration]=useState(5),[resolution,setResolution]=useState('720p'),[aspectRatio,setAspectRatio]=useState('16:9'),[audioEnabled,setAudioEnabled]=useState(true),[job,setJob]=useState<EditorJobView|null>(null),[result,setResult]=useState<Asset|null>(null),[busy,setBusy]=useState('load'),[error,setError]=useState(''),[pollCount,setPollCount]=useState(0);
- const load=useCallback(async()=>{setBusy(current=>current||'load');setError('');try{const[catalog,assets]=await Promise.all([editorClient.catalog(),assetService.listAssets({type:'VIDEO'})]);setModels(catalog.filter(model=>model.capabilities.some((cap:any)=>TOOLS.some(tool=>tool.id===cap.id))));setVideos(assets);setSourceVideoId(current=>current||assets[0]?.asset_id||'');}catch(err){setError(errorText(err));}finally{setBusy(current=>current==='load'?'':current);}},[]);
- useEffect(()=>{void load();},[load]);
- const eligibleModels=useMemo(()=>models.filter(model=>model.capabilities.some((cap:any)=>cap.id===tool)),[models,tool]);
- useEffect(()=>{if(!eligibleModels.some(model=>model.model_id===modelId))setModelId(eligibleModels.find(model=>model.model_id==='AUTO')?.model_id||eligibleModels[0]?.model_id||'');},[eligibleModels,modelId]);
- const model=eligibleModels.find(item=>item.model_id===modelId)||eligibleModels.find(item=>item.model_id==='AUTO')||eligibleModels[0]||null;
- const capability=model?.capabilities.find((cap:any)=>cap.id===tool)||null;
- const controls=new Set<string>(capability?.controls||[]),durationOptions=capability?.supported_durations?.length?capability.supported_durations:[5],resolutionOptions=capability?.supported_resolutions?.length?capability.supported_resolutions:['720p'],ratioOptions=capability?.supported_aspect_ratios?.length?capability.supported_aspect_ratios:['16:9'];
+ const[tool,setTool]=useState<Tool>('video-edit');
+ const[models,setModels]=useState<any[]>([]);
+ const[videos,setVideos]=useState<Asset[]>([]);
+ const[sourceVideoId,setSourceVideoId]=useState('');
+ const[modelId,setModelId]=useState('AUTO');
+ const[prompt,setPrompt]=useState('');
+ const[duration,setDuration]=useState(5);
+ const[resolution,setResolution]=useState('720p');
+ const[aspectRatio,setAspectRatio]=useState('16:9');
+ const[audioEnabled,setAudioEnabled]=useState(true);
+ const[job,setJob]=useState<EditorJobView|null>(null);
+ const[result,setResult]=useState<Asset|null>(null);
+ const[busy,setBusy]=useState('');
+ const[catalogLoading,setCatalogLoading]=useState(true);
+ const[assetsLoading,setAssetsLoading]=useState(true);
+ const[catalogError,setCatalogError]=useState('');
+ const[assetsError,setAssetsError]=useState('');
+ const[error,setError]=useState('');
+ const[pollCount,setPollCount]=useState(0);
+ const[pickerOpen,setPickerOpen]=useState(false);
+ const[previewMode,setPreviewMode]=useState<VideoPreviewMode>('source');
+ const[currentTime,setCurrentTime]=useState(0);
+ const[sourceDuration,setSourceDuration]=useState(0);
+ const[seekTo,setSeekTo]=useState<number|undefined>(undefined);
+
+ const invalidate=useCallback(()=>{setJob(null);setResult(null);setPollCount(0);setError('');setPreviewMode('source');},[]);
+ const loadCatalog=useCallback(async()=>{setCatalogLoading(true);setCatalogError('');try{const catalog=await editorClient.catalog();setModels(catalog.filter(model=>model.capabilities.some((cap:any)=>TOOLS.some(item=>item.id===cap.id))));}catch(err){setModels([]);setCatalogError(errorText(err));}finally{setCatalogLoading(false);}},[]);
+ const loadVideos=useCallback(async()=>{setAssetsLoading(true);setAssetsError('');try{const assets=(await assetService.listAssets()).filter(asset=>asset.type==='VIDEO');setVideos(assets);setSourceVideoId(current=>current&&assets.some(asset=>asset.asset_id===current)?current:'');}catch(err){setAssetsError(errorText(err));}finally{setAssetsLoading(false);}},[]);
+ useEffect(()=>{void loadCatalog();void loadVideos();},[loadCatalog,loadVideos]);
+ useEffect(()=>{const refresh=()=>void loadVideos();window.addEventListener('creations:updated',refresh);window.addEventListener('ia:asset-upload-complete',refresh);return()=>{window.removeEventListener('creations:updated',refresh);window.removeEventListener('ia:asset-upload-complete',refresh);};},[loadVideos]);
+
  const source=videos.find(asset=>asset.asset_id===sourceVideoId)||null;
- const invalidate=()=>{setJob(null);setResult(null);setPollCount(0);setError('');};
- useEffect(()=>{invalidate();},[tool,modelId,sourceVideoId]);
- useEffect(()=>{if(controls.has('duration')&&!durationOptions.includes(duration))setDuration(durationOptions[0]||5);if(controls.has('resolution')&&!resolutionOptions.includes(resolution))setResolution(resolutionOptions[0]||'720p');if(controls.has('aspect_ratio')&&!ratioOptions.includes(aspectRatio))setAspectRatio(ratioOptions[0]||'16:9');},[capability?.id]);
+ const eligibleModels=useMemo(()=>models.filter(model=>model.capabilities.some((cap:any)=>cap.id===tool)),[models,tool]);
+ const manualModels=useMemo(()=>eligibleModels.filter(model=>model.model_id!=='AUTO'),[eligibleModels]);
+ useEffect(()=>{if(modelId!=='AUTO'&&!manualModels.some(model=>model.model_id===modelId))setModelId('AUTO');},[manualModels,modelId]);
+ const model=eligibleModels.find(item=>item.model_id===modelId)||eligibleModels.find(item=>item.model_id==='AUTO')||manualModels[0]||null;
+ const capability=model?.capabilities.find((cap:any)=>cap.id===tool)||null;
+ const controls=useMemo(()=>new Set<string>(capability?.controls||[]),[capability]);
+ const durationOptions=capability?.supported_durations?.length?capability.supported_durations:[5];
+ const resolutionOptions=capability?.supported_resolutions?.length?capability.supported_resolutions:['720p'];
+ const ratioOptions=capability?.supported_aspect_ratios?.length?capability.supported_aspect_ratios:['16:9'];
+ const routeReady=manualModels.length>0||eligibleModels.some(item=>item.model_id==='AUTO');
+ const activeTool=TOOLS.find(item=>item.id===tool)!;
+
+ useEffect(()=>{invalidate();setCurrentTime(0);setSeekTo(undefined);},[tool,modelId,sourceVideoId,invalidate]);
+ useEffect(()=>{if(controls.has('duration')&&!durationOptions.includes(duration))setDuration(durationOptions[0]||5);if(controls.has('resolution')&&!resolutionOptions.includes(resolution))setResolution(resolutionOptions[0]||'720p');if(controls.has('aspect_ratio')&&!ratioOptions.includes(aspectRatio))setAspectRatio(ratioOptions[0]||'16:9');},[tool,model?.model_id]);
  useEffect(()=>{if(!job||!['QUEUED','RUNNING'].includes(job.status)||pollCount>=180)return;const timer=window.setTimeout(async()=>{try{setJob(await editorClient.get(job.job_id));setPollCount(v=>v+1);}catch(err){setError(errorText(err));setPollCount(180);}},Math.min(7000,1800+pollCount*110));return()=>window.clearTimeout(timer);},[job,pollCount]);
- useEffect(()=>{if(job?.status!=='SUCCEEDED')return;void refreshWallet();const id=job.result_asset_ids?.[0];if(id)void editorClient.asset(id).then(setResult).catch(()=>setResult(null));window.dispatchEvent(new CustomEvent('creations:updated',{detail:{kind:'VIDEO',asset_ids:job.result_asset_ids||[]}}));},[job?.status,job?.result_asset_ids,refreshWallet]);
- const upload=async(event:React.ChangeEvent<HTMLInputElement>)=>{const file=event.target.files?.[0];event.target.value='';if(!file)return;setBusy('upload');try{const asset=await assetService.uploadAsset({file,name:file.name});setVideos(rows=>[asset,...rows.filter(row=>row.asset_id!==asset.asset_id)]);setSourceVideoId(asset.asset_id);invalidate();}catch(err){setError(errorText(err));}finally{setBusy('');}};
- const buildRequest=()=>{if(!source)throw new Error('Selecione um vídeo de origem.');if(!model)throw new Error('Nenhum modelo elegível está disponível.');if(tool==='video-edit'&&!prompt.trim())throw new Error('Descreva a edição desejada.');const requestControls:any={output_format:'mp4',audio_enabled:audioEnabled,number_of_outputs:1};if(controls.has('duration'))requestControls.duration_seconds=duration;if(controls.has('resolution'))requestControls.resolution=resolution;if(controls.has('aspect_ratio'))requestControls.aspect_ratio=aspectRatio;return{capability_id:tool,model_id:model.model_id,prompt:prompt.trim(),references:[{asset_id:source.asset_id,slot_type:'GENERAL',role:'SOURCE'}],controls:requestControls};};
+ useEffect(()=>{if(job?.status!=='SUCCEEDED')return;void refreshWallet();const id=job.result_asset_ids?.[0];if(id)void editorClient.asset(id).then(asset=>{setResult(asset);setPreviewMode('result');}).catch(()=>setResult(null));window.dispatchEvent(new CustomEvent('creations:updated',{detail:{kind:'VIDEO',asset_ids:job.result_asset_ids||[]}}));},[job?.status,job?.result_asset_ids,refreshWallet]);
+
+ const upload=async(event:React.ChangeEvent<HTMLInputElement>)=>{const file=event.target.files?.[0];event.target.value='';if(!file)return;setBusy('upload');setError('');try{const asset=await assetService.uploadAsset({file,name:file.name});setVideos(rows=>[asset,...rows.filter(row=>row.asset_id!==asset.asset_id)]);setSourceVideoId(asset.asset_id);setPickerOpen(false);invalidate();}catch(err){setError(errorText(err));}finally{setBusy('');}};
+ const selectAsset=(asset:Asset)=>{setSourceVideoId(asset.asset_id);setPickerOpen(false);invalidate();};
+ const buildRequest=()=>{if(!source)throw new Error('Selecione um vídeo de origem.');if(!model)throw new Error('Nenhum modelo elegível está disponível.');if(tool==='video-edit'&&!prompt.trim())throw new Error('Descreva a edição desejada.');const requestControls:any={output_format:'mp4',audio_enabled:audioEnabled,number_of_outputs:1};if(controls.has('duration'))requestControls.duration_seconds=duration;if(controls.has('resolution'))requestControls.resolution=resolution;if(controls.has('aspect_ratio'))requestControls.aspect_ratio=aspectRatio;return{capability_id:tool,model_id:modelId==='AUTO'?'AUTO':model.model_id,prompt:prompt.trim(),references:[{asset_id:source.asset_id,slot_type:'GENERAL',role:'SOURCE'}],controls:requestControls};};
  const quote=async()=>{setBusy('quote');setError('');try{const created=await editorClient.create(buildRequest());setJob(await editorClient.quote(created.job_id));setPollCount(0);}catch(err){setError(errorText(err));}finally{setBusy('');}};
  const execute=async()=>{if(!job)return;setBusy('execute');setError('');try{setJob(await editorClient.queue(job.job_id));setPollCount(0);}catch(err){setError(errorText(err));}finally{setBusy('');}};
- const price=job?.quote?.credit_price??null,balance=wallet?.available_credits??0,insufficient=price!=null&&balance<price;
- return <div className="flex h-full min-h-0 flex-col xl:flex-row bg-[#080c12]">
-  <section className="w-full xl:w-[46%] min-h-0 overflow-y-auto border-b xl:border-b-0 xl:border-r border-white/[0.06] p-4 sm:p-5 lg:p-6 space-y-4">
-   <header><span className="text-[9px] font-bold uppercase tracking-[.18em] text-cyan-300">Editor de vídeo</span><h1 className="mt-1 text-xl font-bold text-white">Estenda ou transforme seus vídeos.</h1><p className="mt-1 text-[11px] text-zinc-500">O original é preservado. Cada execução cria um novo asset na Biblioteca.</p></header>
-   <div className="grid grid-cols-2 gap-2">{TOOLS.map(item=>{const Icon=item.icon;return <button key={item.id} onClick={()=>setTool(item.id)} className={`rounded-xl border p-3 text-left ${tool===item.id?'border-cyan-300/25 bg-cyan-300/[0.08]':'border-white/[0.07] bg-white/[0.025]'}`}><Icon className="w-4 h-4 text-cyan-200"/><strong className="mt-2 block text-[10px] text-zinc-200">{item.label}</strong><small className="block mt-1 text-[8px] leading-relaxed text-zinc-600">{item.description}</small></button>})}</div>
-   <div className="grid gap-2 sm:grid-cols-[1fr_auto]"><select value={sourceVideoId} onChange={e=>setSourceVideoId(e.target.value)} className="h-10 rounded-xl bg-white/[0.035] border border-white/[0.07] px-3 text-[10px] text-zinc-300"><option value="">Selecione da Biblioteca</option>{videos.map(asset=><option key={asset.asset_id} value={asset.asset_id}>{asset.name}</option>)}</select><label className="h-10 px-3 rounded-xl border border-white/[0.08] flex items-center gap-2 text-[10px] text-zinc-300 cursor-pointer"><Upload className="w-3.5 h-3.5"/>{busy==='upload'?'Enviando':'Upload'}<input className="hidden" type="file" accept="video/*" onChange={upload}/></label></div>
-   <div className="min-h-[260px] rounded-2xl border border-white/[0.07] bg-black/30 overflow-hidden grid place-items-center">{source?.public_url?<video src={source.public_url} controls preload="metadata" className="w-full max-h-[420px]"/>:<div className="text-zinc-700 text-center"><Video className="w-8 h-8 mx-auto"/><span className="text-[9px]">Selecione um vídeo</span></div>}</div>
-   <label className="block text-[9px] text-zinc-500">IA / modelo<select value={model?.model_id||''} onChange={e=>{setModelId(e.target.value);invalidate();}} className="mt-1 w-full h-10 rounded-xl bg-white/[0.035] border border-white/[0.07] px-3 text-zinc-300">{eligibleModels.map(item=><option key={item.model_id} value={item.model_id}>{item.model_id==='AUTO'?'AUTO · Melhor modelo disponível':item.name}</option>)}</select></label>
-   <textarea rows={5} value={prompt} onChange={e=>{setPrompt(e.target.value);invalidate();}} placeholder={tool==='video-extend'?'Opcional: descreva como o vídeo deve continuar…':'Ex.: transforme a cena em um pôr do sol cinematográfico, preservando o personagem…'} className="w-full rounded-xl bg-white/[0.035] border border-white/[0.07] p-3 text-[11px] text-zinc-200 outline-none"/>
-   <div className="grid sm:grid-cols-2 gap-2">{controls.has('duration')&&<label className="text-[9px] text-zinc-500">Duração<select value={duration} onChange={e=>{setDuration(Number(e.target.value));invalidate();}} className="mt-1 w-full h-10 rounded-xl bg-white/[0.035] border border-white/[0.07] px-3 text-zinc-300">{durationOptions.map((value:number)=><option key={value} value={value}>{value}s</option>)}</select></label>}{controls.has('resolution')&&<label className="text-[9px] text-zinc-500">Resolução<select value={resolution} onChange={e=>{setResolution(e.target.value);invalidate();}} className="mt-1 w-full h-10 rounded-xl bg-white/[0.035] border border-white/[0.07] px-3 text-zinc-300">{resolutionOptions.map((value:string)=><option key={value}>{value}</option>)}</select></label>}{controls.has('aspect_ratio')&&<label className="text-[9px] text-zinc-500">Formato<select value={aspectRatio} onChange={e=>{setAspectRatio(e.target.value);invalidate();}} className="mt-1 w-full h-10 rounded-xl bg-white/[0.035] border border-white/[0.07] px-3 text-zinc-300">{ratioOptions.map((value:string)=><option key={value}>{value}</option>)}</select></label>}<label className="flex items-center gap-2 text-[9px] text-zinc-400 mt-5"><input type="checkbox" checked={audioEnabled} onChange={e=>{setAudioEnabled(e.target.checked);invalidate();}}/>Preservar/gerar áudio quando suportado</label></div>
-   {error&&<div className="rounded-xl border border-rose-400/15 bg-rose-400/[0.05] p-3 text-[10px] text-rose-300">{error}</div>}
-   <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between"><div><span className="text-[8px] uppercase tracking-wider text-zinc-600">Créditos</span><strong className="block text-[12px] text-white">{price==null?'Calcule antes de executar':`${price.toLocaleString('pt-BR')} créditos`}</strong>{price!=null&&<small className="text-[8px] text-zinc-600">Saldo: {balance.toLocaleString('pt-BR')}</small>}</div>{!job?.quote?<button onClick={()=>void quote()} disabled={Boolean(busy)||!model||!source} className="ia-button-primary h-10 px-4 text-[10px] font-bold flex items-center gap-2 justify-center">{busy==='quote'?<LoaderCircle className="w-4 h-4 animate-spin"/>:<Sparkles className="w-4 h-4"/>}Calcular créditos</button>:['DRAFT','QUOTED'].includes(job.status)?<div className="flex gap-2"><button onClick={()=>void quote()} className="h-10 px-3 rounded-xl border border-white/[0.08] text-[9px] text-zinc-400"><RefreshCw className="w-3.5 h-3.5"/></button><button onClick={()=>void execute()} disabled={Boolean(busy)||insufficient} className="ia-button-primary h-10 px-4 text-[10px] font-bold flex items-center gap-2">{busy==='execute'?<LoaderCircle className="w-4 h-4 animate-spin"/>:<WandSparkles className="w-4 h-4"/>}Executar</button></div>:<button disabled className="h-10 px-4 rounded-xl border border-white/[0.08] text-[9px] text-zinc-500">{status(job)}</button>}</div>
-   {job?.status==='SUCCEEDED'&&result?.public_url&&<section className="rounded-2xl border border-emerald-400/10 bg-emerald-400/[0.03] p-3"><div className="mb-2 flex items-center gap-2 text-[10px] text-emerald-300"><CheckCircle2 className="w-4 h-4"/>Resultado concluído</div><video src={result.public_url} controls preload="metadata" className="w-full rounded-xl"/></section>}
-  </section>
-  <section className="flex-1 min-h-[420px] xl:min-h-0"><CreationGallery defaultFilter="VIDEO" title="Minhas criações" subtitle="Histórico universal do IA Connect. Vídeos editados e estendidos aparecem aqui."/></section>
+ const useResultAsSource=()=>{if(!result)return;setVideos(rows=>[result,...rows.filter(row=>row.asset_id!==result.asset_id)]);setSourceVideoId(result.asset_id);invalidate();};
+
+ const price=job?.quote?.credit_price??null,balance=wallet?.available_credits??0,insufficient=price!=null&&balance<price,processing=Boolean(job&&['QUEUED','RUNNING'].includes(job.status));
+ const actionLabel=tool==='video-edit'?'Aplicar edição':'Estender vídeo';
+
+ const topbar=<div className="flex min-h-[60px] flex-wrap items-center gap-2 px-3 py-2.5 sm:px-4 lg:px-5">
+  <div className="mr-auto min-w-[160px]"><h1 className="text-sm font-bold text-white sm:text-base">Editor de vídeo</h1><p className="hidden text-[9px] text-zinc-600 sm:block">Transforme ou estenda vídeos sem destruir o original.</p></div>
+  <button onClick={()=>setPickerOpen(true)} className="inline-flex h-9 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-[10px] font-medium text-zinc-300 hover:border-cyan-400/20 hover:text-cyan-200"><FolderOpen className="h-3.5 w-3.5"/>Abrir vídeo</button>
+  <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 text-[10px] font-medium text-zinc-300 hover:border-cyan-400/20 hover:text-cyan-200"><Upload className="h-3.5 w-3.5"/>{busy==='upload'?'Enviando…':'Upload'}<input className="hidden" type="file" accept="video/*" onChange={upload}/></label>
+  {result?.public_url&&<a href={result.public_url} download target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-3.5 text-[10px] font-bold text-white"><Download className="h-3.5 w-3.5"/>Baixar</a>}
  </div>;
+
+ const tools=<div className="flex gap-2 overflow-x-auto xl:flex-col xl:overflow-visible">{TOOLS.map(item=>{const Icon=item.icon,selected=tool===item.id,hasRoute=models.some(model=>model.capabilities?.some((cap:any)=>cap.id===item.id));return <button key={item.id} onClick={()=>setTool(item.id)} title={hasRoute||catalogLoading?item.label:`${item.label} · rota de IA indisponível no momento`} className={`min-w-[72px] rounded-xl border px-2 py-3 text-center transition xl:min-w-0 ${selected?'border-cyan-400/35 bg-cyan-400/[0.09] text-cyan-100':'border-white/[0.06] bg-white/[0.018] text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300'}`}><Icon className={`mx-auto h-4 w-4 ${selected?'text-cyan-300':hasRoute?'':'text-zinc-700'}`}/><span className="mt-1.5 block text-[8px] font-semibold leading-tight">{item.shortLabel}</span></button>;})}</div>;
+
+ const stage=<div className="flex h-full min-h-0 flex-col"><div className="min-h-0 flex-1"><VideoEditorPreview source={source} result={result} mode={previewMode} processing={processing} statusLabel={status(job)} onOpenPicker={()=>setPickerOpen(true)} onModeChange={setPreviewMode} onTimeUpdate={(current,total)=>{setCurrentTime(current);if(total>0)setSourceDuration(total);}} seekTo={seekTo}/></div><VideoNavigationTimeline currentTime={currentTime} duration={sourceDuration} sourceName={source?.name} modeLabel={tool==='video-edit'?'Editar':'Estender'} resultAvailable={Boolean(result)} onSeek={time=>{setSeekTo(time);setCurrentTime(time);}}/></div>;
+
+ const inspector=<div className="flex min-h-full flex-col p-4">
+  <div className="border-b border-white/[0.06] pb-4"><span className="text-[8px] font-bold uppercase tracking-[.16em] text-cyan-400">Ferramenta ativa</span><div className="mt-2 flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-cyan-400/15 bg-cyan-400/[0.06]"><activeTool.icon className="h-4 w-4 text-cyan-300"/></span><div><h2 className="text-[12px] font-bold text-white">{activeTool.label}</h2><p className="mt-1 text-[9px] leading-relaxed text-zinc-500">{activeTool.description}</p></div></div></div>
+
+  <div className="space-y-4 py-4">
+   <div className="space-y-1.5"><div className="flex items-center justify-between gap-2"><span className="text-[9px] font-medium text-zinc-400">IA / modelo</span>{catalogError&&<button type="button" onClick={()=>void loadCatalog()} className="inline-flex items-center gap-1 text-[8px] text-rose-300 hover:text-rose-200"><RefreshCw className="h-3 w-3"/>Recarregar</button>}</div><StableGeneratorModelPicker models={manualModels.map(item=>({model_id:item.model_id,name:item.name,description:`Modelo compatível com ${activeTool.shortLabel}`,supported_durations:item.capabilities.find((cap:any)=>cap.id===tool)?.supported_durations||[]}))} selectedModelId={modelId} onSelect={id=>{setModelId(id);invalidate();}} loading={catalogLoading}/>{catalogError&&<p className="text-[8px] leading-relaxed text-rose-300/90">O catálogo de IA não carregou. Biblioteca e navegação continuam disponíveis.</p>}{!catalogLoading&&!catalogError&&!routeReady&&<p className="text-[8px] leading-relaxed text-amber-300/80">Nenhuma rota de IA está elegível para esta ferramenta no momento.</p>}</div>
+
+   <label className="block"><span className="text-[9px] font-medium text-zinc-400">{tool==='video-edit'?'Prompt / instruções':'Continuação (opcional)'}</span><textarea rows={5} value={prompt} onChange={e=>{setPrompt(e.target.value);invalidate();}} placeholder={tool==='video-extend'?'Opcional: descreva como o vídeo deve continuar…':'Ex.: transforme a cena em um pôr do sol cinematográfico, preservando o personagem…'} className="mt-1.5 w-full resize-none rounded-xl border border-white/[0.07] bg-white/[0.025] p-3 text-[10px] leading-relaxed text-zinc-200 outline-none placeholder:text-zinc-650 focus:border-cyan-400/25"/></label>
+
+   {controls.has('duration')&&<label className="block"><span className="text-[9px] font-medium text-zinc-400">{tool==='video-extend'?'Duração adicional':'Duração'}</span><select value={duration} onChange={e=>{setDuration(Number(e.target.value));invalidate();}} className="mt-1.5 h-10 w-full rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 text-[10px] text-zinc-300 outline-none">{durationOptions.map((value:number)=><option key={value} value={value}>{value}s</option>)}</select></label>}
+
+   {controls.has('resolution')&&<label className="block"><span className="text-[9px] font-medium text-zinc-400">Resolução</span><select value={resolution} onChange={e=>{setResolution(e.target.value);invalidate();}} className="mt-1.5 h-10 w-full rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 text-[10px] text-zinc-300 outline-none">{resolutionOptions.map((value:string)=><option key={value}>{value}</option>)}</select></label>}
+
+   {controls.has('aspect_ratio')&&<label className="block"><span className="text-[9px] font-medium text-zinc-400">Formato</span><select value={aspectRatio} onChange={e=>{setAspectRatio(e.target.value);invalidate();}} className="mt-1.5 h-10 w-full rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 text-[10px] text-zinc-300 outline-none">{ratioOptions.map((value:string)=><option key={value}>{value}</option>)}</select></label>}
+
+   <button type="button" onClick={()=>{setAudioEnabled(v=>!v);invalidate();}} className="flex w-full items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.018] p-3 text-left"><div><span className="text-[9px] font-medium text-zinc-300">Áudio</span><p className="mt-0.5 text-[8px] text-zinc-600">Preservar ou gerar áudio quando a rota suportar.</p></div><span className={`relative h-5 w-9 rounded-full transition ${audioEnabled?'bg-cyan-400/40':'bg-white/[0.08]'}`}><span className={`absolute top-1 h-3 w-3 rounded-full bg-white transition-all ${audioEnabled?'left-5':'left-1'}`}/></span></button>
+  </div>
+
+  <div className="mt-auto border-t border-white/[0.06] pt-4">
+   {error&&<div className="mb-3 rounded-xl border border-rose-400/15 bg-rose-400/[0.05] p-3 text-[9px] leading-relaxed text-rose-300">{error}</div>}
+   <div className="mb-3 flex items-end justify-between gap-3"><div><span className="text-[8px] uppercase tracking-wider text-zinc-600">Preço</span><strong className="mt-0.5 block text-[11px] text-white">{price==null?'Calcule antes de executar':`${price.toLocaleString('pt-BR')} créditos`}</strong></div><div className="text-right"><span className="text-[8px] uppercase tracking-wider text-zinc-600">Saldo</span><strong className={`mt-0.5 block text-[10px] ${insufficient?'text-rose-300':'text-zinc-300'}`}>{balance.toLocaleString('pt-BR')} créditos</strong></div></div>
+
+   {!job?.quote?<button onClick={()=>void quote()} disabled={Boolean(busy)||catalogLoading||!routeReady||!model||!source} className="ia-generator-generate flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-40">{busy==='quote'?<LoaderCircle className="h-4 w-4 animate-spin"/>:<Sparkles className="h-4 w-4"/>}Calcular créditos</button>:['DRAFT','QUOTED'].includes(job.status)?<div className="grid grid-cols-[40px_1fr] gap-2"><button onClick={()=>void quote()} title="Recalcular" className="grid h-11 place-items-center rounded-xl border border-white/[0.08] text-zinc-500 hover:text-white"><RefreshCw className="h-3.5 w-3.5"/></button><button onClick={()=>void execute()} disabled={Boolean(busy)||insufficient} className="ia-generator-generate flex min-h-[44px] items-center justify-center gap-2 rounded-xl text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-40">{busy==='execute'?<LoaderCircle className="h-4 w-4 animate-spin"/>:<WandSparkles className="h-4 w-4"/>}{actionLabel}</button></div>:<button disabled className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] text-[9px] text-zinc-500">{processing&&<LoaderCircle className="h-3.5 w-3.5 animate-spin"/>}{status(job)}</button>}
+
+   {job?.status==='SUCCEEDED'&&result&&<div className="mt-3 grid grid-cols-2 gap-2"><button onClick={useResultAsSource} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] text-[9px] text-zinc-300 hover:border-cyan-400/20 hover:text-cyan-200"><CheckCircle2 className="h-3.5 w-3.5"/>Usar como origem</button><button onClick={()=>setPreviewMode('result')} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] text-[9px] text-zinc-300 hover:border-cyan-400/20 hover:text-cyan-200"><VideoIcon className="h-3.5 w-3.5"/>Ver resultado</button></div>}
+  </div>
+ </div>;
+
+ return <>
+  <EditorWorkspaceShell topbar={topbar} tools={tools} canvas={stage} inspector={inspector}/>
+  <EditorAssetPicker open={pickerOpen} assets={videos} selectedId={sourceVideoId} uploading={busy==='upload'} loading={assetsLoading} assetType="VIDEO" title="Abrir vídeo" subtitle="Escolha um vídeo da mesma Biblioteca Global do IA Connect ou envie um novo arquivo." onClose={()=>setPickerOpen(false)} onSelect={selectAsset} onUpload={upload}/>
+  {assetsError&&pickerOpen&&<div className="fixed bottom-5 left-1/2 z-[100] -translate-x-1/2 rounded-xl border border-rose-400/20 bg-[#170d13] px-4 py-2 text-[9px] text-rose-300 shadow-xl">Não foi possível atualizar a Biblioteca. <button onClick={()=>void loadVideos()} className="ml-2 font-bold underline">Tentar novamente</button></div>}
+ </>;
 };
 export default VideoEditorView;
