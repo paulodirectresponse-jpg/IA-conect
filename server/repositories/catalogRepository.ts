@@ -28,11 +28,11 @@ function mergeCanonicalModels(rows:ModelRegistryItem[]){
   const grouped=new Map<string,ModelRegistryItem[]>();
   for(const row of rows){
     const id=canonicalModelId(row.model_id),list=grouped.get(id)||[];
-    list.push({...row,model_id:id,slug:id});
+    list.push(row);
     grouped.set(id,list);
   }
   return Array.from(grouped.entries()).map(([id,list])=>{
-    const preferred=list.find(row=>row.model_id===id&&row.name&&!/\b(edit|extend)\b/i.test(row.name))||list[0];
+    const preferred=list.find(row=>row.model_id===id)||list.find(row=>row.name&&!/\b(edit|extend)\b/i.test(row.name))||list[0];
     return list.reduce<ModelRegistryItem>((base,row)=>({
       ...base,
       model_id:id,
