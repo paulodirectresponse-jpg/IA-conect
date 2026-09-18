@@ -36,6 +36,16 @@ export interface RoutingDecision{
 }
 
 const nowIso='2026-09-09T00:00:00.000Z';
+const IMAGE_GENERATION_CAPS=new Set(['text-to-image','image-to-image']);
+const VIDEO_GENERATION_CAPS=new Set(['text-to-video','image-to-video','first-frame','last-frame']);
+function mappingMatchesOperation(mapping:ProviderModelMapping,mode:GenerationMode,capabilityId?:string){
+  const caps=(mapping.capabilities||[]).map(String);
+  if(!caps.length)return true;
+  if(capabilityId)return caps.includes(capabilityId);
+  if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE')return caps.some(cap=>IMAGE_GENERATION_CAPS.has(cap));
+  if(['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO'].includes(String(mode)))return caps.some(cap=>VIDEO_GENERATION_CAPS.has(cap));
+  return true;
+}
 const seedance20WaveMapping:ProviderModelMapping={
   mapping_id:'map-seed20-wave-runtime',model_id:'seedance-2-0',provider_id:'provider-wavespeed',
   provider_model_identifier:'bytedance/seedance-2.0',status:'ACTIVE',updated_at:nowIso,
@@ -58,9 +68,11 @@ export const smartRouterService={
     for(const row of financeRows)financeById.set(String(row.provider_id),row);
     const mappings=[...baseMappings];
     if(!mappings.some(m=>m.model_id==='seedance-2-0'&&m.provider_id==='provider-wavespeed'))mappings.push(seedance20WaveMapping);
-    const activeMappings=new Map(
-      mappings.filter(m=>m.model_id===params.model_id&&m.status==='ACTIVE'&&(!params.capability_id||!m.capabilities?.length||m.capabilities.includes(params.capability_id))).map(m=>[String(m.provider_id),m]),
-    );
+    const activeMappingsByProvider=new Map<string,ProviderModelMapping[]>();
+    for(const mapping of mappings.filter(m=>m.model_id===params.model_id&&m.status==='ACTIVE'&&mappingMatchesOperation(m,params.mode,params.capability_id))){
+      const providerId=String(mapping.provider_id),list=activeMappingsByProvider.get(providerId)||[];
+      list.push(mapping);activeMappingsByProvider.set(providerId,list);
+    }
     const excluded=new Set((params.exclude_provider_ids||[]).map(String));
     const preferredProviderId=String(params.pricing_options?.preferred_provider_id||'').trim();
     const providerPricingOptions={...(params.pricing_options||{})};
@@ -71,11 +83,13 @@ export const smartRouterService={
 
     const attempts=await Promise.all(providers.map(async provider=>{
       const providerId=String(provider.provider_id);
-      const mapping=activeMappings.get(providerId);
+      const providerMappings=activeMappingsByProvider.get(providerId)||[];
       if(preferredProviderId&&providerId!==preferredProviderId)return null;
-      if(provider.status==='INACTIVE'||excluded.has(providerId)||!mapping)return null;
+      if(provider.status==='INACTIVE'||excluded.has(providerId)||!providerMappings.length)return null;
       const adapter=providerRegistry.getAdapter(provider.provider_id as any);
-      if(!adapter||!adapter.isConfigured()||!adapter.supports(params.model_id,params.mode,mapping.provider_model_identifier)||!adapter.quoteCostUsd)return null;
+      if(!adapter||!adapter.isConfigured()||!adapter.quoteCostUsd)return null;
+      const mapping=providerMappings.find(candidate=>adapter.supports(params.model_id,params.mode,candidate.provider_model_identifier));
+      if(!mapping)return null;
       try{
         const quote=await quoteCacheService.getOrQuote(adapter,{
           userId:params.userId,model_id:params.model_id,mode:params.mode,capability_id:params.capability_id,
