@@ -1,18 +1,36 @@
 import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
+import { getFirebaseConfig } from '../repositories/firestoreClient.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { packCatalogService } from './packCatalogService.js';
 
 type CheckStatus='OK'|'ERROR'|'DEGRADED';
 interface RuntimeCheck{key:string;status:CheckStatus;code:string;detail:string;metadata?:Record<string,string|number|boolean>;}
 
+function safeErrorMessage(error:any){
+  return String(error?.message||error||'')
+    .replace(/-----BEGIN[\s\S]*?-----END PRIVATE KEY-----/gi,'[redacted-private-key]')
+    .replace(/[A-Za-z0-9_\-.]+@[A-Za-z0-9.-]+/g,'[redacted-email]')
+    .replace(/[A-Za-z0-9_-]{80,}/g,'[redacted-token]')
+    .replace(/\s+/g,' ')
+    .slice(0,240);
+}
+
 function classifyFirestoreError(error:any){
   const message=String(error?.message||error||'');
   const upper=message.toUpperCase();
   if(message.includes('FIREBASE_SERVICE_ACCOUNT_JSON não configurado'))return 'FIREBASE_SERVICE_ACCOUNT_MISSING';
-  if(/JSON|PRIVATE KEY|PKCS8|INVALID/i.test(message))return 'FIREBASE_SERVICE_ACCOUNT_INVALID';
+  if(error?.code==='FIREBASE_SERVICE_ACCOUNT_TOKEN_ERROR'){
+    if(/invalid jwt signature/i.test(message))return 'FIREBASE_SERVICE_ACCOUNT_KEY_REJECTED';
+    if(/account.*(not found|disabled|deleted)|service account.*(not found|disabled|deleted)/i.test(message))return 'FIREBASE_SERVICE_ACCOUNT_DISABLED_OR_DELETED';
+    if(/token used too early|issued at|clock|iat|exp/i.test(message))return 'FIREBASE_SERVICE_ACCOUNT_CLOCK_INVALID';
+    if(String(error?.oauth_error||'').toLowerCase()==='invalid_grant')return 'FIREBASE_SERVICE_ACCOUNT_INVALID_GRANT';
+    return 'FIREBASE_SERVICE_ACCOUNT_TOKEN_ERROR';
+  }
+  if(/PRIVATE KEY|PKCS8/i.test(message))return 'FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY_INVALID';
   if(upper.includes('PERMISSION_DENIED')||String(error?.status)==='403')return 'FIRESTORE_PERMISSION_DENIED';
   if(upper.includes('UNAUTHENTICATED')||String(error?.status)==='401')return 'FIRESTORE_AUTH_FAILED';
   if(upper.includes('NOT_FOUND')||String(error?.status)==='404')return 'FIRESTORE_DATABASE_NOT_FOUND';
+  if(upper.includes('INVALID_ARGUMENT')||String(error?.status)==='400')return 'FIRESTORE_INVALID_ARGUMENT';
   return 'FIRESTORE_UNAVAILABLE';
 }
 
@@ -23,7 +41,15 @@ function serviceAccountCheck():RuntimeCheck{
     const parsed=JSON.parse(raw);
     const valid=Boolean(parsed?.client_email&&parsed?.private_key&&parsed?.project_id);
     if(!valid)return{key:'firebase-service-account',status:'ERROR',code:'INCOMPLETE',detail:'Credencial administrativa do Firebase está incompleta.'};
-    return{key:'firebase-service-account',status:'OK',code:'CONFIGURED',detail:'Credencial administrativa do Firebase está presente e estruturalmente válida.'};
+    const runtimeProject=String(getFirebaseConfig().projectId||'');
+    const projectMatches=String(parsed.project_id||'')===runtimeProject;
+    return{
+      key:'firebase-service-account',
+      status:projectMatches?'OK':'ERROR',
+      code:projectMatches?'CONFIGURED':'PROJECT_MISMATCH',
+      detail:projectMatches?'Credencial administrativa do Firebase está presente e corresponde ao projeto do app.':'A service account pertence a outro projeto Firebase.',
+      metadata:{project_matches_runtime:projectMatches},
+    };
   }catch{
     return{key:'firebase-service-account',status:'ERROR',code:'INVALID_JSON',detail:'Credencial administrativa do Firebase não contém JSON válido.'};
   }
@@ -40,7 +66,17 @@ export const runtimeDependencyHealthService={
     }catch(error:any){
       const code=classifyFirestoreError(error);
       console.error('[RuntimeHealth] Firestore dependency failed:',error?.message||error);
-      checks.push({key:'firestore',status:'ERROR',code,detail:'O backend não conseguiu acessar o Firestore.'});
+      checks.push({
+        key:'firestore',
+        status:'ERROR',
+        code,
+        detail:'O backend não conseguiu autenticar ou acessar o Firestore.',
+        metadata:{
+          http_status:Number(error?.status||0),
+          oauth_error:String(error?.oauth_error||''),
+          reason:safeErrorMessage(error),
+        },
+      });
     }
 
     const adapters=providerRegistry.listAdapters();
