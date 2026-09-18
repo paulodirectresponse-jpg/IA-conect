@@ -68,7 +68,7 @@ export const curatedModelMatchService={
   async propose(providerId:string,candidates:ProviderScanCandidate[],knownMappings?:ProviderModelMapping[]):Promise<ProviderModelMatchProposal[]>{
     const mappings=knownMappings||await catalogRepository.listMappings();
     const existing=new Set(mappings.filter(mapping=>mapping.provider_id===providerId).map(mapping=>`${mapping.model_id}::${mapping.provider_model_identifier}`));
-    const byModel=new Map<string,ProviderModelMatchProposal>();
+    const byCapability=new Map<string,ProviderModelMatchProposal>();
     for(const candidate of candidates){
       let best:ProviderModelMatchProposal|null=null;
       for(const row of CURATED_MODEL_BLUEPRINTS){
@@ -83,9 +83,10 @@ export const curatedModelMatchService={
         if(!best||proposal.confidence>best.confidence)best=proposal;
       }
       if(!best)continue;
-      const previous=byModel.get(best.model_id);
-      if(!previous||best.confidence>previous.confidence)byModel.set(best.model_id,best);
+      const key=`${best.model_id}::${best.capability_id}`;
+      const previous=byCapability.get(key);
+      if(!previous||best.confidence>previous.confidence)byCapability.set(key,best);
     }
-    return Array.from(byModel.values()).sort((a,b)=>b.confidence-a.confidence||a.model_name.localeCompare(b.model_name));
+    return Array.from(byCapability.values()).sort((a,b)=>b.confidence-a.confidence||a.model_name.localeCompare(b.model_name)||a.capability_id.localeCompare(b.capability_id));
   },
 };
