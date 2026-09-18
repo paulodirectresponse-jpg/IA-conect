@@ -73,6 +73,7 @@ providerScanRouter.post('/admin/provider-pricing',requireAuth,requireAdmin,async
       unit:body.unit,unit_price_usd:Number(body.unit_price_usd),minimum_usd:body.minimum_usd==null?null:Number(body.minimum_usd),
       resolution_prices_usd:body.resolution_prices_usd&&typeof body.resolution_prices_usd==='object'?body.resolution_prices_usd:undefined,
       verified,source:body.source==='LIVE_CATALOG'?'LIVE_CATALOG':body.source==='PROVIDER_DOCS'?'PROVIDER_DOCS':'MANUAL_VERIFIED',
+      quote_mode:body.quote_mode==='LIVE_PROVIDER'?'LIVE_PROVIDER':'STATIC_RULE',base_price_usd:body.base_price_usd==null?null:Number(body.base_price_usd),
       verified_at:verified?new Date().toISOString():String(body.verified_at||''),
     });
     res.json({success:true,data:saved});
