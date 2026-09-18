@@ -65,11 +65,35 @@ function numericPrice(value:unknown){
 async function syncAuthoritativePricing(providerId:string,candidates:ProviderScanCandidate[],matches:ProviderModelMatchProposal[],mappings:ProviderModelMapping[]){
   if(providerId==='provider-wavespeed'){
     const byIdentifier=new Map(candidates.map(row=>[row.provider_model_identifier,row]));
-    const rules=matches.flatMap(match=>{
+    const timestamp=new Date().toISOString();
+    const rules:any[]=[];
+    const livePriceBudget=6;
+    let livePriceRequests=0;
+    const root=trim(process.env.WAVESPEED_BASE_URL,'https://api.wavespeed.ai').replace(/\/api\/v3$/,'');
+    const key=String(process.env.WAVESPEED_API_KEY||'').trim();
+
+    for(const match of matches){
       const candidate=byIdentifier.get(match.provider_model_identifier);
-      const basePrice=numericPrice(candidate?.pricing);
-      if(basePrice===null)return[];
-      return [{
+      let basePrice=numericPrice(candidate?.pricing);
+      // The models catalog does not always embed pricing. For exact curated
+      // aliases only, use WaveSpeed's official pricing endpoint in base-price
+      // mode. This is deliberately sequential and capped to protect the Worker
+      // subrequest budget.
+      if(basePrice===null&&key&&livePriceRequests<livePriceBudget&&match.confidence>=0.95&&match.match_reason==='exact_alias'&&['VOICE','MUSIC','THREE_D'].includes(match.function_id)){
+        livePriceRequests++;
+        try{
+          const response=await json(`${root}/api/v3/model/price`,{
+            method:'POST',
+            headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json',Accept:'application/json'},
+            body:JSON.stringify({model_id:match.provider_model_identifier,inputs:null}),
+          });
+          basePrice=numericPrice(response?.data?.discounted_price??response?.data?.price??response?.discounted_price??response?.price);
+        }catch{
+          basePrice=null;
+        }
+      }
+      if(basePrice===null)continue;
+      rules.push({
         provider_id:providerId,
         provider_model_identifier:match.provider_model_identifier,
         capability_id:match.capability_id||null,
@@ -80,9 +104,9 @@ async function syncAuthoritativePricing(providerId:string,candidates:ProviderSca
         source:'LIVE_CATALOG' as const,
         quote_mode:'LIVE_PROVIDER' as const,
         base_price_usd:basePrice,
-        verified_at:new Date().toISOString(),
-      }];
-    });
+        verified_at:timestamp,
+      });
+    }
     const unique=new Map(rules.map(rule=>[`${rule.provider_id}|${rule.provider_model_identifier}|${rule.capability_id||''}`,rule]));
     return providerPricingCatalogService.saveMany([...unique.values()]);
   }
