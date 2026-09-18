@@ -28,9 +28,14 @@ spacesRouter.use('/spaces',requireAuth,requireSpaces);
 
 spacesRouter.get('/spaces/catalog',async(_req:AuthenticatedRequest,res)=>{
  try{
-  const[models,policies,mappings,providers,pricing]=await Promise.all([
-   catalogRepository.listModels(),betaCatalogPolicyService.listCatalog(),catalogRepository.listMappings(),providerCatalogService.listProviders(),providerPricingCatalogService.list(),
+  const[models,policies,mappings]=await Promise.all([
+   catalogRepository.listModels(),betaCatalogPolicyService.listCatalog(),catalogRepository.listMappings(),
   ]);
+  const[providersResult,pricingResult]=await Promise.allSettled([
+   providerCatalogService.listProviders(),providerPricingCatalogService.list(),
+  ]);
+  const providers=providersResult.status==='fulfilled'?providersResult.value:[];
+  const pricing=pricingResult.status==='fulfilled'?pricingResult.value:[];
   const base=publicCapabilityCatalog(models);
   const policyByModel=new Map(policies.map(policy=>[policy.model_id,policy]));
   const providerById=new Map(providers.map(provider=>[String(provider.provider_id),provider]));

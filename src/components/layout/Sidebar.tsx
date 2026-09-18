@@ -93,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpe
           <nav className="space-y-1">{edit.map(item)}</nav>
 
           <div className="mb-2 mt-6 px-3">
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--ia-text-4)]">Automatizar</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--ia-text-4)]">Fluxos</p>
           </div>
           <nav className="space-y-1">{automate.map(item)}</nav>
 
