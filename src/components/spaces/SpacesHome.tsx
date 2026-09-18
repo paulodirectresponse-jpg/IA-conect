@@ -1,6 +1,6 @@
 import React from'react';
 import{ArrowRight,LoaderCircle,Network,Plus,Sparkles}from'lucide-react';
-import type{FlowRecord}from'../../../beta/flowClient.js';
+import type{FlowRecord}from'../../beta/flowClient.js';
 
 interface Props{
  flows:FlowRecord[];
