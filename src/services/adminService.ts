@@ -11,6 +11,11 @@ export interface ProviderScanResult {scan_id:string;provider_id:string;provider_
 export interface ProviderPricingAdmin {pricing_id:string;provider_id:string;provider_model_identifier:string;capability_id?:string|null;unit:'REQUEST'|'OUTPUT'|'SECOND'|'MINUTE'|'CHARACTER';unit_price_usd:number;minimum_usd?:number|null;resolution_prices_usd?:Record<string,number>;verified:boolean;source:'LIVE_CATALOG'|'PROVIDER_DOCS'|'MANUAL_VERIFIED';verified_at:string;updated_at:string;}
 export interface CuratedModelInventoryItem {model_id:string;name:string;function_id:CuratedModelFunction;category:string;aliases:string[];status:'EXISTING'|'PLANNED';}
 export interface CuratedModelInventory {total_positions:number;counts:Record<CuratedModelFunction,number>;models:CuratedModelInventoryItem[];}
+export interface VerifiedLaunchRouteAdmin {
+  key:string;label:string;media:'VOICE'|'MUSIC'|'THREE_D';model_id:string;model_name:string;
+  provider_id:string;provider_name:string;provider_model_identifier:string;capability_ids:string[];
+  pricing_label:string;source_url:string;provider_ready:boolean;mapping_ready:boolean;pricing_ready:boolean;policy_ready:boolean;model_ready:boolean;ready:boolean;
+}
 export interface PricingSettings { gross_margin_percent:number; target_margin_percent?:number; normal_floor_margin_percent?:number; emergency_floor_margin_percent?:number; updated_at:string; updated_by?:string; }
 export interface CouponAdminEntry {coupon_id:string;code:string;version:number;name:string;active:boolean;redemption_mode:'CHECKOUT'|'DIRECT_CREDIT';starts_at:string;expires_at:string|null;benefit_type:'BONUS_PERCENT'|'BONUS_FIXED'|'BRL_PERCENT'|'BRL_FIXED'|'DIRECT_CREDITS';benefit_value:number;eligible_pack_ids:string[];min_purchase_cents:number;max_purchase_cents:number|null;max_global_redemptions:number|null;max_redemptions_per_user:number;first_purchase_only:boolean;bonus_expires_days:number|null;budget_max_credits:number|null;campaign_id:string|null;created_at:string;created_by:string;notes:string;usage?:{reserved:number;redeemed:number;reversed:number;bonus_credits_committed:number};}
 export interface EconomicCampaign {campaign_id:string;name:string;type:'BETA'|'FOUNDERS'|'COUPON'|'WELCOME'|'CREATOR'|'SUPPORT'|'OTHER';active:boolean;budget_credits:number|null;starts_at:string|null;ends_at:string|null;notes:string;created_at:string;created_by:string;updated_at:string;updated_by:string;}
@@ -55,6 +60,8 @@ export const adminService = {
   },
   async getProviderScans(){return cachedGet<{latest:ProviderScanResult[];pricing:ProviderPricingAdmin[];mappings:ProviderModelMapping[]}>('/api/admin/provider-scan');},
   async getProviderScanInventory(){return cachedGet<CuratedModelInventory>('/api/admin/provider-scan/inventory');},
+  async listVerifiedLaunchRoutes(){return cachedGet<VerifiedLaunchRouteAdmin[]>('/api/admin/provider-launch-routes');},
+  async applyVerifiedLaunchRoute(routeKey:string){return mutate<any>(`/api/admin/provider-launch-routes/${encodeURIComponent(routeKey)}/apply`,{method:'POST',body:'{}'});},
   async scanProviders(provider_id?:string){return mutate<ProviderScanResult|ProviderScanResult[]>('/api/admin/provider-scan',{method:'POST',body:JSON.stringify(provider_id?{provider_id}:{})});},
   async saveProviderPricing(data:Partial<ProviderPricingAdmin>&Pick<ProviderPricingAdmin,'provider_id'|'provider_model_identifier'|'unit'|'unit_price_usd'>){return mutate<ProviderPricingAdmin>('/api/admin/provider-pricing',{method:'POST',body:JSON.stringify(data)});},
   async approveProviderMapping(data:{provider_id:string;model_id:string;provider_model_identifier:string;capability_id:string}){return mutate<{mapping:ProviderModelMapping;pricing:ProviderPricingAdmin;model_status:string;beta_only:boolean}>('/api/admin/provider-scan/approve-mapping',{method:'POST',body:JSON.stringify(data)});},
