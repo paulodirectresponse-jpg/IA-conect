@@ -75,9 +75,7 @@ export const retailPricingService={
     const rows=await firestoreAdminRest.runQuery({from:[{collectionId:VERSIONS}]});
     const latest=new Map<string,RetailPricingVersion>();
     for(const row of rows){const entry=row.data as RetailPricingVersion,hash=String(entry?.pricing_signature_hash||entry?.signature?.hash||'');if(!hash||!entry?.active)continue;const current=latest.get(hash);if(!current||Number(entry.version||0)>Number(current.version||0))latest.set(hash,entry);}
-    const values=Array.from(latest.values());
-    for(const entry of values){const current=await readVersioned(entry.pricing_signature_hash).catch(()=>null);if(!current||current.version!==entry.version)await writeActivePointer(entry.pricing_signature_hash,entry);}
-    return values;
+    return Array.from(latest.values());
   },
 
   async publish(input:Omit<RetailPricingVersion,'version'|'retail_pricing_id'|'created_at'|'updated_at'>){
