@@ -3,6 +3,7 @@ import { catalogRepository } from '../../repositories/catalogRepository.js';
 import { capabilityIdsForModel, CapabilityId, isCapabilityId, validateModelCapability } from '../capabilityRegistry.js';
 import { catalogPolicyRepository } from './catalogPolicyRepository.js';
 import { BetaModelPolicy, BetaPricingPolicy } from './catalogPolicyTypes.js';
+import { canonicalModelId } from '../../../src/config/modelCanonicalization.js';
 
 const DEFAULT_POLICY_ID='beta-default-v1';
 const now=()=>new Date().toISOString();
@@ -71,7 +72,23 @@ export const betaCatalogPolicyService={
       catalogRepository.listMappings(),
       catalogPolicyRepository.listPricingPolicies(),
     ]);
-    const policyByModel=new Map(storedPolicies.map(policy=>[policy.model_id,policy]));
+    const policyGroups=new Map<string,BetaModelPolicy[]>();
+    for(const policy of storedPolicies){
+      const id=canonicalModelId(policy.model_id),list=policyGroups.get(id)||[];
+      list.push(policy);policyGroups.set(id,list);
+    }
+    const policyByModel=new Map<string,BetaModelPolicy>();
+    for(const[id,list]of policyGroups){
+      const explicitCanonical=list.find(policy=>policy.model_id===id&&Boolean(policy.updated_by));
+      if(explicitCanonical){policyByModel.set(id,{...explicitCanonical,model_id:id});continue;}
+      const preferred=list.find(policy=>policy.model_id===id)||list[0];
+      policyByModel.set(id,{
+        ...preferred,model_id:id,
+        capability_ids:Array.from(new Set(list.flatMap(policy=>policy.capability_ids||[]))) as CapabilityId[],
+        enabled:list.some(policy=>policy.enabled),
+        auto_routing_enabled:list.some(policy=>policy.auto_routing_enabled),
+      });
+    }
     const activeMappingModels=new Set(mappings.filter(mapping=>mapping.status==='ACTIVE').map(mapping=>mapping.model_id));
     const pricingById=new Map(pricingPolicies.map(policy=>[policy.pricing_policy_id,policy]));
     return models.map(model=>{
