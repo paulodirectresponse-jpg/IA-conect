@@ -10,7 +10,7 @@ import { capabilityIdsForModel, CapabilityId } from '../beta/capabilityRegistry.
 import { betaCatalogPolicyService } from '../beta/catalog/catalogPolicyService.js';
 import { catalogPolicyRepository } from '../beta/catalog/catalogPolicyRepository.js';
 
-export type PricingRepairAction='RETAIL_BOOTSTRAPPED'|'PRICING_VERIFIED'|'CAPABILITY_ENABLED'|'CAPABILITY_DISABLED'|'ALREADY_HEALTHY';
+export type PricingRepairAction='RETAIL_BOOTSTRAPPED'|'PRICING_VERIFIED'|'CAPABILITY_ENABLED'|'CAPABILITY_DISABLED'|'MAPPING_DISABLED'|'ALREADY_HEALTHY';
 export interface PricingRepairRow{model_id:string;model_name:string;capability_id:string;actions:PricingRepairAction[];quote_successes:number;quote_failures:number;best_safe_cogs_cents:number|null;retail_credit_price:number|null;remaining_enabled_capabilities:string[];notes:string[];}
 export interface PricingRepairResult{checked_at:string;cursor:number;next_cursor:number|null;done:boolean;total_targets:number;processed:number;fixed:number;disabled:number;rows:PricingRepairRow[];}
 
@@ -55,6 +55,12 @@ export const pricingRepairService={
     const before=await retailPricingService.get(bestSignature.hash);const retail=await retailPricingService.resolveOrBootstrap(bestSignature,bestSafe);retailCredit=retail.retail_credit_price;if(!before)actions.push('RETAIL_BOOTSTRAPPED');
    }else{
     if(nextCaps.includes(capabilityId)){nextCaps=nextCaps.filter(id=>id!==capabilityId);actions.push('CAPABILITY_DISABLED');notes.push('Nenhuma rota ativa retornou quote válida; capability removida da exposição pública.');}
+    for(const mapping of activeMappings){
+      const caps=(mapping.capabilities||[]).map(String);
+      if(caps.length>1){await catalogRepository.saveMapping({...mapping,capabilities:caps.filter(id=>id!==capabilityId) as any,updated_at:new Date().toISOString()});}
+      else{await catalogRepository.saveMapping({...mapping,status:'INACTIVE',updated_at:new Date().toISOString()});}
+      actions.push('MAPPING_DISABLED');
+    }
    }
    const changed=nextCaps.length!==policy.capability_ids.length||nextCaps.some(id=>!policy.capability_ids.includes(id));
    if(changed){await catalogPolicyRepository.saveModelPolicy({...policy,capability_ids:nextCaps,enabled:nextCaps.length>0,auto_routing_enabled:nextCaps.length>0,updated_by:'system:pricing-repair'});}
