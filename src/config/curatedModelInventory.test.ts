@@ -9,11 +9,13 @@ describe('IA Connect curated model inventory',()=>{
     });
   });
 
-  it('uses unique canonical model ids and preserves the twelve existing real models',()=>{
+  it('uses one canonical model identity across generation and editor positions',()=>{
     const ids=CURATED_MODEL_BLUEPRINTS.map(row=>row.model_id);
-    expect(new Set(ids).size).toBe(ids.length);
-    expect(CURATED_MODEL_BLUEPRINTS.filter(row=>row.existing)).toHaveLength(12);
-    expect(CURATED_MODEL_SEEDS).toHaveLength(74);
+    expect(new Set(ids).size).toBe(65);
+    expect(new Set(CURATED_MODEL_BLUEPRINTS.filter(row=>row.existing).map(row=>row.model_id)).size).toBe(12);
+    expect(CURATED_MODEL_SEEDS).toHaveLength(53);
+    expect(CURATED_MODEL_BLUEPRINTS.filter(row=>row.model_id==='seedance-2-5').map(row=>row.function_id)).toEqual(expect.arrayContaining(['VIDEO_GENERATION','VIDEO_EDIT','VIDEO_EXTEND']));
+    expect(CURATED_MODEL_BLUEPRINTS.filter(row=>row.model_id==='flux-2-max-image').map(row=>row.function_id)).toEqual(expect.arrayContaining(['IMAGE_GENERATION','IMAGE_EDIT']));
   });
 
   it('keeps every new model experimental and beta-only until provider verification',()=>{
