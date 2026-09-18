@@ -31,6 +31,7 @@ describe('catalog routing, editor separation and pricing fixes',()=>{
   it('syncs WaveSpeed pricing for image and video curated functions',()=>{
     const scan=read('server/services/providerModelScanService.ts');
     expect(scan).toContain("const livePriceBudget=12");
+    expect(scan).toContain('verifiedExisting.has(exactKey)');
     expect(scan).toContain("'IMAGE_GENERATION','IMAGE_EDIT','VIDEO_GENERATION','VIDEO_EDIT','VIDEO_EXTEND','VOICE','MUSIC','THREE_D'");
   });
 
