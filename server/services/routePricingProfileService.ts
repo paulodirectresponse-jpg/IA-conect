@@ -36,7 +36,7 @@ export function defaultPricingUnit(capabilityId:string):ProviderPricingUnit{
 }
 
 function ref(type:'IMAGE'|'VIDEO'|'AUDIO',url:string,role:'SOURCE'|'REFERENCE'='SOURCE'):ProviderGenerationReference{
-  return{asset_id:'pricing-'+type.toLowerCase(),type,provider_accessible_url:url,slot_type:'GENERAL',role};
+  return{asset_id:'pricing-'+type.toLowerCase(),type,provider_accessible_url:url,slot_type:'GENERAL',role} as ProviderGenerationReference;
 }
 
 function firstResolution(model:ModelRegistryItem,capabilityId:string){
