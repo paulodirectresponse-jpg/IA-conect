@@ -52,4 +52,17 @@ describe('canonical model identity across generation and editors',()=>{
     expect(route).toContain('const readyCapabilityIds=new Set');
     expect(route).toContain('readyCapabilityIds.has(item.id as any)');
   });
+
+  it('shows Stable image and video models only when their generation route is safe',()=>{
+    const video=read('src/components/views/CreateView.tsx');
+    const image=read('src/components/views/UnifiedImageCreateView.tsx');
+    expect(video).toContain("workspaceService.listModelRoutes('text-to-video')");
+    expect(image).toContain("workspaceService.listModelRoutes('text-to-image')");
+  });
+
+  it('lets WaveSpeed use an exact verified mapping identifier for newly added image models',()=>{
+    const adapter=read('server/adapters/wavespeedProviderAdapter.ts');
+    expect(adapter).toContain("IMAGE_ENDPOINTS[modelId]?.[mode]||providerModelIdentifier");
+    expect(adapter).toContain("family.endsWith('/'+suffix)?family");
+  });
 });
