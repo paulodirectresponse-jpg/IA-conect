@@ -2,7 +2,7 @@ import { catalogRepository } from '../repositories/catalogRepository.js';
 import { providerCatalogService } from './providerCatalogService.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { providerPricingCatalogService } from './providerPricingCatalogService.js';
-import { providerFinanceService } from './providerFinanceService.js';
+import { providerFinanceService, ProviderFinanceSnapshot } from './providerFinanceService.js';
 import { quoteCacheService } from './quoteCacheService.js';
 import { retailPricingService } from './retailPricingService.js';
 import { pricingSignatureService } from './pricingSignatureService.js';
@@ -35,11 +35,11 @@ function quoteInput(modelId:string,capabilityId:string,identifier:string,profile
 export const pricingChainAuditService={
  async run():Promise<PricingAuditResult>{
   const checkedAt=new Date().toISOString();
-  const[models,mappings,providers,catalog,finance]=await Promise.all([catalogRepository.listModels(),catalogRepository.listMappings(),providerCatalogService.listProviders(),betaCatalogPolicyService.listCatalog(),providerFinanceService.getAll(false).catch(()=>[])]);
-  const providerById=new Map(providers.map(provider=>[String(provider.provider_id),provider]));
-  const policyByModel=new Map(catalog.map(item=>[item.model_id,item]));
-  const financeById=new Map(finance.map(item=>[String(item.provider_id),item]));
-  const adapterById=new Map(providerRegistry.listAdapters().map(adapter=>[String(adapter.providerId),adapter]));
+  const[models,mappings,providers,catalog,finance]=await Promise.all([catalogRepository.listModels(),catalogRepository.listMappings(),providerCatalogService.listProviders(),betaCatalogPolicyService.listCatalog(),providerFinanceService.getAll(false).catch(()=>[] as ProviderFinanceSnapshot[])]);
+  const providerById=new Map(providers.map(provider=>[String(provider.provider_id),provider] as const));
+  const policyByModel=new Map(catalog.map(item=>[item.model_id,item] as const));
+  const financeById=new Map<string,ProviderFinanceSnapshot>(finance.map(item=>[String(item.provider_id),item] as const));
+  const adapterById=new Map(providerRegistry.listAdapters().map(adapter=>[String(adapter.providerId),adapter] as const));
   const published=models.filter(model=>model.status==='ACTIVE'&&model.beta_only!==true);
   const rows:PricingAuditRow[]=[];
   for(const model of published){
