@@ -26,6 +26,7 @@ describe('catalog routing, editor separation and pricing fixes',()=>{
   it('keeps edit and extend available through editor routes',()=>{
     const route=read('server/routes/editorRoutes.ts');
     expect(route).toContain("const VIDEO_CAPABILITIES=['video-extend','video-edit']");
+    expect(route).toContain("'beta.video_editor'");
   });
 
   it('syncs WaveSpeed pricing for image and video curated functions',()=>{
