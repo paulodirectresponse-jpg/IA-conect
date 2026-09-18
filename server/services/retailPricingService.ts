@@ -26,6 +26,15 @@ const legacyPath=(hash:string)=>`retail_pricing/${encodeURIComponent(hash)}`;
 const activePath=(hash:string)=>`${ACTIVE}/${encodeURIComponent(hash)}`;
 const versionPath=(hash:string,version:number)=>`${VERSIONS}/${encodeURIComponent(hash)}_v${version}`;
 
+async function writeActivePointer(hash:string,entry:RetailPricingVersion){
+  await firestoreAdminRest.set(activePath(hash),{pricing_signature_hash:hash,version:entry.version,retail_pricing_id:entry.retail_pricing_id,updated_at:new Date().toISOString()});
+}
+async function latestVersionForHash(hash:string){
+  const rows=await firestoreAdminRest.runQuery({from:[{collectionId:VERSIONS}]});
+  const matches=rows.map(row=>row.data as RetailPricingVersion).filter(row=>row?.pricing_signature_hash===hash).sort((a,b)=>Number(b.version||0)-Number(a.version||0));
+  return matches[0]||null;
+}
+
 function initialCreditsFromSafeCogs(safe:number){
   if(safe<=25)return 60;if(safe<=40)return 100;if(safe<=60)return 150;if(safe<=80)return 200;if(safe<=120)return 300;
   if(safe<=160)return 400;if(safe<=220)return 550;if(safe<=300)return 750;if(safe<=400)return 1000;if(safe<=500)return 1250;
@@ -45,21 +54,30 @@ export const retailPricingService={
 
   async resolveOrBootstrap(signature:PricingSignature,bestSafeCogsCents:number):Promise<RetailPricingVersion>{
     const existing=await this.get(signature.hash);if(existing?.active)return existing;
-    const now=new Date().toISOString();const created:RetailPricingVersion={
-      retail_pricing_id:`retail_${signature.hash}_v1`,pricing_signature_hash:signature.hash,signature,
+    const latest=await latestVersionForHash(signature.hash).catch(()=>null);
+    if(latest?.active){await writeActivePointer(signature.hash,latest);const verified=await this.get(signature.hash);if(verified?.active)return verified;}
+    const nextVersion=Math.max(1,Number(latest?.version||0)+1),now=new Date().toISOString();const created:RetailPricingVersion={
+      retail_pricing_id:`retail_${signature.hash}_v${nextVersion}`,pricing_signature_hash:signature.hash,signature,
       retail_credit_price:initialCreditsFromSafeCogs(Math.max(1,bestSafeCogsCents)),target_margin_percent:45,normal_floor_margin_percent:35,emergency_floor_margin_percent:25,
-      yellow_policy:'BLOCK',yellow_ttl_minutes:0,effective_from:now,effective_until:null,version:1,active:true,
+      yellow_policy:'BLOCK',yellow_ttl_minutes:0,effective_from:now,effective_until:null,version:nextVersion,active:true,
       bootstrapped_from_safe_cogs_cents:Math.max(1,bestSafeCogsCents),created_at:now,updated_at:now,
     };
-    try{
-      await firestoreAdminRest.commit([
-        {update:{name:firestoreAdminRest.docName(versionPath(signature.hash,1)),fields:firestoreAdminRest.fields(created)},currentDocument:{exists:false}},
-        {update:{name:firestoreAdminRest.docName(activePath(signature.hash)),fields:firestoreAdminRest.fields({pricing_signature_hash:signature.hash,version:1,retail_pricing_id:created.retail_pricing_id,updated_at:now})},currentDocument:{exists:false}},
-      ]);
-      return created;
-    }catch{
-      const reread=await this.get(signature.hash);if(reread)return reread;throw new Error('Não foi possível inicializar o preço fixo em créditos.');
-    }
+    await firestoreAdminRest.commit([
+      {update:{name:firestoreAdminRest.docName(versionPath(signature.hash,nextVersion)),fields:firestoreAdminRest.fields(created)},currentDocument:{exists:false}},
+      {update:{name:firestoreAdminRest.docName(activePath(signature.hash)),fields:firestoreAdminRest.fields({pricing_signature_hash:signature.hash,version:nextVersion,retail_pricing_id:created.retail_pricing_id,updated_at:now})}},
+    ]);
+    const verified=await this.get(signature.hash);
+    if(!verified?.active||verified.version!==nextVersion)throw new Error('Retail pricing foi gravado, mas não pôde ser relido como ativo.');
+    return verified;
+  },
+
+  async listActive(){
+    const rows=await firestoreAdminRest.runQuery({from:[{collectionId:VERSIONS}]});
+    const latest=new Map<string,RetailPricingVersion>();
+    for(const row of rows){const entry=row.data as RetailPricingVersion,hash=String(entry?.pricing_signature_hash||entry?.signature?.hash||'');if(!hash||!entry?.active)continue;const current=latest.get(hash);if(!current||Number(entry.version||0)>Number(current.version||0))latest.set(hash,entry);}
+    const values=Array.from(latest.values());
+    for(const entry of values){const current=await readVersioned(entry.pricing_signature_hash).catch(()=>null);if(!current||current.version!==entry.version)await writeActivePointer(entry.pricing_signature_hash,entry);}
+    return values;
   },
 
   async publish(input:Omit<RetailPricingVersion,'version'|'retail_pricing_id'|'created_at'|'updated_at'>){
