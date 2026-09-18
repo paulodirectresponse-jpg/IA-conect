@@ -189,7 +189,7 @@ export const routingV2ExecutionService={
         attempt_number:1,
         provider_id:route.provider_id,
         provider_job_id:submission.provider_job_id,
-        status:submission.status==='SUCCEEDED'?'PROCESSING':submission.status,
+        status:submission.status==='PROCESSING'?'PROCESSING':'SUBMITTED',
         created_at:generation.submitted_at,
         updated_at:generation.submitted_at,
       };
