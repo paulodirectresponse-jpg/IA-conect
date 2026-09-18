@@ -15,8 +15,9 @@ describe('Stable image and video editors',()=>{
  });
  it('keeps the complete requested image editor toolset',()=>{
   const view=read('src/components/views/ImageEditorView.tsx');
+  const canvas=read('src/components/editors/image/ImageEditorCanvas.tsx');
   for(const capability of ['image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations'])expect(view).toContain(capability);
-  expect(view).toContain('canvas ref={maskRef}');
+  expect(canvas).toContain('<canvas ref={maskRef}');
   expect(view).toContain('editor_mask:true');
  });
  it('limits the Stable video editor to extend and edit',()=>{
@@ -28,13 +29,14 @@ describe('Stable image and video editors',()=>{
   expect(view).not.toContain("'first-frame'");
   expect(view).not.toContain("'last-frame'");
  });
- it('uses Universal Jobs, Assets, wallet and the universal Minhas criações',()=>{
-  const routes=read('server/routes/editorRoutes.ts'),image=read('src/components/views/ImageEditorView.tsx'),video=read('src/components/views/VideoEditorView.tsx');
+ it('uses Universal Jobs, Assets and wallet without creating parallel editor storage',()=>{
+  const routes=read('server/routes/editorRoutes.ts'),image=read('src/components/views/ImageEditorView.tsx'),video=read('src/components/views/VideoEditorView.tsx'),picker=read('src/components/editors/shared/EditorAssetPicker.tsx');
   expect(routes).toContain('betaJobOrchestrator.create');
   expect(routes).toContain('betaJobOrchestrator.quote');
   expect(routes).toContain('betaJobOrchestrator.queue');
   expect(routes).toContain('assetRepository.getAsset');
-  expect(image).toContain('CreationGallery defaultFilter="IMAGE"');
+  expect(image).toContain('EditorAssetPicker');
+  expect(picker).toContain('Biblioteca');
   expect(video).toContain('CreationGallery defaultFilter="VIDEO"');
   expect(image).toContain('refreshWallet');
   expect(video).toContain('refreshWallet');
