@@ -23,5 +23,8 @@ describe('runtime auth recovery architecture',()=>{
     expect(service).toContain("key:'credit-packs'");
     expect(service).not.toContain('private_key:');
     expect(service).not.toContain('client_email:');
+    expect(service).toContain('FIREBASE_SERVICE_ACCOUNT_KEY_REJECTED');
+    expect(service).toContain('FIREBASE_SERVICE_ACCOUNT_INVALID_GRANT');
+    expect(service).toContain('project_matches_runtime');
   });
 });
