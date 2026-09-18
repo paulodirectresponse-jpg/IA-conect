@@ -29,6 +29,7 @@ export interface ProviderScanResult{
   matched_count:number;
   matches:ProviderModelMatchProposal[];
   pricing_synced_count?:number;
+  pricing_metadata_count?:number;
   pricing_sync_error?:string|null;
   warning?:string|null;
   error?:string|null;
@@ -60,6 +61,24 @@ function numericPrice(value:unknown){
     }
   }
   return null;
+}
+
+async function hydrateRunwarePricingMetadata(candidates:ProviderScanCandidate[],matches:ProviderModelMatchProposal[]){
+  const byIdentifier=new Map(candidates.map(row=>[row.provider_model_identifier,row]));
+  const targets=matches.filter(match=>match.confidence>=0.95&&match.match_reason==='exact_alias').slice(0,8);
+  let count=0;
+  for(let index=0;index<targets.length;index+=2){
+    const chunk=targets.slice(index,index+2);
+    const results=await Promise.allSettled(chunk.map(match=>json(`https://content.runware.ai/models/${encodeURIComponent(match.provider_model_identifier)}/pricing`,{headers:{Accept:'application/json'}})));
+    results.forEach((result,offset)=>{
+      if(result.status!=='fulfilled'||!result.value)return;
+      const match=chunk[offset],candidate=byIdentifier.get(match.provider_model_identifier);
+      if(candidate)candidate.pricing=result.value;
+      match.provider_pricing_metadata=result.value;
+      count++;
+    });
+  }
+  return count;
 }
 
 async function syncAuthoritativePricing(providerId:string,candidates:ProviderScanCandidate[],matches:ProviderModelMatchProposal[],mappings:ProviderModelMapping[]){
@@ -206,17 +225,21 @@ async function buildScan(provider:ProviderRegistryItem,mappings:ProviderModelMap
   if(!configured)warnings.push('API key ausente; o provider ainda não pode ser validado com credenciais reais.');
   try{allCandidates=await discover(providerId,mappings);}catch(err:any){error=err?.name==='AbortError'?'Timeout ao consultar catálogo do provider.':err?.message||'Falha ao consultar catálogo do provider.';}
   const matches=await curatedModelMatchService.propose(providerId,allCandidates,mappings);
+  let pricingMetadataCount=0;
+  if(providerId==='provider-runware'&&!error){
+    try{pricingMetadataCount=await hydrateRunwarePricingMetadata(allCandidates,matches);}catch{}
+  }
   let pricingSyncedCount=0,pricingSyncError:string|null=null;
   if(configured&&!error){
     try{pricingSyncedCount=(await syncAuthoritativePricing(providerId,allCandidates,matches,mappings)).length;}
     catch(err:any){pricingSyncError=err?.message||'Falha ao sincronizar preços do catálogo.';}
   }
   if(mode==='CURATED_REQUIRED')warnings.push('Este provider exige curadoria de endpoint. O scan reutiliza mappings aprovados; novos mappings exigem identificador explícito, schema/capability e preço verificados.');
-  if(providerId==='provider-runware')warnings.push('A busca pública da Runware não fornece preço pré-execução. O scan descobre modelos e capabilities, mas o preço continua pendente até validação específica.');
+  if(providerId==='provider-runware')warnings.push(pricingMetadataCount?`Runware: ${pricingMetadataCount} metadata(s) de pricing carregada(s) do catálogo público oficial. Rotas com preço variável continuam bloqueadas até normalização determinística.`:'Runware: o Model Search não inclui preço e nenhuma metadata de pricing pôde ser resolvida neste scan.');
   if(pricingSyncedCount)warnings.push(`${pricingSyncedCount} preço(s) autoritativo(s) sincronizado(s) automaticamente.`);
   if(pricingSyncError)warnings.push(`Pricing sync: ${pricingSyncError}`);
   const candidates=allCandidates.slice(0,RAW_SAMPLE_LIMIT);
-  const result:ProviderScanResult={scan_id:scanId,provider_id:providerId,provider_name:provider.name,configured,discovery_mode:mode,candidate_count:allCandidates.length,candidate_sample_count:candidates.length,candidates,matched_count:matches.length,matches,pricing_synced_count:pricingSyncedCount,pricing_sync_error:pricingSyncError,warning:warnings.length?warnings.join(' '):null,error,scanned_at:new Date().toISOString()};
+  const result:ProviderScanResult={scan_id:scanId,provider_id:providerId,provider_name:provider.name,configured,discovery_mode:mode,candidate_count:allCandidates.length,candidate_sample_count:candidates.length,candidates,matched_count:matches.length,matches,pricing_synced_count:pricingSyncedCount,pricing_metadata_count:pricingMetadataCount,pricing_sync_error:pricingSyncError,warning:warnings.length?warnings.join(' '):null,error,scanned_at:new Date().toISOString()};
   if(persistHistory)await firestoreAdminRest.set(`provider_scan_runs/${encodeURIComponent(scanId)}`,result).catch(()=>{});
   await firestoreAdminRest.set(`provider_scan_latest/${encodeURIComponent(providerId)}`,result).catch(()=>{});
   return result;
