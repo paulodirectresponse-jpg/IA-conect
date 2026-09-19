@@ -14,8 +14,8 @@ describe('Routing Core V2 Admin',()=>{
       '/admin/routing-v2/pricing/settings',
       '/admin/routing-v2/pricing/sync',
       '/admin/routing-v2/health',
-      '/admin/routing-v2/migration/audit',
-      '/admin/routing-v2/migration/run',
+      '/admin/routing-v2/readiness',
+      '/admin/routing-v2/reset-preview',
       '/admin/routing-v2/cutover',
     ])expect(source).toContain(endpoint);
     expect(source).toContain('/catalog-models');
@@ -39,6 +39,7 @@ describe('Routing Core V2 Admin',()=>{
     expect(view).toContain('HYBRID');
     expect(view).toContain('V2_ONLY');
     expect(view).toContain('Route READY');
+    expect(view).toContain('Resetar inventário V2 (preview)');
     expect(admin).toContain('AdminRoutingV2');
     expect(admin).toContain("id:'routing-v2'");
     expect(admin).toContain('AdminAIProvidersHub');
