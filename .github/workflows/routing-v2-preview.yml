@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - uses: actions/setup-node@v4
         with:
@@ -28,13 +30,15 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - name: Agent safety guardrails
+        run: npm run guardrails:agent
       - run: npm run lint
       - run: npm test -- --passWithNoTests
       - run: npm run build:routing-v2-preview
 
       - name: Validate isolated Worker target
         run: |
-          node -e "const fs=require('fs');const c=fs.readFileSync('wrangler.routing-v2-preview.jsonc','utf8');if(!c.includes('ia-conect-routing-v2-preview')||c.includes('\\"triggers\\"'))process.exit(1)"
+          node -e "const fs=require('fs');const c=fs.readFileSync('wrangler.routing-v2-preview.jsonc','utf8');if(!c.includes('ia-conect-routing-v2-preview')||c.includes('\\\"triggers\\\"'))process.exit(1)"
 
       - name: Validate required deployment secrets
         env:
