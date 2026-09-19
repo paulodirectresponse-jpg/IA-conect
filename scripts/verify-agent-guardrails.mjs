@@ -42,6 +42,27 @@ for (const file of candidateFiles) {
 const claudePath = path.join(root, 'CLAUDE.md');
 if (!fs.existsSync(claudePath)) fail('CLAUDE.md is missing.');
 
+const settingsPath = path.join(root, '.claude', 'settings.json');
+if (!fs.existsSync(settingsPath)) {
+  fail('.claude/settings.json is missing.');
+} else {
+  try {
+    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    const preTool = settings?.hooks?.PreToolUse;
+    const hasGuardHook = Array.isArray(preTool) && preTool.some(group =>
+      group?.matcher === 'Bash' &&
+      Array.isArray(group?.hooks) &&
+      group.hooks.some(hook => hook?.type === 'command' && hook?.command === 'node scripts/claude-pretool-guard.mjs')
+    );
+    if (!hasGuardHook) fail('Claude Code PreToolUse Bash guard hook is not configured.');
+  } catch (error) {
+    fail(`.claude/settings.json is invalid JSON: ${error?.message || error}`);
+  }
+}
+
+const hookPath = path.join(root, 'scripts', 'claude-pretool-guard.mjs');
+if (!fs.existsSync(hookPath)) fail('Claude pre-tool guard script is missing.');
+
 const gitignorePath = path.join(root, '.gitignore');
 if (!fs.existsSync(gitignorePath)) {
   fail('.gitignore is missing.');
