@@ -34,6 +34,8 @@ export interface RoutingV2ProviderPrice{
 }
 
 export interface RoutingV2GenerationInput{
+  generation_id:string;
+  user_id:string;
   route_id:string;
   model_id:string;
   capability_id:CapabilityId;
@@ -44,7 +46,7 @@ export interface RoutingV2GenerationInput{
   number_of_outputs?:number;
   character_count?:number;
   parameters?:Record<string,string|number|boolean|null|undefined>;
-  references?:Array<{url:string;type:string;role?:string}>;
+  references?:Array<{url:string;type:string;role?:string;asset_id?:string;alias?:string;name?:string;category?:string;storage_path?:string;mime_type?:string;slot_type?:'INITIAL'|'END'|'GENERAL'}>;
 }
 
 export interface RoutingV2GenerationSubmission{
@@ -71,4 +73,5 @@ export interface RoutingV2ProviderAdapter{
   getPrice?(provider:RoutingV2Provider,providerModelIdentifier:string,capabilityId:CapabilityId):Promise<RoutingV2ProviderPrice>;
   submitGeneration?(provider:RoutingV2Provider,input:RoutingV2GenerationInput):Promise<RoutingV2GenerationSubmission>;
   checkGeneration?(provider:RoutingV2Provider,providerJobId:string):Promise<RoutingV2GenerationStatus>;
+  cancelGeneration?(provider:RoutingV2Provider,providerJobId:string):Promise<boolean>;
 }
