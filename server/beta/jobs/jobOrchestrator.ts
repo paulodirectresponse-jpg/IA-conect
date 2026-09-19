@@ -434,7 +434,7 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
   }catch(error:any){
     const existing=await generationRepository.findByClientRequest(userId,currentAttempt.execution_key).catch(()=>null);
     if(existing){
-      const recovered=existing.routing_core_version==='V2'
+      const recovered=(existing as any).routing_core_version==='V2'
         ?await routingV2ExecutionService.refresh(existing.generation_id,userId).catch(()=>existing)
         :await generationService.getGeneration(existing.generation_id,userId).catch(()=>existing);
       const latest=await betaJobRepository.getJobWithVersion(running.job_id,userId);
@@ -540,7 +540,7 @@ export const betaJobOrchestrator={
       await betaEconomicsService.assertExecutionEnabled();
       const current=await this.get(userId,jobId,false);
       if(current.status==='QUOTED'&&current.quote){
-        try{betaEconomicsService.assertQuoteFresh(current.quote);return current;}catch{}
+        try{assertJobQuoteFresh(current.quote);return current;}catch{}
       }
       const {mode}=await validateRequest(current.request,undefined,userId);
       if(await canUseRoutingV2(current.request)){
