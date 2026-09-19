@@ -1,0 +1,51 @@
+name: Routing V2 isolated preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DEPLOY_ROUTING_V2_PREVIEW"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: routing-v2-isolated-preview
+  cancel-in-progress: false
+
+jobs:
+  deploy-preview:
+    if: github.ref == 'refs/heads/routing-core-v2' && inputs.confirm == 'DEPLOY_ROUTING_V2_PREVIEW'
+    runs-on: ubuntu-latest
+    environment: routing-v2-preview
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test -- --passWithNoTests
+      - run: npm run build
+
+      - name: Validate isolated Worker target
+        run: |
+          node -e "const fs=require('fs');const c=fs.readFileSync('wrangler.routing-v2-preview.jsonc','utf8');if(!c.includes('ia-conect-routing-v2-preview')||c.includes('\\"triggers\\"'))process.exit(1)"
+
+      - name: Deploy isolated preview
+        run: npx wrangler deploy --config wrangler.routing-v2-preview.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Apply preview-only Firebase service account secret
+        run: printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" | npx wrangler secret put FIREBASE_SERVICE_ACCOUNT_JSON --name ia-conect-routing-v2-preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
