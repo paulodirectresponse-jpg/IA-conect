@@ -39,6 +39,12 @@ function validateId(value:string,label:string){
   if(!/^[a-zA-Z0-9._-]+$/.test(id))throw new Error(`${label} contém caracteres inválidos.`);
   return id;
 }
+function validateAdapterId(value:string){
+  const id=String(value||'').trim();
+  if(!id)throw new Error('adapter_id é obrigatório.');
+  if(!/^[a-zA-Z0-9._:-]+$/.test(id))throw new Error('adapter_id contém caracteres inválidos.');
+  return id;
+}
 
 export const routingV2ProviderService={
   async list(){
@@ -52,7 +58,7 @@ export const routingV2ProviderService={
   async create(input:CreateRoutingV2ProviderInput){
     const providerId=validateId(input.provider_id,'provider_id');
     const name=String(input.name||'').trim();
-    const adapterId=validateId(input.adapter_id,'adapter_id');
+    const adapterId=validateAdapterId(input.adapter_id);
     if(!name)throw new Error('Nome do provider é obrigatório.');
     if(await routingV2Repository.getProvider(providerId))throw new Error('Provider V2 já existe.');
     const adapter=resolveAdapter(adapterId);
@@ -85,7 +91,7 @@ export const routingV2ProviderService={
   async update(providerId:string,input:UpdateRoutingV2ProviderInput){
     const current=await routingV2Repository.getProvider(providerId);
     if(!current)throw new Error('Provider V2 não encontrado.');
-    const adapterId=input.adapter_id===undefined?current.adapter_id:validateId(input.adapter_id,'adapter_id');
+    const adapterId=input.adapter_id===undefined?current.adapter_id:validateAdapterId(input.adapter_id);
     const adapter=resolveAdapter(adapterId);
     if(!adapter)throw new Error('Adapter V2 não registrado.');
     const next:RoutingV2Provider={
