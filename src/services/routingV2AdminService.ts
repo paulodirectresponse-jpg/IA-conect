@@ -48,6 +48,7 @@ const patch=<T>(url:string,body:any)=>apiRequest<T>(url,{method:'PATCH',body:JSO
 export const routingV2AdminService={
   listProviders:()=>apiRequest<RoutingV2ProviderAdmin[]>('/api/admin/routing-v2/providers'),
   createProvider:(data:any)=>post<RoutingV2ProviderAdmin>('/api/admin/routing-v2/providers',data),
+  bootstrapCoreProviders:()=>post<{created:string[];existing:string[];failed:Array<{provider_id:string;error:string}>}>('/api/admin/routing-v2/providers/bootstrap-core'),
   updateProvider:(id:string,data:any)=>patch<RoutingV2ProviderAdmin>(`/api/admin/routing-v2/providers/${encodeURIComponent(id)}`,data),
   disableProvider:(id:string)=>post<RoutingV2ProviderAdmin>(`/api/admin/routing-v2/providers/${encodeURIComponent(id)}/disable`),
   searchProviderModels:(id:string,q='')=>apiRequest<RoutingV2CatalogModelAdmin[]>(`/api/admin/routing-v2/providers/${encodeURIComponent(id)}/catalog-models?q=${encodeURIComponent(q)}`),
