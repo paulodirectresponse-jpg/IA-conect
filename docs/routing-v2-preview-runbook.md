@@ -75,3 +75,6 @@ Para o Worker isolado conectado ao GitHub, use:
 - Non-production branch deploy/version command: `npx wrangler versions upload`
 
 O Cloudflare Vite Plugin gera a configuração de saída do Worker durante o build; não passe `--config wrangler.routing-v2-preview.jsonc` no comando de deploy.
+
+
+Preview build settings confirmed in Cloudflare; trigger fresh build with Vite-generated Worker config.
