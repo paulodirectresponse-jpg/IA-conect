@@ -7,7 +7,6 @@ import { assetReferenceResolver } from '../../services/assetReferenceResolver.js
 import { creditPricingService } from '../../services/creditPricingService.js';
 import { generationService } from '../../services/generationService.js';
 import { betaEconomicsService } from '../catalog/betaEconomicsService.js';
-import { routingV2CatalogService } from '../../routing-v2/catalogService.js';
 import { routingV2JobBridge } from '../../routing-v2/jobBridge.js';
 import { routingV2ExecutionService } from '../../routing-v2/executionService.js';
 import { routingV2CutoverService } from '../../routing-v2/cutoverService.js';
