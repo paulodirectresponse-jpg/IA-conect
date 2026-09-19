@@ -68,6 +68,19 @@ export const routingV2Repository={
     return route;
   },
 
+  async getCutoverState():Promise<{mode:'HYBRID'|'V2_ONLY';updated_at:string;updated_by?:string|null}>{
+    const row=await firestoreAdminRest.get(`${RUNTIME_STATE}/cutover`);
+    if(row.exists&&['HYBRID','V2_ONLY'].includes(String(row.data?.mode||''))){
+      return{mode:row.data!.mode as 'HYBRID'|'V2_ONLY',updated_at:String(row.data?.updated_at||new Date(0).toISOString()),updated_by:row.data?.updated_by||null};
+    }
+    return{mode:'HYBRID',updated_at:new Date(0).toISOString(),updated_by:null};
+  },
+
+  async saveCutoverState(state:{mode:'HYBRID'|'V2_ONLY';updated_at:string;updated_by?:string|null}){
+    await firestoreAdminRest.set(`${RUNTIME_STATE}/cutover`,state);
+    return state;
+  },
+
   async getPriceSyncCursor():Promise<number>{
     const row=await firestoreAdminRest.get(`${RUNTIME_STATE}/price_sync`);
     const cursor=row.exists?Number(row.data?.cursor||0):0;
