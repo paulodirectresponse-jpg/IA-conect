@@ -7,6 +7,7 @@ import { creditWalletService } from '../services/creditWalletService.js';
 import { routingV2AdapterRegistry } from './adapterRegistry.js';
 import { routingV2GenerationPricingService } from './generationPricingService.js';
 import { routingV2Repository } from './repository.js';
+import { ensureRoutingV2LegacyAdapter } from './legacyAdapterBridge.js';
 
 export interface RoutingV2ExecutionReference{
   url:string;
@@ -43,6 +44,13 @@ function fallbackMime(type:AssetType){
   if(type==='AUDIO')return'audio/mpeg';
   if(type==='MODEL_3D')return'model/gltf-binary';
   return'video/mp4';
+}
+
+function executionAdapter(provider:any){
+  const registered=routingV2AdapterRegistry.get(provider.adapter_id);
+  if(registered)return registered;
+  if(provider.adapter_id===`legacy:${provider.provider_id}`)return ensureRoutingV2LegacyAdapter(provider.provider_id);
+  return null;
 }
 
 async function createUniversalAssets(generation:Generation,urls:string[]){
@@ -112,7 +120,7 @@ export const routingV2ExecutionService={
     const route=preview.route;
     const provider=await routingV2Repository.getProvider(route.provider_id);
     if(!provider||provider.status==='DISABLED')throw Object.assign(new Error('Provider V2 indisponível.'),{code:'ROUTING_V2_PROVIDER_UNAVAILABLE'});
-    const adapter=routingV2AdapterRegistry.get(provider.adapter_id);
+    const adapter=executionAdapter(provider);
     if(!adapter?.submitGeneration)throw Object.assign(new Error('Adapter V2 não possui executor de geração.'),{code:'ROUTING_V2_EXECUTOR_UNAVAILABLE'});
 
     const generationId=`gen_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
@@ -166,6 +174,8 @@ export const routingV2ExecutionService={
       await generationRepository.saveGeneration(generation);
 
       const submission=await adapter.submitGeneration(provider,{
+        generation_id:generationId,
+        user_id:input.user_id,
         route_id:route.route_id,
         model_id:route.model_id,
         capability_id:route.capability_id,
@@ -206,6 +216,27 @@ export const routingV2ExecutionService={
     }
   },
 
+  async cancel(generationId:string,userId:string):Promise<Generation>{
+    const generation:any=await generationRepository.getGeneration(generationId);
+    if(!generation||generation.user_id!==userId)throw Object.assign(new Error('Geração não encontrada.'),{code:'GENERATION_NOT_FOUND'});
+    if(generation.routing_core_version!=='V2')throw Object.assign(new Error('Geração não pertence ao Routing Core V2.'),{code:'ROUTING_V2_GENERATION_REQUIRED'});
+    if(['SUCCEEDED','FAILED','CANCELLED','REFUNDED'].includes(generation.status))return generation;
+    const route=await routingV2Repository.getRoute(String(generation.routing_v2_route_id||''));
+    const provider=route?await routingV2Repository.getProvider(route.provider_id):null;
+    const adapter=provider?executionAdapter(provider):null;
+    if(generation.provider_job_id&&adapter?.cancelGeneration){
+      const cancelled=await adapter.cancelGeneration(provider!,String(generation.provider_job_id));
+      if(!cancelled)throw Object.assign(new Error('Esta execução não pode mais ser cancelada.'),{code:'TASK_CANCEL_UNAVAILABLE'});
+    }else if(generation.provider_job_id){
+      throw Object.assign(new Error('Esta execução não oferece cancelamento seguro.'),{code:'TASK_CANCEL_UNAVAILABLE'});
+    }
+    await creditWalletService.releaseForGeneration(userId,generationId).catch(()=>{});
+    generation.status='CANCELLED';
+    generation.failed_at=new Date().toISOString();
+    await generationRepository.saveGeneration(generation);
+    return generation;
+  },
+
   async refresh(generationId:string,userId:string):Promise<Generation>{
     const generation:any=await generationRepository.getGeneration(generationId);
     if(!generation||generation.user_id!==userId)throw Object.assign(new Error('Geração não encontrada.'),{code:'GENERATION_NOT_FOUND'});
@@ -217,7 +248,7 @@ export const routingV2ExecutionService={
     if(!route)throw Object.assign(new Error('Route V2 da geração não foi encontrada.'),{code:'ROUTING_V2_ROUTE_NOT_FOUND'});
     const provider=await routingV2Repository.getProvider(route.provider_id);
     if(!provider)throw Object.assign(new Error('Provider V2 da geração não foi encontrado.'),{code:'ROUTING_V2_PROVIDER_UNAVAILABLE'});
-    const adapter=routingV2AdapterRegistry.get(provider.adapter_id);
+    const adapter=executionAdapter(provider);
     if(!adapter?.checkGeneration)throw Object.assign(new Error('Adapter V2 não possui consulta de status.'),{code:'ROUTING_V2_STATUS_UNAVAILABLE'});
 
     const status=await adapter.checkGeneration(provider,String(generation.provider_job_id||''));
