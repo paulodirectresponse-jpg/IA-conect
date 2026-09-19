@@ -80,7 +80,8 @@ export function createRoutingV2LegacyAdapter(providerId:string):RoutingV2Provide
         throw Object.assign(new Error('Adapter legado não suporta esta Route V2.'),{code:'ROUTING_V2_LEGACY_ROUTE_UNSUPPORTED'});
       }
       const result=await legacy.submitGeneration(params);
-      return{provider_job_id:result.provider_job_id,status:result.status==='FAILED'?'PROCESSING':result.status};
+      if(result.status==='FAILED')throw Object.assign(new Error('Provider rejeitou a geração durante o envio.'),{code:'ROUTING_V2_LEGACY_SUBMIT_FAILED'});
+      return{provider_job_id:result.provider_job_id,status:result.status};
     },
     checkGeneration:async(_provider,providerJobId)=>{
       const result=await legacy.checkStatus(providerJobId);
