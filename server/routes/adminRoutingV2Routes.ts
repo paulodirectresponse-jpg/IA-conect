@@ -14,6 +14,7 @@ import { routingV2CutoverService } from '../routing-v2/cutoverService.js';
 import { routingV2ModelBootstrapService } from '../routing-v2/modelBootstrapService.js';
 import { routingV2HealthAdminRoutes } from '../routing-v2/adminHealthRoutes.js';
 import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapService.js';
+import { routingV2SmartRouter } from '../routing-v2/smartRouter.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -165,6 +166,14 @@ adminRoutingV2Router.post('/admin/routing-v2/reset-preview',...guard,async(req:A
 });
 adminRoutingV2Router.get('/admin/routing-v2/cutover',...guard,async(_req,res)=>{
   try{return res.json({success:true,data:await routingV2CutoverService.get()});}catch(err){return error(res,err,'ROUTING_V2_CUTOVER_READ_FAILED');}
+});
+
+adminRoutingV2Router.get('/admin/routing-v2/smart-router/readiness',...guard,async(_req,res)=>{
+  try{return res.json({success:true,data:await routingV2SmartRouter.getReadinessStatus()});}catch(err){return error(res,err,'ROUTING_V2_SMART_ROUTER_READINESS_FAILED');}
+});
+
+adminRoutingV2Router.post('/admin/routing-v2/smart-router/select',...guard,async(req,res)=>{
+  try{return res.json({success:true,data:await routingV2SmartRouter.selectRoute(req.body||{})});}catch(err){return error(res,err,'ROUTING_V2_SMART_ROUTER_SELECT_FAILED');}
 });
 adminRoutingV2Router.post('/admin/routing-v2/cutover',...guard,async(req:AuthenticatedRequest,res)=>{
   try{
