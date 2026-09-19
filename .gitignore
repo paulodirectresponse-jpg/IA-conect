@@ -7,6 +7,8 @@ coverage/
 .env*
 !.env.example
 performance-baseline.json
+.wrangler/
+.claude/settings.local.json
 
 # Build-generated optimized image derivatives (PNG masters remain versioned)
 public/enterprise/visuals/*-v1.avif
