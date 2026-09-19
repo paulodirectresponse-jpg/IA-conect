@@ -14,6 +14,7 @@ const COLLECTIONS={
   settings:'routing_v2_pricing_settings',
 } as const;
 
+const RUNTIME_STATE='routing_v2_runtime_state';
 const safe=(value:string)=>encodeURIComponent(String(value).trim());
 
 async function listCollection<T>(collectionId:string,limit=500):Promise<T[]>{
@@ -65,6 +66,18 @@ export const routingV2Repository={
     assertRoutingV2Route(route);
     await firestoreAdminRest.set(`${COLLECTIONS.routes}/${safe(route.route_id)}`,route);
     return route;
+  },
+
+  async getPriceSyncCursor():Promise<number>{
+    const row=await firestoreAdminRest.get(`${RUNTIME_STATE}/price_sync`);
+    const cursor=row.exists?Number(row.data?.cursor||0):0;
+    return Number.isFinite(cursor)&&cursor>=0?Math.floor(cursor):0;
+  },
+
+  async savePriceSyncCursor(cursor:number){
+    const normalized=Number.isFinite(cursor)&&cursor>=0?Math.floor(cursor):0;
+    await firestoreAdminRest.set(`${RUNTIME_STATE}/price_sync`,{cursor:normalized,updated_at:new Date().toISOString()});
+    return normalized;
   },
 
   async getPricingSettings():Promise<RoutingV2PricingSettings|null>{
