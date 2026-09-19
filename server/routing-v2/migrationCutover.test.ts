@@ -57,4 +57,11 @@ describe('Routing Core V2 migration and cutover',()=>{
     expect(workflow).toContain('DEPLOY_ROUTING_V2_PREVIEW');
   });
 
+  it('accepts namespaced legacy adapter ids required by migration',()=>{
+    const provider=read('server/routing-v2/providerService.ts');
+    expect(provider).toContain('validateAdapterId');
+    expect(provider).toContain('/^[a-zA-Z0-9._:-]+$/');
+    expect(provider).toContain('const adapterId=validateAdapterId(input.adapter_id)');
+  });
+
 });
