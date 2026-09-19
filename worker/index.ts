@@ -11,9 +11,17 @@ app.listen(3000);
 const httpHandler=httpServerHandler({port:3000}) as any;
 export default{fetch:httpHandler.fetch.bind(httpHandler),async scheduled(_controller:any,_env:unknown,ctx:any){
   ctx.waitUntil((async()=>{
-    const legacy=await pricingSyncService.runHourlySync();
-    console.log('[PricingSync]',JSON.stringify({checked_at:legacy.checked_at,checked:legacy.checked,healthy:legacy.healthy,failed:legacy.failed,fx_rate:legacy.fx_rate}));
-    const v2=await routingV2ScheduledSyncService.run({fx_rate_usd_brl:Number(legacy.fx_rate)||undefined,limit:10});
-    console.log('[RoutingV2PriceSync]',JSON.stringify({checked_at:v2.checked_at,cursor:v2.cursor,next_cursor:v2.next_cursor,processed:v2.processed,updated:v2.updated,failed:v2.failed,done:v2.done}));
+    try{
+      const legacy=await pricingSyncService.runHourlySync();
+      console.log('[PricingSync]',JSON.stringify({checked_at:legacy.checked_at,checked:legacy.checked,healthy:legacy.healthy,failed:legacy.failed,fx_rate:legacy.fx_rate}));
+    }catch(error:any){
+      console.error('[PricingSync]',error?.message||error);
+    }
+    try{
+      const v2=await routingV2ScheduledSyncService.run({limit:10});
+      console.log('[RoutingV2PriceSync]',JSON.stringify({checked_at:v2.checked_at,cursor:v2.cursor,next_cursor:v2.next_cursor,processed:v2.processed,updated:v2.updated,failed:v2.failed,done:v2.done}));
+    }catch(error:any){
+      console.error('[RoutingV2PriceSync]',error?.message||error);
+    }
   })());
 }};
