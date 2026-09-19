@@ -14,6 +14,9 @@ describe('Routing Core V2 Admin',()=>{
       '/admin/routing-v2/pricing/settings',
       '/admin/routing-v2/pricing/sync',
       '/admin/routing-v2/health',
+      '/admin/routing-v2/migration/audit',
+      '/admin/routing-v2/migration/run',
+      '/admin/routing-v2/cutover',
     ])expect(source).toContain(endpoint);
     expect(source).toContain('/catalog-models');
     expect(source).toContain('adapter.listModels');
@@ -33,7 +36,8 @@ describe('Routing Core V2 Admin',()=>{
     const view=read('src/components/admin/AdminRoutingV2.tsx');
     const admin=read('src/components/views/AdminView.tsx');
     for(const label of ['Providers','Models','Routes','Pricing','Health'])expect(view).toContain(label);
-    expect(view).toContain('PRE-CUTOVER');
+    expect(view).toContain('HYBRID');
+    expect(view).toContain('V2_ONLY');
     expect(view).toContain('Route READY');
     expect(admin).toContain('AdminRoutingV2');
     expect(admin).toContain("id:'routing-v2'");
