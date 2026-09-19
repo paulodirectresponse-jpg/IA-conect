@@ -127,7 +127,13 @@ adminRoutingV2Router.get('/admin/routing-v2/migration/audit',...guard,async(_req
   try{return res.json({success:true,data:await routingV2MigrationService.audit()});}catch(err){return error(res,err,'ROUTING_V2_MIGRATION_AUDIT_FAILED');}
 });
 adminRoutingV2Router.post('/admin/routing-v2/migration/run',...guard,async(_req,res)=>{
-  try{return res.json({success:true,data:await routingV2MigrationService.migrate()});}catch(err){return error(res,err,'ROUTING_V2_MIGRATION_FAILED');}
+  try{
+    const state=await routingV2Repository.getCutoverState();
+    if(state.mode!=='HYBRID'){
+      return res.status(409).json({success:false,error:{code:'ROUTING_V2_MIGRATION_REQUIRES_HYBRID',message:'A migração V1 → V2 só pode ser executada com o cutover em HYBRID.'}});
+    }
+    return res.json({success:true,data:await routingV2MigrationService.migrate()});
+  }catch(err){return error(res,err,'ROUTING_V2_MIGRATION_FAILED');}
 });
 adminRoutingV2Router.get('/admin/routing-v2/cutover',...guard,async(_req,res)=>{
   try{return res.json({success:true,data:await routingV2CutoverService.get()});}catch(err){return error(res,err,'ROUTING_V2_CUTOVER_READ_FAILED');}
