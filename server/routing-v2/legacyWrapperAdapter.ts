@@ -1,12 +1,15 @@
-import { RoutingV2ProviderAdapter, RoutingV2CatalogModel, RoutingV2ProviderPrice } from './adapter.js';
-import { RoutingV2Provider } from './domain.js';
+import { RoutingV2ProviderAdapter } from './adapter.js';
 import { CapabilityId } from '../beta/capabilityRegistry.js';
-import { routingV2PricingFixtureService } from './pricingFixtureService.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 
-// AUDITORIA V2: Wrapper que descobre modelos via legacy adapter e pricing via fixtures
-// Permite V2 routes alcançarem READY status sem V2 adapters reais (que exigem dados de API)
-// ⏳ Quando documentação oficial de providers estiver disponível, substituir por adapters V2 reais
+// Compatibility wrapper used only for execution delegation while HYBRID is active.
+//
+// IMPORTANT:
+// - It MUST NOT fabricate provider health.
+// - It MUST NOT fabricate pricing.
+// - It MUST NOT fabricate catalog evidence.
+// Operational truth for health/pricing/catalog belongs to verified V2 services/adapters.
+// Therefore this wrapper intentionally exposes execution methods only, plus UNKNOWN health.
 
 export function createRoutingV2LegacyWrapperAdapter(providerId: string): RoutingV2ProviderAdapter | null {
   const legacy = providerRegistry.getAdapter(providerId);
@@ -19,48 +22,24 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
     isConfigured: () => legacy.isConfigured(),
 
     async health() {
-      try {
-        if (!legacy.isConfigured()) {
-          return { status: 'UNAVAILABLE', checked_at: new Date().toISOString(), message: 'Provider not configured' };
-        }
-        // Legacy adapter doesn't expose health, assume HEALTHY if configured
-        return { status: 'HEALTHY', checked_at: new Date().toISOString(), message: 'Legacy adapter configured' };
-      } catch (err: any) {
-        return { status: 'UNAVAILABLE', checked_at: new Date().toISOString(), message: err.message };
+      if (!legacy.isConfigured()) {
+        return {
+          status: 'UNAVAILABLE',
+          checked_at: new Date().toISOString(),
+          message: 'Legacy execution adapter is not configured',
+        };
       }
-    },
-
-    async listModels() {
-      // AUDIT NOTE: Would call legacy.listModels() if available
-      // Currently returning empty - actual models come from CANONICAL_MODELS bootstrap
-      return [];
-    },
-
-    async getPrice(provider, provider_model_identifier, capability_id) {
-      // Use pricing fixture as source
-      const fixture = routingV2PricingFixtureService.getFixturePricing(provider.provider_id, provider_model_identifier);
-
-      if (!fixture) {
-        const err = new Error(
-          `No pricing fixture for ${provider_model_identifier} at ${provider.provider_id}`
-        );
-        throw Object.assign(err, { code: 'ROUTING_V2_PRICING_FIXTURE_NOT_FOUND' });
-      }
-
       return {
-        billing_config: fixture,
-        source: 'FIXTURE_VALIDATED',
-        source_reference: `fixture:${provider.provider_id}:${provider_model_identifier}`,
-        fetched_at: new Date().toISOString(),
+        status: 'UNKNOWN',
+        checked_at: new Date().toISOString(),
+        message: 'Legacy execution wrapper cannot prove provider health',
       };
     },
 
     async submitGeneration(provider, input) {
-      // Delegate to legacy adapter for actual generation
       const legacy2 = providerRegistry.getAdapter(provider.provider_id);
       if (!legacy2) throw new Error('Legacy adapter not found');
 
-      // Map V2 input to V1 params (copied from legacyAdapterBridge)
       const mode = capabilityToGenerationMode(input.capability_id);
       if (!mode) {
         throw Object.assign(new Error('Capability not supported by legacy adapter'), {
@@ -95,7 +74,7 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
         })),
       };
 
-      if (!legacy2.supports(input.model_id, mode, input.provider_model_identifier)) {
+      if (!legacy2.supports(input.model_id, mode as any, input.provider_model_identifier)) {
         throw Object.assign(new Error('Route not supported by legacy adapter'), {
           code: 'ROUTING_V2_LEGACY_ROUTE_UNSUPPORTED',
         });
@@ -120,9 +99,7 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
         provider_job_id: result.provider_job_id,
         status: result.status,
         progress_percent: result.progress_percent,
-        result_urls: (result.result_urls || result.result_image_urls || [result.result_video_url]).filter(
-          Boolean
-        ) as string[],
+        result_urls: (result.result_urls || result.result_image_urls || [result.result_video_url]).filter(Boolean) as string[],
         error_code: result.error_code || null,
         error_message: result.error_message || null,
       };
