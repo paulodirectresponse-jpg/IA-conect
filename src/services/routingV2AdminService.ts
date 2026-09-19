@@ -25,15 +25,14 @@ export interface RoutingV2RouteAdmin{
 }
 export interface RoutingV2CatalogModelAdmin{provider_model_identifier:string;name:string;vendor?:string|null;capabilities?:string[];metadata?:Record<string,unknown>;}
 export interface RoutingV2PricingSettingsAdmin{target_margin_percent:number;safety_buffer_percent:number;reference_credit_value_brl:number;price_sync_interval_minutes:number;price_freshness_ttl_minutes:number;stale_grace_minutes:number;updated_at:string;}
-export interface RoutingV2MigrationAuditAdmin{
+export interface RoutingV2ReadinessAdmin{
   checked_at:string;
-  v1:{providers:number;models:number;mappings:number;model_capabilities:number};
-  v2:{providers:number;models:number;routes:number;ready_routes:number};
+  v2:{models:number;active_models:number;routes:number;ready_routes:number};
   coverage:{required_model_capabilities:number;ready_model_capabilities:number;missing:Array<{model_id:string;capability_id:string}>};
 }
 export interface RoutingV2CutoverAdmin{
   mode:'HYBRID'|'V2_ONLY';updated_at:string;updated_by?:string|null;
-  readiness:RoutingV2MigrationAuditAdmin['coverage'];
+  readiness:RoutingV2ReadinessAdmin['coverage'];
 }
 export interface RoutingV2HealthAdmin{
   checked_at:string;
@@ -67,8 +66,8 @@ export const routingV2AdminService={
   savePricingSettings:(data:Partial<RoutingV2PricingSettingsAdmin>)=>post<RoutingV2PricingSettingsAdmin>('/api/admin/routing-v2/pricing/settings',data),
   syncPricing:(cursor=0,limit=10)=>post<any>('/api/admin/routing-v2/pricing/sync',{cursor,limit}),
   getHealth:()=>apiRequest<RoutingV2HealthAdmin>('/api/admin/routing-v2/health'),
-  auditMigration:()=>apiRequest<RoutingV2MigrationAuditAdmin>('/api/admin/routing-v2/migration/audit'),
-  runMigration:()=>post<any>('/api/admin/routing-v2/migration/run'),
+  getReadiness:()=>apiRequest<RoutingV2ReadinessAdmin>('/api/admin/routing-v2/readiness'),
+  resetPreview:()=>post<any>('/api/admin/routing-v2/reset-preview',{confirm:'RESET_ROUTING_V2_PREVIEW'}),
   getCutover:()=>apiRequest<RoutingV2CutoverAdmin>('/api/admin/routing-v2/cutover'),
   setCutover:(mode:'HYBRID'|'V2_ONLY')=>post<RoutingV2CutoverAdmin>('/api/admin/routing-v2/cutover',{mode}),
 };
