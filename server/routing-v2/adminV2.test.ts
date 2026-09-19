@@ -9,6 +9,7 @@ describe('Routing Core V2 Admin',()=>{
     const source=read('server/routes/adminRoutingV2Routes.ts');
     for(const endpoint of [
       '/admin/routing-v2/providers',
+      '/admin/routing-v2/providers/bootstrap-core',
       '/admin/routing-v2/models',
       '/admin/routing-v2/routes',
       '/admin/routing-v2/pricing/settings',
@@ -40,6 +41,8 @@ describe('Routing Core V2 Admin',()=>{
     expect(view).toContain('V2_ONLY');
     expect(view).toContain('Route READY');
     expect(view).toContain('Resetar inventário V2 (preview)');
+    expect(view).toContain('Cadastrar 3 providers base');
+    expect(view).toContain('WaveSpeed, Atlas Cloud e Runware');
     expect(admin).toContain('AdminRoutingV2');
     expect(admin).toContain("id:'routing-v2'");
     expect(admin).toContain('AdminAIProvidersHub');
