@@ -46,6 +46,13 @@ function validateAdapterId(value:string){
   return id;
 }
 
+
+export const ROUTING_V2_CORE_PROVIDERS=[
+  {provider_id:'provider-wavespeed',name:'WaveSpeed AI',type:'AGGREGATOR' as const,adapter_id:'legacy:provider-wavespeed',priority:110},
+  {provider_id:'provider-atlas',name:'Atlas Cloud',type:'AGGREGATOR' as const,adapter_id:'legacy:provider-atlas',priority:100},
+  {provider_id:'provider-runware',name:'Runware',type:'AGGREGATOR' as const,adapter_id:'legacy:provider-runware',priority:90},
+];
+
 export const routingV2ProviderService={
   async list(){
     return routingV2Repository.listProviders();
@@ -53,6 +60,20 @@ export const routingV2ProviderService={
 
   async get(providerId:string){
     return routingV2Repository.getProvider(providerId);
+  },
+
+  async bootstrapCore(){
+    const result:{created:string[];existing:string[];failed:Array<{provider_id:string;error:string}>}={created:[],existing:[],failed:[]};
+    for(const input of ROUTING_V2_CORE_PROVIDERS){
+      try{
+        if(await routingV2Repository.getProvider(input.provider_id)){result.existing.push(input.provider_id);continue;}
+        await this.create(input);
+        result.created.push(input.provider_id);
+      }catch(error:any){
+        result.failed.push({provider_id:input.provider_id,error:String(error?.message||error)});
+      }
+    }
+    return result;
   },
 
   async create(input:CreateRoutingV2ProviderInput){
