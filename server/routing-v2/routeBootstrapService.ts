@@ -4,6 +4,10 @@ import { CapabilityId } from '../beta/capabilityRegistry.js';
 import { CANONICAL_MODELS } from './modelBootstrapService.js';
 import { RoutingV2BillingConfig } from './domain.js';
 
+// NOTA DE AUDITORIA: Apenas routes comprovadas com provider_model_identifier validados
+// ❌ Removidas: falconsai-video-2, atlas-video-gen, runware-audio-turbo, runware-3d-gen, gpt-4o (não comprovados)
+// ✅ Mantidas: Flux 1 Pro + WaveSpeed/Runware, Stability 3.5 + WaveSpeed/Atlas (potencialmente válidas)
+
 interface RouteMapping {
   model_id: string;
   capability_id: CapabilityId;
@@ -12,7 +16,7 @@ interface RouteMapping {
 }
 
 export const CANONICAL_ROUTES: RouteMapping[] = [
-  // Flux 1 Pro routes
+  // Flux 1 Pro routes - provider_model_identifier pendente validação em API real
   {
     model_id: 'model-flux-1-pro',
     capability_id: 'text-to-image',
@@ -26,7 +30,7 @@ export const CANONICAL_ROUTES: RouteMapping[] = [
     provider_model_identifier: 'flux-1-pro',
   },
 
-  // Stability 3.5 Large routes
+  // Stability 3.5 Large routes - provider_model_identifier pendente validação em API real
   {
     model_id: 'model-stability-3.5-large',
     capability_id: 'text-to-image',
@@ -37,53 +41,7 @@ export const CANONICAL_ROUTES: RouteMapping[] = [
     model_id: 'model-stability-3.5-large',
     capability_id: 'text-to-image',
     provider_id: 'provider-atlas',
-    provider_model_identifier: 'atlas-image-gen',
-  },
-
-  // GPT-4o routes - use text-to-speech capability (valid CapabilityId)
-  {
-    model_id: 'model-openai-gpt-4o',
-    capability_id: 'text-to-speech',
-    provider_id: 'provider-wavespeed',
-    provider_model_identifier: 'gpt-4o',
-  },
-
-  // FalconSAI Video routes - use text-to-video
-  {
-    model_id: 'model-falconsai-video-2',
-    capability_id: 'text-to-video',
-    provider_id: 'provider-wavespeed',
-    provider_model_identifier: 'falconsai-video-2',
-  },
-  {
-    model_id: 'model-falconsai-video-2',
-    capability_id: 'text-to-video',
-    provider_id: 'provider-runware',
-    provider_model_identifier: 'falconsai-video-2',
-  },
-
-  // Atlas Video routes - use text-to-video
-  {
-    model_id: 'model-atlas-video-gen',
-    capability_id: 'text-to-video',
-    provider_id: 'provider-atlas',
-    provider_model_identifier: 'atlas-video-gen',
-  },
-
-  // Runware Audio routes
-  {
-    model_id: 'model-runware-audio-turbo',
-    capability_id: 'text-to-speech',
-    provider_id: 'provider-runware',
-    provider_model_identifier: 'runware-audio-turbo',
-  },
-
-  // Runware 3D routes
-  {
-    model_id: 'model-runware-3d-gen',
-    capability_id: 'text-to-3d',
-    provider_id: 'provider-runware',
-    provider_model_identifier: 'runware-3d-gen',
+    provider_model_identifier: 'stability-3.5-large',
   },
 ];
 

@@ -1,8 +1,13 @@
 import { RoutingV2BillingConfig } from './domain.js';
 
+// NOTA DE AUDITORIA: Pricing fixtures são apenas para modelos comprovados
+// ❌ Removidos: falconsai-video-2, atlas-video-gen, runware-audio-turbo, runware-3d-gen, gpt-4o
+// ⚠️ IMPORTANTE: Estes preços são FIXTURES, não refletem APIs reais
+// Reconciler não marcará Routes como READY sem implementação real de adapter.getPrice()
+
 export const PROVIDER_PRICING_FIXTURES: Record<string, Record<string, RoutingV2BillingConfig>> = {
   'provider-wavespeed': {
-    // WaveSpeed pricing: typically per-generation or token-based
+    // WaveSpeed pricing: FIXTURE ONLY - pendente validação em API real
     'flux-1-pro': {
       type: 'PER_GENERATION',
       currency: 'USD',
@@ -13,53 +18,21 @@ export const PROVIDER_PRICING_FIXTURES: Record<string, Record<string, RoutingV2B
       currency: 'USD',
       price_per_generation: 0.02,
     },
-    'gpt-4o': {
-      type: 'PER_CHARACTER',
-      currency: 'USD',
-      price_per_unit: 0.000002,
-      characters_per_unit: 1,
-    },
-    'falconsai-video-2': {
-      type: 'PER_SECOND',
-      currency: 'USD',
-      price_per_second: 0.1,
-    },
   },
   'provider-atlas': {
-    // Atlas Cloud pricing
-    'atlas-image-gen': {
+    // Atlas Cloud pricing: FIXTURE ONLY - pendente validação em API real
+    'stability-3.5-large': {
       type: 'PER_GENERATION',
       currency: 'USD',
       price_per_generation: 0.03,
     },
-    'atlas-video-gen': {
-      type: 'PER_SECOND',
-      currency: 'USD',
-      price_per_second: 0.15,
-    },
   },
   'provider-runware': {
-    // Runware pricing
+    // Runware pricing: FIXTURE ONLY - pendente validação em API real
     'flux-1-pro': {
       type: 'PER_GENERATION',
       currency: 'USD',
       price_per_generation: 0.045,
-    },
-    'falconsai-video-2': {
-      type: 'PER_SECOND',
-      currency: 'USD',
-      price_per_second: 0.12,
-    },
-    'runware-audio-turbo': {
-      type: 'PER_CHARACTER',
-      currency: 'USD',
-      price_per_unit: 0.000015,
-      characters_per_unit: 1,
-    },
-    'runware-3d-gen': {
-      type: 'PER_GENERATION',
-      currency: 'USD',
-      price_per_generation: 0.5,
     },
   },
 };

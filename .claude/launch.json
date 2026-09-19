@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server-dev-preview.mjs"],
+      "port": 5173,
+      "url": "http://localhost:5173"
+    }
+  ]
+}
