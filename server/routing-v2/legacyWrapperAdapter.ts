@@ -139,6 +139,7 @@ function capabilityToGenerationMode(capabilityId: CapabilityId): string | null {
     'text-to-3d': 'TEXT_TO_3D',
     'image-to-3d': 'IMAGE_TO_3D',
     'multi-image-to-3d': 'MULTI_IMAGE_TO_3D',
+    'texture-3d': 'TEXT_TO_3D',
   };
   return map[capabilityId] || null;
 }
