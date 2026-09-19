@@ -1,4 +1,4 @@
-import { RoutingV2BillingInput, RoutingV2BillingResult } from './billingEngine.js';
+import type { RoutingV2BillingInput, RoutingV2BillingResult } from './billingEngine.js';
 import { RoutingV2BillingConfig } from './domain.js';
 
 export type RoutingV2CustomFormulaConfig=Extract<RoutingV2BillingConfig,{type:'CUSTOM_FORMULA'}>;
