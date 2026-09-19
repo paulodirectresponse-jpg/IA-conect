@@ -26,6 +26,13 @@ async function executionReferences(userId:string,request:BetaJobRequest){
       url:asset.provider_accessible_url,
       type:asset.type,
       role:source?.role||source?.slot_type||'REFERENCE',
+      asset_id:asset.asset_id,
+      alias:source?.alias||asset.alias,
+      name:asset.name,
+      category:asset.category,
+      storage_path:asset.storage_path,
+      mime_type:asset.mime_type,
+      slot_type:source?.slot_type,
     };
   });
 }
@@ -72,6 +79,12 @@ export const routingV2JobBridge={
       source_job_id:job.job_id,
       authorized_credit_price:authorization.credit_price,
     });
+  },
+
+  async cancel(job:BetaJob,userId:string){
+    if(job.user_id!==userId)throw Object.assign(new Error('Job não pertence ao usuário.'),{code:'JOB_NOT_FOUND'});
+    if(!job.linked_generation_id)return null;
+    return routingV2ExecutionService.cancel(job.linked_generation_id,userId);
   },
 
   async refresh(job:BetaJob,userId:string){
