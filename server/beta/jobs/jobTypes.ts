@@ -57,6 +57,8 @@ export interface BetaJobQuote {
   pricing_policy_id:string;
   quoted_at:string;
   expires_at:string;
+  routing_core_version?:'V1'|'V2';
+  routing_v2_route_id?:string|null;
 }
 
 export interface BetaJob {
