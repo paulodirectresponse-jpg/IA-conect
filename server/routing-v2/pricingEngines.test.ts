@@ -2,6 +2,7 @@ import { describe,expect,it } from 'vitest';
 import { calculateRoutingV2ProviderCost } from './billingEngine.js';
 import { calculateRoutingV2Economics, validateRoutingV2PricingSettings } from './economicsEngine.js';
 import { RoutingV2PricingSettings } from './domain.js';
+import { routingV2CustomFormulaRegistry } from './customFormulaRegistry.js';
 
 const settings:RoutingV2PricingSettings={
   settings_id:'default',
@@ -47,8 +48,19 @@ describe('Routing Core V2 billing engine',()=>{
     expect(()=>calculateRoutingV2ProviderCost(config,{dimensions:{resolution:'4K',duration_seconds:5}})).toThrow(/matriz/);
   });
 
-  it('does not silently execute custom formulas',()=>{
+  it('executes custom formulas only through an explicit registered formula',()=>{
+    routingV2CustomFormulaRegistry.clearForTests();
     expect(()=>calculateRoutingV2ProviderCost({type:'CUSTOM_FORMULA',currency:'USD',formula_id:'future-formula'},{})).toThrow(/CUSTOM_FORMULA/);
+    routingV2CustomFormulaRegistry.register('provider-special',(_config,input)=>({
+      amount:Number(input.duration_seconds||0)*0.07,
+      quantity:Number(input.duration_seconds||0),
+      unit_label:'provider-special-second',
+    }));
+    const result=calculateRoutingV2ProviderCost({type:'CUSTOM_FORMULA',currency:'USD',formula_id:'provider-special'},{duration_seconds:4});
+    expect(result.amount).toBeCloseTo(0.28,10);
+    expect(result.quantity).toBe(4);
+    expect(result.unit_label).toBe('provider-special-second');
+    routingV2CustomFormulaRegistry.clearForTests();
   });
 });
 
