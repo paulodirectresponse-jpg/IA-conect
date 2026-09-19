@@ -41,6 +41,36 @@ describe('Routing Core V2 integration boundary',()=>{
     expect(catalog).not.toContain('launch');
   });
 
+
+  it('routes Universal Jobs through V2 only when a READY route exists and keeps V1 as pre-cutover fallback',()=>{
+    const orchestrator=read('server/beta/jobs/jobOrchestrator.ts');
+    expect(orchestrator).toContain('routingV2CatalogService.hasReadyRoute');
+    expect(orchestrator).toContain('routingV2JobBridge.preview');
+    expect(orchestrator).toContain('routingV2JobBridge.start');
+    expect(orchestrator).toContain("routing_core_version:'V2'");
+    expect(orchestrator).toContain('generationService.createAndStartGeneration');
+  });
+
+  it('reuses provider execution adapters without importing V1 pricing into Routing V2',()=>{
+    const bridge=read('server/routing-v2/legacyAdapterBridge.ts');
+    expect(bridge).toContain('providerRegistry');
+    expect(bridge).toContain('legacy.submitGeneration');
+    expect(bridge).toContain('legacy.checkStatus');
+    expect(bridge).not.toContain('quoteCostUsd');
+    expect(bridge).not.toContain('creditPricingService');
+    expect(bridge).not.toContain('smartRouterService');
+  });
+
+  it('keeps V2 generation recovery and cancellation inside the V2 execution lifecycle',()=>{
+    const orchestrator=read('server/beta/jobs/jobOrchestrator.ts');
+    const execution=read('server/routing-v2/executionService.ts');
+    expect(orchestrator).toContain("storedGeneration?.routing_core_version==='V2'");
+    expect(orchestrator).toContain('routingV2ExecutionService.cancel');
+    expect(execution).toContain("routing_core_version:'V2'");
+    expect(execution).toContain('cancelGeneration');
+    expect(execution).toContain('releaseForGeneration');
+  });
+
   it('exposes V2 catalog reads without replacing the V1 endpoints before cutover',()=>{
     const routes=read('server/routes/catalogRoutes.ts');
     expect(routes).toContain("'/catalog/v2/models'");
