@@ -10,10 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm install --no-audit --no-fund
+      - name: Agent safety guardrails
+        run: npm run guardrails:agent
       - run: npm run lint
       - run: npm run build
       - run: npm run perf:bundle
