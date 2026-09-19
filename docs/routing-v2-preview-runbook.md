@@ -60,3 +60,8 @@ Todos exigem autenticação ADMIN normal.
 ## Encerramento do preview
 
 Depois da validação, o Worker `ia-conect-routing-v2-preview` pode ser removido sem afetar o Worker principal. Os dados V2 migrados permanecem no Firestore real para continuação do rollout em HYBRID.
+
+
+## Observação sobre Retry build
+
+Depois de alterar o Production branch no Cloudflare, não reutilizar um build antigo com Retry build: o retry mantém o snapshot/branch original daquele build. Um novo commit em `routing-core-v2` deve disparar um build novo já com o branch correto.
