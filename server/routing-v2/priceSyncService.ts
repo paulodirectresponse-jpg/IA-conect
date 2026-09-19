@@ -54,11 +54,13 @@ export const routingV2PriceSyncService={
     const checkedAt=new Date().toISOString();
     const cursor=Math.max(0,Math.floor(Number(input.cursor)||0));
     const limit=Math.min(10,Math.max(1,Math.floor(Number(input.limit)||5)));
-    const[routes,settings]=await Promise.all([
+    const[routes,models,settings]=await Promise.all([
       routingV2Repository.listRoutes(),
+      routingV2Repository.listModels(),
       routingV2PricingSettingsService.get(),
     ]);
-    const eligible=routes.filter(route=>route.status!=='DISABLED');
+    const activeModels=new Set(models.filter(model=>model.status==='ACTIVE').map(model=>model.model_id));
+    const eligible=routes.filter(route=>route.status!=='DISABLED'&&activeModels.has(route.model_id));
     const batch=eligible.slice(cursor,cursor+limit);
     const providerCache=new Map<string,RoutingV2Provider|null>();
     const runtimeCache=new Map<string,Awaited<ReturnType<typeof providerRuntime>>>();
@@ -75,6 +77,12 @@ export const routingV2PriceSyncService={
           const next=reconcileRoutingV2Route({route,provider:null,pricing_status:'INVALID',runtime_status:'UNAVAILABLE',now:checkedAt});
           await routingV2Repository.saveRoute(next);
           rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:false,status:next.status,pricing_status:next.pricing_status,runtime_status:next.runtime_status,retail_price_credits:null,error:'Provider V2 não encontrado.'});
+          continue;
+        }
+        if(provider.status==='DISABLED'){
+          const next=reconcileRoutingV2Route({route,provider,now:checkedAt});
+          await routingV2Repository.saveRoute(next);
+          rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:false,status:next.status,pricing_status:next.pricing_status,runtime_status:next.runtime_status,retail_price_credits:next.pricing_snapshot?.retail_price_credits||null,error:'Provider V2 desativado.'});
           continue;
         }
 
