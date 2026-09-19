@@ -1,5 +1,5 @@
 import { routingV2Repository } from './repository.js';
-import { routingV2MigrationService } from './migrationService.js';
+import { routingV2ReadinessService } from './readinessService.js';
 
 export type RoutingV2CutoverMode='HYBRID'|'V2_ONLY';
 
@@ -9,7 +9,7 @@ export const routingV2CutoverService={
   async get(){
     const[state,audit]=await Promise.all([
       routingV2Repository.getCutoverState(),
-      routingV2MigrationService.audit(),
+      routingV2ReadinessService.audit(),
     ]);
     return{...state,preview:isPreview(),readiness:audit.coverage};
   },
@@ -21,12 +21,12 @@ export const routingV2CutoverService={
         code:'ROUTING_V2_PREVIEW_V2_ONLY_BLOCKED',
       });
     }
-    const audit=await routingV2MigrationService.audit();
+    const audit=await routingV2ReadinessService.audit();
     if(mode==='V2_ONLY'){
       const ready=Number(audit.coverage.ready_model_capabilities||0);
       const required=Number(audit.coverage.required_model_capabilities||0);
       if(required<=0||ready!==required){
-        throw Object.assign(new Error('V2_ONLY exige cobertura READY completa para todas as model-capabilities ativas do V1.'),{
+        throw Object.assign(new Error('V2_ONLY exige cobertura READY completa para todas as model-capabilities ativas do V2.'),{
           code:'ROUTING_V2_CUTOVER_NOT_READY',
           details:audit.coverage,
         });
