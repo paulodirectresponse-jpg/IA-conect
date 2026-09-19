@@ -29,7 +29,7 @@ No campo de confirmação, digite exatamente:
 
 `DEPLOY_ROUTING_V2_PREVIEW`
 
-O workflow executa lint, testes e build antes de publicar o Worker isolado.
+O workflow executa lint, testes e o build de preview via Cloudflare Vite antes de publicar o Worker isolado.
 
 ## Teste operacional
 
@@ -65,3 +65,13 @@ Depois da validação, o Worker `ia-conect-routing-v2-preview` pode ser removido
 ## Observação sobre Retry build
 
 Depois de alterar o Production branch no Cloudflare, não reutilizar um build antigo com Retry build: o retry mantém o snapshot/branch original daquele build. Um novo commit em `routing-core-v2` deve disparar um build novo já com o branch correto.
+
+
+## Cloudflare Workers Builds
+
+Para o Worker isolado conectado ao GitHub, use:
+- Build command: `npm run build:routing-v2-preview`
+- Deploy command: `npx wrangler deploy`
+- Non-production branch deploy/version command: `npx wrangler versions upload`
+
+O Cloudflare Vite Plugin gera a configuração de saída do Worker durante o build; não passe `--config wrangler.routing-v2-preview.jsonc` no comando de deploy.
