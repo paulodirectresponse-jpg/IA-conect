@@ -8,6 +8,7 @@ import { routingV2ProviderService } from './providerService.js';
 import { routingV2ModelService } from './modelService.js';
 import { routingV2RouteService } from './routeService.js';
 import { routingV2Repository } from './repository.js';
+import { routingV2Candidate } from './routerService.js';
 
 function billingFromRule(rule:ProviderPricingRule|null,capabilityId:string):RoutingV2BillingConfig{
   if(!rule||!rule.verified){
@@ -41,11 +42,12 @@ export const routingV2MigrationService={
     ]);
     const activeModels=v1Models.filter(model=>model.status!=='INACTIVE');
     const targets=activeModels.flatMap(model=>capabilityIdsForModel(model).map(capability_id=>({model_id:model.model_id,capability_id})));
-    const ready=new Set(v2Routes.filter(route=>route.status==='READY').map(route=>`${route.model_id}|${route.capability_id}`));
+    const currentTime=new Date().toISOString();
+    const ready=new Set(v2Routes.filter(route=>routingV2Candidate(route,currentTime)).map(route=>`${route.model_id}|${route.capability_id}`));
     return{
       checked_at:new Date().toISOString(),
       v1:{providers:v1Providers.length,models:activeModels.length,mappings:v1Mappings.filter(m=>m.status==='ACTIVE').length,model_capabilities:targets.length},
-      v2:{providers:v2Providers.length,models:v2Models.length,routes:v2Routes.length,ready_routes:v2Routes.filter(r=>r.status==='READY').length},
+      v2:{providers:v2Providers.length,models:v2Models.length,routes:v2Routes.length,ready_routes:v2Routes.filter(route=>routingV2Candidate(route,currentTime)).length},
       coverage:{
         required_model_capabilities:targets.length,
         ready_model_capabilities:targets.filter(target=>ready.has(`${target.model_id}|${target.capability_id}`)).length,
