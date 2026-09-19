@@ -10,6 +10,7 @@ import { betaEconomicsService } from '../catalog/betaEconomicsService.js';
 import { routingV2CatalogService } from '../../routing-v2/catalogService.js';
 import { routingV2JobBridge } from '../../routing-v2/jobBridge.js';
 import { routingV2ExecutionService } from '../../routing-v2/executionService.js';
+import { routingV2CutoverService } from '../../routing-v2/cutoverService.js';
 import { validateModelCapability } from '../capabilityRegistry.js';
 import { betaJobRepository } from './jobRepository.js';
 import { inlineBetaJobQueue } from './jobQueue.js';
@@ -38,9 +39,17 @@ function routingV2QuoteSignature(routeId:string,creditPrice:number,validUntil:st
   return crypto.createHash('sha256').update(`routing-v2|${routeId}|${creditPrice}|${validUntil}`).digest('hex');
 }
 
-async function canUseRoutingV2(request:BetaJobRequest){
-  if(request.model_id==='AUTO')return false;
-  return routingV2CatalogService.hasReadyRoute(request.model_id,request.capability_id);
+async function routingV2Decision(request:BetaJobRequest){
+  const state=await routingV2CutoverService.get();
+  if(request.model_id==='AUTO'){
+    if(state.mode==='V2_ONLY')throw Object.assign(new Error('AUTO routing ainda não está disponível no modo V2_ONLY.'),{code:'ROUTING_V2_AUTO_UNAVAILABLE'});
+    return{use_v2:false,require_v2:false};
+  }
+  const decision=await routingV2CutoverService.shouldUseV2(request.model_id,request.capability_id);
+  if(decision.require_v2&&!decision.ready){
+    throw Object.assign(new Error('V2_ONLY exige uma Route READY para esta model/capability.'),{code:'NO_READY_ROUTE_V2'});
+  }
+  return{use_v2:decision.use_v2,require_v2:decision.require_v2};
 }
 
 function generationModeForCapability(capabilityId:string):GenerationMode|null{
@@ -543,7 +552,8 @@ export const betaJobOrchestrator={
         try{assertJobQuoteFresh(current.quote);return current;}catch{}
       }
       const {mode}=await validateRequest(current.request,undefined,userId);
-      if(await canUseRoutingV2(current.request)){
+      const v2Decision=await routingV2Decision(current.request);
+      if(v2Decision.use_v2){
         const preview=await routingV2JobBridge.preview(userId,current.request);
         const timestamp=now();
         const expiresAt=preview.pricing_valid_until;
