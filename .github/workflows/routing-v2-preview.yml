@@ -30,7 +30,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test -- --passWithNoTests
-      - run: npm run build
+      - run: npm run build:routing-v2-preview
 
       - name: Validate isolated Worker target
         run: |
@@ -47,7 +47,7 @@ jobs:
           test -n "$FIREBASE_SERVICE_ACCOUNT_JSON" || (echo "::error::Missing FIREBASE_SERVICE_ACCOUNT_JSON" && exit 1)
 
       - name: Deploy isolated preview
-        run: npx wrangler deploy --config wrangler.routing-v2-preview.jsonc
+        run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
