@@ -31,16 +31,12 @@ export const CANONICAL_ROUTES: RouteMapping[] = [
   },
 
   // Stability 3.5 Large routes - provider_model_identifier pendente validação em API real
+  // NOTE: Atlas Cloud não suporta TEXT_TO_IMAGE (adapter returns false for this mode)
+  // Atlas só suporta video generation — removido de routes válidas
   {
     model_id: 'model-stability-3.5-large',
     capability_id: 'text-to-image',
     provider_id: 'provider-wavespeed',
-    provider_model_identifier: 'stability-3.5-large',
-  },
-  {
-    model_id: 'model-stability-3.5-large',
-    capability_id: 'text-to-image',
-    provider_id: 'provider-atlas',
     provider_model_identifier: 'stability-3.5-large',
   },
 ];
