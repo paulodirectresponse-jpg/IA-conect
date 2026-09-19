@@ -11,7 +11,9 @@ import { routingV2AdapterRegistry } from '../routing-v2/adapterRegistry.js';
 import { ensureRoutingV2LegacyAdapter } from '../routing-v2/legacyAdapterBridge.js';
 import { routingV2ReadinessService } from '../routing-v2/readinessService.js';
 import { routingV2CutoverService } from '../routing-v2/cutoverService.js';
+import { routingV2ModelBootstrapService } from '../routing-v2/modelBootstrapService.js';
 import { routingV2HealthAdminRoutes } from '../routing-v2/adminHealthRoutes.js';
+import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapService.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -65,6 +67,14 @@ adminRoutingV2Router.get('/admin/routing-v2/providers/:providerId/catalog-models
 adminRoutingV2Router.get('/admin/routing-v2/models',...guard,async(_req,res)=>{
   try{return res.json({success:true,data:await routingV2ModelService.list()});}catch(err){return error(res,err);}
 });
+adminRoutingV2Router.post('/admin/routing-v2/models/bootstrap-canonical',...guard,async(_req,res)=>{
+  try{
+    if(String(process.env.ROUTING_V2_PREVIEW||'').toLowerCase()!=='true'){
+      return res.status(409).json({success:false,error:{code:'ROUTING_V2_BOOTSTRAP_PREVIEW_ONLY',message:'Bootstrap de models canônicos está liberado apenas no preview isolado.'}});
+    }
+    return res.json({success:true,data:await routingV2ModelBootstrapService.bootstrapCanonical()});
+  }catch(err){return error(res,err,'ROUTING_V2_MODEL_BOOTSTRAP_FAILED');}
+});
 adminRoutingV2Router.post('/admin/routing-v2/models',...guard,async(req,res)=>{
   try{return res.json({success:true,data:await routingV2ModelService.create(req.body)});}catch(err){return error(res,err,'ROUTING_V2_MODEL_CREATE_FAILED');}
 });
@@ -89,6 +99,14 @@ adminRoutingV2Router.get('/admin/routing-v2/routes',...guard,async(req,res)=>{
     if(capability)rows=rows.filter(row=>row.capability_id===capability);
     return res.json({success:true,data:rows});
   }catch(err){return error(res,err);}
+});
+adminRoutingV2Router.post('/admin/routing-v2/routes/bootstrap-canonical',...guard,async(_req,res)=>{
+  try{
+    if(String(process.env.ROUTING_V2_PREVIEW||'').toLowerCase()!=='true'){
+      return res.status(409).json({success:false,error:{code:'ROUTING_V2_BOOTSTRAP_PREVIEW_ONLY',message:'Bootstrap de routes canônicas está liberado apenas no preview isolado.'}});
+    }
+    return res.json({success:true,data:await routingV2RouteBootstrapService.bootstrapCanonical()});
+  }catch(err){return error(res,err,'ROUTING_V2_ROUTE_BOOTSTRAP_FAILED');}
 });
 adminRoutingV2Router.post('/admin/routing-v2/routes',...guard,async(req,res)=>{
   try{return res.json({success:true,data:await routingV2RouteService.create(req.body)});}catch(err){return error(res,err,'ROUTING_V2_ROUTE_CREATE_FAILED');}
