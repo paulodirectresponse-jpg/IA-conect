@@ -41,4 +41,20 @@ describe('Routing Core V2 migration and cutover',()=>{
     expect(orchestrator).toContain('generationService.createAndStartGeneration');
     expect(orchestrator).toContain('NO_READY_ROUTE_V2');
   });
+  it('keeps the isolated preview incapable of enabling V2_ONLY',()=>{
+    const cutover=read('server/routing-v2/cutoverService.ts');
+    const admin=read('server/routes/adminRoutingV2Routes.ts');
+    const preview=read('wrangler.routing-v2-preview.jsonc');
+    const workflow=read('.github/workflows/routing-v2-preview.yml');
+    expect(cutover).toContain('ROUTING_V2_PREVIEW_V2_ONLY_BLOCKED');
+    expect(cutover).toContain('ROUTING_V2_PREVIEW');
+    expect(admin).toContain('ROUTING_V2_MIGRATION_REQUIRES_HYBRID');
+    expect(preview).toContain('"name": "ia-conect-routing-v2-preview"');
+    expect(preview).toContain('"ROUTING_V2_PREVIEW": "true"');
+    expect(preview).not.toContain('"triggers"');
+    expect(workflow).toContain('workflow_dispatch');
+    expect(workflow).toContain("github.ref == 'refs/heads/routing-core-v2'");
+    expect(workflow).toContain('DEPLOY_ROUTING_V2_PREVIEW');
+  });
+
 });
