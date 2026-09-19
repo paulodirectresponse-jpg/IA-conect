@@ -3,17 +3,24 @@ import { routingV2MigrationService } from './migrationService.js';
 
 export type RoutingV2CutoverMode='HYBRID'|'V2_ONLY';
 
+const isPreview=()=>String(process.env.ROUTING_V2_PREVIEW||'').toLowerCase()==='true';
+
 export const routingV2CutoverService={
   async get(){
     const[state,audit]=await Promise.all([
       routingV2Repository.getCutoverState(),
       routingV2MigrationService.audit(),
     ]);
-    return{...state,readiness:audit.coverage};
+    return{...state,preview:isPreview(),readiness:audit.coverage};
   },
 
   async set(mode:RoutingV2CutoverMode,updatedBy?:string|null){
     if(!['HYBRID','V2_ONLY'].includes(mode))throw new Error('Modo de cutover inválido.');
+    if(isPreview()&&mode==='V2_ONLY'){
+      throw Object.assign(new Error('O ambiente isolado de preview não pode ativar V2_ONLY.'),{
+        code:'ROUTING_V2_PREVIEW_V2_ONLY_BLOCKED',
+      });
+    }
     const audit=await routingV2MigrationService.audit();
     if(mode==='V2_ONLY'){
       const ready=Number(audit.coverage.ready_model_capabilities||0);
@@ -27,7 +34,7 @@ export const routingV2CutoverService={
     }
     const state={mode,updated_at:new Date().toISOString(),updated_by:updatedBy||null};
     await routingV2Repository.saveCutoverState(state);
-    return{...state,readiness:audit.coverage};
+    return{...state,preview:isPreview(),readiness:audit.coverage};
   },
 
   async shouldUseV2(modelId:string,capabilityId:string){
