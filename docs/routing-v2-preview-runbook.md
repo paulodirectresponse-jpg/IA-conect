@@ -13,13 +13,13 @@ Este fluxo existe para testar a migração real V1 → V2 sem mergear a PR #114 
 - A migração é bloqueada se o estado persistido não estiver em `HYBRID`.
 - A migração é aditiva: escreve somente nas coleções V2 e não remove inventário V1.
 
-## Segredos necessários no GitHub Environment `routing-v2-preview`
+## Segredos necessários no repositório (GitHub Actions)
 
 - `CLOUDFLARE_API_TOKEN`: token com permissão para Workers Scripts no account do IA Conect.
 - `CLOUDFLARE_ACCOUNT_ID`: account id do Cloudflare.
 - `FIREBASE_SERVICE_ACCOUNT_JSON`: mesma service account autorizada a ler o inventário V1 e gravar as coleções V2.
 
-Nenhum segredo deve ser commitado no repositório.
+O workflow valida esses três nomes antes do deploy e informa exatamente qual estiver ausente. Nenhum segredo deve ser commitado no repositório.
 
 ## Deploy
 
