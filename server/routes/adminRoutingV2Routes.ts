@@ -9,6 +9,8 @@ import { routingV2PricingSettingsService } from '../routing-v2/pricingSettingsSe
 import { routingV2PriceSyncService } from '../routing-v2/priceSyncService.js';
 import { routingV2AdapterRegistry } from '../routing-v2/adapterRegistry.js';
 import { ensureRoutingV2LegacyAdapter } from '../routing-v2/legacyAdapterBridge.js';
+import { routingV2MigrationService } from '../routing-v2/migrationService.js';
+import { routingV2CutoverService } from '../routing-v2/cutoverService.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -118,4 +120,24 @@ adminRoutingV2Router.get('/admin/routing-v2/health',...guard,async(_req,res)=>{
       pricing:{price_sync_interval_minutes:settings.price_sync_interval_minutes,price_freshness_ttl_minutes:settings.price_freshness_ttl_minutes},
     }});
   }catch(err){return error(res,err,'ROUTING_V2_HEALTH_FAILED');}
+});
+
+
+adminRoutingV2Router.get('/admin/routing-v2/migration/audit',...guard,async(_req,res)=>{
+  try{return res.json({success:true,data:await routingV2MigrationService.audit()});}catch(err){return error(res,err,'ROUTING_V2_MIGRATION_AUDIT_FAILED');}
+});
+adminRoutingV2Router.post('/admin/routing-v2/migration/run',...guard,async(_req,res)=>{
+  try{return res.json({success:true,data:await routingV2MigrationService.migrate()});}catch(err){return error(res,err,'ROUTING_V2_MIGRATION_FAILED');}
+});
+adminRoutingV2Router.get('/admin/routing-v2/cutover',...guard,async(_req,res)=>{
+  try{return res.json({success:true,data:await routingV2CutoverService.get()});}catch(err){return error(res,err,'ROUTING_V2_CUTOVER_READ_FAILED');}
+});
+adminRoutingV2Router.post('/admin/routing-v2/cutover',...guard,async(req:AuthenticatedRequest,res)=>{
+  try{
+    const mode=String(req.body?.mode||'') as 'HYBRID'|'V2_ONLY';
+    return res.json({success:true,data:await routingV2CutoverService.set(mode,req.user?.uid||null)});
+  }catch(err:any){
+    const status=err?.code==='ROUTING_V2_CUTOVER_NOT_READY'?409:400;
+    return res.status(status).json({success:false,error:{code:err?.code||'ROUTING_V2_CUTOVER_FAILED',message:err?.message||'Cutover inválido.',details:err?.details}});
+  }
 });
