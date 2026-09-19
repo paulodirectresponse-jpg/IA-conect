@@ -57,11 +57,16 @@ describe('Routing Core V2 Part 4 — price sync and reconciliation',()=>{
   it('keeps price sync outside the request path and bounded for Cloudflare',()=>{
     const source=fs.readFileSync(path.join(process.cwd(),'server/routing-v2/priceSyncService.ts'),'utf8');
     const wrangler=fs.readFileSync(path.join(process.cwd(),'wrangler.jsonc'),'utf8');
+    const worker=fs.readFileSync(path.join(process.cwd(),'worker/index.ts'),'utf8');
+    const scheduled=fs.readFileSync(path.join(process.cwd(),'server/routing-v2/scheduledSyncService.ts'),'utf8');
     expect(source).toContain('Math.min(10');
     expect(source).toContain('eligible.slice(cursor,cursor+limit)');
     expect(source).toContain('adapter.getPrice');
     expect(source).toContain('price.billing_config.type!==route.billing_type');
     expect(source).toContain('calculateRoutingV2Economics');
-    expect(wrangler).not.toContain('routing-v2/priceSyncService');
+    expect(wrangler).toContain('"*/30 * * * *"');
+    expect(worker).toContain('routingV2ScheduledSyncService.run');
+    expect(scheduled).toContain('getPriceSyncCursor');
+    expect(scheduled).toContain('savePriceSyncCursor');
   });
 });
