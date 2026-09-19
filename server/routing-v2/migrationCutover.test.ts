@@ -64,4 +64,11 @@ describe('Routing Core V2 migration and cutover',()=>{
     expect(provider).toContain('const adapterId=validateAdapterId(input.adapter_id)');
   });
 
+  it('merges required V1 capabilities into existing V2 models during migration',()=>{
+    const migration=read('server/routing-v2/migrationService.ts');
+    expect(migration).toContain('const existingModel=await routingV2Repository.getModel(model.model_id)');
+    expect(migration).toContain('const merged=Array.from(new Set([...(existingModel.capabilities||[]),...capabilities]))');
+    expect(migration).toContain('routingV2ModelService.setCapabilities(model.model_id,merged)');
+  });
+
 });
