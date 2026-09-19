@@ -15,6 +15,7 @@ import { routingV2ModelBootstrapService } from '../routing-v2/modelBootstrapServ
 import { routingV2HealthAdminRoutes } from '../routing-v2/adminHealthRoutes.js';
 import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapService.js';
 import { routingV2SmartRouter } from '../routing-v2/smartRouter.js';
+import { routingV2PricingBootstrapService } from '../routing-v2/pricingBootstrapService.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -132,6 +133,14 @@ adminRoutingV2Router.post('/admin/routing-v2/pricing/settings',...guard,async(re
 });
 adminRoutingV2Router.post('/admin/routing-v2/pricing/sync',...guard,async(req,res)=>{
   try{return res.json({success:true,data:await routingV2PriceSyncService.runBatch({cursor:req.body?.cursor,limit:req.body?.limit,fx_rate_usd_brl:req.body?.fx_rate_usd_brl})});}catch(err){return error(res,err,'ROUTING_V2_PRICE_SYNC_FAILED');}
+});
+adminRoutingV2Router.post('/admin/routing-v2/pricing/bootstrap-canonical',...guard,async(_req,res)=>{
+  try{
+    if(String(process.env.ROUTING_V2_PREVIEW||'').toLowerCase()!=='true'){
+      return res.status(409).json({success:false,error:{code:'ROUTING_V2_BOOTSTRAP_PREVIEW_ONLY',message:'Bootstrap de pricing canônico está liberado apenas no preview isolado.'}});
+    }
+    return res.json({success:true,data:await routingV2PricingBootstrapService.bootstrapCanonical()});
+  }catch(err){return error(res,err,'ROUTING_V2_PRICING_BOOTSTRAP_FAILED');}
 });
 
 adminRoutingV2Router.get('/admin/routing-v2/health',...guard,async(_req,res)=>{
