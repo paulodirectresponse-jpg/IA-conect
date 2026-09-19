@@ -102,4 +102,32 @@ export const routingV2Repository={
     await firestoreAdminRest.set(`${COLLECTIONS.settings}/default`,settings);
     return settings;
   },
+
+  async resetInventoryForPreview(){
+    if(String(process.env.ROUTING_V2_PREVIEW||'').toLowerCase()!=='true'){
+      throw Object.assign(new Error('Reset do Routing V2 só é permitido no preview isolado.'),{code:'ROUTING_V2_RESET_PREVIEW_ONLY'});
+    }
+    const[providers,models,routes]=await Promise.all([
+      this.listProviders(),this.listModels(),this.listRoutes(),
+    ]);
+    const deletes=[
+      ...providers.map(row=>`${COLLECTIONS.providers}/${safe(row.provider_id)}`),
+      ...models.map(row=>`${COLLECTIONS.models}/${safe(row.model_id)}`),
+      ...routes.map(row=>`${COLLECTIONS.routes}/${safe(row.route_id)}`),
+      `${COLLECTIONS.settings}/default`,
+      `${RUNTIME_STATE}/price_sync`,
+      `${RUNTIME_STATE}/cutover`,
+    ];
+    const chunkSize=100;
+    for(let i=0;i<deletes.length;i+=chunkSize){
+      const chunk=deletes.slice(i,i+chunkSize);
+      await firestoreAdminRest.commit(chunk.map(path=>({delete:firestoreAdminRest.docName(path)})));
+    }
+    const state={mode:'HYBRID' as const,updated_at:new Date().toISOString(),updated_by:'preview-reset'};
+    await this.saveCutoverState(state);
+    return{
+      deleted:{providers:providers.length,models:models.length,routes:routes.length},
+      cutover:state,
+    };
+  },
 };
