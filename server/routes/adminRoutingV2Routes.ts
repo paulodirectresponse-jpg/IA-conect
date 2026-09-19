@@ -9,7 +9,7 @@ import { routingV2PricingSettingsService } from '../routing-v2/pricingSettingsSe
 import { routingV2PriceSyncService } from '../routing-v2/priceSyncService.js';
 import { routingV2AdapterRegistry } from '../routing-v2/adapterRegistry.js';
 import { ensureRoutingV2LegacyAdapter } from '../routing-v2/legacyAdapterBridge.js';
-import { routingV2MigrationService } from '../routing-v2/migrationService.js';
+import { routingV2ReadinessService } from '../routing-v2/readinessService.js';
 import { routingV2CutoverService } from '../routing-v2/cutoverService.js';
 
 export const adminRoutingV2Router=Router();
@@ -123,17 +123,16 @@ adminRoutingV2Router.get('/admin/routing-v2/health',...guard,async(_req,res)=>{
 });
 
 
-adminRoutingV2Router.get('/admin/routing-v2/migration/audit',...guard,async(_req,res)=>{
-  try{return res.json({success:true,data:await routingV2MigrationService.audit()});}catch(err){return error(res,err,'ROUTING_V2_MIGRATION_AUDIT_FAILED');}
+adminRoutingV2Router.get('/admin/routing-v2/readiness',...guard,async(_req,res)=>{
+  try{return res.json({success:true,data:await routingV2ReadinessService.audit()});}catch(err){return error(res,err,'ROUTING_V2_READINESS_FAILED');}
 });
-adminRoutingV2Router.post('/admin/routing-v2/migration/run',...guard,async(_req,res)=>{
+adminRoutingV2Router.post('/admin/routing-v2/reset-preview',...guard,async(req:AuthenticatedRequest,res)=>{
   try{
-    const state=await routingV2Repository.getCutoverState();
-    if(state.mode!=='HYBRID'){
-      return res.status(409).json({success:false,error:{code:'ROUTING_V2_MIGRATION_REQUIRES_HYBRID',message:'A migração V1 → V2 só pode ser executada com o cutover em HYBRID.'}});
+    if(String(req.body?.confirm||'')!=='RESET_ROUTING_V2_PREVIEW'){
+      return res.status(400).json({success:false,error:{code:'ROUTING_V2_RESET_CONFIRMATION_REQUIRED',message:'Confirmação explícita do reset é obrigatória.'}});
     }
-    return res.json({success:true,data:await routingV2MigrationService.migrate()});
-  }catch(err){return error(res,err,'ROUTING_V2_MIGRATION_FAILED');}
+    return res.json({success:true,data:await routingV2Repository.resetInventoryForPreview()});
+  }catch(err){return error(res,err,'ROUTING_V2_RESET_FAILED');}
 });
 adminRoutingV2Router.get('/admin/routing-v2/cutover',...guard,async(_req,res)=>{
   try{return res.json({success:true,data:await routingV2CutoverService.get()});}catch(err){return error(res,err,'ROUTING_V2_CUTOVER_READ_FAILED');}
