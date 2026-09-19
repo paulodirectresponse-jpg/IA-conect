@@ -13,6 +13,7 @@
     "test": "vitest run",
     "clean": "rm -rf dist .wrangler public/brand",
     "lint": "tsc --noEmit",
+    "guardrails:agent": "node scripts/verify-agent-guardrails.mjs",
     "perf:bundle": "node scripts/report-performance-baseline.mjs",
     "images:optimize": "node scripts/optimize-static-images.mjs",
     "build:routing-v2-preview": "CLOUDFLARE_VITE_WRANGLER_CONFIG_PATH=wrangler.routing-v2-preview.jsonc npm run build"
