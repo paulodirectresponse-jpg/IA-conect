@@ -28,6 +28,14 @@ function error(res:any,err:any,code='ROUTING_V2_ADMIN_ERROR'){
 adminRoutingV2Router.get('/admin/routing-v2/providers',...guard,async(_req,res)=>{
   try{return res.json({success:true,data:await routingV2ProviderService.list()});}catch(err){return error(res,err);}
 });
+adminRoutingV2Router.post('/admin/routing-v2/providers/bootstrap-core',...guard,async(_req,res)=>{
+  try{
+    if(String(process.env.ROUTING_V2_PREVIEW||'').toLowerCase()!=='true'){
+      return res.status(409).json({success:false,error:{code:'ROUTING_V2_BOOTSTRAP_PREVIEW_ONLY',message:'Bootstrap inicial de providers está liberado apenas no preview isolado.'}});
+    }
+    return res.json({success:true,data:await routingV2ProviderService.bootstrapCore()});
+  }catch(err){return error(res,err,'ROUTING_V2_PROVIDER_BOOTSTRAP_FAILED');}
+});
 adminRoutingV2Router.post('/admin/routing-v2/providers',...guard,async(req:AuthenticatedRequest,res)=>{
   try{return res.json({success:true,data:await routingV2ProviderService.create(req.body)});}catch(err){return error(res,err,'ROUTING_V2_PROVIDER_CREATE_FAILED');}
 });
