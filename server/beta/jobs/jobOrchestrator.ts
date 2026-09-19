@@ -7,6 +7,9 @@ import { assetReferenceResolver } from '../../services/assetReferenceResolver.js
 import { creditPricingService } from '../../services/creditPricingService.js';
 import { generationService } from '../../services/generationService.js';
 import { betaEconomicsService } from '../catalog/betaEconomicsService.js';
+import { routingV2CatalogService } from '../../routing-v2/catalogService.js';
+import { routingV2JobBridge } from '../../routing-v2/jobBridge.js';
+import { routingV2ExecutionService } from '../../routing-v2/executionService.js';
 import { validateModelCapability } from '../capabilityRegistry.js';
 import { betaJobRepository } from './jobRepository.js';
 import { inlineBetaJobQueue } from './jobQueue.js';
@@ -15,6 +18,30 @@ import { BetaJob, BetaJobAttempt, BetaJobRequest, BetaJobStatus } from './jobTyp
 
 const now=()=>new Date().toISOString();
 const makeId=(prefix:string)=>`${prefix}_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
+
+function isRoutingV2Quote(quote:BetaJob['quote']){
+  return quote?.routing_core_version==='V2';
+}
+
+function assertJobQuoteFresh(quote:NonNullable<BetaJob['quote']>){
+  if(!isRoutingV2Quote(quote)){
+    betaEconomicsService.assertQuoteFresh(quote);
+    return;
+  }
+  const expires=Date.parse(quote.expires_at);
+  if(!Number.isFinite(expires)||expires<=Date.now()){
+    throw Object.assign(new Error('A cotação V2 expirou. Atualize o preço antes de gerar.'),{code:'JOB_QUOTE_EXPIRED'});
+  }
+}
+
+function routingV2QuoteSignature(routeId:string,creditPrice:number,validUntil:string){
+  return crypto.createHash('sha256').update(`routing-v2|${routeId}|${creditPrice}|${validUntil}`).digest('hex');
+}
+
+async function canUseRoutingV2(request:BetaJobRequest){
+  if(request.model_id==='AUTO')return false;
+  return routingV2CatalogService.hasReadyRoute(request.model_id,request.capability_id);
+}
 
 function generationModeForCapability(capabilityId:string):GenerationMode|null{
   if(capabilityId==='text-to-image')return'TEXT_TO_IMAGE';
@@ -311,8 +338,10 @@ async function createQueuedAttempt(job:BetaJob,userId:string){
     throw Object.assign(new Error('O job precisa estar cotado ou em estado recuperável antes de executar.'),{code:'JOB_INVALID_STATE'});
   }
   if(!versioned.job.quote)throw Object.assign(new Error('Cotação do job não encontrada.'),{code:'JOB_QUOTE_REQUIRED'});
-  betaEconomicsService.assertQuoteFresh(versioned.job.quote);
-  await betaEconomicsService.assertQuotedModelEligible(versioned.job.quote,versioned.job.request.capability_id);
+  assertJobQuoteFresh(versioned.job.quote);
+  if(!isRoutingV2Quote(versioned.job.quote)){
+    await betaEconomicsService.assertQuotedModelEligible(versioned.job.quote,versioned.job.request.capability_id);
+  }
   const attemptNumber=versioned.job.attempt_count+1;
   const attemptId=`batt_${versioned.job.job_id}_${attemptNumber}`;
   const timestamp=now();
@@ -345,8 +374,30 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
 
   try{
     const quote=running.quote!;
-    betaEconomicsService.assertQuoteFresh(quote);
+    assertJobQuoteFresh(quote);
     await betaEconomicsService.assertExecutionEnabled();
+    if(isRoutingV2Quote(quote)){
+      const {mode}=await validateRequest(running.request,quote.selected_model_id,userId);
+      void mode;
+      await betaEconomicsService.recordLedgerEvent({event_id:`exec:${running.job_id}:${currentAttempt.attempt_id}`,event_type:'EXECUTION_STARTED',user_id:userId,job_id:running.job_id,generation_id:null,requested_model_id:quote.requested_model_id,selected_model_id:quote.selected_model_id,routing_mode:quote.routing_mode,pricing_policy_id:quote.pricing_policy_id,retail_pricing_id:quote.retail_pricing_id,pricing_signature_hash:quote.pricing_signature_hash,credit_price:quote.credit_price,quote_expires_at:quote.expires_at});
+      const generation=await routingV2JobBridge.start(running,userId,{credit_price:quote.credit_price,client_request_id:currentAttempt.execution_key});
+      await betaEconomicsService.recordLedgerEvent({event_id:`linked:${running.job_id}:${currentAttempt.attempt_id}`,event_type:'EXECUTION_LINKED',user_id:userId,job_id:running.job_id,generation_id:generation.generation_id,requested_model_id:quote.requested_model_id,selected_model_id:quote.selected_model_id,routing_mode:quote.routing_mode,pricing_policy_id:quote.pricing_policy_id,retail_pricing_id:quote.retail_pricing_id,pricing_signature_hash:quote.pricing_signature_hash,credit_price:quote.credit_price,quote_expires_at:quote.expires_at});
+      const mapped=generationStatusToJobStatus(generation.status);
+      const latest=await betaJobRepository.getJobWithVersion(running.job_id,userId);
+      if(!latest)return running;
+      const timestamp=now();
+      const next={...latest.job,status:mapped,linked_generation_id:generation.generation_id,updated_at:timestamp,
+        completed_at:mapped==='SUCCEEDED'?timestamp:latest.job.completed_at,
+        failed_at:mapped==='FAILED'?timestamp:latest.job.failed_at,
+        cancelled_at:mapped==='CANCELLED'?timestamp:latest.job.cancelled_at,
+        error_code:(generation as any).error_code||null,error_message:(generation as any).error_message||null,result_asset_ids:(generation as any).result_asset_ids||[],result_text:(generation as any).result_text||null,result_structured:(generation as any).result_structured||null} as BetaJob;
+      if(latest.job.status!==mapped)assertJobTransition(latest.job.status,mapped);
+      await betaJobRepository.saveConditional(next,latest.updateTime);
+      const attemptStatus=mapped==='SUCCEEDED'?'SUCCEEDED':mapped==='FAILED'?'FAILED':mapped==='CANCELLED'?'CANCELLED':'RUNNING';
+      await markAttempt(running.job_id,userId,currentAttempt,attemptStatus,{generation_id:generation.generation_id,
+        completed_at:isTerminalJobStatus(mapped)?timestamp:null,error_code:(generation as any).error_code||null,error_message:(generation as any).error_message||null});
+      return next;
+    }
     await betaEconomicsService.assertQuotedModelEligible(quote,running.request.capability_id);
     const {mode}=await validateRequest(running.request,quote.selected_model_id,userId);
     const context=await pricingContext(userId,running.request);
@@ -383,7 +434,9 @@ async function executeAttempt(job:BetaJob,attempt:BetaJobAttempt,userId:string,r
   }catch(error:any){
     const existing=await generationRepository.findByClientRequest(userId,currentAttempt.execution_key).catch(()=>null);
     if(existing){
-      const recovered=await generationService.getGeneration(existing.generation_id,userId).catch(()=>existing);
+      const recovered=existing.routing_core_version==='V2'
+        ?await routingV2ExecutionService.refresh(existing.generation_id,userId).catch(()=>existing)
+        :await generationService.getGeneration(existing.generation_id,userId).catch(()=>existing);
       const latest=await betaJobRepository.getJobWithVersion(running.job_id,userId);
       if(latest&&latest.job.status==='RUNNING'){
         const mapped=generationStatusToJobStatus(recovered?.status||existing.status);
@@ -432,7 +485,10 @@ async function reconcileJob(job:BetaJob,userId:string){
     }
   }
   if(!generationId)return job;
-  const generation=await generationService.getGeneration(generationId,userId);
+  const storedGeneration:any=await generationRepository.getGeneration(generationId);
+  const generation=storedGeneration?.routing_core_version==='V2'
+    ?await routingV2ExecutionService.refresh(generationId,userId)
+    :await generationService.getGeneration(generationId,userId);
   if(!generation)return job;
   const mapped=generationStatusToJobStatus(generation.status);
   if(mapped===job.status&&job.linked_generation_id===generationId)return job;
@@ -487,6 +543,22 @@ export const betaJobOrchestrator={
         try{betaEconomicsService.assertQuoteFresh(current.quote);return current;}catch{}
       }
       const {mode}=await validateRequest(current.request,undefined,userId);
+      if(await canUseRoutingV2(current.request)){
+        const preview=await routingV2JobBridge.preview(userId,current.request);
+        const timestamp=now();
+        const expiresAt=preview.pricing_valid_until;
+        const routeId=preview.route.route_id;
+        const pricingId=`routing-v2:${routeId}`;
+        const signature=routingV2QuoteSignature(routeId,preview.retail_credits,expiresAt);
+        const quoted=await saveTransition(current,userId,'QUOTED',{
+          quote:{credit_price:preview.retail_credits,retail_pricing_id:pricingId,retail_pricing_version:1,pricing_signature_hash:signature,
+            requested_model_id:current.request.model_id,selected_model_id:current.request.model_id,routing_mode:'MANUAL',
+            pricing_policy_id:pricingId,quoted_at:timestamp,expires_at:expiresAt,routing_core_version:'V2',routing_v2_route_id:routeId},
+          quoted_at:timestamp,error_code:null,error_message:null,
+        });
+        await betaEconomicsService.recordLedgerEvent({event_id:`quote:${current.job_id}:${timestamp}`,event_type:'QUOTE_AUTHORIZED',user_id:userId,job_id:current.job_id,generation_id:null,requested_model_id:current.request.model_id,selected_model_id:current.request.model_id,routing_mode:'MANUAL',pricing_policy_id:pricingId,retail_pricing_id:pricingId,pricing_signature_hash:signature,credit_price:preview.retail_credits,quote_expires_at:expiresAt});
+        return quoted;
+      }
       const context=await pricingContext(userId,current.request);
       const base=await pricingInput(userId,current.request,mode,current.request.model_id,context);
       const {userId:_userId,model_id:_modelId,mode:_mode,...pricingRest}=base;
@@ -527,7 +599,7 @@ export const betaJobOrchestrator={
         throw Object.assign(new Error('Apenas jobs falhos ou cancelados podem ser reenfileirados.'),{code:'JOB_RETRY_UNAVAILABLE'});
       }
       if(!current.quote)throw Object.assign(new Error('Refaça a cotação antes de tentar novamente.'),{code:'JOB_QUOTE_REQUIRED'});
-      betaEconomicsService.assertQuoteFresh(current.quote);
+      assertJobQuoteFresh(current.quote);
       const queued=await createQueuedAttempt(current,userId);
       await inlineBetaJobQueue.enqueue(queued.job,queued.attempt,async()=>{await executeAttempt(queued.job,queued.attempt,userId,reqHost,idToken);});
       return this.get(userId,jobId,true);
@@ -538,7 +610,10 @@ export const betaJobOrchestrator={
     return mutation({userId,jobId,action:'CANCEL',idempotencyKey},async()=>{
       const current=await this.get(userId,jobId,true);
       if(isTerminalJobStatus(current.status))return current;
-      if(current.linked_generation_id)await generationService.cancelGeneration(current.linked_generation_id,userId);
+      if(current.linked_generation_id){
+        if(isRoutingV2Quote(current.quote))await routingV2ExecutionService.cancel(current.linked_generation_id,userId);
+        else await generationService.cancelGeneration(current.linked_generation_id,userId);
+      }
       const cancelled=await saveTransition(current,userId,'CANCELLED',{cancelled_at:now(),error_code:null,error_message:null});
       const attempts=await betaJobRepository.listAttempts(jobId,userId);
       const attempt=attempts.find(item=>item.attempt_id===cancelled.current_attempt_id);
