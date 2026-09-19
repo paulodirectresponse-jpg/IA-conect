@@ -85,9 +85,17 @@ export const routingV2MigrationService={
 
     for(const model of v1Models.filter(item=>item.status!=='INACTIVE')){
       try{
-        if(await routingV2Repository.getModel(model.model_id)){report.models.existing++;continue;}
         const capabilities=capabilityIdsForModel(model);
         if(!capabilities.length){report.models.skipped.push(`${model.model_id}: sem capability migrável`);continue;}
+        const existingModel=await routingV2Repository.getModel(model.model_id);
+        if(existingModel){
+          const merged=Array.from(new Set([...(existingModel.capabilities||[]),...capabilities])) as CapabilityId[];
+          if(merged.length!==existingModel.capabilities.length){
+            await routingV2ModelService.setCapabilities(model.model_id,merged);
+          }
+          report.models.existing++;
+          continue;
+        }
         await routingV2ModelService.create({
           model_id:model.model_id,
           name:model.name,
