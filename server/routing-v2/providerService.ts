@@ -2,6 +2,7 @@ import { routingV2Repository } from './repository.js';
 import { RoutingV2Provider, RoutingV2ProviderStatus, RoutingV2ProviderType } from './domain.js';
 import { routingV2AdapterRegistry } from './adapterRegistry.js';
 import { ensureRoutingV2LegacyAdapter } from './legacyAdapterBridge.js';
+import { createRoutingV2LegacyWrapperAdapter } from './legacyWrapperAdapter.js';
 
 const now=()=>new Date().toISOString();
 const slugify=(value:string)=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
@@ -30,6 +31,10 @@ function resolveAdapter(adapterId:string){
     const providerId=adapterId.slice('legacy:'.length).trim();
     return providerId?ensureRoutingV2LegacyAdapter(providerId):null;
   }
+  if(adapterId.startsWith('wrapper:')){
+    const providerId=adapterId.slice('wrapper:'.length).trim();
+    return providerId?createRoutingV2LegacyWrapperAdapter(providerId):null;
+  }
   return null;
 }
 
@@ -48,9 +53,9 @@ function validateAdapterId(value:string){
 
 
 export const ROUTING_V2_CORE_PROVIDERS=[
-  {provider_id:'provider-wavespeed',name:'WaveSpeed AI',type:'AGGREGATOR' as const,adapter_id:'legacy:provider-wavespeed',priority:110},
-  {provider_id:'provider-atlas',name:'Atlas Cloud',type:'AGGREGATOR' as const,adapter_id:'legacy:provider-atlas',priority:100},
-  {provider_id:'provider-runware',name:'Runware',type:'AGGREGATOR' as const,adapter_id:'legacy:provider-runware',priority:90},
+  {provider_id:'provider-wavespeed',name:'WaveSpeed AI',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-wavespeed',priority:110},
+  {provider_id:'provider-atlas',name:'Atlas Cloud',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-atlas',priority:100},
+  {provider_id:'provider-runware',name:'Runware',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-runware',priority:90},
 ];
 
 export const routingV2ProviderService={
