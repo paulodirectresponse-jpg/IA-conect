@@ -11,9 +11,12 @@ import { routingV2AdapterRegistry } from '../routing-v2/adapterRegistry.js';
 import { ensureRoutingV2LegacyAdapter } from '../routing-v2/legacyAdapterBridge.js';
 import { routingV2ReadinessService } from '../routing-v2/readinessService.js';
 import { routingV2CutoverService } from '../routing-v2/cutoverService.js';
+import { routingV2HealthAdminRoutes } from '../routing-v2/adminHealthRoutes.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
+
+adminRoutingV2Router.use(routingV2HealthAdminRoutes);
 
 function adapterFor(provider:any){
   const registered=routingV2AdapterRegistry.get(provider.adapter_id);

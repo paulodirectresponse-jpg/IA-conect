@@ -5,6 +5,7 @@ import { RoutingV2BillingConfig, RoutingV2Provider, RoutingV2ProviderRoute } fro
 import { routingV2PricingSettingsService } from './pricingSettingsService.js';
 import { reconcileRoutingV2Route } from './routeReconciler.js';
 import { routingV2Repository } from './repository.js';
+import { providerHealthService } from './providerHealthService.js';
 
 export interface RoutingV2PriceSyncRow{
   route_id:string;
@@ -42,7 +43,9 @@ async function providerRuntime(provider:RoutingV2Provider){
   const adapter=routingV2AdapterRegistry.get(provider.adapter_id);
   if(!adapter||!adapter.isConfigured(provider))return{adapter:null,runtime_status:'UNAVAILABLE' as const};
   try{
-    const health=await adapter.health(provider);
+    // Use new health service with persistence, fallback to adapter health if needed
+    const healthResult=await providerHealthService.checkAndPersist(provider);
+    const health={status:healthResult.health_status as any,checked_at:healthResult.checked_at,message:healthResult.message};
     return{adapter,runtime_status:health.status,health};
   }catch{
     return{adapter,runtime_status:'UNAVAILABLE' as const};

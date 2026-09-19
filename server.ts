@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { apiRootRouter } from './server/routes/index.js';
+import './server/routing-v2/health.init.js';
 
 async function startServer(){
  const app=express();const PORT=Number(process.env.PORT||3000);app.use('/api',apiRootRouter);app.get('/health',(_req,res)=>res.json({status:'ok',service:'ia-conect',stage:'credits-v2'}));
