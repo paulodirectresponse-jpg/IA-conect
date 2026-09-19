@@ -1,6 +1,7 @@
 import { routingV2Repository } from './repository.js';
 import { RoutingV2Provider, RoutingV2ProviderStatus, RoutingV2ProviderType } from './domain.js';
 import { routingV2AdapterRegistry } from './adapterRegistry.js';
+import { ensureRoutingV2LegacyAdapter } from './legacyAdapterBridge.js';
 
 const now=()=>new Date().toISOString();
 const slugify=(value:string)=>String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
@@ -20,6 +21,16 @@ export interface UpdateRoutingV2ProviderInput{
   priority?:number;
   adapter_id?:string;
   secret_reference?:string|null;
+}
+
+function resolveAdapter(adapterId:string){
+  const registered=routingV2AdapterRegistry.get(adapterId);
+  if(registered)return registered;
+  if(adapterId.startsWith('legacy:')){
+    const providerId=adapterId.slice('legacy:'.length).trim();
+    return providerId?ensureRoutingV2LegacyAdapter(providerId):null;
+  }
+  return null;
 }
 
 function validateId(value:string,label:string){
@@ -44,7 +55,7 @@ export const routingV2ProviderService={
     const adapterId=validateId(input.adapter_id,'adapter_id');
     if(!name)throw new Error('Nome do provider é obrigatório.');
     if(await routingV2Repository.getProvider(providerId))throw new Error('Provider V2 já existe.');
-    const adapter=routingV2AdapterRegistry.get(adapterId);
+    const adapter=resolveAdapter(adapterId);
     if(!adapter)throw new Error('Adapter V2 não registrado.');
 
     const timestamp=now();
@@ -75,7 +86,7 @@ export const routingV2ProviderService={
     const current=await routingV2Repository.getProvider(providerId);
     if(!current)throw new Error('Provider V2 não encontrado.');
     const adapterId=input.adapter_id===undefined?current.adapter_id:validateId(input.adapter_id,'adapter_id');
-    const adapter=routingV2AdapterRegistry.get(adapterId);
+    const adapter=resolveAdapter(adapterId);
     if(!adapter)throw new Error('Adapter V2 não registrado.');
     const next:RoutingV2Provider={
       ...current,
