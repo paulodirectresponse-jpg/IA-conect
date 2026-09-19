@@ -22,8 +22,8 @@ describe('PR-07 Catalog/Admin/Economics architecture',()=>{
 
   it('enforces quote TTL before queue and execution',()=>{
     const jobs=read('server/beta/jobs/jobOrchestrator.ts');
-    expect(jobs).toContain('betaEconomicsService.assertQuoteFresh(versioned.job.quote)');
-    expect(jobs).toContain('betaEconomicsService.assertQuoteFresh(quote)');
+    expect(jobs).toContain('assertJobQuoteFresh(versioned.job.quote)');
+    expect(jobs).toContain('assertJobQuoteFresh(quote)');
     expect(jobs).toContain('expires_at:expiresAt');
   });
 
