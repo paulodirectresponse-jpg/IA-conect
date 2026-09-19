@@ -1,4 +1,5 @@
 import { RoutingV2BillingConfig, RoutingV2Currency } from './domain.js';
+import { routingV2CustomFormulaRegistry } from './customFormulaRegistry.js';
 
 export interface RoutingV2BillingInput{
   duration_seconds?:number;
@@ -52,5 +53,6 @@ export function calculateRoutingV2ProviderCost(config:RoutingV2BillingConfig,inp
     if(!match)throw Object.assign(new Error('Nenhuma entrada da matriz corresponde à configuração solicitada.'),{code:'ROUTING_V2_BILLING_MATRIX_MISS'});
     return{amount:match.price,currency:config.currency,billing_type:config.type,quantity:1,unit_label:'matrix'};
   }
-  throw Object.assign(new Error('CUSTOM_FORMULA ainda não possui executor registrado.'),{code:'ROUTING_V2_CUSTOM_FORMULA_UNAVAILABLE'});
+  const custom=routingV2CustomFormulaRegistry.evaluate(config,input);
+  return{...custom,currency:config.currency,billing_type:config.type};
 }
