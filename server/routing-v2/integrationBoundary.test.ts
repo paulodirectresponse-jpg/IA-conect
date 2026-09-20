@@ -63,6 +63,13 @@ describe('Routing Core V2 integration boundary',()=>{
     expect(bridge).not.toContain('smartRouterService');
   });
 
+  it('uses the documented Flux 1.1 Pro submission schema',()=>{
+    const adapter=read('server/adapters/wavespeedProviderAdapter.ts');
+    expect(adapter).toContain("endpoint==='wavespeed-ai/flux-1.1-pro'");
+    expect(adapter).toContain('delete out.resolution');
+    expect(adapter).toContain('delete out.enable_sync_mode');
+  });
+
   it('keeps V2 generation recovery and cancellation inside the V2 execution lifecycle',()=>{
     const orchestrator=read('server/beta/jobs/jobOrchestrator.ts');
     const execution=read('server/routing-v2/executionService.ts');

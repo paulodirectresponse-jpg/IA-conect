@@ -69,6 +69,12 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
     const refs=params.references.filter(r=>r.type==='IMAGE'),endpoint=this.modelName(params.model_id,params.mode,params.provider_model_identifier,String(params.capability_id||'')),capability=String(params.capability_id||'');
     const source=refs.find(ref=>ref.role==='SOURCE')||refs.find(ref=>ref.role!=='MASK')||refs[0],mask=refs.find(ref=>ref.role==='MASK');
     const out:any={prompt:compileProviderReferencePrompt(params,'wavespeed'),aspect_ratio:params.aspect_ratio,resolution:String(params.resolution||'1K').toLowerCase(),output_format:'png',enable_sync_mode:false,enable_base64_output:false};
+    if(endpoint==='wavespeed-ai/flux-1.1-pro'){
+      delete out.resolution;
+      delete out.enable_sync_mode;
+      out.output_format='jpg';
+      if(params.seed!==null&&params.seed!==undefined)out.seed=params.seed;
+    }
     if(params.mode==='IMAGE_TO_IMAGE'){
       if(!source)throw Object.assign(new Error('Adicione uma imagem de origem.'),{code:'REFERENCE_REQUIRED'});
       out.images=[source.provider_accessible_url];
