@@ -25,6 +25,15 @@ describe('phase 3 generation invariants',()=>{
     expect(routeBlock).toContain('submitCandidate');
   });
 
+  it('returns terminal V2 generations without polling the provider again',()=>{
+    const source=read('server/services/generationService.ts');
+    const refreshStart=source.indexOf('async refreshGenerationState');
+    const refreshEnd=source.indexOf('async getGeneration',refreshStart);
+    const refreshBlock=source.slice(refreshStart,refreshEnd);
+    expect(refreshBlock.indexOf('if(terminal(generation.status))return generation;'))
+      .toBeLessThan(refreshBlock.indexOf("routing_core_version==='V2'"));
+  });
+
   it('renders prompt text only once',()=>{
     const source=read('src/components/workspace/PromptComposer.tsx');
     expect(source).not.toContain('highlightRef');
