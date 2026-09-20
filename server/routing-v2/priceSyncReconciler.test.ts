@@ -18,10 +18,10 @@ const provider:RoutingV2Provider={
 function route(validUntil=future):RoutingV2ProviderRoute{
   return{
     route_id:'route_v2_test',model_id:'model-test',capability_id:'text-to-video',provider_id:provider.provider_id,
-    provider_model_identifier:'model/test',status:'PRICED',pricing_status:'CURRENT',runtime_status:'HEALTHY',
+    provider_model_identifier:'model/test',mapping_source:'PROVIDER_DOCS',mapping_source_reference:'https://example.test/model',mapping_verified_at:now,status:'PRICED',pricing_status:'CURRENT',runtime_status:'HEALTHY',
     billing_type:'PER_SECOND',billing_config:{type:'PER_SECOND',currency:'USD',price_per_second:0.1},
     pricing_snapshot:{
-      billing_config:{type:'PER_SECOND',currency:'USD',price_per_second:0.1},source:'PROVIDER_CATALOG_API',
+      billing_config:{type:'PER_SECOND',currency:'USD',price_per_second:0.1},source:'PROVIDER_CATALOG_API',source_reference:'https://example.test/pricing',
       provider_cost_reference:0.1,safe_cogs_brl:0.55,retail_price_credits:102,expected_margin_percent:40,
       fx_rate_usd_brl:5.2,fetched_at:now,valid_until:validUntil,
     },

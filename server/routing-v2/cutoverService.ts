@@ -16,22 +16,8 @@ export const routingV2CutoverService={
 
   async set(mode:RoutingV2CutoverMode,updatedBy?:string|null){
     if(!['HYBRID','V2_ONLY'].includes(mode))throw new Error('Modo de cutover inválido.');
-    if(isPreview()&&mode==='V2_ONLY'){
-      throw Object.assign(new Error('O ambiente isolado de preview não pode ativar V2_ONLY.'),{
-        code:'ROUTING_V2_PREVIEW_V2_ONLY_BLOCKED',
-      });
-    }
+    if(mode==='V2_ONLY')throw Object.assign(new Error('V2_ONLY permanece proibido; HYBRID e fallback V1 são obrigatórios.'),{code:'ROUTING_V2_V2_ONLY_BLOCKED'});
     const audit=await routingV2ReadinessService.audit();
-    if(mode==='V2_ONLY'){
-      const ready=Number(audit.coverage.ready_model_capabilities||0);
-      const required=Number(audit.coverage.required_model_capabilities||0);
-      if(required<=0||ready!==required){
-        throw Object.assign(new Error('V2_ONLY exige cobertura READY completa para todas as model-capabilities ativas do V2.'),{
-          code:'ROUTING_V2_CUTOVER_NOT_READY',
-          details:audit.coverage,
-        });
-      }
-    }
     const state={mode,updated_at:new Date().toISOString(),updated_by:updatedBy||null};
     await routingV2Repository.saveCutoverState(state);
     return{...state,preview:isPreview(),readiness:audit.coverage};

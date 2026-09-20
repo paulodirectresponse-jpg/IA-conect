@@ -17,7 +17,7 @@ describe('Routing Core V2 greenfield readiness and reset',()=>{
   it('keeps the isolated preview incapable of enabling V2_ONLY',()=>{
     const cutover=read('server/routing-v2/cutoverService.ts');
     const preview=read('wrangler.routing-v2-preview.jsonc');
-    expect(cutover).toContain('ROUTING_V2_PREVIEW_V2_ONLY_BLOCKED');
+    expect(cutover).toContain('ROUTING_V2_V2_ONLY_BLOCKED');
     expect(cutover).toContain('ROUTING_V2_PREVIEW');
     expect(preview).toContain('"name": "ia-conect-routing-v2-preview"');
     expect(preview).toContain('"ROUTING_V2_PREVIEW": "true"');

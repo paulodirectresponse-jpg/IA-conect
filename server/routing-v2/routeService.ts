@@ -15,6 +15,9 @@ export interface CreateRoutingV2RouteInput{
   capability_id:CapabilityId;
   provider_id:string;
   provider_model_identifier:string;
+  mapping_source:'PROVIDER_CATALOG_API'|'PROVIDER_DOCS'|'MANUAL_VERIFIED';
+  mapping_source_reference:string;
+  mapping_verified_at:string;
   billing_config:RoutingV2BillingConfig;
   priority?:number;
 }
@@ -68,6 +71,7 @@ export const routingV2RouteService={
     const providerId=String(input.provider_id||'').trim();
     const identifier=String(input.provider_model_identifier||'').trim();
     if(!modelId||!providerId||!identifier)throw new Error('Model, provider e provider_model_identifier são obrigatórios.');
+    if(!input.mapping_source_reference?.trim()||!Number.isFinite(Date.parse(input.mapping_verified_at)))throw new Error('Route V2 exige prova verificável do mapping.');
     assertRoutingV2BillingConfig(input.billing_config);
     await validateRouteReferences({...input,model_id:modelId,provider_id:providerId,provider_model_identifier:identifier});
     const routeId=routingV2RouteId(modelId,input.capability_id,providerId,identifier);
@@ -79,6 +83,9 @@ export const routingV2RouteService={
       capability_id:input.capability_id,
       provider_id:providerId,
       provider_model_identifier:identifier,
+      mapping_source:input.mapping_source,
+      mapping_source_reference:input.mapping_source_reference.trim(),
+      mapping_verified_at:new Date(input.mapping_verified_at).toISOString(),
       status:'MAPPED',
       pricing_status:'UNKNOWN',
       runtime_status:'UNKNOWN',

@@ -12,6 +12,7 @@
   },
   "vars": {
     "ROUTING_V2_PREVIEW": "true",
+    "ROUTING_V2_NAMESPACE": "preview",
     "ATLAS_BASE_URL": "https://api.atlascloud.ai",
     "WAVESPEED_BASE_URL": "https://api.wavespeed.ai",
     "RUNWARE_BASE_URL": "https://api.runware.ai/v1",

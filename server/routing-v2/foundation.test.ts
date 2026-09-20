@@ -15,6 +15,7 @@ function readyRoute():RoutingV2ProviderRoute{
     capability_id:'text-to-video',
     provider_id:'provider-google-direct',
     provider_model_identifier:'veo-3.1',
+    mapping_source:'PROVIDER_DOCS',mapping_source_reference:'https://example.test/model',mapping_verified_at:now,
     status:'READY',
     pricing_status:'CURRENT',
     runtime_status:'HEALTHY',
@@ -23,6 +24,7 @@ function readyRoute():RoutingV2ProviderRoute{
     pricing_snapshot:{
       billing_config:{type:'PER_SECOND',currency:'USD',price_per_second:0.1},
       source:'PROVIDER_CATALOG_API',
+      source_reference:'https://example.test/pricing',
       provider_cost_reference:0.1,
       safe_cogs_brl:0.55,
       retail_price_credits:110,

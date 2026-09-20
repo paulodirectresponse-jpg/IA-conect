@@ -4,7 +4,8 @@ import { providerHealthService } from './providerHealthService.js';
 import { routingV2ProviderService } from './providerService.js';
 import { getProviderHealthCheck } from './healthAdapter.js';
 
-describe('Health Integration Tests', () => {
+const runtimeEnabled=process.env.ROUTING_V2_RUNTIME_TEST==='true'&&Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+(runtimeEnabled?describe:describe.skip)('Health Runtime Integration Tests', () => {
   beforeAll(async () => {
     // Bootstrap core providers if not already done
     const existing = await routingV2Repository.listProviders();

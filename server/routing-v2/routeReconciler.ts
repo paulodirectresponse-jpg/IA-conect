@@ -24,11 +24,13 @@ export function deriveRoutingV2RouteStatus(input:RoutingV2ReconcileInput):Routin
   const now=input.now||new Date().toISOString();
   const snapshot=route.pricing_snapshot;
   const hasRetail=Boolean(snapshot&&Number.isFinite(Number(snapshot.retail_price_credits))&&Number(snapshot.retail_price_credits)>0);
+  const hasEvidence=Boolean(route.mapping_source_reference?.trim()&&Number.isFinite(Date.parse(route.mapping_verified_at))&&snapshot?.source_reference?.trim());
+  const economicsValid=Boolean(snapshot&&Number.isFinite(Number(snapshot.safe_cogs_brl))&&Number(snapshot.safe_cogs_brl)>0&&Number.isFinite(Number(snapshot.expected_margin_percent))&&Number(snapshot.expected_margin_percent)>=0);
   const fresh=Boolean(snapshot&&isFresh(snapshot.valid_until,now));
 
   if(pricing==='INVALID')return'DEGRADED';
   if(pricing==='STALE'||!fresh)return snapshot?'DEGRADED':'MAPPED';
-  if(pricing==='CURRENT'&&hasRetail&&runtime==='HEALTHY')return'READY';
+  if(pricing==='CURRENT'&&hasRetail&&hasEvidence&&economicsValid&&runtime==='HEALTHY')return'READY';
   if(pricing==='CURRENT'&&hasRetail)return runtime==='UNKNOWN'?'PRICED':'DEGRADED';
   return'MAPPED';
 }

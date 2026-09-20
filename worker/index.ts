@@ -3,6 +3,8 @@ import express from 'express';
 import { apiRootRouter } from '../server/routes/index.js';
 import { pricingSyncService } from '../server/services/pricingSyncService.js';
 import { routingV2ScheduledSyncService } from '../server/routing-v2/scheduledSyncService.js';
+import '../server/routing-v2/health.init.js';
+import '../server/routing-v2/adapter.init.js';
 
 const app=express();
 app.use('/api',apiRootRouter);

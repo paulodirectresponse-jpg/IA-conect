@@ -8,6 +8,7 @@ import { routingV2AdapterRegistry } from './adapterRegistry.js';
 import { routingV2GenerationPricingService } from './generationPricingService.js';
 import { routingV2Repository } from './repository.js';
 import { ensureRoutingV2LegacyAdapter } from './legacyAdapterBridge.js';
+import { createRoutingV2LegacyWrapperAdapter } from './legacyWrapperAdapter.js';
 
 export interface RoutingV2ExecutionReference{
   url:string;
@@ -50,6 +51,7 @@ function executionAdapter(provider:any){
   const registered=routingV2AdapterRegistry.get(provider.adapter_id);
   if(registered)return registered;
   if(provider.adapter_id===`legacy:${provider.provider_id}`)return ensureRoutingV2LegacyAdapter(provider.provider_id);
+  if(provider.adapter_id===`wrapper:${provider.provider_id}`)return createRoutingV2LegacyWrapperAdapter(provider.provider_id);
   return null;
 }
 

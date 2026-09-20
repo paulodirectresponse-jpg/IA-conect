@@ -88,6 +88,9 @@ export interface RoutingV2ProviderRoute{
   capability_id:CapabilityId;
   provider_id:string;
   provider_model_identifier:string;
+  mapping_source:'PROVIDER_CATALOG_API'|'PROVIDER_DOCS'|'MANUAL_VERIFIED';
+  mapping_source_reference:string;
+  mapping_verified_at:string;
   status:RoutingV2RouteStatus;
   pricing_status:RoutingV2PricingStatus;
   runtime_status:RoutingV2RuntimeStatus;
@@ -133,13 +136,14 @@ export function assertRoutingV2BillingConfig(config:RoutingV2BillingConfig){
 
 export function assertRoutingV2Route(route:RoutingV2ProviderRoute){
   if(!route.route_id||!route.model_id||!route.provider_id||!route.provider_model_identifier)throw new Error('Route V2 incompleta.');
+  if(!route.mapping_source||!route.mapping_source_reference?.trim()||!Number.isFinite(Date.parse(route.mapping_verified_at)))throw new Error('Route V2 exige mapping verificável.');
   if(route.billing_type!==route.billing_config.type)throw new Error('billing_type deve corresponder a billing_config.type.');
   if(!Number.isFinite(route.priority))throw new Error('Prioridade da Route V2 inválida.');
   assertRoutingV2BillingConfig(route.billing_config);
   if(route.status==='READY'){
     const pricing=route.pricing_snapshot;
-    if(route.pricing_status!=='CURRENT'||route.runtime_status!=='HEALTHY'||!pricing||!Number.isFinite(pricing.retail_price_credits)||Number(pricing.retail_price_credits)<=0){
-      throw new Error('Route READY exige pricing CURRENT, runtime HEALTHY e preço retail positivo.');
+    if(route.pricing_status!=='CURRENT'||route.runtime_status!=='HEALTHY'||!pricing||!pricing.source_reference?.trim()||!Number.isFinite(Date.parse(pricing.fetched_at))||!Number.isFinite(Date.parse(pricing.valid_until))||Date.parse(pricing.valid_until)<=Date.parse(pricing.fetched_at)||!Number.isFinite(pricing.safe_cogs_brl)||Number(pricing.safe_cogs_brl)<=0||!Number.isFinite(pricing.retail_price_credits)||Number(pricing.retail_price_credits)<=0||!Number.isFinite(pricing.expected_margin_percent)||Number(pricing.expected_margin_percent)<0){
+      throw new Error('Route READY exige mapping, pricing e economics verificáveis, frescos e health real.');
     }
   }
 }

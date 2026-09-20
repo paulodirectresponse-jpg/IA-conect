@@ -13,6 +13,7 @@ function route(overrides:Partial<RoutingV2ProviderRoute>={}):RoutingV2ProviderRo
     capability_id:'text-to-video',
     provider_id:'provider-a',
     provider_model_identifier:'veo-3.1',
+    mapping_source:'PROVIDER_DOCS',mapping_source_reference:'https://example.test/model',mapping_verified_at:new Date().toISOString(),
     status:'READY',
     pricing_status:'CURRENT',
     runtime_status:'HEALTHY',
@@ -21,6 +22,7 @@ function route(overrides:Partial<RoutingV2ProviderRoute>={}):RoutingV2ProviderRo
     pricing_snapshot:{
       billing_config:{type:'PER_SECOND',currency:'USD',price_per_second:0.1},
       source:'PROVIDER_CATALOG_API',
+      source_reference:'https://example.test/pricing',
       provider_cost_reference:0.1,
       safe_cogs_brl:0.50,
       retail_price_credits:100,

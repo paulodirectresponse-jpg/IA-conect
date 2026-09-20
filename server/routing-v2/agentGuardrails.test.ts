@@ -31,6 +31,7 @@ function baseRoute(): RoutingV2ProviderRoute {
     capability_id: 'text-to-image',
     provider_id: provider.provider_id,
     provider_model_identifier: 'verified/model',
+    mapping_source:'PROVIDER_DOCS',mapping_source_reference:'https://example.test/model',mapping_verified_at:now,
     status: 'PRICED',
     pricing_status: 'CURRENT',
     runtime_status: 'HEALTHY',

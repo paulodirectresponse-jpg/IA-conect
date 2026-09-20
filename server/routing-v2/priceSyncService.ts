@@ -116,6 +116,7 @@ export const routingV2PriceSyncService={
         }
 
         const price=await adapter.getPrice(provider,route.provider_model_identifier,route.capability_id);
+        if(!price.source_reference?.trim())throw new Error('Provider não retornou source_reference verificável para pricing.');
         if(price.billing_config.type!==route.billing_type)throw new Error(`Billing type divergente: route=${route.billing_type}, provider=${price.billing_config.type}.`);
 
         const reference=calculateRoutingV2ProviderCost(price.billing_config,referenceInput(price.billing_config));

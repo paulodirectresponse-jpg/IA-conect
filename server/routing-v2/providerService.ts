@@ -53,7 +53,7 @@ function validateAdapterId(value:string){
 
 
 export const ROUTING_V2_CORE_PROVIDERS=[
-  {provider_id:'provider-wavespeed',name:'WaveSpeed AI',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-wavespeed',priority:110},
+  {provider_id:'provider-wavespeed',name:'WaveSpeed AI',type:'AGGREGATOR' as const,adapter_id:'v2:provider-wavespeed',priority:110},
   {provider_id:'provider-atlas',name:'Atlas Cloud',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-atlas',priority:100},
   {provider_id:'provider-runware',name:'Runware',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-runware',priority:90},
 ];
@@ -71,7 +71,11 @@ export const routingV2ProviderService={
     const result:{created:string[];existing:string[];failed:Array<{provider_id:string;error:string}>}={created:[],existing:[],failed:[]};
     for(const input of ROUTING_V2_CORE_PROVIDERS){
       try{
-        if(await routingV2Repository.getProvider(input.provider_id)){result.existing.push(input.provider_id);continue;}
+        const existing=await routingV2Repository.getProvider(input.provider_id);
+        if(existing){
+          if(existing.adapter_id!==input.adapter_id)await this.update(input.provider_id,{adapter_id:input.adapter_id});
+          result.existing.push(input.provider_id);continue;
+        }
         await this.create(input);
         result.created.push(input.provider_id);
       }catch(error:any){
