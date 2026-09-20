@@ -10,6 +10,7 @@ import { betaEconomicsService } from '../catalog/betaEconomicsService.js';
 import { routingV2JobBridge } from '../../routing-v2/jobBridge.js';
 import { routingV2ExecutionService } from '../../routing-v2/executionService.js';
 import { routingV2CutoverService } from '../../routing-v2/cutoverService.js';
+import { routingV2Repository } from '../../routing-v2/repository.js';
 import { validateModelCapability } from '../capabilityRegistry.js';
 import { betaJobRepository } from './jobRepository.js';
 import { inlineBetaJobQueue } from './jobQueue.js';
@@ -202,8 +203,16 @@ async function validateRequest(request:BetaJobRequest,resolvedModelId?:string,us
   const modelId=resolvedModelId||request.model_id;
   const model=modelId==='AUTO'?null:await catalogRepository.getModel(modelId);
   if(modelId!=='AUTO'){
-    const capability=validateModelCapability(model,request.capability_id,requestedControls(request));
-    if(!capability.valid)throw Object.assign(new Error(capability.message||'Capability inválida.'),{code:capability.code||'CAPABILITY_INVALID'});
+    if(model){
+      const capability=validateModelCapability(model,request.capability_id,requestedControls(request));
+      if(!capability.valid)throw Object.assign(new Error(capability.message||'Capability inválida.'),{code:capability.code||'CAPABILITY_INVALID'});
+    }else{
+      const v2Model=await routingV2Repository.getModel(modelId);
+      const decision=await routingV2CutoverService.shouldUseV2(modelId,request.capability_id);
+      if(!v2Model||v2Model.status!=='ACTIVE'||!v2Model.capabilities.includes(request.capability_id)||!decision.use_v2){
+        throw Object.assign(new Error('O modelo selecionado não está disponível.'),{code:'MODEL_NOT_FOUND'});
+      }
+    }
   }
   const promptRequired=new Set(['text-to-image','image-to-image','image-edit','inpaint-mask','outpaint','text-to-video','image-to-video','first-frame','last-frame','video-edit','text-to-speech','sound-effects','music','text-to-3d']);
   if(promptRequired.has(request.capability_id)&&!request.prompt)throw Object.assign(new Error('Prompt é obrigatório para esta capability.'),{code:'VALIDATION_ERROR'});

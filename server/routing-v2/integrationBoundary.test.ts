@@ -45,6 +45,8 @@ describe('Routing Core V2 integration boundary',()=>{
   it('routes Universal Jobs through V2 only when cutover allows it and keeps V1 as HYBRID fallback',()=>{
     const orchestrator=read('server/beta/jobs/jobOrchestrator.ts');
     expect(orchestrator).toContain('routingV2CutoverService.shouldUseV2');
+    expect(orchestrator).toContain('routingV2Repository.getModel');
+    expect(orchestrator).toContain("v2Model.status!=='ACTIVE'");
     expect(orchestrator).toContain('routingV2JobBridge.preview');
     expect(orchestrator).toContain('routingV2JobBridge.start');
     expect(orchestrator).toContain("routing_core_version:'V2'");
