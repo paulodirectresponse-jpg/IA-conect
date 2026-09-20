@@ -8,6 +8,7 @@ import { routingV2PriceSyncService } from '../routing-v2/priceSyncService.js';
 import { creditWalletService } from '../services/creditWalletService.js';
 import { fxRateService } from '../services/fxRateService.js';
 import { betaJobOrchestrator } from '../beta/jobs/jobOrchestrator.js';
+import { userRepository } from '../repositories/userRepository.js';
 
 export const previewRoutingV2ValidationRouter=Router();
 const ONE_TIME_VALIDATION_SECRET_SHA256='c27fe25227bd557734b617090ce8cc633ab4a65cd90dc275fdf0faf5f6f79985';
@@ -54,6 +55,22 @@ previewRoutingV2ValidationRouter.post('/preview/routing-v2/fund-runtime-user',re
     return res.json({success:true,data:{account}});
   }catch(error:any){
     return res.status(400).json({success:false,error:{code:error?.code||'ROUTING_V2_RUNTIME_FUND_FAILED',message:error?.message||'Falha ao financiar a conta sintética.'}});
+  }
+});
+
+previewRoutingV2ValidationRouter.post('/preview/routing-v2/runtime-admin',requireAuth,validationGuard,async(req:AuthenticatedRequest,res)=>{
+  try{
+    const email=String(req.user?.email||'').toLowerCase();
+    if(!/^routing-v2-runtime-[a-z0-9-]+@example\.com$/.test(email)){
+      return res.status(403).json({success:false,error:{code:'ROUTING_V2_RUNTIME_USER_REQUIRED',message:'A conta autenticada não é uma conta sintética de validação.'}});
+    }
+    const user=await userRepository.getById(req.user!.uid);
+    if(!user)return res.status(404).json({success:false,error:{code:'USER_NOT_FOUND',message:'Conta sintética não encontrada.'}});
+    const enabled=req.body?.enabled===true;
+    const saved=await userRepository.save({...user,role:enabled?'ADMIN':'USER',updated_at:new Date().toISOString()});
+    return res.json({success:true,data:{user_id:saved.user_id,role:saved.role}});
+  }catch(error:any){
+    return res.status(400).json({success:false,error:{code:error?.code||'ROUTING_V2_RUNTIME_ADMIN_FAILED',message:error?.message||'Falha ao ajustar a conta sintética.'}});
   }
 });
 
