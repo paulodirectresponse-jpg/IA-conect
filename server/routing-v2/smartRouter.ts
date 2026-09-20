@@ -1,9 +1,11 @@
 import { RoutingV2ProviderRoute } from './domain.js';
 import { routingV2Repository } from './repository.js';
+import { routingV2RouterService, routingV2Candidate } from './routerService.js';
+import { CapabilityId } from '../beta/capabilityRegistry.js';
 
 export interface SmartRouterSelectionCriteria {
-  model_id?: string;
-  capability_id?: string;
+  model_id: string;
+  capability_id: CapabilityId;
   preferred_provider_ids?: string[];
   avoid_degraded?: boolean;
 }
@@ -16,90 +18,21 @@ export interface SmartRouterResult {
 
 export const routingV2SmartRouter = {
   async selectRoute(criteria: SmartRouterSelectionCriteria): Promise<SmartRouterResult> {
-    // Fetch all routes
-    const allRoutes = await routingV2Repository.listRoutes();
-
-    // Filter to only READY routes (invariant: no other status can be used for generation)
-    let readyRoutes = allRoutes.filter(r => r.status === 'READY');
-
-    if (readyRoutes.length === 0) {
-      return {
-        available_routes: [],
-        reason: 'No READY routes available',
-      };
-    }
-
-    // Apply model filter
-    if (criteria.model_id) {
-      readyRoutes = readyRoutes.filter(r => r.model_id === criteria.model_id);
-      if (readyRoutes.length === 0) {
-        return {
-          available_routes: [],
-          reason: `No READY routes for model ${criteria.model_id}`,
-        };
-      }
-    }
-
-    // Apply capability filter
-    if (criteria.capability_id) {
-      readyRoutes = readyRoutes.filter(r => r.capability_id === criteria.capability_id);
-      if (readyRoutes.length === 0) {
-        return {
-          available_routes: [],
-          reason: `No READY routes for capability ${criteria.capability_id}`,
-        };
-      }
-    }
-
-    // Apply provider preference
-    let selectedRoutes = readyRoutes;
-    if (criteria.preferred_provider_ids && criteria.preferred_provider_ids.length > 0) {
-      const preferred = readyRoutes.filter(r =>
-        criteria.preferred_provider_ids!.includes(r.provider_id)
-      );
-      if (preferred.length > 0) {
-        selectedRoutes = preferred;
-      }
-    }
-
-    // Avoid degraded if requested
-    if (criteria.avoid_degraded) {
-      const healthy = selectedRoutes.filter(r => r.runtime_status === 'HEALTHY');
-      if (healthy.length > 0) {
-        selectedRoutes = healthy;
-      }
-    }
-
-    // Sort by:
-    // 1. Healthy first
-    // 2. Then by retail price (cheaper first)
-    // 3. Then by provider (for determinism)
-    selectedRoutes.sort((a, b) => {
-      // Healthy > Degraded
-      const aHealthy = a.runtime_status === 'HEALTHY' ? 0 : 1;
-      const bHealthy = b.runtime_status === 'HEALTHY' ? 0 : 1;
-      if (aHealthy !== bHealthy) return aHealthy - bHealthy;
-
-      // Cheaper first
-      const aPrice = a.pricing_snapshot?.retail_price_credits || Number.MAX_SAFE_INTEGER;
-      const bPrice = b.pricing_snapshot?.retail_price_credits || Number.MAX_SAFE_INTEGER;
-      if (aPrice !== bPrice) return aPrice - bPrice;
-
-      // Deterministic sort by provider
-      return a.provider_id.localeCompare(b.provider_id);
-    });
-
-    const selected = selectedRoutes[0];
-    return {
-      selected_route: selected,
-      available_routes: selectedRoutes,
-      reason: `Selected ${selected.provider_id}/${selected.provider_model_identifier} (READY, ${selected.pricing_snapshot?.retail_price_credits || '?'} credits)`,
-    };
+    try{
+      const decision=await routingV2RouterService.select({
+        model_id:criteria.model_id,capability_id:criteria.capability_id,
+        exclude_provider_ids:criteria.preferred_provider_ids?.length?undefined:[],
+      });
+      let candidates=decision.candidates.map(row=>row.route);
+      if(criteria.preferred_provider_ids?.length){const preferred=candidates.filter(route=>criteria.preferred_provider_ids!.includes(route.provider_id));if(preferred.length)candidates=preferred;}
+      const selected=candidates[0];
+      return{selected_route:selected,available_routes:candidates,reason:decision.reason};
+    }catch(err:any){if(err?.code==='NO_READY_ROUTE_V2')return{available_routes:[],reason:err.message};throw err;}
   },
 
   async listReadyRoutes(): Promise<RoutingV2ProviderRoute[]> {
     const allRoutes = await routingV2Repository.listRoutes();
-    return allRoutes.filter(r => r.status === 'READY');
+    const now=new Date().toISOString();return allRoutes.filter(route=>Boolean(routingV2Candidate(route,now)));
   },
 
   async getReadinessStatus() {
@@ -115,7 +48,7 @@ export const routingV2SmartRouter = {
       ready: byStatus.get('READY') || 0,
       by_status: Object.fromEntries(byStatus),
       ready_routes: allRoutes
-        .filter(r => r.status === 'READY')
+        .filter(r => Boolean(routingV2Candidate(r,new Date().toISOString())))
         .map(r => ({
           route_id: r.route_id,
           model_id: r.model_id,
