@@ -10,7 +10,7 @@ import { fxRateService } from '../services/fxRateService.js';
 import { betaJobOrchestrator } from '../beta/jobs/jobOrchestrator.js';
 
 export const previewRoutingV2ValidationRouter=Router();
-const ONE_TIME_VALIDATION_SECRET_SHA256='525774760047f22929781850823d28f604cc1b51d91ea1c81e088259bb5051ac';
+const ONE_TIME_VALIDATION_SECRET_SHA256='c27fe25227bd557734b617090ce8cc633ab4a65cd90dc275fdf0faf5f6f79985';
 
 function validationGuard(req:AuthenticatedRequest,res:any,next:any){
   if(String(process.env.ROUTING_V2_PREVIEW||'').toLowerCase()!=='true'){
