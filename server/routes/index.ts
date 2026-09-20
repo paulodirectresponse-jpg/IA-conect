@@ -36,6 +36,7 @@ import { betaBatchRouter } from './betaBatchRoutes.js';
 import { betaContextRouter } from './betaContextRoutes.js';
 import { betaCopilotRouter } from './betaCopilotRoutes.js';
 import { betaSharingRouter } from './betaSharingRoutes.js';
+import { previewRoutingV2ValidationRouter } from './previewRoutingV2ValidationRoutes.js';
 
 export const apiRootRouter = Router();
 apiRootRouter.use(serverTimingMiddleware);
@@ -76,3 +77,4 @@ apiRootRouter.use(betaBatchRouter);
 apiRootRouter.use(betaContextRouter);
 apiRootRouter.use(betaCopilotRouter);
 apiRootRouter.use(betaSharingRouter);
+apiRootRouter.use(previewRoutingV2ValidationRouter);

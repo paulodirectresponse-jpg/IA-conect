@@ -5,9 +5,7 @@ import { CANONICAL_MODELS } from './modelBootstrapService.js';
 import { RoutingV2BillingConfig } from './domain.js';
 import { routingV2AdapterRegistry } from './adapterRegistry.js';
 
-// NOTA DE AUDITORIA: Apenas routes comprovadas com provider_model_identifier validados
-// ❌ Removidas: falconsai-video-2, atlas-video-gen, runware-audio-turbo, runware-3d-gen, gpt-4o (não comprovados)
-// ✅ Mantidas: Flux 1 Pro + WaveSpeed/Runware, Stability 3.5 + WaveSpeed/Atlas (potencialmente válidas)
+// Apenas mappings confirmados novamente pelo catálogo autenticado do provider são persistidos.
 
 interface RouteMapping {
   model_id: string;

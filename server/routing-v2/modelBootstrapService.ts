@@ -3,9 +3,9 @@ import { routingV2ModelService } from './modelService.js';
 import { CapabilityId } from '../beta/capabilityRegistry.js';
 import { ModelCategory } from '../../src/types/index.js';
 
-// NOTA DE AUDITORIA: Apenas modelos comprovados em documentação oficial de vendors
-// ❌ Removidos: falconsai-video-2, atlas-video-gen, runware-audio-turbo, runware-3d-gen, gpt-4o (não comprovados)
-// ✅ Mantidos: flux-1-pro (Black Forest Labs oficial), stability-3.5-large (Stability AI oficial)
+// O inventário inicial contém apenas modelos que também possuem mapping autenticado
+// em um catálogo de provider. Modelos meramente documentados, sem Route comprovada,
+// não são materializados no runtime.
 
 export const CANONICAL_MODELS = [
   {
@@ -14,14 +14,6 @@ export const CANONICAL_MODELS = [
     vendor: 'Black Forest Labs',
     category: 'IMAGE' as ModelCategory,
     description: 'High-quality image generation model - https://blackforestlabs.ai',
-    capabilities: ['text-to-image' as CapabilityId],
-  },
-  {
-    model_id: 'model-stability-3.5-large',
-    name: 'Stability 3.5 Large',
-    vendor: 'Stability AI',
-    category: 'IMAGE' as ModelCategory,
-    description: 'Stable Diffusion 3.5 large model for image generation - https://stability.ai',
     capabilities: ['text-to-image' as CapabilityId],
   },
 ];
