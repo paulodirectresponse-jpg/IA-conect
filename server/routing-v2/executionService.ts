@@ -4,6 +4,7 @@ import { CapabilityId } from '../beta/capabilityRegistry.js';
 import { assetRepository, generatedAssetId } from '../repositories/assetRepository.js';
 import { generationRepository } from '../repositories/generationRepository.js';
 import { creditWalletService } from '../services/creditWalletService.js';
+import { generatedAssetStorageService } from '../services/generatedAssetStorageService.js';
 import { routingV2AdapterRegistry } from './adapterRegistry.js';
 import { routingV2GenerationPricingService } from './generationPricingService.js';
 import { routingV2Repository } from './repository.js';
@@ -64,6 +65,10 @@ async function createUniversalAssets(generation:Generation,urls:string[]){
     const assetId=generatedAssetId(generation.generation_id,index);
     const existing=await assetRepository.getAsset(assetId,generation.user_id);
     if(existing){created.push(existing);continue;}
+    const archived=await generatedAssetStorageService.archive({
+      userId:generation.user_id,assetId,sourceUrl:url,fallbackMime:fallbackMime(type),
+      fallbackExtension:type==='IMAGE'?'jpg':type==='AUDIO'?'mp3':type==='MODEL_3D'?'glb':'mp4',
+    });
     created.push(await assetRepository.createAsset({
       asset_id:assetId,
       owner_user_id:generation.user_id,
@@ -71,13 +76,13 @@ async function createUniversalAssets(generation:Generation,urls:string[]){
       category:'GENERIC',
       name:`${type==='IMAGE'?'Imagem':type==='AUDIO'?'Áudio':type==='MODEL_3D'?'Modelo 3D':'Vídeo'} gerado ${generation.generation_id.slice(-6)}`,
       alias:`routing_v2_${generation.generation_id.slice(-8)}_${index+1}`,
-      storage_path:`provider://${generation.provider_id}/${generation.provider_job_id||generation.generation_id}/${index+1}`,
-      public_url:url,
-      thumbnail_url:type==='IMAGE'?url:undefined,
-      preview_url:url,
-      preview_mime_type:fallbackMime(type),
-      mime_type:fallbackMime(type),
-      size_bytes:0,
+      storage_path:archived.storage_path,
+      public_url:archived.public_url,
+      thumbnail_url:type==='IMAGE'?archived.public_url:undefined,
+      preview_url:archived.public_url,
+      preview_mime_type:archived.mime_type,
+      mime_type:archived.mime_type,
+      size_bytes:archived.size_bytes,
       status:'READY',
       origin:'GENERATED',
       source_generation_id:generation.generation_id,
@@ -85,7 +90,7 @@ async function createUniversalAssets(generation:Generation,urls:string[]){
       source_output_index:index,
       source_model_id:generation.model_id,
       source_provider_id:generation.provider_id,
-      media_metadata:{routing_core:'V2',route_id:String((generation as any).routing_v2_route_id||'')},
+      media_metadata:{routing_core:'V2',route_id:String((generation as any).routing_v2_route_id||''),archived:true},
     }));
   }
   return created;
