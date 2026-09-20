@@ -6,6 +6,7 @@ import { routingV2ModelBootstrapService } from '../routing-v2/modelBootstrapServ
 import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapService.js';
 import { routingV2PriceSyncService } from '../routing-v2/priceSyncService.js';
 import { creditWalletService } from '../services/creditWalletService.js';
+import { fxRateService } from '../services/fxRateService.js';
 
 export const previewRoutingV2ValidationRouter=Router();
 const ONE_TIME_VALIDATION_SECRET_SHA256='525774760047f22929781850823d28f604cc1b51d91ea1c81e088259bb5051ac';
@@ -28,7 +29,8 @@ previewRoutingV2ValidationRouter.post('/preview/routing-v2/bootstrap',requireAut
     const providers=await routingV2ProviderService.bootstrapCore();
     const models=await routingV2ModelBootstrapService.bootstrapCanonical();
     const routes=await routingV2RouteBootstrapService.bootstrapCanonical();
-    const pricing=await routingV2PriceSyncService.runBatch({cursor:0,limit:10});
+    const fx=await fxRateService.get(true);
+    const pricing=await routingV2PriceSyncService.runBatch({cursor:0,limit:10,fx_rate_usd_brl:fx.rate});
     return res.json({success:true,data:{providers,models,routes,pricing}});
   }catch(error:any){
     return res.status(400).json({success:false,error:{code:error?.code||'ROUTING_V2_PREVIEW_BOOTSTRAP_FAILED',message:error?.message||'Falha no bootstrap verificável do preview.'}});
