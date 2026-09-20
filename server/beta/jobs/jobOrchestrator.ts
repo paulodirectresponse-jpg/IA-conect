@@ -604,9 +604,21 @@ export const betaJobOrchestrator={
       if(current.status==='RUNNING'||current.status==='SUCCEEDED')return current;
       if(current.status!=='QUOTED')throw Object.assign(new Error('O job precisa estar cotado antes de entrar na fila.'),{code:'JOB_QUOTE_REQUIRED'});
       const queued=await createQueuedAttempt(current,userId);
+      if(String(process.env.ROUTING_V2_PREVIEW||'').toLowerCase()==='true'&&isRoutingV2Quote(queued.job.quote))return queued.job;
       await inlineBetaJobQueue.enqueue(queued.job,queued.attempt,async()=>{await executeAttempt(queued.job,queued.attempt,userId,reqHost,idToken);});
       return this.get(userId,jobId,true);
     });
+  },
+
+  async runQueuedPreview(userId:string,jobId:string){
+    if(String(process.env.ROUTING_V2_PREVIEW||'').toLowerCase()!=='true')throw Object.assign(new Error('Operação disponível apenas no preview V2.'),{code:'NOT_FOUND'});
+    const job=await this.get(userId,jobId,false);
+    if(job.status!=='QUEUED')return this.get(userId,jobId,true);
+    const attempts=await betaJobRepository.listAttempts(jobId,userId);
+    const attempt=attempts.find(item=>item.attempt_id===job.current_attempt_id);
+    if(!attempt)throw Object.assign(new Error('Attempt persistido não encontrado.'),{code:'JOB_ATTEMPT_NOT_FOUND'});
+    await executeAttempt(job,attempt,userId);
+    return this.get(userId,jobId,true);
   },
 
   async retry(userId:string,jobId:string,idempotencyKey:string,reqHost?:string,idToken?:string){

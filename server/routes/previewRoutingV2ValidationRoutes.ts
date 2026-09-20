@@ -7,6 +7,7 @@ import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapServ
 import { routingV2PriceSyncService } from '../routing-v2/priceSyncService.js';
 import { creditWalletService } from '../services/creditWalletService.js';
 import { fxRateService } from '../services/fxRateService.js';
+import { betaJobOrchestrator } from '../beta/jobs/jobOrchestrator.js';
 
 export const previewRoutingV2ValidationRouter=Router();
 const ONE_TIME_VALIDATION_SECRET_SHA256='525774760047f22929781850823d28f604cc1b51d91ea1c81e088259bb5051ac';
@@ -53,5 +54,14 @@ previewRoutingV2ValidationRouter.post('/preview/routing-v2/fund-runtime-user',re
     return res.json({success:true,data:{account}});
   }catch(error:any){
     return res.status(400).json({success:false,error:{code:error?.code||'ROUTING_V2_RUNTIME_FUND_FAILED',message:error?.message||'Falha ao financiar a conta sintética.'}});
+  }
+});
+
+previewRoutingV2ValidationRouter.post('/preview/routing-v2/run-job/:jobId',requireAuth,validationGuard,async(req:AuthenticatedRequest,res)=>{
+  try{
+    const job=await betaJobOrchestrator.runQueuedPreview(req.user!.uid,req.params.jobId);
+    return res.json({success:true,data:job});
+  }catch(error:any){
+    return res.status(400).json({success:false,error:{code:error?.code||'ROUTING_V2_RUNTIME_JOB_FAILED',message:error?.message||'Falha ao executar o Job sintético.'}});
   }
 });

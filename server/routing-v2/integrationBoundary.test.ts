@@ -63,6 +63,12 @@ describe('Routing Core V2 integration boundary',()=>{
     expect(bridge).not.toContain('smartRouterService');
   });
 
+  it('persists a direct idempotency pointer before provider execution',()=>{
+    const repository=read('server/repositories/generationRepository.ts');
+    expect(repository).toContain('generation_client_requests');
+    expect(repository).toContain('clientRequestPath');
+  });
+
   it('uses the documented Flux 1.1 Pro submission schema',()=>{
     const adapter=read('server/adapters/wavespeedProviderAdapter.ts');
     expect(adapter).toContain("endpoint==='wavespeed-ai/flux-1.1-pro'");

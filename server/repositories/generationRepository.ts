@@ -1,5 +1,11 @@
 import { Generation, GenerationAttemptLog } from '../../src/types/index.js';
 import { firestoreAdminRest } from './firestoreAdminRest.js';
+import crypto from 'crypto';
+
+function clientRequestPath(userId:string,clientRequestId:string){
+  const id=crypto.createHash('sha256').update(`${userId}:${clientRequestId}`).digest('hex');
+  return `generation_client_requests/${id}`;
+}
 
 export const generationRepository={
  async getGeneration(id:string):Promise<Generation|null>{
@@ -14,6 +20,8 @@ export const generationRepository={
   return paths.map(path=>docs.get(path)).filter(doc=>doc?.exists).map(doc=>doc!.data as Generation);
  },
  async findByClientRequest(userId:string,clientRequestId:string):Promise<Generation|null>{
+  const pointer=await firestoreAdminRest.get(clientRequestPath(userId,clientRequestId));
+  if(pointer.exists&&pointer.data?.generation_id)return this.getGeneration(String(pointer.data.generation_id));
   const rows=await firestoreAdminRest.runQuery({
    from:[{collectionId:'generations'}],
    where:{compositeFilter:{op:'AND',filters:[
@@ -26,6 +34,9 @@ export const generationRepository={
  },
  async saveGeneration(g:Generation):Promise<Generation>{
   await firestoreAdminRest.set(`generations/${encodeURIComponent(g.generation_id)}`,g);
+  if(g.client_request_id)await firestoreAdminRest.set(clientRequestPath(g.user_id,g.client_request_id),{
+   user_id:g.user_id,client_request_id:g.client_request_id,generation_id:g.generation_id,updated_at:new Date().toISOString(),
+  });
   return g;
  },
  async listUserGenerations(userId:string,limit=50):Promise<Generation[]>{
