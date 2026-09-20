@@ -33,10 +33,14 @@ export const generationRepository={
   return rows.length?rows[0].data as Generation:null;
  },
  async saveGeneration(g:Generation):Promise<Generation>{
-  await firestoreAdminRest.set(`generations/${encodeURIComponent(g.generation_id)}`,g);
-  if(g.client_request_id)await firestoreAdminRest.set(clientRequestPath(g.user_id,g.client_request_id),{
-   user_id:g.user_id,client_request_id:g.client_request_id,generation_id:g.generation_id,updated_at:new Date().toISOString(),
-  });
+  const generationPath=`generations/${encodeURIComponent(g.generation_id)}`;
+  if(g.client_request_id){
+   const pointer={user_id:g.user_id,client_request_id:g.client_request_id,generation_id:g.generation_id,updated_at:new Date().toISOString()};
+   await firestoreAdminRest.commit([
+    {update:{name:firestoreAdminRest.docName(generationPath),fields:firestoreAdminRest.fields(g)}},
+    {update:{name:firestoreAdminRest.docName(clientRequestPath(g.user_id,g.client_request_id)),fields:firestoreAdminRest.fields(pointer)}},
+   ]);
+  }else await firestoreAdminRest.set(generationPath,g);
   return g;
  },
  async listUserGenerations(userId:string,limit=50):Promise<Generation[]>{
