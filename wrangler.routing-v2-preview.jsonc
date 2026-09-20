@@ -27,6 +27,5 @@
     "SUPABASE_URL": "https://hzjyhhenajbjxkwkmzdg.supabase.co",
     "SUPABASE_BUCKET": "ia-conect-assets"
   },
-  "observability": {"enabled": true},
-  "limits": {"subrequests": 200}
+  "observability": {"enabled": true}
 }

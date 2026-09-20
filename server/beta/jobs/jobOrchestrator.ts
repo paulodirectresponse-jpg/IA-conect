@@ -614,11 +614,33 @@ export const betaJobOrchestrator={
     if(String(process.env.ROUTING_V2_PREVIEW||'').toLowerCase()!=='true')throw Object.assign(new Error('Operação disponível apenas no preview V2.'),{code:'NOT_FOUND'});
     const job=await this.get(userId,jobId,false);
     if(job.status!=='QUEUED')return this.get(userId,jobId,true);
+    if(!isRoutingV2Quote(job.quote))throw Object.assign(new Error('O Job do preview precisa de quote V2.'),{code:'JOB_V2_QUOTE_REQUIRED'});
     const attempts=await betaJobRepository.listAttempts(jobId,userId);
     const attempt=attempts.find(item=>item.attempt_id===job.current_attempt_id);
     if(!attempt)throw Object.assign(new Error('Attempt persistido não encontrado.'),{code:'JOB_ATTEMPT_NOT_FOUND'});
-    await executeAttempt(job,attempt,userId);
-    return this.get(userId,jobId,true);
+    const startedAt=now();
+    const running=await saveTransition(job,userId,'RUNNING',{started_at:startedAt});
+    await markAttempt(jobId,userId,attempt,'RUNNING',{started_at:startedAt});
+    try{
+      const generation=await routingV2JobBridge.start(running,userId,{credit_price:job.quote.credit_price,client_request_id:attempt.execution_key});
+      const mapped=generationStatusToJobStatus(generation.status),timestamp=now();
+      const versioned=await betaJobRepository.getJobWithVersion(jobId,userId);
+      if(!versioned)return running;
+      const next={...versioned.job,status:mapped,linked_generation_id:generation.generation_id,updated_at:timestamp,
+        completed_at:mapped==='SUCCEEDED'?timestamp:null,failed_at:mapped==='FAILED'?timestamp:null,
+        error_code:(generation as any).error_code||null,error_message:(generation as any).error_message||null,
+        result_asset_ids:(generation as any).result_asset_ids||[]} as BetaJob;
+      if(versioned.job.status!==mapped)assertJobTransition(versioned.job.status,mapped);
+      await betaJobRepository.saveConditional(next,versioned.updateTime);
+      await markAttempt(jobId,userId,attempt,mapped==='FAILED'?'FAILED':mapped==='SUCCEEDED'?'SUCCEEDED':'RUNNING',{
+        generation_id:generation.generation_id,completed_at:isTerminalJobStatus(mapped)?timestamp:null,
+      });
+      return next;
+    }catch(error:any){
+      const existing=await generationRepository.findByClientRequest(userId,attempt.execution_key).catch(()=>null);
+      if(existing)return this.get(userId,jobId,true);
+      throw error;
+    }
   },
 
   async retry(userId:string,jobId:string,idempotencyKey:string,reqHost?:string,idToken?:string){
