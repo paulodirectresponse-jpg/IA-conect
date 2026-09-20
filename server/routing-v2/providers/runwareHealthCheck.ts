@@ -25,8 +25,7 @@ export class RunwareHealthCheck extends BaseProviderHealthCheck {
     }
 
     try {
-      // Health endpoint: POST com query de status (read-only, sem custo)
-      // Runware uses POST for most operations; we send a minimal status query
+      // Official Model Search task; read-only and validates response semantics.
       const res = await this.fetchWithTimeout(
         baseUrl,
         {
@@ -37,16 +36,23 @@ export class RunwareHealthCheck extends BaseProviderHealthCheck {
           },
           body: JSON.stringify([
             {
-              taskType: 'getResponse',
-              taskUUID: 'health-check',
+              taskType: 'modelSearch',
+              taskUUID: crypto.randomUUID(),
+              search:'FLUX',limit:1,
             },
           ]),
         },
         3000
       );
 
-      const status = this.interpretResponse(res.status, true);
-      const message = this.buildMessage(res.status);
+      let status = this.interpretResponse(res.status, true);
+      let message = this.buildMessage(res.status);
+      if(status==='HEALTHY'){
+        const body:any=await res.json().catch(()=>null);
+        const errors=Array.isArray(body?.errors)?body.errors:[];
+        const data=Array.isArray(body?.data)?body.data:[];
+        if(errors.length||!data.length){status='DEGRADED';message=errors[0]?.message||'Runware respondeu sem catálogo válido.';}
+      }
 
       return {
         status,

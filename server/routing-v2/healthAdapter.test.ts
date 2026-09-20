@@ -46,7 +46,7 @@ describe('WaveSpeedHealthCheck', () => {
     (global.fetch as any) = vi.fn(() =>
       Promise.resolve({
         status: 200,
-        text: () => Promise.resolve('{}'),
+        json: () => Promise.resolve({data:[{model_id:'wavespeed-ai/flux-1.1-pro'}]}),
       })
     );
 
@@ -54,7 +54,7 @@ describe('WaveSpeedHealthCheck', () => {
 
     expect(result.status).toBe('HEALTHY');
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v3/predictions'),
+      expect.stringContaining('/api/v3/models'),
       expect.objectContaining({
         method: 'GET',
         headers: expect.objectContaining({

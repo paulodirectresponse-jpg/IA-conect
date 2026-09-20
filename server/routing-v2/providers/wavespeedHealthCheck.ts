@@ -21,10 +21,10 @@ export class WaveSpeedHealthCheck extends BaseProviderHealthCheck {
     }
 
     try {
-      // Health endpoint: GET /api/v3/predictions (lista jobs, read-only, sem custo)
-      // This is a safe read-only endpoint that validates API key and connectivity
+      // Authenticated, read-only catalog request. HEALTHY additionally requires
+      // the provider payload to contain at least one real model.
       const res = await this.fetchWithTimeout(
-        `${baseUrl}/api/v3/predictions?limit=1`,
+        `${baseUrl}/api/v3/models`,
         {
           method: 'GET',
           headers: {
@@ -35,8 +35,13 @@ export class WaveSpeedHealthCheck extends BaseProviderHealthCheck {
         3000
       );
 
-      const status = this.interpretResponse(res.status, true);
-      const message = this.buildMessage(res.status);
+      let status = this.interpretResponse(res.status, true);
+      let message = this.buildMessage(res.status);
+      if(status==='HEALTHY'){
+        const body:any=await res.json().catch(()=>null);
+        const rows=Array.isArray(body?.data)?body.data:Array.isArray(body?.data?.models)?body.data.models:Array.isArray(body?.models)?body.models:[];
+        if(!rows.length){status='DEGRADED';message='WaveSpeed respondeu sem catálogo válido.';}
+      }
 
       return {
         status,

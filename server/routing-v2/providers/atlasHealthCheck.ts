@@ -21,10 +21,9 @@ export class AtlasHealthCheck extends BaseProviderHealthCheck {
     }
 
     try {
-      // Health endpoint: GET /api/v1/predictions (lista jobs, read-only, sem custo)
-      // This is a safe read-only endpoint that validates API key and connectivity
+      // Official authenticated balance endpoint; read-only and cost free.
       const res = await this.fetchWithTimeout(
-        `${baseUrl}/api/v1/predictions?limit=1`,
+        `${baseUrl}/public/v1/balance`,
         {
           method: 'GET',
           headers: {
@@ -35,8 +34,13 @@ export class AtlasHealthCheck extends BaseProviderHealthCheck {
         3000
       );
 
-      const status = this.interpretResponse(res.status, true);
-      const message = this.buildMessage(res.status);
+      let status = this.interpretResponse(res.status, true);
+      let message = this.buildMessage(res.status);
+      if(status==='HEALTHY'){
+        const body:any=await res.json().catch(()=>null);
+        const balance=Number(body?.data?.balance??body?.balance);
+        if(!Number.isFinite(balance)){status='DEGRADED';message='Atlas respondeu sem saldo válido.';}
+      }
 
       return {
         status,
