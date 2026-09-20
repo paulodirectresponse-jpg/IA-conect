@@ -96,4 +96,11 @@ describe('API architecture invariants', () => {
     expect(nodeServer).toContain("app.use('/api',apiRootRouter)");
     expect(worker).toContain("app.use('/api',apiRootRouter)");
   });
+
+  it('mounts the routing V2 admin guard after public beta routes', () => {
+    const source=read('server/routes/index.ts');
+    expect(source.indexOf('apiRootRouter.use(betaJobRouter)')).toBeGreaterThan(-1);
+    expect(source.indexOf('apiRootRouter.use(adminRoutingV2Router)'))
+      .toBeGreaterThan(source.indexOf('apiRootRouter.use(betaJobRouter)'));
+  });
 });
