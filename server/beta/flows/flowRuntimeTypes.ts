@@ -57,6 +57,7 @@ export interface BetaFlowNodeRun{
   outputs:BetaFlowValue[];
   input_asset_ids:string[];
   output_asset_ids:string[];
+  reused_from_run_id?:string|null;
   error_code?:string|null;
   error_message?:string|null;
   created_at:string;
