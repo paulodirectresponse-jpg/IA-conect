@@ -9,6 +9,7 @@ export interface CourseOffer {
   price_brl_cents:number;
   currency:'BRL';
   checkout_enabled:boolean;
+  vsl_url?:string|null;
 }
 
 export interface CourseAccessResult {
