@@ -2,7 +2,7 @@ import React from'react';
 import{ChevronDown,Sparkles}from'lucide-react';
 import{formatCredits}from'../../utils/creditFormat.js';
 
-export const GeneratorPanel:React.FC<React.PropsWithChildren<{ariaLabel:string}>>=({ariaLabel,children})=><aside className="ia-generator-panel w-full md:w-[352px] xl:w-[368px] h-full shrink-0 flex flex-col" aria-label={ariaLabel}>{children}</aside>;
+export const GeneratorPanel:React.FC<React.PropsWithChildren<{ariaLabel:string;className?:string}>>=({ariaLabel,className='',children})=><aside className={`ia-generator-panel w-full md:w-[352px] xl:w-[368px] h-full shrink-0 flex flex-col ${className}`} aria-label={ariaLabel}>{children}</aside>;
 export const GeneratorScroll:React.FC<React.PropsWithChildren>=({children})=><div className="ia-generator-scroll flex-1 min-h-0 overflow-y-auto px-3.5 py-3.5 space-y-3">{children}</div>;
 export const GeneratorField:React.FC<React.PropsWithChildren<{label:string;count?:string;htmlFor?:string}>>=({label,count,htmlFor,children})=><section className="rounded-xl border border-white/[0.065] bg-white/[0.025] p-2.5"><div className="flex items-center justify-between gap-2 mb-1.5"><label htmlFor={htmlFor} className="text-[10px] font-semibold text-zinc-300">{label}</label>{count&&<span className="text-[8px] text-zinc-700">{count}</span>}</div>{children}</section>;
 export const GeneratorTextarea:React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement>>=(props)=><textarea {...props} className={`w-full resize-y min-h-[132px] border-0 bg-transparent text-[11px] leading-[1.55] text-white outline-none placeholder:text-zinc-700 ${props.className||''}`}/>;

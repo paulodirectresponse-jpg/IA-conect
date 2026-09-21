@@ -12,13 +12,15 @@ describe('mobile Studio stage 2',()=>{
     const layout=read('src/components/workspace/MobileStudioLayout.tsx');
     const videoPanel=read('src/components/workspace/CreatorPanel.tsx');
     const imagePanel=read('src/components/workspace/UnifiedImageCreatorPanel.tsx');
+    const sharedPanel=read('src/components/workspace/GeneratorControls.tsx');
     expect(video).toMatch(/<MobileStudioLayout\s+activeCount=\{mobileActiveCount\}/);
     expect(image).toMatch(/<MobileStudioLayout\s+activeCount=\{mobileActiveCount\}/);
     expect(layout).toContain('Criar');
     expect(layout).toContain('Resultados');
     expect(layout).toContain('role="tablist"');
-    expect(videoPanel).toContain('md:w-[352px] xl:w-[368px]');
-    expect(imagePanel).toContain('md:w-[352px] xl:w-[368px]');
+    expect(videoPanel).toContain('<GeneratorPanel');
+    expect(imagePanel).toContain('<GeneratorPanel');
+    expect(sharedPanel).toContain('md:w-[352px] xl:w-[368px]');
   });
 
   it('reports active jobs to the mobile Results badge without changing polling semantics',()=>{
