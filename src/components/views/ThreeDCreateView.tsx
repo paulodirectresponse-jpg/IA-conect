@@ -342,9 +342,9 @@ export const ThreeDCreateView: React.FC = () => {
         onSecondary: !generation ? quote : undefined,
       };
   const creator = (
-    <GeneratorPanel ariaLabel="Gerador 3D">
-      <GeneratorScroll>
-        <UniversalModelPicker
+    <UniversalCreatorShell
+      ariaLabel="Gerador 3D"
+      modelPicker={<UniversalModelPicker
           models={availableModels}
           selectedModelId={selectedModelId}
           loading={busy === "load"}
@@ -352,8 +352,24 @@ export const ThreeDCreateView: React.FC = () => {
             setSelectedModelId(modelId);
             invalidate();
           }}
-        />
-        <div className="grid grid-cols-3 gap-1.5">
+        />}
+      footer={<GeneratorFooter
+        error={error}
+        price={price}
+        balance={balance}
+        hasBalance={!insufficient}
+        primaryLabel={footer.label}
+        onPrimary={() => void footer.onClick()}
+        primaryDisabled={footer.disabled}
+        primaryBusy={busy === "quote" || busy === "generate"}
+        secondaryLabel={footer.secondary}
+        onSecondary={
+          footer.onSecondary ? () => void footer.onSecondary?.() : undefined
+        }
+        secondaryDisabled={Boolean(busy)}
+      />}
+    >
+      <div className="grid grid-cols-3 gap-1.5">
           {TOOLS.map((item) => {
             const Icon = item.icon;
             const selected = tool === item.id;
@@ -559,23 +575,7 @@ export const ThreeDCreateView: React.FC = () => {
             )}
           </section>
         )}
-      </GeneratorScroll>
-      <GeneratorFooter
-        error={error}
-        price={price}
-        balance={balance}
-        hasBalance={!insufficient}
-        primaryLabel={footer.label}
-        onPrimary={() => void footer.onClick()}
-        primaryDisabled={footer.disabled}
-        primaryBusy={busy === "quote" || busy === "generate"}
-        secondaryLabel={footer.secondary}
-        onSecondary={
-          footer.onSecondary ? () => void footer.onSecondary?.() : undefined
-        }
-        secondaryDisabled={Boolean(busy)}
-      />
-    </GeneratorPanel>
+    </UniversalCreatorShell>
   );
   return (
     <MobileStudioLayout
