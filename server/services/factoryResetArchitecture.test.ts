@@ -7,7 +7,7 @@ const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
 describe('controlled greenfield factory reset',()=>{
   it('uses an AI-only allowlist and explicitly protects all user-owned records',()=>{
     const source=read('server/services/factoryResetService.ts');
-    expect(source).toContain("'Firebase Auth de usuários reais'");
+    expect(source).toContain("'Firebase Auth, users e admins'");
     expect(source).toContain('PROTECTED USER DATA MUST NEVER BE DELETED');
     for(const protectedCollection of ['assets','credit_accounts','credit_lots','credit_transactions','credit_reservations','payments','subscriptions','billing_records','generations','generation_attempts','generation_client_requests','generation_economics','beta_jobs','beta_job_attempts','beta_job_idempotency','beta_job_mutations','beta_economic_ledger','beta_library_items','beta_projects','beta_spaces']){
       expect(source).toMatch(new RegExp(`PROTECTED_COLLECTIONS=.*['"]${protectedCollection}['"]`));
