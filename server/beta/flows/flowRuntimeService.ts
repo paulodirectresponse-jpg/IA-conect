@@ -89,6 +89,7 @@ function emptyNodeRun(run:BetaFlowRun,node:BetaFlowNode):BetaFlowNodeRun{
   };
 }
 function incomingEdges(graph:BetaFlowGraph,nodeId:string,active:Set<string>){return graph.edges.filter(edge=>edge.to_node_id===nodeId&&active.has(edge.from_node_id));}
+function activeTerminalNodes(graph:BetaFlowGraph,active:Set<string>){return graph.nodes.filter(node=>active.has(node.node_id)&&!graph.edges.some(edge=>edge.from_node_id===node.node_id&&active.has(edge.to_node_id)));}
 function valuesForEdges(edges:BetaFlowEdge[],runs:Map<string,BetaFlowNodeRun>){
   const values:BetaFlowValue[]=[];
   for(const edge of edges){
@@ -161,6 +162,8 @@ export const betaFlowRuntimeService={
   async start(userId:string,flowId:string,input:any,idempotencyKey:string,reqHost?:string,idToken?:string){
     await assertRuntimeEnabled();
     const flow=await betaFlowService.get(userId,flowId);
+    const running=(await betaFlowRuntimeRepository.listRuns(userId,100)).find(item=>item.flow_id===flowId&&item.status==='RUNNING');
+    if(running)fail('FLOW_RUN_ALREADY_RUNNING','Este Space já possui uma execução em andamento. Aguarde a conclusão ou cancele antes de iniciar outra.');
     const plan=await buildFlowExecutionPlan(userId,flow,input);
     const active=new Set(plan.active_node_ids),seeded=new Set(plan.seed_runs.keys()),inputs=await normalizeInputs(userId,flow.graph,active,input?.inputs||{},seeded);
     const timestamp=now(),run:BetaFlowRun={
@@ -176,7 +179,7 @@ export const betaFlowRuntimeService={
           ...source,
           node_run_id:betaFlowRuntimeRepository.makeNodeRunId(created.run_id,nodeId),run_id:created.run_id,flow_id:created.flow_id,user_id:userId,node_id:nodeId,
           status:'SUCCEEDED',job_id:null,retry_count:0,authorized_credit_price:0,input_asset_ids:source.input_asset_ids||[],output_asset_ids:source.output_asset_ids||[],
-          error_code:null,error_message:null,created_at:timestamp,updated_at:timestamp,started_at:timestamp,completed_at:timestamp,
+          reused_from_run_id:source.run_id,error_code:null,error_message:null,created_at:source.created_at,updated_at:timestamp,started_at:source.started_at||source.created_at,completed_at:source.completed_at||source.updated_at,
         };
         await betaFlowRuntimeRepository.saveNodeRun(seededRun);
       }
@@ -281,10 +284,11 @@ export const betaFlowRuntimeService={
       }
     }
 
-    const outputNodes=order.filter(node=>node.kind==='OUTPUT');
-    if(outputNodes.every(node=>runs.get(node.node_id)?.status==='SUCCEEDED')){
+    const activeNodes=order.filter(node=>active.has(node.node_id));
+    const terminalNodes=activeTerminalNodes(run.graph,active);
+    if(activeNodes.length>0&&activeNodes.every(node=>runs.get(node.node_id)?.status==='SUCCEEDED')){
       const outputs:Record<string,BetaFlowValue[]>={};
-      for(const node of outputNodes)outputs[node.node_id]=runs.get(node.node_id)?.outputs||[];
+      for(const node of terminalNodes)outputs[node.node_id]=runs.get(node.node_id)?.outputs||[];
       run=await finishRun(run,runs,'SUCCEEDED',{outputs,error_code:null,error_message:null});
     }else{
       run=await betaFlowRuntimeRepository.saveRun({...run,status:'RUNNING',authorized_credits_total:sumAuthorized(runs),updated_at:now(),error_code:null,error_message:null});
