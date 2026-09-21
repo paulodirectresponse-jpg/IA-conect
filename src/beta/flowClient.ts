@@ -2,7 +2,7 @@ import { apiRequest } from '../services/apiClient.js';
 import { BetaCapabilityMediaType } from './capabilityClient.js';
 
 export type FlowNodeKind='INPUT'|'ASSET'|'TOOL'|'OUTPUT';
-export interface FlowNodeUi{fit?:'cover'|'contain';width?:number;height?:number}
+export interface FlowNodeUi{fit?:'cover'|'contain';width?:number;height?:number;media_aspect_ratio?:number}
 export interface FlowNode{
  node_id:string;schema_version?:2;kind:FlowNodeKind;label:string;x:number;y:number;
  media_type?:BetaCapabilityMediaType|null;asset_id?:string|null;capability_id?:string|null;model_id?:string|null;

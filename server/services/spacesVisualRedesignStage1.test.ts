@@ -14,10 +14,10 @@ describe('Spaces visual redesign stage 1',()=>{
  it('uses generation media as the card surface instead of a separate framed preview block',()=>{
   const generator=read('src/components/spaces/nodes/GeneratorNode.tsx');
   const preview=read('src/components/spaces/nodes/NodeResultPreview.tsx');
-  expect(generator).toContain('className="relative h-[390px] overflow-hidden"');
+  expect(generator).toContain('className="relative h-full min-h-[170px] overflow-hidden"');
   expect(generator).toContain('fullBleed');
-  expect(preview).toContain("fullBleed?'absolute inset-0");
-  expect(preview).toContain('object-cover');
+  expect(generator).toContain("fit={node.ui?.fit||'cover'}");
+  expect(preview).toContain("fit==='contain'?'object-contain':'object-cover'");
   expect(generator).not.toContain('space-y-3 p-3');
  });
 
@@ -41,9 +41,9 @@ describe('Spaces visual redesign stage 1',()=>{
 
  it('keeps assets visual-first and full-cover',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
-  expect(workspace).toContain('isAsset?<div className="h-[210px] overflow-hidden');
-  expect(workspace).toContain('h-full w-full bg-black/30 object-cover');
-  expect(workspace).toContain('h-full w-full bg-black object-cover');
+  expect(workspace).toContain('isAsset?<div className="h-full min-h-[170px] overflow-hidden');
+  expect(workspace).toContain("node.ui?.fit==='cover'?'object-cover':'object-contain'");
+  expect(workspace).toContain('className={`h-full w-full bg-black/30 ${fit}`}');
  });
 
  it('does not change Spaces runtime, history, inspector or execution contracts',()=>{

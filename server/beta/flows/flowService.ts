@@ -41,6 +41,8 @@ async function validateGraph(userId:string,input:any):Promise<BetaFlowGraph>{
     const uiWidth=Number(rawUi.width),uiHeight=Number(rawUi.height);
     if(Number.isFinite(uiWidth)&&uiWidth>=120&&uiWidth<=1200)ui.width=uiWidth;
     if(Number.isFinite(uiHeight)&&uiHeight>=120&&uiHeight<=1600)ui.height=uiHeight;
+    const uiAspect=Number(rawUi.media_aspect_ratio);
+    if(Number.isFinite(uiAspect)&&uiAspect>=0.2&&uiAspect<=5)ui.media_aspect_ratio=uiAspect;
     const node:BetaFlowNode={node_id:nodeId,schema_version:2,kind:kind as any,label:clean(raw?.label,80)||'Nó',x,y,media_type:media,asset_id:raw?.asset_id?clean(raw.asset_id,120):null,capability_id:raw?.capability_id?String(raw.capability_id) as any:null,model_id:raw?.model_id?clean(raw.model_id,120):null,prompt:String(raw?.prompt||'').slice(0,12000),controls:raw?.controls&&typeof raw.controls==='object'?raw.controls:{},ui};
     if(node.kind==='ASSET'){
       if(!node.asset_id)fail('FLOW_ASSET_REQUIRED','Selecione um asset para este nó.');
