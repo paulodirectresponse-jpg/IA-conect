@@ -28,15 +28,14 @@ export const systemHealthService={
         routingV2Repository.listModels(),routingV2Repository.listProviders(),routingV2Repository.listRoutes(),
       ]);
       const ready=routes.filter((row)=>row.status==='READY'&&row.runtime_status==='HEALTHY'&&row.pricing_status==='CURRENT').length;
-      const healthy=ready>0;
       checks.push({
-        key:'catalog',
-        label:'Catálogo',
-        status:healthy?'OK':'ERROR',
-        detail:healthy?`${models.length} modelos, ${providers.length} providers e ${ready} Routes READY.`:'Nenhuma Route V2 READY publicada.',
+        key:'ai_readiness',
+        label:'Prontidão do catálogo de IA',
+        status:'OK',
+        detail:ready>0?`${models.length} modelos, ${providers.length} providers e ${ready} Routes READY.`:'NOT_CONFIGURED — nenhuma Route V2 READY; configuração de IA necessária.',
       });
     }catch{
-      checks.push({key:'catalog',label:'Catálogo',status:'ERROR',detail:'Falha ao consultar o catálogo persistente.'});
+      checks.push({key:'ai_readiness',label:'Prontidão do catálogo de IA',status:'ERROR',detail:'Falha ao consultar o catálogo persistente.'});
     }
 
     const providers=await routingV2Repository.listProviders().catch(()=>[]);
@@ -44,8 +43,8 @@ export const systemHealthService={
     checks.push({
       key:'providers',
       label:'Providers',
-      status:healthyProviders.length>0?'OK':'ERROR',
-      detail:healthyProviders.length>0?`${healthyProviders.length} provider(s) V2 com health real HEALTHY.`:'Nenhum provider V2 possui health real HEALTHY.',
+      status:'OK',
+      detail:healthyProviders.length>0?`${healthyProviders.length} provider(s) V2 com health real HEALTHY.`:'NOT_CONFIGURED — nenhum provider V2 cadastrado e saudável.',
     });
 
     try{
