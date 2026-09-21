@@ -35,7 +35,7 @@ function getCourseAttribution(){
 }
 function track(name:string,properties:Record<string,unknown>={}){
  if(typeof window==='undefined')return;
- const detail={event:`course_${name}`,course_id:'animacao-3d-ia',...properties};
+ const detail={event:`course_${name}`,course_id:'animacao-3d-ia',...getCourseAttribution(),...properties};
  const dataLayer=((window as any).dataLayer=(window as any).dataLayer||[]);
  if(Array.isArray(dataLayer))dataLayer.push(detail);
  window.dispatchEvent(new CustomEvent('ia:course-funnel',{detail}));
@@ -175,7 +175,7 @@ export const CourseAnimationSalesPage:React.FC=()=>{
       {offerError&&<div className="course-soft-warning">{offerError}</div>}
      </div>
      <div className="course-hero-art" aria-hidden="true">
-      <div className="course-art-card course-art-main"><img src={media('toy')} alt=""/><div><span>PROJETO FINAL</span><b>Da ideia ao movimento</b></div></div>
+      <div className="course-art-card course-art-main"><img src={media('toy')} alt=""/><div><span>WORKFLOW DO CURSO</span><b>Personagem · cena · movimento</b></div></div>
       <div className="course-art-card course-art-small course-art-small-a"><img src={media('character')} alt=""/></div>
       <div className="course-art-card course-art-small course-art-small-b"><img src={media('cgi')} alt=""/></div>
       <div className="course-art-orbit"><span>IDEIA</span><i/><span>CENA</span><i/><span>MOVIMENTO</span></div>
