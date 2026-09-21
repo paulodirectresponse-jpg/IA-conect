@@ -18,8 +18,8 @@ describe('mobile Studio stage 2',()=>{
     expect(layout).toContain('Criar');
     expect(layout).toContain('Resultados');
     expect(layout).toContain('role="tablist"');
-    expect(videoPanel).toContain('<GeneratorPanel');
-    expect(imagePanel).toContain('<GeneratorPanel');
+    expect(videoPanel).toContain('<UniversalCreatorShell');
+    expect(imagePanel).toContain('<UniversalCreatorShell');
     expect(sharedPanel).toContain('md:w-[352px] xl:w-[368px]');
   });
 
