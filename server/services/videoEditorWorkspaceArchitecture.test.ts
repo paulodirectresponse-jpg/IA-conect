@@ -28,7 +28,8 @@ describe('Immersive video editor workspace',()=>{
   expect(view).toContain("filter(asset=>asset.type==='VIDEO')");
   expect(view).toContain('loadCatalog');
   expect(view).toContain('loadVideos');
-  expect(view).not.toContain('Promise.all([editorClient.catalog(),assetService.listAssets');
+  expect(view).not.toContain('editorClient.catalog');
+  expect(view).toContain('loadUniversalEditorCatalog');
   expect(picker).toContain("assetType='IMAGE'");
   expect(picker).toContain("accept={isVideo?'video/*':'image/*'}");
  });
@@ -36,7 +37,7 @@ describe('Immersive video editor workspace',()=>{
  it('always exposes Auto plus manual model selection using the shared picker',()=>{
   const view=read('src/components/views/VideoEditorView.tsx');
   expect(view).toContain('UniversalModelPicker');
-  expect(view).toContain("modelId==='AUTO'?'AUTO':model.model_id");
+  expect(view).toContain("modelId==='AUTO'?'AUTO':model!.model_id");
   expect(view).toContain("setModelId('AUTO')");
   expect(view).not.toContain('<select value={model?.model_id');
  });
@@ -52,10 +53,11 @@ describe('Immersive video editor workspace',()=>{
   const view=read('src/components/views/VideoEditorView.tsx');
   for(const control of ["controls.has('duration')","controls.has('resolution')","controls.has('aspect_ratio')"])expect(view).toContain(control);
   expect(view).toContain("tool==='video-edit'&&!prompt.trim()");
-  expect(view).toContain("audio_enabled:audioEnabled");
-  expect(view).toContain('editorClient.create');
-  expect(view).toContain('editorClient.quote');
-  expect(view).toContain('editorClient.queue');
+  expect(view).toContain("requestControls.audio_enabled=audioEnabled");
+  expect(view).toContain('universalGenerationClient.quote');
+  expect(view).toContain('universalGenerationClient.create');
+  expect(view).toContain('universalGenerationClient.get');
+  expect(view).not.toContain('editorClient');
   expect(view).toContain('refreshWallet');
   expect(view).toContain("new CustomEvent('creations:updated'");
  });
