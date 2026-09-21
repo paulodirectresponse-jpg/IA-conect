@@ -44,8 +44,11 @@ describe('Spaces stage 8 final QA',()=>{
 
  it('turns the empty canvas into an actionable first-use state',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
-  expect(workspace).toContain('Adicionar primeira ferramenta');
-  expect(workspace).toContain('onClick={openAddMenu}');
+  const empty=read('src/components/spaces/SpaceEmptyState.tsx');
+  expect(workspace).toContain('<SpaceEmptyState');
+  expect(empty).toContain('O que você quer criar?');
+  expect(empty).toContain('Imagem da Biblioteca');
+  expect(empty).toContain('Vídeo da Biblioteca');
   expect(workspace).toContain('role="application"');
   expect(workspace).toContain('aria-label="Canvas do Space"');
  });
