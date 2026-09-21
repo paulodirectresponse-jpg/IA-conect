@@ -7,7 +7,7 @@ import{assetService}from'../../services/assetService.js';
 import{ApiError}from'../../services/apiClient.js';
 import{spacesClient,SpaceAsset}from'../../services/spacesClient.js';
 import{SpaceConnectionLayer}from'./canvas/SpaceConnectionLayer.js';
-import{SPACE_SPACE_BASE_NODE_H,SPACE_SPACE_NODE_W,SPACE_SPACE_WORLD_H,SPACE_SPACE_WORLD_W}from'./canvas/spaceLayout.js';
+import{SPACE_BASE_NODE_H,SPACE_NODE_W,SPACE_WORLD_H,SPACE_WORLD_W}from'./canvas/spaceLayout.js';
 import{SpaceQuickMenu,type SpaceQuickAction}from'./canvas/SpaceQuickMenu.js';
 import{SpaceToolbar}from'./canvas/SpaceToolbar.js';
 import{SpaceNodeShell}from'./nodes/SpaceNodeShell.js';
