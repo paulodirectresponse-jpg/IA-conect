@@ -40,7 +40,7 @@ describe('Stable Spaces visual workspace',()=>{
   expect(nodeShell).toContain('Arraste para conectar');
   expect(workspace).toContain('onContextMenu={onCanvasContext}');
   expect(workspace).toContain('ResizeObserver');
-  expect(workspace).toContain('h-full w-full bg-black/30 object-cover');
+  expect(workspace).toContain("node.ui?.fit==='cover'?'object-cover':'object-contain'");
   expect(workspace).not.toContain('h-[92px] w-full rounded-xl object-cover');
  });
  it('lets users add generator/editor nodes even when catalog routing is temporarily degraded',()=>{
