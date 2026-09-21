@@ -4,6 +4,12 @@
   "compatibility_date": "2026-09-08",
   "compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env"],
   "main": "./worker/index.ts",
+  "routes": [
+    {
+      "pattern": "iaconnect.ia.br",
+      "custom_domain": true
+    }
+  ],
   "keep_vars": true,
   "assets": {
     "not_found_handling": "single-page-application",
