@@ -1,21 +1,22 @@
 import React from'react';
-import{ChevronLeft,ChevronRight,Clock3}from'lucide-react';
+import{ChevronLeft,ChevronRight}from'lucide-react';
 import type{SpaceAsset}from'../../../services/spacesClient.js';
 
 export interface NodeOutputHistoryItem{
  asset:SpaceAsset;run_id:string;node_run_id:string;authorized_credit_price:number;created_at:string;completed_at?:string|null;
 }
-interface Props{items:NodeOutputHistoryItem[];index:number;onIndexChange:(index:number)=>void;emptyLabel?:string;}
+interface Props{items:NodeOutputHistoryItem[];index:number;onIndexChange:(index:number)=>void;emptyLabel?:string;fullBleed?:boolean;}
 
-export const NodeResultPreview:React.FC<Props>=({items,index,onIndexChange,emptyLabel='Seu resultado aparecerá aqui'})=>{
+export const NodeResultPreview:React.FC<Props>=({items,index,onIndexChange,emptyLabel='Seu resultado aparecerá aqui',fullBleed=false})=>{
  const safeIndex=Math.max(0,Math.min(index,Math.max(0,items.length-1))),item=items[safeIndex],asset=item?.asset;
  const url=asset?.preview_url||asset?.public_url||null;
- return <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-black/25">
-  {!asset||!url?<div className="grid aspect-[4/3] min-h-[150px] place-items-center px-6 text-center"><div><strong className="block text-[10px] font-semibold text-zinc-500">{emptyLabel}</strong><span className="mt-1 block text-[8px] leading-relaxed text-zinc-700">As gerações anteriores ficam salvas neste card.</span></div></div>:asset.type==='IMAGE'?<img src={url} alt="Resultado gerado" draggable={false} className="block h-auto w-full bg-black/30 object-contain"/>:<video src={asset.public_url||url} aria-label="Resultado em vídeo" muted preload="metadata" playsInline controls className="block h-auto w-full bg-black object-contain"/>}
-  {items.length>0&&<div className="flex items-center justify-between border-t border-white/[0.05] px-2.5 py-2">
-   <button type="button" aria-label="Ver resultado anterior" onClick={()=>onIndexChange(Math.min(items.length-1,safeIndex+1))} disabled={safeIndex>=items.length-1} className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 hover:bg-white/[0.04] hover:text-white disabled:opacity-25"><ChevronLeft className="h-3.5 w-3.5"/></button>
-   <div className="text-center"><strong className="block text-[8px] text-zinc-400">{items.length-safeIndex} / {items.length}</strong><span className="mt-0.5 flex items-center gap-1 text-[7px] text-zinc-700"><Clock3 className="h-2.5 w-2.5"/>{new Date(item.created_at).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span></div>
-   <button type="button" aria-label="Ver resultado mais recente" onClick={()=>onIndexChange(Math.max(0,safeIndex-1))} disabled={safeIndex<=0} className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 hover:bg-white/[0.04] hover:text-white disabled:opacity-25"><ChevronRight className="h-3.5 w-3.5"/></button>
+ const mediaClass=fullBleed?'absolute inset-0 h-full w-full object-cover':'block h-auto w-full bg-black/30 object-contain';
+ return <div className={fullBleed?'absolute inset-0 overflow-hidden bg-[#071018]':'overflow-hidden rounded-2xl bg-black/25'}>
+  {!asset||!url?<div className={fullBleed?'absolute inset-0 grid place-items-center bg-[radial-gradient(circle_at_50%_40%,rgba(34,211,238,.08),transparent_42%),#071018] px-7 text-center':'grid aspect-[4/3] min-h-[150px] place-items-center px-6 text-center'}><div><strong className="block text-[9px] font-semibold text-zinc-500">{emptyLabel}</strong><span className="mt-1 block text-[7px] leading-relaxed text-zinc-700">As gerações anteriores ficam salvas neste card.</span></div></div>:asset.type==='IMAGE'?<img src={url} alt="Resultado gerado" draggable={false} className={mediaClass}/>:<video src={asset.public_url||url} aria-label="Resultado em vídeo" muted preload="metadata" playsInline controls={!fullBleed} className={fullBleed?'absolute inset-0 h-full w-full bg-black object-cover':'block h-auto w-full bg-black object-contain'}/>}
+  {fullBleed&&items.length>1&&<div className="absolute left-1/2 top-12 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-black/35 px-1 py-0.5 backdrop-blur-md">
+   <button type="button" aria-label="Ver resultado anterior" onClick={()=>onIndexChange(Math.min(items.length-1,safeIndex+1))} disabled={safeIndex>=items.length-1} className="grid h-5 w-5 place-items-center rounded-full text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-25"><ChevronLeft className="h-3 w-3"/></button>
+   <span className="min-w-7 text-center text-[7px] font-semibold text-white/65">{items.length-safeIndex}/{items.length}</span>
+   <button type="button" aria-label="Ver resultado mais recente" onClick={()=>onIndexChange(Math.max(0,safeIndex-1))} disabled={safeIndex<=0} className="grid h-5 w-5 place-items-center rounded-full text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-25"><ChevronRight className="h-3 w-3"/></button>
   </div>}
  </div>;
 };
