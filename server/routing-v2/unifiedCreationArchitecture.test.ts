@@ -8,14 +8,26 @@ describe('unified creation architecture',()=>{
   const mediaViews=['UnifiedImageCreateView','CreateView','VoiceCreateView','MusicCreateView','ThreeDCreateView'];
   it.each(mediaViews)('%s loads only the READY V2 public catalog and uses universal generation infrastructure',(name)=>{
     const view=read(`src/components/views/${name}.tsx`);
-    expect(view).toMatch(/workspaceService\.listModels\(|universalGenerationClient\.catalog\(/);
-    expect(view).toMatch(/generationClient\.quote\(|universalGenerationClient\.quote\(|useBackendAutoQuote\(/);
-    expect(view).toMatch(/generationClient\.create\(|universalGenerationClient\.create\(/);
+    expect(view).toMatch(/universalGenerationClient\.catalog\(/);
+    expect(view).toMatch(/universalGenerationClient\.quote\(|useBackendAutoQuote\(/);
+    expect(view).toMatch(/universalGenerationClient\.create\(/);
     expect(view).not.toMatch(/(?:voice|music|threeD)GenerationClient/);
+  });
+  it('keeps Image and Video completely off the legacy generation client',()=>{
+    for(const name of ['UnifiedImageCreateView','CreateView']){
+      const view=read(`src/components/views/${name}.tsx`);
+      expect(view).toContain('universalGenerationClient');
+      expect(view).not.toContain('generationClient');
+      expect(view).not.toContain('GenerationRequestDraft');
+      expect(view).not.toContain('workspaceService.listModelRoutes');
+    }
+    const autoHook=read('src/components/workspace/useBackendAutoQuote.ts');
+    expect(autoHook).toContain('universalGenerationClient.quote');
+    expect(autoHook).not.toContain('generationClient');
   });
   it('takes the Auto model and price from the backend quote, never from client-side ranking',()=>{
     const hook=read('src/components/workspace/useBackendAutoQuote.ts');
-    expect(hook).toContain('generationClient.quote');
+    expect(hook).toContain('universalGenerationClient.quote');
     expect(hook).toContain('quote?.resolved_model_id');
     for(const name of ['UnifiedImageCreateView','CreateView']){
       const view=read(`src/components/views/${name}.tsx`);
