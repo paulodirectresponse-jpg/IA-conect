@@ -27,15 +27,15 @@ describe('Stable Spaces visual workspace',()=>{
   expect(view).toContain('window.confirm');
  });
  it('provides the requested visual canvas interactions',()=>{
-  const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
+  const workspace=read('src/components/spaces/SpaceWorkspace.tsx'),nodeShell=read('src/components/spaces/nodes/SpaceNodeShell.tsx'),quickMenu=read('src/components/spaces/canvas/SpaceQuickMenu.tsx');
   expect(workspace).toContain('onWheel={onWheel}');
   expect(workspace).toContain('dragRef');
   expect(workspace).toContain('panRef');
   expect(workspace).toContain('pathFor');
   expect(workspace).toContain("window.addEventListener('paste'");
   expect(workspace).toContain('onDrop={onDrop}');
-  expect(workspace).toContain('O que deseja fazer com esta saída?');
-  expect(workspace).toContain('Arraste para conectar');
+  expect(quickMenu).toContain('O que deseja fazer com esta saída?');
+  expect(nodeShell).toContain('Arraste para conectar');
   expect(workspace).toContain('onContextMenu={onCanvasContext}');
   expect(workspace).toContain('ResizeObserver');
   expect(workspace).toContain('block h-auto w-full rounded-xl');
