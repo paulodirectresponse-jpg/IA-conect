@@ -1,7 +1,7 @@
 import { CapabilityId, CapabilityMediaType } from '../capabilityRegistry.js';
 
 export type BetaFlowNodeKind='INPUT'|'ASSET'|'TOOL'|'OUTPUT';
-export interface BetaFlowNodeUi{fit?:'cover'|'contain';width?:number;height?:number;}
+export interface BetaFlowNodeUi{fit?:'cover'|'contain';width?:number;height?:number;media_aspect_ratio?:number;}
 export interface BetaFlowNode{
   node_id:string;
   schema_version?:2;
