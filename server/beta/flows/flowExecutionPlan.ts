@@ -1,3 +1,4 @@
+import{assetRepository}from'../../repositories/assetRepository.js';
 import crypto from'crypto';
 import type{BetaFlowGraph,BetaFlowNode}from'./flowTypes.js';
 import type{BetaFlowNodeRun,BetaFlowRun}from'./flowRuntimeTypes.js';
@@ -27,7 +28,7 @@ export async function buildFlowExecutionPlan(userId:string,flow:{flow_id:string;
  const active=new Set<string>(desired),seedRuns=new Map<string,BetaFlowNodeRun>();
  const historical=latestCandidates(await betaFlowRuntimeRepository.listUserNodeRuns(userId,500),flow.flow_id);
  const runCache=new Map<string,BetaFlowRun|null>();
- const canReuse=async(nodeId:string)=>{const candidate=historical.get(nodeId);if(!candidate)return null;let prior=runCache.get(candidate.run_id);if(prior===undefined){prior=await betaFlowRuntimeRepository.getRun(candidate.run_id,userId);runCache.set(candidate.run_id,prior);}if(!prior)return null;const currentSig=subgraphSignature(flow.graph,nodeId),priorSig=subgraphSignature(prior.graph,nodeId);return currentSig&&priorSig&&currentSig===priorSig?candidate:null;};
+ const canReuse=async(nodeId:string)=>{const candidate=historical.get(nodeId);if(!candidate)return null;let prior=runCache.get(candidate.run_id);if(prior===undefined){prior=await betaFlowRuntimeRepository.getRun(candidate.run_id,userId);runCache.set(candidate.run_id,prior);}if(!prior)return null;const currentSig=subgraphSignature(flow.graph,nodeId),priorSig=subgraphSignature(prior.graph,nodeId);if(!currentSig||!priorSig||currentSig!==priorSig)return null;for(const assetId of candidate.output_asset_ids||[])if(!await assetRepository.getAsset(assetId,userId))return null;return candidate;};
  const requireUpstream=async(nodeId:string):Promise<void>=>{for(const prev of incoming(flow.graph,nodeId)){if(active.has(prev))continue;const reusable=await canReuse(prev);active.add(prev);if(reusable){seedRuns.set(prev,reusable);continue;}await requireUpstream(prev);}};
  for(const id of Array.from(desired))await requireUpstream(id);
  return{mode,target_node_id:target,active_node_ids:Array.from(active),seed_runs:seedRuns};
