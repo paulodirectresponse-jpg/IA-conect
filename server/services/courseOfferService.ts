@@ -6,6 +6,7 @@ export interface CourseOfferSnapshot {
   price_brl_cents: number;
   currency: 'BRL';
   checkout_enabled: boolean;
+  vsl_url?: string | null;
 }
 
 const DEFAULT_PRICE_CENTS = 2990;
@@ -33,6 +34,7 @@ export const courseOfferService = {
       price_brl_cents: configuredPrice(),
       currency: 'BRL',
       checkout_enabled: configuredCheckoutEnabled(),
+      vsl_url: String(process.env.COURSE_ANIMATION_3D_VSL_URL || '').trim() || null,
     };
   },
 };
