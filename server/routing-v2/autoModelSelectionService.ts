@@ -58,6 +58,8 @@ export function isModelCompatibleWithRequirements(
         "target_faces",
         "motion_strength",
         "audio_enabled",
+        "background_mode",
+        "variation_strength",
       ].includes(key) &&
       controls[`supports_${key}`] !== true
     )
