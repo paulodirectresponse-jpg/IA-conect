@@ -12,9 +12,11 @@ import { GenerationMode } from "../../src/types/index.js";
 import { publicGenerationError } from "../services/publicGenerationError.js";
 import { validateConfiguration } from "../../src/services/modelCapabilities.js";
 import {
-  isCapabilityId,
-  type CapabilityId,
-} from "../beta/capabilityRegistry.js";
+  capabilityUsesDuration,
+  generationModeForCapability,
+  positiveOptionalInteger,
+  resolveGenerationCapability,
+} from "../routing-v2/generationContract.js";
 import { routingV2AutoModelSelectionService,isModelCompatibleWithRequirements } from "../routing-v2/autoModelSelectionService.js";
 import { assetRepository } from "../repositories/assetRepository.js";
 
@@ -88,18 +90,9 @@ async function buildGenerationQuote(
   modelOverride?: any,
 ) {
   const settings = { ...(body.settings || {}), ...(body.controls || {}) };
-  const rawCapability = String(
-    body.capability_id ||
-      String(body.mode || "TEXT_TO_VIDEO")
-        .toLowerCase()
-        .replace(/_/g, "-"),
-  );
-  if (!isCapabilityId(rawCapability))
-    throw Object.assign(new Error("Capability inválida."), {
-      code: "VALIDATION_ERROR",
-    });
-  const capabilityId = rawCapability as CapabilityId,
-    mode = capabilityId.toUpperCase().replace(/-/g, "_") as GenerationMode;
+  const capabilityId = resolveGenerationCapability(body),
+    mode = generationModeForCapability(capabilityId),
+    usesDuration = capabilityUsesDuration(capabilityId);
   const prompt = String(body.prompt || "").trim();
   if (!body.model_id)
     throw Object.assign(new Error("Modelo é obrigatório."), {
@@ -148,12 +141,14 @@ async function buildGenerationQuote(
     });
 
   const imageMode = mode === "TEXT_TO_IMAGE" || mode === "IMAGE_TO_IMAGE";
-  const providedDuration=Number(settings.duration_seconds)>0?Number(settings.duration_seconds):undefined;
-  const duration = imageMode
-    ? 1
-    : providedDuration||1;
-  const resolution = String(settings.resolution || (imageMode ? "1K" : "720p"));
-  const aspectRatio = String(settings.aspect_ratio || "16:9");
+  const providedDuration = positiveOptionalInteger(settings.duration_seconds);
+  if (usesDuration && !providedDuration)
+    throw Object.assign(new Error("Duração explícita é obrigatória para esta capability."), {
+      code: "VALIDATION_ERROR",
+    });
+  const duration = usesDuration ? providedDuration : undefined;
+  const resolution = settings.resolution ? String(settings.resolution) : "";
+  const aspectRatio = settings.aspect_ratio ? String(settings.aspect_ratio) : "";
   const requestedOutputs = Math.max(
     1,
     Math.min(4, Number(settings.number_of_outputs || 1)),
@@ -189,7 +184,7 @@ async function buildGenerationQuote(
   ) {
     const compatibility = validateConfiguration(model, {
       mode,
-      duration_seconds: duration,
+      duration_seconds: duration ?? 0,
       resolution,
       aspect_ratio: aspectRatio,
       references,
@@ -211,7 +206,7 @@ async function buildGenerationQuote(
     prompt,
     negative_prompt: body.negative_prompt,
     character_count: prompt.length,
-    duration_seconds: imageMode?1:providedDuration,
+    duration_seconds: duration,
     number_of_outputs: outputs,
     dimensions: { resolution, aspect_ratio: aspectRatio },
   });
@@ -223,8 +218,8 @@ async function buildGenerationQuote(
       model_id: model.model_id,
       mode,
       duration_seconds: duration,
-      resolution,
-      aspect_ratio: aspectRatio,
+      resolution: resolution || undefined,
+      aspect_ratio: aspectRatio || undefined,
     },
   });
   const pricingId = `routing-v2:${v2.route.route_id}:${v2.pricing_fetched_at}`;
@@ -420,17 +415,7 @@ generationRouter.post(
         ...(req.body.controls || {}),
         ...req.body,
       };
-      const rawCapability = String(
-        req.body.capability_id ||
-          String(req.body.mode || "TEXT_TO_VIDEO")
-            .toLowerCase()
-            .replace(/_/g, "-"),
-      );
-      if (!isCapabilityId(rawCapability))
-        throw Object.assign(new Error("Capability inválida."), {
-          code: "VALIDATION_ERROR",
-        });
-      const capabilityId = rawCapability as CapabilityId;
+      const capabilityId = resolveGenerationCapability(req.body);
       const requestedModelId = String(req.body.model_id || "");
       const auto =
         requestedModelId === "AUTO"
@@ -466,11 +451,12 @@ generationRouter.post(
         requested_model_id: requestedModelId,
         routing_mode: auto ? "AUTO" : "MANUAL",
         capability_id: capabilityId,
-        mode: (req.body.mode ||
-          capabilityId.toUpperCase().replace(/-/g, "_")) as GenerationMode,
+        mode: generationModeForCapability(capabilityId),
         prompt: String(req.body.prompt||"").trim(),
         negative_prompt: req.body.negative_prompt,
-        duration_seconds: Number(settings.duration_seconds || 1),
+        duration_seconds: capabilityUsesDuration(capabilityId)
+          ? positiveOptionalInteger(settings.duration_seconds)
+          : undefined,
         resolution: settings.resolution || "",
         aspect_ratio: settings.aspect_ratio || "",
         number_of_outputs: Number(settings.number_of_outputs || 1),
