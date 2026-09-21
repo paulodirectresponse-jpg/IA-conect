@@ -14,10 +14,10 @@ describe('Spaces stage 2 generator nodes',()=>{
  });
 
  it('keeps preview and prompt available together instead of replacing configuration after success',()=>{
-  const generator=read('src/components/spaces/nodes/GeneratorNode.tsx');
-  expect(generator).toContain('Seu resultado aparecerá aqui');
+  const generator=read('src/components/spaces/nodes/GeneratorNode.tsx'),preview=read('src/components/spaces/nodes/NodeResultPreview.tsx');
+  expect(preview).toContain('Seu resultado aparecerá aqui');
   expect(generator).toContain('value={node.prompt||');
-  expect(generator).toContain('{preview||');
+  expect(generator).toContain('NodeResultPreview');
   expect(generator).not.toMatch(/preview\?[^:]+:<textarea/);
  });
 
