@@ -11,7 +11,7 @@ export interface CreateRoutingV2ProviderInput{
   provider_id:string;
   name:string;
   type:RoutingV2ProviderType;
-  adapter_id:string;
+  adapter_id?:string;
   secret_reference?:string|null;
   priority?:number;
 }
@@ -88,7 +88,8 @@ export const routingV2ProviderService={
   async create(input:CreateRoutingV2ProviderInput){
     const providerId=validateId(input.provider_id,'provider_id');
     const name=String(input.name||'').trim();
-    const adapterId=validateAdapterId(input.adapter_id);
+    const known=ROUTING_V2_CORE_PROVIDERS.find(row=>row.provider_id===providerId);
+    const adapterId=validateAdapterId(input.adapter_id||known?.adapter_id||`wrapper:${providerId}`);
     if(!name)throw new Error('Nome do provider é obrigatório.');
     if(await routingV2Repository.getProvider(providerId))throw new Error('Provider V2 já existe.');
     const adapter=resolveAdapter(adapterId);

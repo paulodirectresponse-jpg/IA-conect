@@ -1,7 +1,6 @@
 import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
-import { catalogRepository } from '../repositories/catalogRepository.js';
+import { routingV2Repository } from '../routing-v2/repository.js';
 import { billingControlService } from './billingControlService.js';
-import { providerRegistry } from '../adapters/providerRegistry.js';
 import { generationRepository } from '../repositories/generationRepository.js';
 import { assetReferenceResolver } from './assetReferenceResolver.js';
 
@@ -25,29 +24,28 @@ export const systemHealthService={
     }
 
     try{
-      const [models,providers,mappings]=await Promise.all([
-        catalogRepository.listModels(),
-        catalogRepository.listProviders(),
-        catalogRepository.listMappings(),
+      const [models,providers,routes]=await Promise.all([
+        routingV2Repository.listModels(),routingV2Repository.listProviders(),routingV2Repository.listRoutes(),
       ]);
-      const activeMappings=mappings.filter((row)=>row.status==='ACTIVE').length;
-      const healthy=models.length>0&&providers.length>0&&activeMappings>0;
+      const ready=routes.filter((row)=>row.status==='READY'&&row.runtime_status==='HEALTHY'&&row.pricing_status==='CURRENT').length;
+      const healthy=ready>0;
       checks.push({
         key:'catalog',
         label:'Catálogo',
         status:healthy?'OK':'ERROR',
-        detail:healthy?`${models.length} modelos, ${providers.length} providers e ${activeMappings} mappings ativos.`:'Catálogo persistente incompleto.',
+        detail:healthy?`${models.length} modelos, ${providers.length} providers e ${ready} Routes READY.`:'Nenhuma Route V2 READY publicada.',
       });
     }catch{
       checks.push({key:'catalog',label:'Catálogo',status:'ERROR',detail:'Falha ao consultar o catálogo persistente.'});
     }
 
-    const configured=providerRegistry.listAdapters().filter((adapter)=>adapter.isConfigured());
+    const providers=await routingV2Repository.listProviders().catch(()=>[]);
+    const healthyProviders=providers.filter(provider=>provider.status==='ACTIVE'&&provider.health_status==='HEALTHY');
     checks.push({
       key:'providers',
       label:'Providers',
-      status:configured.length>0?'OK':'ERROR',
-      detail:configured.length>0?`${configured.length} adapter(s) configurado(s): ${configured.map((a)=>a.name).join(', ')}.`:'Nenhum adapter de geração está configurado.',
+      status:healthyProviders.length>0?'OK':'ERROR',
+      detail:healthyProviders.length>0?`${healthyProviders.length} provider(s) V2 com health real HEALTHY.`:'Nenhum provider V2 possui health real HEALTHY.',
     });
 
     try{

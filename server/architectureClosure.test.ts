@@ -81,8 +81,8 @@ describe('final IA Connect architecture closure',()=>{
 
  it('exposes one operational health snapshot for administrators',()=>{
   expect(read('server/routes/adminRoutes.ts')).toContain("'/admin/system-health'");
-  expect(read('server/services/systemHealthService.ts')).toContain('catalogRepository.listModels()');
-  expect(read('server/services/systemHealthService.ts')).toContain('providerRegistry.listAdapters()');
+  expect(read('server/services/systemHealthService.ts')).toContain('routingV2Repository.listModels()');
+  expect(read('server/services/systemHealthService.ts')).toContain("row.status==='READY'");
   expect(read('src/components/views/AdminView.tsx')).toContain('Saúde operacional');
  });
 

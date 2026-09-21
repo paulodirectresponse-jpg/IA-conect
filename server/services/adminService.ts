@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import { userRepository } from '../repositories/userRepository.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
+import { routingV2Repository } from '../routing-v2/repository.js';
+import { generationRepository } from '../repositories/generationRepository.js';
 import { auditRepository } from '../repositories/auditRepository.js';
 import { creditWalletService } from './creditWalletService.js';
 import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
@@ -9,14 +11,13 @@ import { UserProfile, UserStatus } from '../../src/types/index.js';
 export const adminService = {
   async getDashboardStats() {
     const userCounts = await userRepository.count();
-    const models = await catalogRepository.listModels();
-    const providers = await catalogRepository.listProviders();
+    const [models,providers,generations] = await Promise.all([routingV2Repository.listModels(),routingV2Repository.listProviders(),generationRepository.listAllGenerations(5000)]);
     const flags = await catalogRepository.listFeatureFlags();
     const creditRows=await firestoreAdminRest.runQuery({from:[{collectionId:'credit_accounts'}]}).catch(()=>[]);
     const totalPlatformCredits=creditRows.reduce((sum:number,r:any)=>sum+Math.max(0,Number(r?.data?.available_credits||0))+Math.max(0,Number(r?.data?.reserved_credits||0)),0);
     return {
       total_users: userCounts.total,active_users: userCounts.active,suspended_users: userCounts.suspended,admin_users: userCounts.admins,
-      total_platform_credits:totalPlatformCredits,generations_count:0,generations_by_status:{QUEUED:0,PROCESSING:0,SUCCEEDED:0,FAILED:0},
+      total_platform_credits:totalPlatformCredits,generations_count:generations.length,generations_by_status:{QUEUED:generations.filter(g=>g.status==='QUEUED').length,PROCESSING:generations.filter(g=>['RESERVING_FUNDS','SUBMITTED','PROCESSING'].includes(g.status)).length,SUCCEEDED:generations.filter(g=>g.status==='SUCCEEDED').length,FAILED:generations.filter(g=>g.status==='FAILED').length},
       models_count:models.length,providers_count:providers.length,feature_flags_count:flags.length,alerts:[],
     };
   },

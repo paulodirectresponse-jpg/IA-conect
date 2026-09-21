@@ -8,7 +8,6 @@ import{AdminSystemDashboard}from'../admin/AdminSystemDashboard.js';
 import{AdminUsersList}from'../admin/AdminUsersList.js';
 import{AdminCoupons}from'../admin/AdminCoupons.js';
 import{AdminEconomics}from'../admin/AdminEconomics.js';
-import{AdminBetaCatalog}from'../admin/AdminBetaCatalog.js';
 import{AdminFeatureFlags}from'../admin/AdminFeatureFlags.js';
 import{AdminAuditLogs}from'../admin/AdminAuditLogs.js';
 import{AdminPromotions}from'../admin/AdminPromotions.js';
@@ -29,7 +28,7 @@ export const AdminView:React.FC=()=>{
   {id:'system'as const,label:'Sistema',icon:<Settings2 className="w-4 h-4"/>},
  ];
  return <div className="ia-admin space-y-7">
-  <header className="ia-view-header"><div className="flex items-center gap-2.5"><h1 className="ia-view-title">Administração</h1><Badge variant="neutral">Operacional</Badge><Badge variant="neutral">Dados persistidos</Badge></div><p className="ia-view-description">Saúde operacional, IA, providers, finanças, usuários e sistema em uma única visão sincronizada. As abas permanecem montadas para troca instantânea; scans continuam seguindo o ciclo operacional.</p></header>
+  <header className="ia-view-header"><div className="flex items-center gap-2.5"><h1 className="ia-view-title">Administração</h1><Badge variant="neutral">Operacional</Badge><Badge variant="neutral">Dados persistidos</Badge></div><p className="ia-view-description">Saúde operacional, IA & Roteamento V2, finanças, usuários e sistema em uma única visão sincronizada.</p></header>
   <nav className="ia-admin-tabs flex items-center gap-1 overflow-x-auto pb-2">{tabs.map(t=><button key={t.id} onClick={()=>setActiveTab(t.id)} className={`ia-admin-tab flex h-10 items-center gap-2 px-3 rounded-lg text-[11px] font-semibold whitespace-nowrap ${activeTab===t.id?'is-active':''}`}>{t.icon}{t.label}</button>)}</nav>
 
   <div className={pane(activeTab==='overview')} aria-hidden={activeTab!=='overview'}><AdminOverviewDashboard/></div>
@@ -50,7 +49,6 @@ export const AdminView:React.FC=()=>{
   <div className={pane(activeTab==='system')} aria-hidden={activeTab!=='system'}><div className="space-y-4">
    <AdminSystemDashboard/>
    <Section title="Feature flags" description="Ative ou interrompa recursos com registro de motivo." open><AdminFeatureFlags/></Section>
-   <Section title="Beta · catálogo e políticas" description="Elegibilidade, AUTO routing, policies e ledger econômico do ambiente Beta."><AdminBetaCatalog/></Section>
    <Section title="Auditoria" description="Histórico das alterações administrativas e rastreabilidade."><AdminAuditLogs/></Section>
   </div></div>
  </div>;
