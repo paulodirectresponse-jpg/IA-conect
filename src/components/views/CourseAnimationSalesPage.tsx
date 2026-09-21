@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useRef,useState}from'react';
 import{onAuthStateChanged,User as FirebaseUser}from'firebase/auth';
-import{ArrowRight,Check,CheckCircle2,ChevronDown,Clock3,Copy,Film,Layers,Loader2,Lock,Mail,MonitorPlay,Play,ShieldCheck,Sparkles,User,X,Zap}from'lucide-react';
+import{ArrowRight,Check,CheckCircle2,ChevronDown,Clock3,Copy,Film,Layers,Loader2,Lock,Mail,MonitorPlay,ShieldCheck,Sparkles,User,X,Zap}from'lucide-react';
 import{auth}from'../../config/firebase.js';
 import{authService}from'../../services/authService.js';
 import{CourseOffer,courseSalesClient}from'../../services/courseSalesClient.js';
@@ -71,7 +71,7 @@ export const CourseAnimationSalesPage:React.FC=()=>{
  const[copied,setCopied]=useState(false);
  const[now,setNow]=useState(Date.now());
  const confirmedTracked=useRef(false);
- const vslUrl=String((import.meta as any).env?.VITE_COURSE_VSL_URL||'').trim();
+ const vslUrl=String(offer.vsl_url||(import.meta as any).env?.VITE_COURSE_VSL_URL||'').trim();
  const directVideo=/\.(mp4|webm)(\?|$)/i.test(vslUrl);
 
  useEffect(()=>{
@@ -172,18 +172,17 @@ export const CourseAnimationSalesPage:React.FC=()=>{
     </div>
    </section>
 
-   <section className="course-vsl-section" id="vsl">
+   {vslUrl&&<section className="course-vsl-section" id="vsl">
     <div className="course-wrap">
-     <div className="course-section-heading course-heading-center"><span>VEJA O PROCESSO</span><h2>Antes de decidir, veja o que você vai aprender a construir.</h2><p>A VSL entra exatamente aqui. Todo o restante da página já foi estruturado para levar o visitante do desejo ao checkout.</p></div>
+     <div className="course-section-heading course-heading-center"><span>VEJA O PROCESSO</span><h2>Antes de decidir, veja como a ideia vira uma animação.</h2><p>Assista à apresentação e entenda o método, o projeto e o que você vai construir dentro do treinamento.</p></div>
      <div className="course-vsl-shell">
-      {vslUrl?directVideo
+      {directVideo
        ?<video controls playsInline preload="metadata" src={vslUrl} onPlay={()=>track('vsl_play')} onEnded={()=>track('vsl_complete')}/>
-       :<iframe src={vslUrl} title="Apresentação do curso de animação 3D com IA" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen/>
-       :<div className="course-vsl-placeholder"><div className="course-play"><Play/></div><span>ESPAÇO RESERVADO PARA A VSL</span><strong>16:9 · pronto para receber o vídeo final</strong></div>}
+       :<iframe src={vslUrl} title="Apresentação do curso de animação 3D com IA" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen/>}
      </div>
      <div className="course-vsl-cta"><button className="course-primary" onClick={()=>openCheckout('vsl')}>Quero entrar no treinamento <ArrowRight/></button></div>
     </div>
-   </section>
+   </section>}
 
    <section className="course-contrast">
     <div className="course-wrap">
