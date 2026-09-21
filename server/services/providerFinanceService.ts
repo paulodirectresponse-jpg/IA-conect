@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { routingV2Repository } from '../routing-v2/repository.js';
 
 export interface ProviderFinanceSnapshot {
   provider_id: string;
@@ -83,76 +84,73 @@ async function cached(id:string,force:boolean,loader:()=>Promise<ProviderFinance
   const value=await loader();cache.set(id,{at:Date.now(),value});return value;
 }
 
-async function atlasBalance(force = false): Promise<ProviderFinanceSnapshot> {
-  const id = 'provider-atlas';
+async function atlasBalance(name:string,configured:boolean,force=false):Promise<ProviderFinanceSnapshot>{
+  const id='provider-atlas';
   return cached(id,force,async()=>{
-    const key = String(process.env.ATLAS_API_KEY || '').trim();
-    if (!key) return toSnapshot({ provider_id:id, provider_name:'Atlas Cloud', configured:false });
-    try {
-      const body = await fetchJson('https://api.atlascloud.ai/public/v1/balance', key);
-      const raw = body?.available?.value ?? body?.balance?.value ?? body?.value;
-      const value = Number(raw);
-      return toSnapshot({ provider_id:id, provider_name:'Atlas Cloud', configured:true, balance_usd:Number.isFinite(value) ? value : null });
-    } catch (err:any) { return toSnapshot({ provider_id:id, provider_name:'Atlas Cloud', configured:true, error:err?.message || 'Falha ao consultar saldo.' }); }
+    const key=String(process.env.ATLAS_API_KEY||'').trim();
+    if(!configured||!key)return toSnapshot({provider_id:id,provider_name:name,configured:false});
+    try{
+      const body=await fetchJson('https://api.atlascloud.ai/public/v1/balance',key);
+      const value=Number(body?.available?.value??body?.balance?.value??body?.value);
+      return toSnapshot({provider_id:id,provider_name:name,configured:true,balance_usd:Number.isFinite(value)?value:null});
+    }catch(err:any){return toSnapshot({provider_id:id,provider_name:name,configured:true,error:err?.message||'Falha ao consultar saldo.'});}
   });
 }
 
-async function wavespeedBalance(force = false): Promise<ProviderFinanceSnapshot> {
-  const id = 'provider-wavespeed';
+async function wavespeedBalance(name:string,configured:boolean,force=false):Promise<ProviderFinanceSnapshot>{
+  const id='provider-wavespeed';
   return cached(id,force,async()=>{
-    const key = String(process.env.WAVESPEED_API_KEY || '').trim();
-    if (!key) return toSnapshot({ provider_id:id, provider_name:'WaveSpeed AI', configured:false });
-    try {
-      const apiBase = String(process.env.WAVESPEED_BASE_URL || 'https://api.wavespeed.ai').replace(/\/+$/, '').replace(/\/api\/v3$/, '');
-      const body = await fetchJson(`${apiBase}/api/v3/balance`, key);
-      const value = Number(body?.data?.balance ?? body?.balance);
-      return toSnapshot({ provider_id:id, provider_name:'WaveSpeed AI', configured:true, balance_usd:Number.isFinite(value) ? value : null });
-    } catch (err:any) { return toSnapshot({ provider_id:id, provider_name:'WaveSpeed AI', configured:true, error:err?.message || 'Falha ao consultar saldo.' }); }
+    const key=String(process.env.WAVESPEED_API_KEY||'').trim();
+    if(!configured||!key)return toSnapshot({provider_id:id,provider_name:name,configured:false});
+    try{
+      const apiBase=String(process.env.WAVESPEED_BASE_URL||'https://api.wavespeed.ai').replace(/\/+$/,'').replace(/\/api\/v3$/,'');
+      const body=await fetchJson(`${apiBase}/api/v3/balance`,key);
+      const value=Number(body?.data?.balance??body?.balance);
+      return toSnapshot({provider_id:id,provider_name:name,configured:true,balance_usd:Number.isFinite(value)?value:null});
+    }catch(err:any){return toSnapshot({provider_id:id,provider_name:name,configured:true,error:err?.message||'Falha ao consultar saldo.'});}
   });
 }
 
-async function runwareBalance(force=false):Promise<ProviderFinanceSnapshot>{
+async function runwareBalance(name:string,configured:boolean,force=false):Promise<ProviderFinanceSnapshot>{
   const id='provider-runware';
   return cached(id,force,async()=>{
     const key=String(process.env.RUNWARE_API_KEY||'').trim();
-    if(!key)return toSnapshot({provider_id:id,provider_name:'Runware',configured:false});
+    if(!configured||!key)return toSnapshot({provider_id:id,provider_name:name,configured:false});
     try{
       const url=String(process.env.RUNWARE_BASE_URL||'https://api.runware.ai/v1').replace(/\/+$/,'');
       const taskUUID=crypto.randomUUID();
       const body=await fetchJson(url,key,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify([{taskType:'accountManagement',taskUUID,operation:'getDetails'}])});
       const data=body?.data?.[0]??body?.data??body;
       const value=Number(data?.balance?.amount??data?.balance?.value??data?.balance);
-      return toSnapshot({provider_id:id,provider_name:'Runware',configured:true,balance_usd:Number.isFinite(value)?value:null});
-    }catch(err:any){return toSnapshot({provider_id:id,provider_name:'Runware',configured:true,error:err?.message||'Falha ao consultar saldo.'});}
+      return toSnapshot({provider_id:id,provider_name:name,configured:true,balance_usd:Number.isFinite(value)?value:null});
+    }catch(err:any){return toSnapshot({provider_id:id,provider_name:name,configured:true,error:err?.message||'Falha ao consultar saldo.'});}
   });
 }
 
-const passiveProviders=[
-  ['provider-fal','fal.ai','FAL_API_KEY'],
-  ['provider-deepinfra','DeepInfra','DEEPINFRA_API_KEY'],
-  ['provider-replicate','Replicate','REPLICATE_API_TOKEN'],
-  ['provider-aiml','AI/ML API','AIML_API_KEY'],
-  ['provider-piapi','PiAPI','PIAPI_API_KEY'],
-  ['provider-kie','Kie.ai','KIE_API_KEY'],
-] as const;
-
-async function passiveSnapshot(id:string,name:string,envKey:string,force=false){
-  return cached(id,force,async()=>toSnapshot({provider_id:id,provider_name:name,configured:Boolean(String(process.env[envKey]||'').trim()),balance_usd:null}));
+async function snapshotForV2Provider(provider:any,force=false){
+  const id=String(provider.provider_id||'');
+  const name=String(provider.name||id);
+  const configured=provider.status==='ACTIVE'&&Boolean(provider.adapter_id);
+  if(id==='provider-atlas')return atlasBalance(name,configured,force);
+  if(id==='provider-wavespeed')return wavespeedBalance(name,configured,force);
+  if(id==='provider-runware')return runwareBalance(name,configured,force);
+  return cached(id,force,async()=>toSnapshot({
+    provider_id:id,
+    provider_name:name,
+    configured,
+    balance_usd:null,
+    ...(configured?{}:{error:provider.status==='DISABLED'?'Provider V2 desabilitado.':'Provider V2 sem adapter configurado.'}),
+  }));
 }
 
 export const providerFinanceService = {
-  async getAll(force = false) {
-    return Promise.all([
-      wavespeedBalance(force),atlasBalance(force),runwareBalance(force),
-      ...passiveProviders.map(([id,name,env])=>passiveSnapshot(id,name,env,force)),
-    ]);
+  async getAll(force=false){
+    const providers=await routingV2Repository.listProviders();
+    return Promise.all(providers.map(provider=>snapshotForV2Provider(provider,force)));
   },
-  async get(providerId: string, force = false) {
-    if (providerId === 'provider-atlas') return atlasBalance(force);
-    if (providerId === 'provider-wavespeed') return wavespeedBalance(force);
-    if (providerId === 'provider-runware') return runwareBalance(force);
-    const row=passiveProviders.find(([id])=>id===providerId);
-    return row?passiveSnapshot(row[0],row[1],row[2],force):null;
+  async get(providerId:string,force=false){
+    const provider=await routingV2Repository.getProvider(providerId);
+    return provider?snapshotForV2Provider(provider,force):null;
   },
-  clearCache() { cache.clear(); },
+  clearCache(){cache.clear();},
 };
