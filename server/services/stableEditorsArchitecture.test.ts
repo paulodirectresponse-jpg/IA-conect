@@ -58,6 +58,8 @@ describe('Stable image and video editors',()=>{
   expect(execution).toContain("origin:generation.derived_from_asset_id?'DERIVED':'GENERATED'");
   expect(execution).toContain('derived_from_asset_id:generation.derived_from_asset_id||null');
   expect(service).toContain('reference_roles:hydratedRefs.map');
+  expect(service).toContain('url:row.provider_accessible_url');
+  expect(execution).toContain('generationModeForCapability(input.capability_id)');
  });
  it('does not mount a parallel editor API',()=>{
   const root=read('server/routes/index.ts');
