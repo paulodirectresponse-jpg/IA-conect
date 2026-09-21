@@ -7,7 +7,16 @@ export const SPACE_GENERATOR_NODE_W=286;
 export const SPACE_BASE_NODE_H=156;
 
 const GENERATOR_CAPABILITIES=new Set(['text-to-image','image-to-image','text-to-video','image-to-video']);
-export function spaceNodeWidth(node:FlowNode){return node.kind==='TOOL'&&node.capability_id&&GENERATOR_CAPABILITIES.has(node.capability_id)?SPACE_GENERATOR_NODE_W:SPACE_NODE_W;}
+export function spaceNodeWidth(node:FlowNode){
+ const adaptive=Number(node.ui?.width);
+ if(Number.isFinite(adaptive)&&adaptive>=120&&adaptive<=1200)return adaptive;
+ return node.kind==='TOOL'&&node.capability_id&&GENERATOR_CAPABILITIES.has(node.capability_id)?SPACE_GENERATOR_NODE_W:SPACE_NODE_W;
+}
+
+export function spaceNodeVisualHeight(node:FlowNode){
+ const adaptive=Number(node.ui?.height);
+ return Number.isFinite(adaptive)&&adaptive>=120&&adaptive<=1600?adaptive:null;
+}
 
 export function spaceConnectionPath(a:FlowNode,b:FlowNode,aH:number,bH:number){
  const x1=a.x+spaceNodeWidth(a),y1=a.y+aH/2,x2=b.x,y2=b.y+bH/2,c=Math.max(80,Math.abs(x2-x1)*.45);
