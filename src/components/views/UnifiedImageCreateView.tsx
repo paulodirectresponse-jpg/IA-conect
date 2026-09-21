@@ -9,13 +9,12 @@ import {
   Asset,
   Generation,
   GenerationMode,
-  GenerationRequestDraft,
   ModelRegistryItem,
   WorkspaceReference,
 } from "../../types/index.js";
 import { workspaceService } from "../../services/workspaceService.js";
 import { assetService } from "../../services/assetService.js";
-import { generationClient } from "../../services/generationClient.js";
+import { universalGenerationClient } from "../../services/universalGenerationClient.js";
 import { getModelCapabilities } from "../../services/modelCapabilities.js";
 import { DEFAULT_PRESERVATION_RULES } from "../../config/constants.js";
 import { useAuth } from "../../context/AuthContext.js";
@@ -102,21 +101,20 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
   useEffect(() => {
     let mounted = true;
     Promise.all([
-      workspaceService.listModels().catch(() => []),
-      workspaceService.listModelRoutes("text-to-image").catch(() => []),
+      universalGenerationClient.catalog("text-to-image").catch(() => []),
+      universalGenerationClient.catalog("image-to-image").catch(() => []),
       assetService.listAssets().catch(() => []),
       workspaceService
         .getUserPreferences()
         .catch(() => ({ favorite_model_ids: [], recent_model_ids: [] }) as any),
-    ]).then(([mr, routes, ar, prefs]) => {
+    ]).then(([textModels, editModels, ar, prefs]) => {
       if (!mounted) return;
-      const safeIds = new Set(routes.map((route) => route.model_id));
-      const imageModels = mr.filter(
-        (m) =>
-          m.category === "IMAGE" &&
-          m.status !== "INACTIVE" &&
-          safeIds.has(m.model_id) &&
-          (m.supported_modes || []).includes("TEXT_TO_IMAGE"),
+      const imageModels = Array.from(
+        new Map(
+          [...textModels, ...editModels]
+            .filter((m) => m.category === "IMAGE" && m.status !== "INACTIVE")
+            .map((m) => [m.model_id, m]),
+        ).values(),
       );
       setModels(imageModels);
       setManualModelId((c) =>
@@ -188,6 +186,7 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
   const mode: GenerationMode = references.length
     ? "IMAGE_TO_IMAGE"
     : "TEXT_TO_IMAGE";
+  const capabilityId = references.length ? "image-to-image" : "text-to-image";
   const baseCompatibleModels = useMemo(
     () =>
       models.filter((model) => {
@@ -234,8 +233,11 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
     [baseCompatibleModels, resolution],
   );
   const autoQuote = useBackendAutoQuote(selectionMode === "AUTO" && !references.some(ref => ref.asset_id.startsWith("local_") || ref.asset?.status === "UPLOADING"), {
-    model_id: "AUTO", mode, prompt, references,
-    settings: { resolution, aspect_ratio: aspectRatio, number_of_outputs: numberOfOutputs, seed: typeof seed === "number" ? seed : null },
+    model_id: "AUTO",
+    capability_id: capabilityId,
+    prompt,
+    references: references.map((ref) => ({ asset_id: ref.asset_id, slot_type: "GENERAL", alias: ref.alias_snapshot })),
+    controls: { resolution, aspect_ratio: aspectRatio, number_of_outputs: numberOfOutputs, seed: typeof seed === "number" ? seed : null },
   }, models);
   const autoModel = autoQuote.model;
   const activeModel = selectionMode === "AUTO" ? autoModel : manualModel;
@@ -296,10 +298,10 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
       const requests = missing.map((model) => ({
         key: model.model_id,
         model_id: model.model_id,
-        mode,
+        capability_id: capabilityId,
         prompt: prompt.trim() || "pricing preview",
-        references: pricedReferences,
-        settings: {
+        references: pricedReferences.map((ref) => ({ asset_id: ref.asset_id, slot_type: "GENERAL" as const, alias: ref.alias_snapshot })),
+        controls: {
           resolution,
           aspect_ratio: aspectRatio,
           number_of_outputs: 1,
@@ -307,7 +309,7 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
         },
       }));
       try {
-        const batch = await generationClient.quoteBatch(requests);
+        const batch = await universalGenerationClient.quoteBatch(requests);
         for (const item of batch.items) {
           const model = missing.find((m) => m.model_id === item.key),
             d: any = item.pricing;
@@ -545,36 +547,33 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
       setSubmitting(true);
       const resolvedReferences =
         await assetService.resolveWorkspaceReferences(submittedReferences);
-      const preview = await generationClient.quote({
-          model_id:
-            selectionMode === "AUTO" ? "AUTO" : submittedModel.model_id,
-          mode: submittedMode,
-          prompt: submittedPrompt,
-          references: resolvedReferences,
-          settings: {
-            resolution: submittedResolution,
-            aspect_ratio: submittedAspectRatio,
-            number_of_outputs: submittedOutputs,
-            seed: submittedModel.supports_seed ? submittedSeed : null,
-          },
-        }),
-        draft: any = preview.request_draft,
-        current = Number(draft.retail_credit_price),
-        quotedUnit = Number(draft.unit_credit_price);
+      const request = {
+        model_id: selectionMode === "AUTO" ? "AUTO" : submittedModel.model_id,
+        capability_id: submittedMode === "IMAGE_TO_IMAGE" ? "image-to-image" : "text-to-image",
+        prompt: submittedPrompt,
+        references: resolvedReferences.map((ref) => ({ asset_id: ref.asset_id, slot_type: "GENERAL" as const, alias: ref.alias_snapshot })),
+        controls: {
+          resolution: submittedResolution,
+          aspect_ratio: submittedAspectRatio,
+          number_of_outputs: submittedOutputs,
+          seed: submittedModel.supports_seed ? submittedSeed : null,
+        },
+      };
+      const preview = await universalGenerationClient.quote(request),
+        current = Number(preview.credit_price),
+        quotedUnit = Number(preview.request_draft.unit_credit_price);
       if (Number.isFinite(quotedUnit) && quotedUnit > 0)
         setUnitPricesByModelId((prev) => ({
           ...prev,
           [submittedModel.model_id]: quotedUnit,
         }));
-      if (!draft.has_sufficient_funds)
+      if (!preview.sufficient_funds)
         return setError("Créditos insuficientes para esta geração.");
       if (expectedPrice != null && current !== expectedPrice)
         return setError(
           "O preço fixo foi atualizado. Nenhum crédito foi cobrado.",
         );
-      const started = await generationClient.create(
-        draft as GenerationRequestDraft,
-      );
+      const started = await universalGenerationClient.create(request, preview);
       setLiveGenerations((prev) => upsertGeneration(prev, started));
       window.dispatchEvent(
         new CustomEvent("generation:updated", { detail: started }),
