@@ -52,6 +52,7 @@ export function normalizeSpaceNodeV2(node:FlowNode):FlowNode{
    fit:node.ui?.fit==='contain'?'contain':'cover',
    ...(Number.isFinite(Number(node.ui?.width))?{width:Number(node.ui?.width)}:{}),
    ...(Number.isFinite(Number(node.ui?.height))?{height:Number(node.ui?.height)}:{}),
+   ...(Number.isFinite(Number(node.ui?.media_aspect_ratio))?{media_aspect_ratio:Number(node.ui?.media_aspect_ratio)}:{}),
   },
  };
 }
@@ -91,4 +92,58 @@ export function resolveSpaceNodeMedia(
   aspectRatio:width&&height?width/height:null,
   previewUrl:asset?.preview_url||asset?.public_url||null,
  };
+}
+
+
+export interface SpaceAdaptiveSize{width:number;height:number;aspectRatio:number;}
+
+export function parseSpaceAspectRatio(value:unknown):number|null{
+ if(typeof value==='number'&&Number.isFinite(value)&&value>0)return value;
+ const text=String(value||'').trim();
+ const match=text.match(/^(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)$/);
+ if(!match)return null;
+ const w=Number(match[1]),h=Number(match[2]);
+ if(!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0)return null;
+ const ratio=w/h;
+ return ratio>=0.2&&ratio<=5?ratio:null;
+}
+
+export function adaptiveSpaceNodeSize(aspectRatio:number):SpaceAdaptiveSize{
+ const ratio=Math.max(0.2,Math.min(5,Number(aspectRatio)||1));
+ const targetArea=90000;
+ let width=Math.sqrt(targetArea*ratio),height=width/ratio;
+ const maxW=380,maxH=430,minW=220,minH=170;
+ const down=Math.min(1,maxW/width,maxH/height);
+ width*=down;height*=down;
+ const up=Math.max(1,Math.min(maxW/width,maxH/height,Math.max(minW/width,minH/height)));
+ width*=up;height*=up;
+ return{width:Math.round(width),height:Math.round(height),aspectRatio:ratio};
+}
+
+export function desiredSpaceNodeVisual(
+ node:FlowNode,
+ descriptor:SpaceNodeMediaDescriptor,
+):SpaceAdaptiveSize|null{
+ const controlAspect=parseSpaceAspectRatio(node.controls?.aspect_ratio);
+ const aspect=descriptor.aspectRatio||controlAspect||node.ui?.media_aspect_ratio||null;
+ if(!aspect)return null;
+ return adaptiveSpaceNodeSize(aspect);
+}
+
+export function applyAdaptiveSpaceNodeVisual(
+ node:FlowNode,
+ descriptor:SpaceNodeMediaDescriptor,
+):FlowNode{
+ const desired=desiredSpaceNodeVisual(node,descriptor);
+ if(!desired)return normalizeSpaceNodeV2(node);
+ return normalizeSpaceNodeV2({
+  ...node,
+  ui:{
+   ...node.ui,
+   fit:'contain',
+   width:desired.width,
+   height:desired.height,
+   media_aspect_ratio:desired.aspectRatio,
+  },
+ });
 }
