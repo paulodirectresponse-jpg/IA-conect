@@ -33,20 +33,21 @@ describe('Routing Core V2 Admin',()=>{
     expect(source).not.toContain('providerPricingCatalogService');
   });
 
-  it('renders the five simple V2 admin areas without replacing V1 admin',()=>{
+  it('renders the single IA routing admin and removes the parallel legacy admin',()=>{
     const view=read('src/components/admin/AdminRoutingV2.tsx');
     const admin=read('src/components/views/AdminView.tsx');
-    for(const label of ['Providers','Models','Routes','Pricing','Health'])expect(view).toContain(label);
+    for(const label of ['Providers','Modelos','Rotas','Pricing','Health'])expect(view).toContain(label);
     expect(view).toContain('HYBRID');
     expect(view).toContain('V2_ONLY');
-    expect(view).toContain('Route READY');
-    expect(view).toContain('Resetar inventário V2 (preview)');
+    expect(view).toContain('rotas READY');
+    expect(view).not.toContain('Ativar V2_ONLY');
+    expect(view).not.toContain('Resetar inventário V2 (preview)');
     expect(view).toContain('Cadastrar 3 providers base');
     expect(view).toContain('WaveSpeed, Atlas Cloud e Runware');
     expect(admin).toContain('AdminRoutingV2');
-    expect(admin).toContain("id:'routing-v2'");
-    expect(admin).toContain('AdminAIProvidersHub');
-    expect(admin).toContain('AdminPricing');
+    expect(admin).toContain("id:'ai-routing'");
+    expect(admin).not.toContain('AdminAIProvidersHub');
+    expect(admin).not.toContain('AdminPricing');
   });
 
   it('never accepts API keys through the V2 admin provider form',()=>{

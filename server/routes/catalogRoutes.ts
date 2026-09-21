@@ -11,9 +11,7 @@ export const catalogRouter = Router();
 
 catalogRouter.get('/catalog/models', requireAuth, async (req, res) => {
   try {
-    await providerCatalogService.ensureSeeded();
-    const models = await catalogRepository.listModels();
-    res.json({ success: true, data: models.filter(model=>model.beta_only!==true) });
+    res.json({ success: true, data: await routingV2CatalogService.listGeneratorModels() });
   } catch (err: any) {
     res.status(500).json({ success: false, error: { code: 'CATALOG_ERROR', message: 'Erro ao listar modelos.' } });
   }
@@ -31,8 +29,10 @@ catalogRouter.get('/catalog/providers', requireAuth, async (req, res) => {
 
 catalogRouter.get('/catalog/model-routes', requireAuth, async (req, res) => {
   try {
-    const capabilityId=String(req.query.capability_id||'').trim()||undefined;
-    const routes=await providerRouteCatalogService.listSafeRoutes(capabilityId);
+    const raw=String(req.query.capability_id||'').trim();
+    const capabilityId=raw&&isCapabilityId(raw)?raw:undefined;
+    if(raw&&!capabilityId)return res.status(400).json({success:false,error:{code:'VALIDATION_ERROR',message:'Capability inválida.'}});
+    const routes=await routingV2CatalogService.listGeneratorRoutes(capabilityId);
     res.json({success:true,data:routes});
   } catch (err: any) {
     res.status(500).json({success:false,error:{code:'MODEL_ROUTES_ERROR',message:'Erro ao listar rotas seguras de providers.'}});

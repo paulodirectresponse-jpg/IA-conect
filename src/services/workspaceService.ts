@@ -21,8 +21,7 @@ export interface SafeModelProviderRoute{
 export const workspaceService={
   async listModels():Promise<ModelRegistryItem[]>{
     const rows=await apiRequestCached<ModelRegistryItem[]>('/api/catalog/models',60_000);
-    if(!Array.isArray(rows)||!rows.length)throw new Error('Catálogo de modelos indisponível.');
-    return rows;
+    return Array.isArray(rows)?rows:[];
   },
 
   async listModelRoutes(capabilityId?:string):Promise<SafeModelProviderRoute[]>{

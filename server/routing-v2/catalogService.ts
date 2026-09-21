@@ -34,4 +34,15 @@ export const routingV2CatalogService={
   async hasReadyRoute(modelId:string,capabilityId:CapabilityId){
     return (await routingV2RouteService.listReady(modelId,capabilityId)).length>0;
   },
+
+  async listGeneratorModels(){
+    const models=await this.listPublicModels();
+    return models.map(model=>({model_id:model.model_id,name:model.name,slug:model.slug,category:model.category,description:model.description,status:'ACTIVE',supported_modes:model.available_capabilities.map(capability=>String(capability).replace(/-/g,'_').toUpperCase()),beta_capability_ids:model.available_capabilities,created_at:model.created_at,updated_at:model.updated_at}));
+  },
+
+  async listGeneratorRoutes(capabilityId?:CapabilityId){
+    const[routes,providers]=await Promise.all([this.listPublicRoutes(capabilityId),routingV2Repository.listProviders()]);
+    const names=new Map(providers.map(provider=>[provider.provider_id,provider.name]));
+    return routes.map(route=>({model_id:route.model_id,provider_id:route.provider_id,provider_name:names.get(route.provider_id)||route.provider_id,provider_model_identifier:route.provider_model_identifier,capabilities:[route.capability_id]}));
+  },
 };

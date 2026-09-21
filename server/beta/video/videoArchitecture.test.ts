@@ -51,12 +51,12 @@ describe('PR-11 Video Unification architecture',()=>{
     expect(stable).not.toContain('videoClient');
   });
 
-  it('keeps Beta logical models out of the Stable catalog endpoint',()=>{
+  it('publishes generator models only from READY greenfield routes',()=>{
     const route=read('server/routes/catalogRoutes.ts');
     const types=read('src/types/index.ts');
     const seed=read('src/config/studioCatalog.ts');
     expect(types).toContain('beta_only?:boolean');
-    expect(route).toContain('models.filter(model=>model.beta_only!==true)');
+    expect(route).toContain('routingV2CatalogService.listGeneratorModels()');
     expect(seed).toContain("model_id:'video-studio-v1',beta_only:true");
   });
 

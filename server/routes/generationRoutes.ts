@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { generationService } from '../services/generationService.js';
-import { creditPricingService } from '../services/creditPricingService.js';
 import { billingControlService } from '../services/billingControlService.js';
-import { catalogRepository } from '../repositories/catalogRepository.js';
+import { routingV2CatalogService } from '../routing-v2/catalogService.js';
+import { routingV2ExecutionService } from '../routing-v2/executionService.js';
 import { promptCompilerService } from '../services/promptCompilerService.js';
 import { GenerationMode } from '../../src/types/index.js';
 import { publicGenerationError } from '../services/publicGenerationError.js';
@@ -60,7 +60,7 @@ async function buildGenerationQuote(uid:string,body:any,modelOverride?:any){
   const prompt=String(body.prompt||'').trim();
   if(!body.model_id||!prompt)throw Object.assign(new Error('Modelo e prompt são obrigatórios.'),{code:'VALIDATION_ERROR'});
 
-  const model=modelOverride||await catalogRepository.getModel(String(body.model_id));
+  const model=modelOverride||(await routingV2CatalogService.listGeneratorModels()).find(row=>row.model_id===String(body.model_id));
   if(!model||model.status==='INACTIVE')throw Object.assign(new Error('Modelo indisponível.'),{code:'MODEL_NOT_FOUND'});
 
   const imageMode=mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE';
@@ -76,28 +76,12 @@ async function buildGenerationQuote(uid:string,body:any,modelOverride?:any){
   const compatibility=validateConfiguration(model,{mode,duration_seconds:duration,resolution,aspect_ratio:aspectRatio,references,negative_prompt:body.negative_prompt,promptText:prompt,has_start_image:hasStartImage,has_end_image:hasEndImage});
   if(!compatibility.valid)throw Object.assign(new Error(compatibility.errors[0]),{code:'VALIDATION_ERROR'});
 
-  const q=await creditPricingService.preview({
-    userId:uid,model_id:model.model_id,mode,prompt,negative_prompt:body.negative_prompt,duration_seconds:duration,resolution,aspect_ratio:aspectRatio,
-    number_of_outputs:outputs,seed:settings.seed,motion_strength:settings.motion_strength,references,
-    audio_enabled:settings.audio_enabled===undefined?undefined:Boolean(settings.audio_enabled),model_variant:settings.model_variant,pricing_options:settings.pricing_options,
-  });
-  const compiled=promptCompilerService.compile({
-    original_prompt:prompt,references,negative_prompt:body.negative_prompt,
-    generation_settings:{model_id:model.model_id,mode,duration_seconds:duration,resolution,aspect_ratio:aspectRatio},
-  });
-  const price=q.retail.retail_credit_price,available=q.account.available_credits,retail:any=q.retail;
-  return{
-    request_draft:{
-      request_id:`quote_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
-      user_id:uid,model_id:model.model_id,model_name:model.name,mode,prompt,compiled_prompt:compiled.compiled_prompt,prompt_compiler_version:compiled.prompt_compiler_version,
-      negative_prompt:body.negative_prompt,references,
-      settings:{duration_seconds:duration,resolution,aspect_ratio:aspectRatio,number_of_outputs:outputs,seed:settings.seed??null,motion_strength:settings.motion_strength,audio_enabled:q.signature.audio_enabled,model_variant:q.signature.model_variant,pricing_options:q.signature.pricing_options},
-      has_pricing:true,retail_credit_price:price,unit_credit_price:retail.unit_credit_price,pricing_unit:retail.pricing_unit,base_duration_seconds:retail.base_duration_seconds,billing_units:retail.billing_units,
-      authorized_credit_price:price,credit_balance_available:available,balance_after_generation_credits:available-price,has_sufficient_funds:available>=price,
-      pricing_signature_hash:q.signature.hash,retail_pricing_id:q.retail.retail_pricing_id,retail_pricing_version:q.retail.version,created_at:new Date().toISOString(),
-    },
-    notice:`Preço confirmado: ${price.toLocaleString('pt-BR')} créditos.`,
-  };
+  const capabilityId=mode.toLowerCase().replace(/_/g,'-') as any;
+  const v2=await routingV2ExecutionService.preview({user_id:uid,model_id:model.model_id,capability_id:capabilityId,prompt,negative_prompt:body.negative_prompt,duration_seconds:duration,number_of_outputs:outputs,dimensions:{resolution,aspect_ratio:aspectRatio}});
+  const compiled=promptCompilerService.compile({original_prompt:prompt,references,negative_prompt:body.negative_prompt,generation_settings:{model_id:model.model_id,mode,duration_seconds:duration,resolution,aspect_ratio:aspectRatio}});
+  const pricingId=`routing-v2:${v2.route.route_id}:${v2.pricing_fetched_at}`;
+  return{request_draft:{request_id:`quote_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,user_id:uid,model_id:model.model_id,model_name:model.name,mode,prompt,compiled_prompt:compiled.compiled_prompt,prompt_compiler_version:compiled.prompt_compiler_version,negative_prompt:body.negative_prompt,references,settings:{duration_seconds:duration,resolution,aspect_ratio:aspectRatio,number_of_outputs:outputs,seed:settings.seed??null,motion_strength:settings.motion_strength,audio_enabled:settings.audio_enabled,model_variant:settings.model_variant,pricing_options:settings.pricing_options},has_pricing:true,retail_credit_price:v2.retail_credits,unit_credit_price:v2.retail_credits,pricing_unit:'ROUTING_V2_ROUTE',base_duration_seconds:duration,billing_units:1,authorized_credit_price:v2.retail_credits,credit_balance_available:v2.wallet.has_sufficient_credits?v2.retail_credits:Math.max(0,v2.retail_credits-v2.wallet.missing_credits),balance_after_generation_credits:v2.wallet.has_sufficient_credits?0:-v2.wallet.missing_credits,has_sufficient_funds:v2.wallet.has_sufficient_credits,pricing_signature_hash:pricingId,retail_pricing_id:pricingId,retail_pricing_version:1,created_at:new Date().toISOString()},notice:`Preço confirmado: ${v2.retail_credits.toLocaleString('pt-BR')} créditos.`};
+
 }
 
 async function mapWithConcurrency<T,R>(items:T[],limit:number,worker:(item:T,index:number)=>Promise<R>):Promise<R[]>{
@@ -123,7 +107,7 @@ generationRouter.post('/generations/quote-batch',requireAuth,async(req:Authentic
     await billingControlService.assertNewGenerationAllowed();
     const requests=Array.isArray(req.body?.requests)?req.body.requests.slice(0,16):[];
     if(!requests.length)return res.status(400).json({success:false,error:{code:'VALIDATION_ERROR',message:'Envie pelo menos uma cotação.'}});
-    const models=await catalogRepository.listModels(),byId=new Map(models.map(model=>[model.model_id,model]));
+    const models=await routingV2CatalogService.listGeneratorModels(),byId=new Map(models.map(model=>[model.model_id,model]));
     const items=await mapWithConcurrency(requests,4,async(item:any,index)=>{
       const key=String(item?.key||item?.model_id||index);
       try{
