@@ -162,8 +162,6 @@ export const betaFlowRuntimeService={
   async start(userId:string,flowId:string,input:any,idempotencyKey:string,reqHost?:string,idToken?:string){
     await assertRuntimeEnabled();
     const flow=await betaFlowService.get(userId,flowId);
-    const running=(await betaFlowRuntimeRepository.listRuns(userId,100)).find(item=>item.flow_id===flowId&&item.status==='RUNNING');
-    if(running)fail('FLOW_RUN_ALREADY_RUNNING','Este Space já possui uma execução em andamento. Aguarde a conclusão ou cancele antes de iniciar outra.');
     const plan=await buildFlowExecutionPlan(userId,flow,input);
     const active=new Set(plan.active_node_ids),seeded=new Set(plan.seed_runs.keys()),inputs=await normalizeInputs(userId,flow.graph,active,input?.inputs||{},seeded);
     const timestamp=now(),run:BetaFlowRun={
