@@ -36,7 +36,12 @@ async function validateGraph(userId:string,input:any):Promise<BetaFlowGraph>{
     const kind=String(raw?.kind||'');if(!['INPUT','ASSET','TOOL','OUTPUT'].includes(kind))fail('FLOW_GRAPH_INVALID','Tipo de nó inválido.');
     const x=Number(raw?.x),y=Number(raw?.y);if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x)>20000||Math.abs(y)>20000)fail('FLOW_GRAPH_INVALID','Posição de nó inválida.');
     const media=raw?.media_type?String(raw.media_type) as CapabilityMediaType:null;if(media&&!MEDIA.has(media))fail('FLOW_GRAPH_INVALID','Tipo de mídia inválido.');
-    const node:BetaFlowNode={node_id:nodeId,kind:kind as any,label:clean(raw?.label,80)||'Nó',x,y,media_type:media,asset_id:raw?.asset_id?clean(raw.asset_id,120):null,capability_id:raw?.capability_id?String(raw.capability_id) as any:null,model_id:raw?.model_id?clean(raw.model_id,120):null,prompt:String(raw?.prompt||'').slice(0,12000),controls:raw?.controls&&typeof raw.controls==='object'?raw.controls:{}};
+    const rawUi=raw?.ui&&typeof raw.ui==='object'&&!Array.isArray(raw.ui)?raw.ui:{};
+    const ui:any={fit:rawUi.fit==='contain'?'contain':'cover'};
+    const uiWidth=Number(rawUi.width),uiHeight=Number(rawUi.height);
+    if(Number.isFinite(uiWidth)&&uiWidth>=120&&uiWidth<=1200)ui.width=uiWidth;
+    if(Number.isFinite(uiHeight)&&uiHeight>=120&&uiHeight<=1600)ui.height=uiHeight;
+    const node:BetaFlowNode={node_id:nodeId,schema_version:2,kind:kind as any,label:clean(raw?.label,80)||'Nó',x,y,media_type:media,asset_id:raw?.asset_id?clean(raw.asset_id,120):null,capability_id:raw?.capability_id?String(raw.capability_id) as any:null,model_id:raw?.model_id?clean(raw.model_id,120):null,prompt:String(raw?.prompt||'').slice(0,12000),controls:raw?.controls&&typeof raw.controls==='object'?raw.controls:{},ui};
     if(node.kind==='ASSET'){
       if(!node.asset_id)fail('FLOW_ASSET_REQUIRED','Selecione um asset para este nó.');
       const asset=await assetRepository.getAsset(node.asset_id,userId);if(!asset)fail('ASSET_NOT_FOUND','Asset não encontrado.');
