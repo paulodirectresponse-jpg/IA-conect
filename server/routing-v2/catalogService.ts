@@ -2,6 +2,7 @@ import { CapabilityId, getCapabilityDefinition } from '../beta/capabilityRegistr
 import { RoutingV2Model, RoutingV2ProviderRoute } from './domain.js';
 import { routingV2Repository } from './repository.js';
 import { routingV2RouteService } from './routeService.js';
+import { generationModeForCapability } from './generationContract.js';
 
 export interface RoutingV2PublicModel extends RoutingV2Model{
   available_capabilities:CapabilityId[];
@@ -47,7 +48,7 @@ export const routingV2CatalogService={
       const prices=modelRoutes.map(route=>Number(route.pricing_snapshot?.retail_price_credits)).filter(value=>Number.isFinite(value)&&value>0);
       return{model_id:model.model_id,name:model.name,slug:model.slug,vendor:model.vendor,category:model.category,description:model.description,status:'ACTIVE' as const,
         capabilities_ready:model.available_capabilities,beta_capability_ids:model.available_capabilities,supported_controls:controls,
-        supported_modes:model.available_capabilities.map(capability=>String(capability).replace(/-/g,'_').toUpperCase()),
+        supported_modes:[...new Set(model.available_capabilities.map(capability=>generationModeForCapability(capability)))],
         supported_resolutions:array(controls.supported_resolutions).map(String),supported_durations:array(controls.supported_durations).map(Number).filter(Number.isFinite),supported_aspect_ratios:array(controls.supported_aspect_ratios).map(String),
         supports_image_reference:bool(controls,'supports_image_reference'),supports_multiple_images:bool(controls,'supports_multiple_images'),supports_video_reference:bool(controls,'supports_video_reference'),supports_audio_reference:bool(controls,'supports_audio_reference'),supports_negative_prompt:bool(controls,'supports_negative_prompt'),supports_seed:bool(controls,'supports_seed'),supports_start_end_image:bool(controls,'supports_start_end_image'),supports_camera_control:bool(controls,'supports_camera_control'),supports_motion_strength:bool(controls,'supports_motion_strength'),supports_loop:bool(controls,'supports_loop'),
         max_reference_images:number(controls,'max_reference_images'),max_reference_videos:number(controls,'max_reference_videos'),max_reference_audio:number(controls,'max_reference_audio'),max_prompt_length:number(controls,'max_prompt_length'),
