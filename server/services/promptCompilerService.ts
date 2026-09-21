@@ -11,9 +11,9 @@ export interface PromptCompilerInput {
   generation_settings: {
     model_id: string;
     mode: GenerationMode;
-    duration_seconds: number;
-    resolution: string;
-    aspect_ratio: string;
+    duration_seconds?: number;
+    resolution?: string;
+    aspect_ratio?: string;
   };
 }
 
@@ -59,9 +59,14 @@ export const promptCompilerService = {
     promptLines.push('');
 
     promptLines.push('[TECHNICAL PARAMETERS]');
-    promptLines.push(
-      `- Mode: ${generation_settings.mode} | Duration: ${generation_settings.duration_seconds}s | Resolution: ${generation_settings.resolution} | Aspect Ratio: ${generation_settings.aspect_ratio}`
-    );
+    const technicalParameters = [`Mode: ${generation_settings.mode}`];
+    if (generation_settings.duration_seconds != null)
+      technicalParameters.push(`Duration: ${generation_settings.duration_seconds}s`);
+    if (generation_settings.resolution)
+      technicalParameters.push(`Resolution: ${generation_settings.resolution}`);
+    if (generation_settings.aspect_ratio)
+      technicalParameters.push(`Aspect Ratio: ${generation_settings.aspect_ratio}`);
+    promptLines.push(`- ${technicalParameters.join(' | ')}`);
 
     if (negative_prompt && negative_prompt.trim()) {
       promptLines.push('');
