@@ -11,11 +11,13 @@ export type SpaceAsset=UniversalAssetView;
 export type SpaceRecord=FlowRecord;
 export type SpaceRun=FlowRunView;
 export type SpaceGraph=FlowGraph;
+export interface SpaceHomeItem{flow:FlowRecord;cover_asset:UniversalAssetView|null;recent_assets:UniversalAssetView[];}
 
 export const spacesClient={
  catalog:()=>apiRequest<{models:BetaCapabilityModel[]}>('/api/spaces/catalog'),
  assets:()=>apiRequest<UniversalAssetView[]>('/api/spaces/assets'),
  list:()=>apiRequest<FlowRecord[]>('/api/spaces/flows'),
+ home:()=>apiRequest<SpaceHomeItem[]>('/api/spaces/home'),
  get:(flowId:string)=>apiRequest<FlowRecord>(`/api/spaces/flows/${encodeURIComponent(flowId)}`),
  history:(flowId:string,limit=50)=>apiRequest<FlowRunView[]>(`/api/spaces/flows/${encodeURIComponent(flowId)}/runs?limit=${Math.min(100,Math.max(1,limit))}`),
  create:(input:{name:string;description:string;project_id:string|null;graph:FlowGraph})=>apiRequest<FlowRecord>('/api/spaces/flows',{method:'POST',body:JSON.stringify(input)}),
