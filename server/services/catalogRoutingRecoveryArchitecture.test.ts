@@ -23,10 +23,15 @@ describe('catalog routing, editor separation and pricing fixes',()=>{
     expect(client).toContain("new Set(['text-to-video','image-to-video','first-frame','last-frame'])");
   });
 
-  it('keeps edit and extend available through editor routes',()=>{
-    const route=read('server/routes/editorRoutes.ts');
-    expect(route).toContain("const VIDEO_CAPABILITIES=['video-extend','video-edit']");
-    expect(route).toContain("'beta.video_editor'");
+  it('keeps edit and extend available through the universal READY editor catalog',()=>{
+    const view=read('src/components/views/VideoEditorView.tsx');
+    const catalog=read('src/services/editorUniversalCatalog.ts');
+    const root=read('server/routes/index.ts');
+    expect(view).toContain("'video-extend'");
+    expect(view).toContain("'video-edit'");
+    expect(view).toContain('loadUniversalEditorCatalog');
+    expect(catalog).toContain('universalGenerationClient.catalog');
+    expect(root).not.toContain('editorRouter');
   });
 
   it('syncs WaveSpeed pricing for image and video curated functions',()=>{
