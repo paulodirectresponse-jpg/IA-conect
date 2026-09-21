@@ -42,12 +42,15 @@ describe('phase 3 generation invariants',()=>{
     expect((source.match(/<textarea/g)||[]).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('keeps image generation errors next to the submit action without blocking later jobs',()=>{
+  it('keeps image generation errors next to the shared submit action without blocking later jobs',()=>{
     const source=read('src/components/workspace/UnifiedImageCreatorPanel.tsx');
-    expect(source).toContain('role="alert"');
-    expect(source).toContain('aria-live="assertive"');
+    const controls=read('src/components/workspace/GeneratorControls.tsx');
+    expect(source).toContain('GeneratorFooter');
+    expect(source).toContain('error={p.error}');
+    expect(controls).toContain('role="alert"');
+    expect(controls).toContain('aria-live="assertive"');
     expect(source).toContain('Enviando esta geração. Você poderá iniciar outra assim que ela entrar na fila.');
-    expect(source).toContain("p.generating?'Enviando...'");
+    expect(source).toContain('primaryBusy={p.generating}');
   });
 
   it('does not advertise internal economics in the customer quote route',()=>{
