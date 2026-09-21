@@ -9,6 +9,7 @@ import{spacesClient,SpaceAsset}from'../../services/spacesClient.js';
 import{SpaceConnectionLayer}from'./canvas/SpaceConnectionLayer.js';
 import{SPACE_BASE_NODE_H,SPACE_NODE_W,SPACE_WORLD_H,SPACE_WORLD_W,spaceNodeWidth}from'./canvas/spaceLayout.js';
 import{SpaceQuickMenu,type SpaceQuickAction}from'./canvas/SpaceQuickMenu.js';
+import{contextualActionsFor,smartConnectedNodePosition}from'./canvas/contextualCreation.js';
 import{SpaceToolbar}from'./canvas/SpaceToolbar.js';
 import{SpaceNodeShell}from'./nodes/SpaceNodeShell.js';
 import{ImageGeneratorNode}from'./nodes/ImageGeneratorNode.js';
@@ -34,19 +35,8 @@ const capabilityForOutput=(models:BetaCapabilityModel[],node:FlowNode)=>{if(node
 const capabilityForInput=(models:BetaCapabilityModel[],node:FlowNode)=>{if(node.kind==='TOOL'&&node.capability_id){for(const model of models){const cap=model.capabilities.find(c=>c.id===node.capability_id);if(cap)return cap.inputs;}return mediaFallback[node.capability_id]?.inputs||[];}return[] as BetaCapabilityMediaType[];};
 const capabilityView=(models:BetaCapabilityModel[],node:FlowNode):BetaCapability|null=>{if(node.kind!=='TOOL'||!node.capability_id)return null;const preferred=models.find(m=>m.model_id===node.model_id)?.capabilities.find(c=>c.id===node.capability_id);if(preferred)return preferred;return models.flatMap(m=>m.capabilities).find(c=>c.id===node.capability_id)||null;};
 
-const quickFor=(types:BetaCapabilityMediaType[]):QuickAction[]=>{
- const rows:QuickAction[]=[];
- if(types.includes('IMAGE'))rows.push(
-  {id:'image-to-image',label:'Gerar imagem',capability:'image-to-image',icon:ImageIcon,description:'Use esta imagem como referência.'},
-  {id:'image-edit',label:'Editar imagem',capability:'image-edit',icon:WandSparkles,description:'Transforme mantendo a imagem como origem.'},
-  {id:'image-to-video',label:'Gerar vídeo',capability:'image-to-video',icon:Video,description:'Anime esta imagem em vídeo.'},
- );
- if(types.includes('VIDEO'))rows.push(
-  {id:'video-edit',label:'Editar vídeo',capability:'video-edit',icon:WandSparkles,description:'Transforme este vídeo com IA.'},
-  {id:'video-extend',label:'Estender vídeo',capability:'video-extend',icon:Video,description:'Continue o vídeo preservando a sequência.'},
- );
- return rows;
-};
+const quickFor=(types:BetaCapabilityMediaType[]):QuickAction[]=>
+ contextualActionsFor(types).map(action=>({...action,icon:action.capability.includes('video')?Video:action.capability==='image-edit'?WandSparkles:ImageIcon}));
 
 interface Props{flow:FlowRecord;onBack:()=>void;onUpdated:(flow:FlowRecord)=>void;}
 
@@ -80,7 +70,8 @@ export const SpaceWorkspace:React.FC<Props>=({flow,onBack,onUpdated})=>{
  const canvasPoint=(clientX:number,clientY:number)=>{const r=canvasRef.current?.getBoundingClientRect();return r?{x:(clientX-r.left-pan.x)/zoom,y:(clientY-r.top-pan.y)/zoom}:{x:400,y:240};};
  const addNode=(base:Omit<FlowNode,'node_id'|'x'|'y'>,x:number,y:number)=>{const node:FlowNode={...base,node_id:uid('node'),x:Math.max(0,Math.min(SPACE_WORLD_W-SPACE_NODE_W,x)),y:Math.max(0,Math.min(SPACE_WORLD_H-SPACE_BASE_NODE_H,y))};setNodes(rows=>[...rows,node]);setSelectedId(node.node_id);markDirty();return node;};
  const modelFor=(capability:string)=>{const eligible=models.filter(m=>m.capabilities.some(c=>c.id===capability));return eligible.find(m=>m.model_id==='AUTO')||eligible[0]||null;};
- const addTool=(capability:string,x:number,y:number,fromId?:string|null)=>{const model=modelFor(capability);const next=addNode({kind:'TOOL',label:capabilityLabels[capability]||capability,capability_id:capability,model_id:model?.model_id||'AUTO',prompt:'',controls:{}},x,y);if(fromId){const source=nodes.find(n=>n.node_id===fromId);if(source){const out=capabilityForOutput(models,source),input=capabilityForInput(models,next),media=out.find(t=>input.includes(t));if(media)setEdges(rows=>[...rows,{edge_id:uid('edge'),from_node_id:fromId,to_node_id:next.node_id,media_type:media}]);}}setQuick(null);setQuickQuery('');};
+ const focusNodePrompt=(nodeId:string)=>window.requestAnimationFrame(()=>{const el=canvasRef.current?.querySelector<HTMLTextAreaElement>(`[data-space-node="${nodeId}"] textarea`);el?.focus();});
+ const addTool=(capability:string,x:number,y:number,fromId?:string|null)=>{const model=modelFor(capability),source=fromId?nodes.find(n=>n.node_id===fromId):null,position=source?smartConnectedNodePosition(source,nodes,{x,y}):{x,y};const next=addNode({kind:'TOOL',label:capabilityLabels[capability]||capability,capability_id:capability,model_id:model?.model_id||'AUTO',prompt:'',controls:{}},position.x,position.y);if(source){const out=capabilityForOutput(models,source),input=capabilityForInput(models,next),media=out.find(t=>input.includes(t));if(media)setEdges(rows=>[...rows,{edge_id:uid('edge'),from_node_id:source.node_id,to_node_id:next.node_id,media_type:media}]);}setQuick(null);setQuickQuery('');focusNodePrompt(next.node_id);};
  const addAssetNode=(asset:SpaceAsset,x:number,y:number)=>addNode({kind:'ASSET',label:asset.name||'Asset',media_type:asset.type as BetaCapabilityMediaType,asset_id:asset.asset_id},x,y);
  const patchNode=(id:string,patch:Partial<FlowNode>)=>{setNodes(rows=>rows.map(n=>n.node_id===id?{...n,...patch}:n));markDirty();};
  const removeNode=(id:string)=>{setNodes(rows=>rows.filter(n=>n.node_id!==id));setEdges(rows=>rows.filter(e=>e.from_node_id!==id&&e.to_node_id!==id));if(selectedId===id)setSelectedId(null);markDirty();};
@@ -102,12 +93,13 @@ export const SpaceWorkspace:React.FC<Props>=({flow,onBack,onUpdated})=>{
  const onCanvasContext=(e:React.MouseEvent)=>{e.preventDefault();const r=canvasRef.current?.getBoundingClientRect();if(!r)return;const p=canvasPoint(e.clientX,e.clientY);setSelectedId(null);setQuick({x:e.clientX-r.left,y:e.clientY-r.top,worldX:p.x,worldY:p.y,fromId:null});setQuickQuery('');};
 
  const sourceForQuick=quick?.fromId?nodes.find(n=>n.node_id===quick.fromId):null;
+ const sourceQuickTypes=sourceForQuick?capabilityForOutput(models,sourceForQuick):[];
  const quickActions=useMemo(()=>{if(sourceForQuick)return quickFor(capabilityForOutput(models,sourceForQuick));return[
   {id:'text-to-image',label:'Gerar imagem',capability:'text-to-image',icon:ImageIcon,description:'Comece com um prompt de imagem.'},
   {id:'text-to-video',label:'Gerar vídeo',capability:'text-to-video',icon:Video,description:'Comece com um prompt de vídeo.'},
-  {id:'image-edit',label:'Editar imagem',capability:'image-edit',icon:WandSparkles,description:'Crie o node e conecte uma imagem depois.'},
-  {id:'video-edit',label:'Editar vídeo',capability:'video-edit',icon:WandSparkles,description:'Crie o node e conecte um vídeo depois.'},
-  {id:'video-extend',label:'Estender vídeo',capability:'video-extend',icon:Video,description:'Crie o node e conecte um vídeo depois.'},
+  {id:'image-edit',label:'Editar imagem',capability:'image-edit',icon:WandSparkles,description:'Crie o node e conecte uma imagem depois.',group:'TRANSFORMAR'},
+  {id:'video-edit',label:'Editar vídeo',capability:'video-edit',icon:WandSparkles,description:'Crie o node e conecte um vídeo depois.',group:'VÍDEO'},
+  {id:'video-extend',label:'Estender vídeo',capability:'video-extend',icon:Video,description:'Crie o node e conecte um vídeo depois.',group:'VÍDEO'},
  ] as QuickAction[];},[sourceForQuick,models]);
  const visibleQuick=quickActions.filter(a=>a.label.toLowerCase().includes(quickQuery.toLowerCase()));
 
@@ -131,7 +123,7 @@ export const SpaceWorkspace:React.FC<Props>=({flow,onBack,onUpdated})=>{
      {nodes.map(renderNode)}
     </div>
     {linking&&(()=>{const r=canvasRef.current?.getBoundingClientRect(),source=nodes.find(n=>n.node_id===linking.fromId);if(!r||!source)return null;const x1=pan.x+(source.x+spaceNodeWidth(source))*zoom,y1=pan.y+(source.y+(nodeHeights[source.node_id]||SPACE_BASE_NODE_H)/2)*zoom,x2=linking.clientX-r.left,y2=linking.clientY-r.top,c=Math.max(80,Math.abs(x2-x1)*.4);return <svg className="pointer-events-none absolute inset-0 h-full w-full"><path d={`M ${x1} ${y1} C ${x1+c} ${y1}, ${x2-c} ${y2}, ${x2} ${y2}`} fill="none" stroke="rgba(34,211,238,.8)" strokeWidth="2" strokeDasharray="6 5"/></svg>;})()}
-    {quick&&<SpaceQuickMenu x={quick.x} y={quick.y} canvasWidth={canvasRef.current?.clientWidth||900} canvasHeight={canvasRef.current?.clientHeight||700} fromSource={Boolean(sourceForQuick)} query={quickQuery} actions={visibleQuick} onQueryChange={setQuickQuery} isReady={capability=>Boolean(modelFor(capability))} onAction={action=>addTool(action.capability,quick.worldX,quick.worldY,quick.fromId)} onAddImageAsset={()=>{const img=assets.find(a=>a.type==='IMAGE');if(img)addAssetNode(img,quick.worldX,quick.worldY);else setError('Sua Biblioteca ainda não possui imagens.');setQuick(null);}} onAddVideoAsset={()=>{const vid=assets.find(a=>a.type==='VIDEO');if(vid)addAssetNode(vid,quick.worldX,quick.worldY);else setError('Sua Biblioteca ainda não possui vídeos.');setQuick(null);}}/>}
+    {quick&&<SpaceQuickMenu x={quick.x} y={quick.y} canvasWidth={canvasRef.current?.clientWidth||900} canvasHeight={canvasRef.current?.clientHeight||700} fromSource={Boolean(sourceForQuick)} sourceTypeLabel={sourceQuickTypes.includes('IMAGE')?'imagem':sourceQuickTypes.includes('VIDEO')?'vídeo':null} query={quickQuery} actions={visibleQuick} onQueryChange={setQuickQuery} isReady={capability=>Boolean(modelFor(capability))} onAction={action=>addTool(action.capability,quick.worldX,quick.worldY,quick.fromId)} onAddImageAsset={()=>{const img=assets.find(a=>a.type==='IMAGE');if(img)addAssetNode(img,quick.worldX,quick.worldY);else setError('Sua Biblioteca ainda não possui imagens.');setQuick(null);}} onAddVideoAsset={()=>{const vid=assets.find(a=>a.type==='VIDEO');if(vid)addAssetNode(vid,quick.worldX,quick.worldY);else setError('Sua Biblioteca ainda não possui vídeos.');setQuick(null);}}/>}
     {busy==='upload'&&<div className="absolute bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-xl border border-white/[0.07] bg-[#08131e]/95 px-3 py-2 text-[9px] text-zinc-300 shadow-xl"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-cyan-300"/>Enviando asset…</div>}
    </div>
   </div>
