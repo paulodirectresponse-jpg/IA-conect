@@ -35,7 +35,7 @@ describe('Spaces stage 2 generator nodes',()=>{
 
  it('keeps Auto first-class and clears incompatible controls on manual model changes',()=>{
   const generator=read('src/components/spaces/nodes/GeneratorNode.tsx');
-  expect(generator).toContain('Auto · IA Conect escolhe por você');
+  expect(generator).toContain('<option value="AUTO">Auto</option>');
   expect(generator).toContain("model_id:e.target.value,controls:{}");
   expect(generator).not.toContain('provider_id');
  });
@@ -43,7 +43,7 @@ describe('Spaces stage 2 generator nodes',()=>{
  it('never invents a generation price in the card',()=>{
   const generator=read('src/components/spaces/nodes/GeneratorNode.tsx');
   expect(generator).toContain('nodeRun?.authorized_credit_price');
-  expect(generator).toContain('Calculado ao executar');
+  expect(generator).toContain('Custo ao executar');
   expect(generator).not.toMatch(/price\s*=\s*\d+/);
  });
 
@@ -51,7 +51,7 @@ describe('Spaces stage 2 generator nodes',()=>{
   const layout=read('src/components/spaces/canvas/spaceLayout.ts');
   const shell=read('src/components/spaces/nodes/SpaceNodeShell.tsx');
   const connections=read('src/components/spaces/canvas/SpaceConnectionLayer.tsx');
-  expect(layout).toContain('SPACE_GENERATOR_NODE_W=340');
+  expect(layout).toContain('SPACE_GENERATOR_NODE_W=286');
   expect(layout).toContain('spaceNodeWidth');
   expect(shell).toContain('spaceNodeWidth(node)');
   expect(connections).toContain('spaceConnectionPath');
