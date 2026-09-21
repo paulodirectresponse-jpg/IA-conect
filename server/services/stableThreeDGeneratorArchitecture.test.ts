@@ -17,7 +17,7 @@ describe('Stable 3D generator foundation',()=>{
  });
  it('keeps pricing and provider eligibility server authoritative and hidden from the generator UI',()=>{
   const routes=read('server/routes/threeDGenerationRoutes.ts'),view=read('src/components/views/ThreeDCreateView.tsx'),client=read('src/services/threeDGenerationClient.ts');
-  expect(routes).toContain('providerPricingCatalogService.list');expect(routes).toContain('configured.get');expect(routes).toContain("provider.status!=='ACTIVE'");
+  expect(routes).toContain('routingV2CatalogService.listCapabilityModels');const catalog=read('server/routing-v2/catalogService.ts');expect(catalog).toContain('routingV2RouteService.listReady');expect(read('server/routing-v2/routeService.ts')).toContain("route.status!=='READY'");
   expect(view).toContain('job?.quote?.credit_price');expect(view).toContain('StableGeneratorModelPicker');
   expect(view).not.toContain('preferred_provider_id');expect(view).not.toContain('AUTO · Mais econômico/saudável');
   expect(client).not.toMatch(/api[_-]?key|authorization|bearer/i);expect(view).not.toMatch(/wavespeed|runware|deepinfra|replicate|aiml|piapi|kie\.ai/i);

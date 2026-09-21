@@ -33,10 +33,10 @@ describe('Stable music generator promotion',()=>{
   expect(view).toContain('StableGeneratorModelPicker');
   expect(view).not.toContain('preferred_provider_id');
   expect(view).not.toContain('AUTO · Mais econômico/saudável');
-  expect(routes).toContain('providerChoices');
-  expect(routes).toContain("provider.status!=='ACTIVE'");
-  expect(routes).toContain('configured.get');
-  expect(routes).toContain('verifiedPriceKeys');
+  expect(routes).toContain('routingV2CatalogService.listCapabilityModels');
+  const catalog=read('server/routing-v2/catalogService.ts');
+  expect(catalog).toContain('routingV2RouteService.listReady');
+  expect(read('server/routing-v2/routeService.ts')).toContain("route.status!=='READY'");
   expect(view).not.toMatch(/wavespeed|runware|deepinfra|replicate|aiml|piapi|kie\.ai/i);
   expect(client).not.toMatch(/api[_-]?key|authorization|bearer/i);
  });

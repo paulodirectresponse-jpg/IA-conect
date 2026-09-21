@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { GenerationMode, ModelRegistryItem } from '../../../src/types/index.js';
+import { GenerationMode } from '../../../src/types/index.js';
 import { catalogRepository } from '../../repositories/catalogRepository.js';
 import { generationRepository } from '../../repositories/generationRepository.js';
 import { assetRepository } from '../../repositories/assetRepository.js';
@@ -11,7 +11,6 @@ import { routingV2JobBridge } from '../../routing-v2/jobBridge.js';
 import { routingV2ExecutionService } from '../../routing-v2/executionService.js';
 import { routingV2CutoverService } from '../../routing-v2/cutoverService.js';
 import { routingV2Repository } from '../../routing-v2/repository.js';
-import { validateModelCapability } from '../capabilityRegistry.js';
 import { betaJobRepository } from './jobRepository.js';
 import { inlineBetaJobQueue } from './jobQueue.js';
 import { assertJobTransition, generationStatusToJobStatus, isTerminalJobStatus } from './jobStateMachine.js';
@@ -40,16 +39,14 @@ function routingV2QuoteSignature(routeId:string,creditPrice:number,validUntil:st
 }
 
 async function routingV2Decision(request:BetaJobRequest){
-  const state=await routingV2CutoverService.get();
   if(request.model_id==='AUTO'){
-    if(state.mode==='V2_ONLY')throw Object.assign(new Error('AUTO routing ainda não está disponível no modo V2_ONLY.'),{code:'ROUTING_V2_AUTO_UNAVAILABLE'});
-    return{use_v2:false,require_v2:false};
+    throw Object.assign(new Error('Selecione um modelo publicado com Route READY.'),{code:'NO_READY_ROUTE_V2'});
   }
   const decision=await routingV2CutoverService.shouldUseV2(request.model_id,request.capability_id);
-  if(decision.require_v2&&!decision.ready){
-    throw Object.assign(new Error('V2_ONLY exige uma Route READY para esta model/capability.'),{code:'NO_READY_ROUTE_V2'});
+  if(!decision.ready||!decision.use_v2){
+    throw Object.assign(new Error('A geração exige uma Route V2 READY para esta model/capability.'),{code:'NO_READY_ROUTE_V2'});
   }
-  return{use_v2:decision.use_v2,require_v2:decision.require_v2};
+  return{use_v2:true,require_v2:true};
 }
 
 function generationModeForCapability(capabilityId:string):GenerationMode|null{
@@ -195,24 +192,17 @@ async function ownedReferences(userId:string,request:BetaJobRequest){
   return assets;
 }
 
-async function validateRequest(request:BetaJobRequest,resolvedModelId?:string,userId?:string):Promise<{model:ModelRegistryItem|null;mode:GenerationMode}>{
+async function validateRequest(request:BetaJobRequest,resolvedModelId?:string,userId?:string):Promise<{mode:GenerationMode}>{
   if(!request.model_id)throw Object.assign(new Error('Modelo é obrigatório.'),{code:'VALIDATION_ERROR'});
   await assertCapabilityEnabled(request.capability_id);
   const mode=generationModeForCapability(request.capability_id);
   if(!mode)throw Object.assign(new Error('Esta capability ainda não possui executor disponível.'),{code:'CAPABILITY_EXECUTOR_UNAVAILABLE'});
   const modelId=resolvedModelId||request.model_id;
-  const model=modelId==='AUTO'?null:await catalogRepository.getModel(modelId);
-  if(modelId!=='AUTO'){
-    if(model){
-      const capability=validateModelCapability(model,request.capability_id,requestedControls(request));
-      if(!capability.valid)throw Object.assign(new Error(capability.message||'Capability inválida.'),{code:capability.code||'CAPABILITY_INVALID'});
-    }else{
-      const v2Model=await routingV2Repository.getModel(modelId);
-      const decision=await routingV2CutoverService.shouldUseV2(modelId,request.capability_id);
-      if(!v2Model||v2Model.status!=='ACTIVE'||!v2Model.capabilities.includes(request.capability_id)||!decision.use_v2){
-        throw Object.assign(new Error('O modelo selecionado não está disponível.'),{code:'MODEL_NOT_FOUND'});
-      }
-    }
+  if(modelId==='AUTO')throw Object.assign(new Error('Selecione um modelo publicado com Route READY.'),{code:'NO_READY_ROUTE_V2'});
+  const v2Model=await routingV2Repository.getModel(modelId);
+  const decision=await routingV2CutoverService.shouldUseV2(modelId,request.capability_id);
+  if(!v2Model||v2Model.status!=='ACTIVE'||!v2Model.capabilities.includes(request.capability_id)||!decision.ready||!decision.use_v2){
+    throw Object.assign(new Error('O modelo selecionado não possui Route V2 READY.'),{code:'MODEL_NOT_FOUND'});
   }
   const promptRequired=new Set(['text-to-image','image-to-image','image-edit','inpaint-mask','outpaint','text-to-video','image-to-video','first-frame','last-frame','video-edit','text-to-speech','sound-effects','music','text-to-3d']);
   if(promptRequired.has(request.capability_id)&&!request.prompt)throw Object.assign(new Error('Prompt é obrigatório para esta capability.'),{code:'VALIDATION_ERROR'});
@@ -257,7 +247,7 @@ async function validateRequest(request:BetaJobRequest,resolvedModelId?:string,us
       throw Object.assign(new Error('Esta ferramenta aceita um arquivo de entrada por execução.'),{code:'VALIDATION_ERROR'});
     }
   }
-  return{model,mode};
+  return{mode};
 }
 
 async function pricingContext(userId:string,request:BetaJobRequest){
