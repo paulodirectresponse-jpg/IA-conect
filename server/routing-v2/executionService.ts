@@ -15,6 +15,13 @@ export interface RoutingV2ExecutionReference{
   url:string;
   type:string;
   role?:string;
+  asset_id?:string;
+  alias?:string;
+  name?:string;
+  category?:string;
+  storage_path?:string;
+  mime_type?:string;
+  slot_type?:string;
 }
 
 export interface StartRoutingV2GenerationInput{
@@ -31,6 +38,7 @@ export interface StartRoutingV2GenerationInput{
   references?:RoutingV2ExecutionReference[];
   client_request_id?:string;
   source_job_id?:string|null;
+  derived_from_asset_id?:string|null;
   authorized_credit_price?:number;
   requested_model_id?:string|null;
   routing_mode?:'MANUAL'|'AUTO';
@@ -86,9 +94,10 @@ async function createUniversalAssets(generation:Generation,urls:string[]){
       mime_type:archived.mime_type,
       size_bytes:archived.size_bytes,
       status:'READY',
-      origin:'GENERATED',
+      origin:generation.derived_from_asset_id?'DERIVED':'GENERATED',
       source_generation_id:generation.generation_id,
       source_job_id:generation.source_job_id||null,
+      derived_from_asset_id:generation.derived_from_asset_id||null,
       source_output_index:index,
       source_model_id:generation.model_id,
       source_provider_id:generation.provider_id,
@@ -155,6 +164,7 @@ export const routingV2ExecutionService={
       provider_job_id:undefined,
       client_request_id:clientRequestId,
       source_job_id:input.source_job_id||null,
+      derived_from_asset_id:input.derived_from_asset_id||null,
       requested_model_id:input.requested_model_id||input.model_id,
       routing_mode:input.routing_mode||'MANUAL',
       progress_percent:0,
