@@ -1,5 +1,5 @@
 import React,{useMemo,useState}from'react';
-import{ChevronDown,Image as ImageIcon,Layers3,Plus,Ratio,Settings2,SlidersHorizontal,Sparkles,UploadCloud,X}from'lucide-react';
+import{ChevronDown,Image as ImageIcon,Layers3,Plus,Ratio,Settings2,SlidersHorizontal,UploadCloud,X}from'lucide-react';
 import{Asset,ModelRegistryItem,WorkspaceReference}from'../../types/index.js';
 import{UniversalModelPicker}from'./UniversalModelPicker.js';
 import{GeneratorFooter,UniversalCreatorShell}from'./GeneratorControls.js';
