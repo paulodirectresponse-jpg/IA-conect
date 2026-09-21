@@ -9,8 +9,12 @@ export interface ContextualActionDefinition{
 
 export const CONTEXTUAL_ACTIONS:ContextualActionDefinition[]=[
  {id:'image-to-image',label:'Gerar outra imagem',capability:'image-to-image',description:'Use esta imagem como referência para uma nova criação.',group:'POPULAR',accepts:['IMAGE']},
- {id:'image-edit',label:'Editar imagem',capability:'image-edit',description:'Transforme a imagem preservando-a como origem.',group:'POPULAR',accepts:['IMAGE']},
+ {id:'image-edit',label:'Editar imagem',capability:'image-edit',description:'Transforme a imagem preservando-a como origem.',group:'TRANSFORMAR',accepts:['IMAGE']},
  {id:'image-to-video',label:'Gerar vídeo',capability:'image-to-video',description:'Anime esta imagem e continue o fluxo em vídeo.',group:'POPULAR',accepts:['IMAGE']},
+ {id:'background-remove-replace',label:'Remover ou trocar fundo',capability:'background-remove-replace',description:'Isole o assunto ou crie um novo fundo.',group:'TRANSFORMAR',accepts:['IMAGE']},
+ {id:'upscale',label:'Melhorar resolução',capability:'upscale',description:'Aumente definição e qualidade da imagem.',group:'TRANSFORMAR',accepts:['IMAGE']},
+ {id:'outpaint',label:'Expandir imagem',capability:'outpaint',description:'Expanda a cena para além das bordas atuais.',group:'TRANSFORMAR',accepts:['IMAGE']},
+ {id:'variations',label:'Criar variações',capability:'variations',description:'Gere novas versões preservando a referência.',group:'TRANSFORMAR',accepts:['IMAGE']},
  {id:'video-edit',label:'Editar vídeo',capability:'video-edit',description:'Transforme este vídeo com IA.',group:'VÍDEO',accepts:['VIDEO']},
  {id:'video-extend',label:'Estender vídeo',capability:'video-extend',description:'Continue o vídeo preservando a sequência.',group:'VÍDEO',accepts:['VIDEO']},
 ];
