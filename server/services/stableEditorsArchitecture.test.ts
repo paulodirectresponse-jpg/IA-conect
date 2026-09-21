@@ -50,6 +50,15 @@ describe('Stable image and video editors',()=>{
   expect(routes).toContain('generationService.createAndStartGeneration');
   expect(client).not.toMatch(/api[_-]?key|authorization|bearer/i);
  });
+ it('preserves editor source provenance in the universal generation lifecycle',()=>{
+  const routes=read('server/routes/generationRoutes.ts');
+  const execution=read('server/routing-v2/executionService.ts');
+  const service=read('server/services/generationService.ts');
+  expect(routes).toContain('derived_from_asset_id');
+  expect(execution).toContain("origin:generation.derived_from_asset_id?'DERIVED':'GENERATED'");
+  expect(execution).toContain('derived_from_asset_id:generation.derived_from_asset_id||null');
+  expect(service).toContain('reference_roles:hydratedRefs.map');
+ });
  it('does not mount a parallel editor API',()=>{
   const root=read('server/routes/index.ts');
   expect(root).not.toContain('editorRouter');
