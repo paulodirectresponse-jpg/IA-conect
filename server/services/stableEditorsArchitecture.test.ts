@@ -29,12 +29,13 @@ describe('Stable image and video editors',()=>{
   expect(view).not.toContain("'first-frame'");
   expect(view).not.toContain("'last-frame'");
  });
- it('uses Universal Jobs, Assets and wallet without creating parallel editor storage',()=>{
-  const routes=read('server/routes/editorRoutes.ts'),image=read('src/components/views/ImageEditorView.tsx'),video=read('src/components/views/VideoEditorView.tsx'),picker=read('src/components/editors/shared/EditorAssetPicker.tsx');
-  expect(routes).toContain('betaJobOrchestrator.create');
-  expect(routes).toContain('betaJobOrchestrator.quote');
-  expect(routes).toContain('betaJobOrchestrator.queue');
-  expect(routes).toContain('assetRepository.getAsset');
+ it('uses Universal Generations, Assets and wallet without a parallel editor lifecycle',()=>{
+  const root=read('server/routes/index.ts'),image=read('src/components/views/ImageEditorView.tsx'),video=read('src/components/views/VideoEditorView.tsx'),picker=read('src/components/editors/shared/EditorAssetPicker.tsx');
+  expect(root).not.toContain('editorRouter');
+  expect(image).toContain('universalGenerationClient.quote');
+  expect(image).toContain('universalGenerationClient.create');
+  expect(video).toContain('universalGenerationClient.quote');
+  expect(video).toContain('universalGenerationClient.create');
   expect(image).toContain('EditorAssetPicker');
   expect(picker).toContain('Biblioteca');
   expect(video).toContain('EditorAssetPicker');
@@ -44,15 +45,16 @@ describe('Stable image and video editors',()=>{
   expect(video).toContain("new CustomEvent('creations:updated'");
  });
  it('keeps provider choice server-governed and does not expose provider secrets',()=>{
-  const routes=read('server/routes/editorRoutes.ts'),client=read('src/services/editorClient.ts');
-  expect(routes).toContain('routingV2CatalogService.listCapabilityModels');
-  expect(routes).not.toContain('providerCatalogService');
-  expect(routes).not.toContain('providerPricingCatalogService');
-  expect(routes).not.toContain('providerRegistry');
+  const routes=read('server/routes/generationRoutes.ts'),client=read('src/services/universalGenerationClient.ts');
+  expect(routes).toContain('routingV2AutoModelSelectionService.select');
+  expect(routes).toContain('generationService.createAndStartGeneration');
   expect(client).not.toMatch(/api[_-]?key|authorization|bearer/i);
  });
- it('does not create parallel jobs, assets or libraries',()=>{
-  const routes=read('server/routes/editorRoutes.ts');
-  expect(routes).not.toMatch(/editor_jobs|image_editor_assets|video_editor_assets|editor_library/);
+ it('does not mount a parallel editor API',()=>{
+  const root=read('server/routes/index.ts');
+  expect(root).not.toContain('editorRouter');
+  const image=read('src/components/views/ImageEditorView.tsx');
+  const video=read('src/components/views/VideoEditorView.tsx');
+  expect(image+video).not.toContain('editorClient');
  });
 });
