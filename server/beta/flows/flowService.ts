@@ -68,7 +68,20 @@ async function validateGraph(userId:string,input:any):Promise<BetaFlowGraph>{
     edges.push({edge_id:edgeId,from_node_id:from,to_node_id:to,media_type:media});
   }
   assertAcyclic(nodes,edges);
-  return{nodes,edges};
+  const rawViewport=input?.viewport&&typeof input.viewport==='object'?input.viewport:{x:160,y:100,zoom:.9};
+  const vx=Number(rawViewport.x),vy=Number(rawViewport.y),vz=Number(rawViewport.zoom);
+  const viewport={
+    x:Number.isFinite(vx)&&Math.abs(vx)<=50000?vx:160,
+    y:Number.isFinite(vy)&&Math.abs(vy)<=50000?vy:100,
+    zoom:Number.isFinite(vz)&&vz>=.2&&vz<=3?vz:.9,
+  };
+  const rawMetadata=input?.metadata&&typeof input.metadata==='object'&&!Array.isArray(input.metadata)?input.metadata:{};
+  let metadata:Record<string,unknown>={};
+  try{
+    const serialized=JSON.stringify(rawMetadata);
+    if(serialized.length<=50000)metadata=JSON.parse(serialized);
+  }catch{}
+  return{nodes,edges,viewport,metadata};
 }
 async function normalize(userId:string,input:any){
   const name=clean(input?.name,100)||'Novo fluxo',description=clean(input?.description,400),projectId=input?.project_id?clean(input.project_id,120):null;
