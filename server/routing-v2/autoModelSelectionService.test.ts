@@ -1,5 +1,5 @@
 import{describe,expect,it}from'vitest';
-import{isModelCompatibleWithRequirements}from'./autoModelSelectionService.js';
+import{isModelCompatibleWithRequirements}from'./modelCompatibilityService.js';
 
 describe('Routing V2 model compatibility',()=>{
   it('does not infer operational controls from a READY route alone',()=>{
