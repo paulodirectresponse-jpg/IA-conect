@@ -1,9 +1,13 @@
-export type UniversalGenerationControlValue =
+export type UniversalGenerationScalar =
   | string
   | number
   | boolean
   | null
   | undefined;
+
+export type UniversalGenerationControlValue =
+  | UniversalGenerationScalar
+  | Record<string, UniversalGenerationScalar>;
 
 export interface UniversalGenerationReference {
   asset_id: string;
