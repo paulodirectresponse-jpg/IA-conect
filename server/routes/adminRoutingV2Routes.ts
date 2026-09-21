@@ -15,11 +15,17 @@ import { routingV2ModelBootstrapService } from '../routing-v2/modelBootstrapServ
 import { routingV2HealthAdminRoutes } from '../routing-v2/adminHealthRoutes.js';
 import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapService.js';
 import { routingV2SmartRouter } from '../routing-v2/smartRouter.js';
+import { factoryResetService } from '../services/factoryResetService.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
 
 adminRoutingV2Router.use(...guard,routingV2HealthAdminRoutes);
+
+adminRoutingV2Router.get('/admin/factory-reset/inventory',...guard,async(_req,res)=>{try{return res.json({success:true,data:await factoryResetService.inventory()});}catch(err){return error(res,err,'FACTORY_RESET_INVENTORY_FAILED');}});
+adminRoutingV2Router.post('/admin/factory-reset/snapshot',...guard,async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await factoryResetService.snapshot(req.user!.uid)});}catch(err){return error(res,err,'FACTORY_RESET_SNAPSHOT_FAILED');}});
+adminRoutingV2Router.post('/admin/factory-reset/execute',...guard,async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await factoryResetService.execute(req.body||{},req.user!.uid)});}catch(err){return error(res,err,'FACTORY_RESET_EXECUTION_FAILED');}});
+adminRoutingV2Router.post('/admin/factory-reset/rollback/:snapshotId',...guard,async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await factoryResetService.rollback(req.params.snapshotId,req.user!.uid)});}catch(err){return error(res,err,'FACTORY_RESET_ROLLBACK_FAILED');}});
 
 function adapterFor(provider:any){
   const registered=routingV2AdapterRegistry.get(provider.adapter_id);
