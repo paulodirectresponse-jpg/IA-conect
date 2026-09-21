@@ -8,7 +8,8 @@ export interface FlowNode{
  prompt?:string;controls?:Record<string,string|number|boolean|null>;
 }
 export interface FlowEdge{edge_id:string;from_node_id:string;to_node_id:string;media_type:BetaCapabilityMediaType}
-export interface FlowGraph{nodes:FlowNode[];edges:FlowEdge[]}
+export interface FlowViewport{x:number;y:number;zoom:number}
+export interface FlowGraph{nodes:FlowNode[];edges:FlowEdge[];viewport?:FlowViewport;metadata?:Record<string,unknown>}
 export interface FlowRecord{
  flow_id:string;user_id:string;name:string;description:string;project_id:string|null;status:'DRAFT';
  graph:FlowGraph;revision:number;created_at:string;updated_at:string;deleted_at:string|null;
