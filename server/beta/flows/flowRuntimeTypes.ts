@@ -20,6 +20,9 @@ export interface BetaFlowRun{
   status:BetaFlowRunStatus;
   graph:BetaFlowGraph;
   active_node_ids:string[];
+  execution_mode?:'FULL'|'NODE'|'DOWNSTREAM';
+  target_node_id?:string|null;
+  reused_node_ids?:string[];
   inputs:Record<string,BetaFlowValue>;
   outputs:Record<string,BetaFlowValue[]>;
   flow_quote_id?:string;
