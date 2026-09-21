@@ -20,7 +20,13 @@ export interface BetaFlowEdge{
   to_node_id:string;
   media_type:CapabilityMediaType;
 }
-export interface BetaFlowGraph{nodes:BetaFlowNode[];edges:BetaFlowEdge[];}
+export interface BetaFlowViewport{x:number;y:number;zoom:number;}
+export interface BetaFlowGraph{
+  nodes:BetaFlowNode[];
+  edges:BetaFlowEdge[];
+  viewport?:BetaFlowViewport;
+  metadata?:Record<string,unknown>;
+}
 export interface BetaFlowRecord{
   flow_id:string;
   user_id:string;
