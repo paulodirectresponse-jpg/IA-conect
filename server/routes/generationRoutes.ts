@@ -9,14 +9,14 @@ import { routingV2CatalogService } from "../routing-v2/catalogService.js";
 import { routingV2ExecutionService } from "../routing-v2/executionService.js";
 import { promptCompilerService } from "../services/promptCompilerService.js";
 import { publicGenerationError } from "../services/publicGenerationError.js";
-import { validateConfiguration } from "../../src/services/modelCapabilities.js";
 import {
   capabilityUsesDuration,
   generationModeForCapability,
   positiveOptionalInteger,
   resolveGenerationCapability,
 } from "../routing-v2/generationContract.js";
-import { routingV2AutoModelSelectionService,isModelCompatibleWithRequirements } from "../routing-v2/autoModelSelectionService.js";
+import { routingV2AutoModelSelectionService } from "../routing-v2/autoModelSelectionService.js";
+import { validateModelCompatibility } from "../routing-v2/modelCompatibilityService.js";
 import { assetRepository } from "../repositories/assetRepository.js";
 
 export const generationRouter = Router();
@@ -195,33 +195,27 @@ async function buildGenerationQuote(
       new Error("Capability não comprovada para este modelo."),
       { code: "MODEL_CAPABILITY_UNSUPPORTED" },
     );
-  if(!isModelCompatibleWithRequirements(model.supported_controls||{},{capability_id:capabilityId,duration_seconds:duration,number_of_outputs:outputs,character_count:prompt.length,dimensions:{resolution:settings.resolution,aspect_ratio:settings.aspect_ratio},parameters,reference_types:referenceTypes,reference_roles:referenceRoleIds}))throw Object.assign(new Error("Controles não comprovados para este modelo."),{code:"MODEL_CONTROLS_UNSUPPORTED"});
-  if (
-    [
-      "text-to-image",
-      "image-to-image",
-      "text-to-video",
-      "image-to-video",
-      "first-frame",
-      "last-frame",
-    ].includes(capabilityId)
-  ) {
-    const compatibility = validateConfiguration(model, {
-      mode,
-      duration_seconds: duration ?? 0,
-      resolution,
-      aspect_ratio: aspectRatio,
-      references,
-      negative_prompt: body.negative_prompt,
-      promptText: prompt,
-      has_start_image: hasStartImage,
-      has_end_image: hasEndImage,
+  const compatibility = validateModelCompatibility(
+    model.supported_controls || {},
+    {
+      capability_id: capabilityId,
+      duration_seconds: duration,
+      number_of_outputs: outputs,
+      character_count: prompt.length,
+      negative_prompt_present: Boolean(String(body.negative_prompt || "").trim()),
+      dimensions: {
+        resolution: settings.resolution,
+        aspect_ratio: settings.aspect_ratio,
+      },
+      parameters,
+      reference_types: referenceTypes,
+      reference_roles: referenceRoleIds,
+    },
+  );
+  if (!compatibility.valid)
+    throw Object.assign(new Error(compatibility.errors[0]), {
+      code: "MODEL_CONTROLS_UNSUPPORTED",
     });
-    if (!compatibility.valid)
-      throw Object.assign(new Error(compatibility.errors[0]), {
-        code: "VALIDATION_ERROR",
-      });
-  }
 
   const v2 = await routingV2ExecutionService.preview({
     user_id: uid,
