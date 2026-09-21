@@ -33,9 +33,9 @@ describe('Spaces visual redesign stage 1',()=>{
  it('removes heavy generator header/footer boxes in favor of overlay chrome',()=>{
   const shell=read('src/components/spaces/nodes/SpaceNodeShell.tsx');
   expect(shell).toContain("const GENERATORS=new Set");
-  expect(shell).toContain('bg-gradient-to-b from-black/65 to-transparent');
-  expect(shell).toContain("generator?<div");
-  expect(shell).toContain("!generator&&<div");
+  expect(shell).toContain('bg-gradient-to-b from-black/70 via-black/30 to-transparent');
+  expect(shell).toContain("visual?<div");
+  expect(shell).toContain("!visual&&<div");
   expect(shell).not.toContain('border-b border-white/[0.06] p-3');
  });
 
