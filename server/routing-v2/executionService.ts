@@ -21,7 +21,7 @@ export interface RoutingV2ExecutionReference{
   category?:string;
   storage_path?:string;
   mime_type?:string;
-  slot_type?:string;
+  slot_type?:'INITIAL'|'END'|'GENERAL';
 }
 
 export interface StartRoutingV2GenerationInput{
