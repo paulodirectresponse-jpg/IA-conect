@@ -3,18 +3,19 @@ import{Play,SlidersHorizontal}from'lucide-react';
 import type{BetaCapability,BetaCapabilityModel}from'../../../beta/capabilityClient.js';
 import type{FlowNode}from'../../../beta/flowClient.js';
 import type{FlowNodeRunView}from'../../../beta/flowRuntimeClient.js';
+import{NodeResultPreview,type NodeOutputHistoryItem}from'./NodeResultPreview.js';
 
 type ControlValue=string|number|boolean|null;
 interface Props{
  node:FlowNode;capability:BetaCapability|null;models:BetaCapabilityModel[];nodeRun?:FlowNodeRunView;
- preview:React.ReactNode;busy:boolean;mediaLabel:'imagem'|'vídeo';
- onPatch:(patch:Partial<FlowNode>)=>void;onGenerate:()=>void;
+ history:NodeOutputHistoryItem[];historyIndex:number;busy:boolean;mediaLabel:'imagem'|'vídeo';
+ onHistoryIndexChange:(index:number)=>void;onPatch:(patch:Partial<FlowNode>)=>void;onGenerate:()=>void;
 }
 
 const value=(node:FlowNode,key:string,fallback:string|number)=>node.controls?.[key]??fallback;
 const options=(values:(string|number)[])=>Array.from(new Set(values.filter(v=>v!==''&&v!=null)));
 
-export const GeneratorNode:React.FC<Props>=({node,capability,models,nodeRun,preview,busy,mediaLabel,onPatch,onGenerate})=>{
+export const GeneratorNode:React.FC<Props>=({node,capability,models,nodeRun,history,historyIndex,busy,mediaLabel,onHistoryIndexChange,onPatch,onGenerate})=>{
  const manualModels=models.filter(m=>m.model_id!=='AUTO'&&m.capabilities.some(c=>c.id===node.capability_id));
  const selectedModel=models.find(m=>m.model_id===node.model_id);
  const selectedCapability=selectedModel?.capabilities.find(c=>c.id===node.capability_id)||capability;
@@ -23,11 +24,10 @@ export const GeneratorNode:React.FC<Props>=({node,capability,models,nodeRun,prev
  const resolutions=options(selectedCapability?.supported_resolutions||selectedModel?.supported_resolutions||[]);
  const durations=options(selectedCapability?.supported_durations||selectedModel?.supported_durations||[]);
  const patchControl=(key:string,next:ControlValue)=>onPatch({controls:{...(node.controls||{}),[key]:next}});
- const price=nodeRun?.authorized_credit_price;
+ const selectedHistory=history[Math.max(0,Math.min(historyIndex,Math.max(0,history.length-1)))];
+ const price=selectedHistory?.authorized_credit_price||nodeRun?.authorized_credit_price;
  return <div className="space-y-3 p-3">
-  <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-black/25">
-   {preview||<div className="grid aspect-[4/3] min-h-[150px] place-items-center px-6 text-center"><div><strong className="block text-[10px] font-semibold text-zinc-500">Seu resultado aparecerá aqui</strong><span className="mt-1 block text-[8px] leading-relaxed text-zinc-700">Configure e gere sem sair deste card.</span></div></div>}
-  </div>
+  <NodeResultPreview items={history} index={historyIndex} onIndexChange={onHistoryIndexChange}/>
   <div><label className="mb-1.5 block text-[8px] font-semibold uppercase tracking-[.12em] text-zinc-600">Prompt</label><textarea rows={3} value={node.prompt||''} onChange={e=>onPatch({prompt:e.target.value})} placeholder={mediaLabel==='imagem'?'Descreva a imagem que deseja criar…':'Descreva o vídeo, movimento e cena…'} className="w-full resize-none rounded-xl border border-white/[0.07] bg-black/20 px-3 py-2.5 text-[10px] leading-relaxed text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-cyan-300/25"/></div>
   <div><label className="mb-1.5 block text-[8px] font-semibold uppercase tracking-[.12em] text-zinc-600">Modelo</label><select value={node.model_id||'AUTO'} onChange={e=>onPatch({model_id:e.target.value,controls:{}})} className="h-9 w-full rounded-xl border border-white/[0.07] bg-[#071018] px-3 text-[9px] font-semibold text-zinc-300 outline-none focus:border-cyan-300/25"><option value="AUTO">Auto · IA Conect escolhe por você</option>{manualModels.map(m=><option key={m.model_id} value={m.model_id}>{m.name}</option>)}</select></div>
   {(controls.has('aspect_ratio')||controls.has('resolution')||controls.has('duration'))&&<div className="grid grid-cols-2 gap-2">
