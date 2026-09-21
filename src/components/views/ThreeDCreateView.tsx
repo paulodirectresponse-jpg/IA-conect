@@ -24,9 +24,8 @@ import {
   GeneratorField,
   GeneratorFooter,
   GeneratorOptionGrid,
-  GeneratorPanel,
   GeneratorRangeSlider,
-  GeneratorScroll,
+  UniversalCreatorShell,
   GeneratorSettingRow,
   GeneratorToggle,
 } from "../workspace/GeneratorControls.js";
