@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState}from'react';
-import{Image as ImageIcon,LoaderCircle,MousePointer2,Play,RefreshCw,Video,WandSparkles}from'lucide-react';
+import{Image as ImageIcon,LoaderCircle,Play,RefreshCw,Video,WandSparkles}from'lucide-react';
 import type{BetaCapability,BetaCapabilityMediaType,BetaCapabilityModel}from'../../beta/capabilityClient.js';
 import type{FlowEdge,FlowNode,FlowRecord}from'../../beta/flowClient.js';
 import type{FlowRunView}from'../../beta/flowRuntimeClient.js';
@@ -16,6 +16,7 @@ import{ImageGeneratorNode}from'./nodes/ImageGeneratorNode.js';
 import{VideoGeneratorNode}from'./nodes/VideoGeneratorNode.js';
 import{NodeResultPreview,type NodeOutputHistoryItem}from'./nodes/NodeResultPreview.js';
 import{SpaceAdvancedInspector}from'./inspector/SpaceAdvancedInspector.js';
+import{SpaceEmptyState}from'./SpaceEmptyState.js';
 
 type QuickAction=SpaceQuickAction;
 const errorText=(error:any)=>error instanceof ApiError?error.message:error?.message||'Não foi possível concluir a operação.';
@@ -103,13 +104,17 @@ export const SpaceWorkspace:React.FC<Props>=({flow,onBack,onUpdated})=>{
 
  const sourceForQuick=quick?.fromId?nodes.find(n=>n.node_id===quick.fromId):null;
  const sourceQuickTypes=sourceForQuick?capabilityForOutput(models,sourceForQuick):[];
- const quickActions=useMemo(()=>{if(sourceForQuick)return quickFor(capabilityForOutput(models,sourceForQuick));return[
+ const rootQuickActions=useMemo(()=>[
   {id:'text-to-image',label:'Gerar imagem',capability:'text-to-image',icon:ImageIcon,description:'Comece com um prompt de imagem.'},
   {id:'text-to-video',label:'Gerar vídeo',capability:'text-to-video',icon:Video,description:'Comece com um prompt de vídeo.'},
   {id:'image-edit',label:'Editar imagem',capability:'image-edit',icon:WandSparkles,description:'Crie o node e conecte uma imagem depois.',group:'TRANSFORMAR'},
   {id:'video-edit',label:'Editar vídeo',capability:'video-edit',icon:WandSparkles,description:'Crie o node e conecte um vídeo depois.',group:'VÍDEO'},
   {id:'video-extend',label:'Estender vídeo',capability:'video-extend',icon:Video,description:'Crie o node e conecte um vídeo depois.',group:'VÍDEO'},
- ] as QuickAction[];},[sourceForQuick,models]);
+ ] as QuickAction[],[]);
+ const quickActions=useMemo(()=>sourceForQuick?quickFor(capabilityForOutput(models,sourceForQuick)):rootQuickActions,[sourceForQuick,models,rootQuickActions]);
+ const emptyPoint=()=>{const r=canvasRef.current?.getBoundingClientRect();if(!r)return{x:760,y:420};const p=canvasPoint(r.left+r.width*.5,r.top+r.height*.48);return{x:p.x-SPACE_NODE_W/2,y:p.y-SPACE_BASE_NODE_H/2};};
+ const addEmptyTool=(action:QuickAction)=>{const p=emptyPoint();addTool(action.capability,p.x,p.y,null);};
+ const addEmptyAsset=(type:'IMAGE'|'VIDEO')=>{const p=emptyPoint(),asset=assets.find(a=>a.type===type);if(asset)addAssetNode(asset,p.x,p.y);else setError(type==='IMAGE'?'Sua Biblioteca ainda não possui imagens.':'Sua Biblioteca ainda não possui vídeos.');};
  const visibleQuick=quickActions.filter(a=>a.label.toLowerCase().includes(quickQuery.toLowerCase()));
 
  const preview=(node:FlowNode)=>{const history=nodeHistoryMap.get(node.node_id)||[];if(history.length){const index=historyIndexByNode[node.node_id]||0;return <NodeResultPreview items={history} index={index} onIndexChange={next=>setHistoryIndexByNode(current=>({...current,[node.node_id]:next}))}/>;}const asset=node.asset_id?assetMap.get(node.asset_id):null;if(!asset)return null;const url=asset.preview_url||asset.public_url;if(!url)return null;if(asset.type==='IMAGE')return <img src={url} alt="" draggable={false} className="h-full w-full bg-black/30 object-cover"/>;if(asset.type==='VIDEO')return <video src={asset.public_url||url} muted preload="metadata" playsInline controls className="h-full w-full bg-black object-cover"/>;return null;};
@@ -126,7 +131,7 @@ export const SpaceWorkspace:React.FC<Props>=({flow,onBack,onUpdated})=>{
   {(error||catalogError||assetsError)&&<div role="alert" aria-live="assertive" className="flex shrink-0 items-center gap-3 border-b border-rose-400/10 bg-rose-500/[0.06] px-4 py-2 text-[9px] text-rose-300"><span className="min-w-0 flex-1 truncate">{error||catalogError||assetsError}</span><button onClick={()=>{setError('');void loadCatalog();void loadAssets();}} className="inline-flex items-center gap-1 font-bold"><RefreshCw className="h-3 w-3"/>Recarregar</button></div>}
   <div className="relative min-h-0 flex-1 overflow-hidden">
    <div ref={canvasRef} role="application" aria-label="Canvas do Space" tabIndex={0} onDragOver={e=>e.preventDefault()} onDrop={onDrop} onWheel={onWheel} onContextMenu={onCanvasContext} onPointerDown={onCanvasDown} onPointerMove={onCanvasMove} onPointerUp={onCanvasUp} onPointerCancel={onCanvasUp} className="relative h-full w-full touch-none overflow-hidden bg-[#050a10]" style={{backgroundImage:'radial-gradient(rgba(125,211,252,.13) 1px, transparent 1px)',backgroundSize:`${24*zoom}px ${24*zoom}px`,backgroundPosition:`${pan.x}px ${pan.y}px`}}>
-    {!nodes.length&&<div className="absolute inset-0 z-0 grid place-items-center px-5"><div className="max-w-md text-center"><MousePointer2 className="mx-auto h-7 w-7 text-zinc-750"/><strong className="mt-3 block text-[13px] text-zinc-400">Comece instantaneamente</strong><p className="mt-1 text-[9px] leading-relaxed text-zinc-650">Cole uma imagem com Ctrl+V, arraste um arquivo para cá ou escolha uma ferramenta.</p><button type="button" onClick={openAddMenu} className="mt-4 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.06] px-4 py-2 text-[9px] font-bold text-cyan-200 hover:bg-cyan-300/[0.1]">Adicionar primeira ferramenta</button></div></div>}
+    {!nodes.length&&<SpaceEmptyState actions={rootQuickActions} isReady={capability=>Boolean(modelFor(capability))} onAction={addEmptyTool} onAddImageAsset={()=>addEmptyAsset('IMAGE')} onAddVideoAsset={()=>addEmptyAsset('VIDEO')}/>}
     <div className="absolute origin-top-left" style={{width:SPACE_WORLD_W,height:SPACE_WORLD_H,transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`}}>
      <SpaceConnectionLayer nodes={nodes} edges={edges} nodeHeights={nodeHeights}/>
      {nodes.map(renderNode)}
