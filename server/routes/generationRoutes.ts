@@ -35,6 +35,20 @@ function referenceRoles(references:any[]):string[]{
   return references.map(reference=>String(reference?.role||reference?.slot_type||"").toUpperCase());
 }
 
+function assertEditorReferenceInputs(capabilityId:string,types:string[],roles:string[]){
+  const pairs=types.map((type,index)=>({type:String(type).toUpperCase(),role:String(roles[index]||"").toUpperCase()}));
+  const source=(type:string)=>pairs.some(item=>item.role==="SOURCE"&&item.type===type);
+  if(["image-edit","background-remove-replace","outpaint","upscale","variations"].includes(capabilityId)&&!source("IMAGE"))
+    throw Object.assign(new Error("A ferramenta exige uma imagem de origem."),{code:"REFERENCE_REQUIRED"});
+  if(capabilityId==="inpaint-mask"){
+    if(!source("IMAGE"))throw Object.assign(new Error("Inpaint exige uma imagem de origem."),{code:"REFERENCE_REQUIRED"});
+    if(!pairs.some(item=>item.role==="MASK"&&item.type==="IMAGE"))
+      throw Object.assign(new Error("Inpaint exige uma máscara válida."),{code:"MASK_REQUIRED"});
+  }
+  if(["video-edit","video-extend"].includes(capabilityId)&&!source("VIDEO"))
+    throw Object.assign(new Error("A ferramenta exige um vídeo de origem."),{code:"REFERENCE_REQUIRED"});
+}
+
 function publicGeneration(g: any) {
   const publicFailure =
     g.error_code || g.error_message
@@ -101,6 +115,10 @@ async function buildGenerationQuote(
     throw Object.assign(new Error("Modelo é obrigatório."), {
       code: "VALIDATION_ERROR",
     });
+  const references = Array.isArray(body.references) ? body.references : [];
+  const referenceTypes = await ownedReferenceTypes(uid,references);
+  const referenceRoleIds = referenceRoles(references);
+  assertEditorReferenceInputs(capabilityId,referenceTypes,referenceRoleIds);
 
   const dimensions = {
     resolution: settings.resolution,
@@ -132,8 +150,8 @@ async function buildGenerationQuote(
           character_count: prompt.length,
           dimensions,
           parameters,
-          reference_types: await ownedReferenceTypes(uid,body.references || []),
-          reference_roles: referenceRoles(body.references || []),
+          reference_types: referenceTypes,
+          reference_roles: referenceRoleIds,
         })
       : null;
   const model =
@@ -161,7 +179,6 @@ async function buildGenerationQuote(
     Math.min(4, Number(settings.number_of_outputs || 1)),
   );
   const outputs = imageMode ? requestedOutputs : 1;
-  const references = Array.isArray(body.references) ? body.references : [];
   const roleOf = (reference: any) =>
     String(reference?.role || reference?.slot_type || "").toUpperCase();
   const hasStartImage = references.some((reference: any) =>
@@ -178,7 +195,7 @@ async function buildGenerationQuote(
       new Error("Capability não comprovada para este modelo."),
       { code: "MODEL_CAPABILITY_UNSUPPORTED" },
     );
-  if(!isModelCompatibleWithRequirements(model.supported_controls||{},{capability_id:capabilityId,duration_seconds:duration,number_of_outputs:outputs,character_count:prompt.length,dimensions:{resolution:settings.resolution,aspect_ratio:settings.aspect_ratio},parameters,reference_types:await ownedReferenceTypes(uid,references)}))throw Object.assign(new Error("Controles não comprovados para este modelo."),{code:"MODEL_CONTROLS_UNSUPPORTED"});
+  if(!isModelCompatibleWithRequirements(model.supported_controls||{},{capability_id:capabilityId,duration_seconds:duration,number_of_outputs:outputs,character_count:prompt.length,dimensions:{resolution:settings.resolution,aspect_ratio:settings.aspect_ratio},parameters,reference_types:referenceTypes,reference_roles:referenceRoleIds}))throw Object.assign(new Error("Controles não comprovados para este modelo."),{code:"MODEL_CONTROLS_UNSUPPORTED"});
   if (
     [
       "text-to-image",
