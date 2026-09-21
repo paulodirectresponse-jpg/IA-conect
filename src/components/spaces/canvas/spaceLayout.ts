@@ -3,8 +3,8 @@ import type{FlowNode}from'../../../beta/flowClient.js';
 export const SPACE_WORLD_W=8000;
 export const SPACE_WORLD_H=5000;
 export const SPACE_NODE_W=260;
-export const SPACE_GENERATOR_NODE_W=340;
-export const SPACE_BASE_NODE_H=170;
+export const SPACE_GENERATOR_NODE_W=286;
+export const SPACE_BASE_NODE_H=156;
 
 const GENERATOR_CAPABILITIES=new Set(['text-to-image','image-to-image','text-to-video','image-to-video']);
 export function spaceNodeWidth(node:FlowNode){return node.kind==='TOOL'&&node.capability_id&&GENERATOR_CAPABILITIES.has(node.capability_id)?SPACE_GENERATOR_NODE_W:SPACE_NODE_W;}
