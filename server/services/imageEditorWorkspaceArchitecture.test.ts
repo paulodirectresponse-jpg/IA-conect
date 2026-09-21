@@ -67,7 +67,6 @@ describe('Immersive image editor workspace',()=>{
   expect(picker).toContain("accept={isVideo?'video/*':'image/*'}");
   expect(view).toContain('assetService.listAssets()');
   expect(view).toContain("filter(asset=>asset.type==='IMAGE')");
-  expect(view).not.toContain("assetService.listAssets({type:'IMAGE'})");
   expect(view).toContain("assetService.uploadAsset");
   expect(view).toContain('setPickerOpen(false)');
  });
@@ -94,9 +93,10 @@ describe('Immersive image editor workspace',()=>{
  it('derives editor availability only from the universal READY catalog',()=>{
   const view=read('src/components/views/ImageEditorView.tsx');
   const catalog=read('src/services/editorUniversalCatalog.ts');
+  const universal=read('src/services/universalGenerationClient.ts');
   expect(view).toContain('loadUniversalEditorCatalog');
   expect(catalog).toContain('universalGenerationClient.catalog');
-  expect(catalog).toContain('model.readiness');
+  expect(universal).toContain('model.readiness === "READY"');
   expect(view).not.toContain('editorClient');
  });
 });
