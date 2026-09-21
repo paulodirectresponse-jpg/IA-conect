@@ -235,7 +235,7 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
   );
   const autoQuote = useBackendAutoQuote(selectionMode === "AUTO" && !references.some(ref => ref.asset_id.startsWith("local_") || ref.asset?.status === "UPLOADING"), {
     model_id: "AUTO", mode, prompt, references,
-    settings: { duration_seconds: 1, resolution, aspect_ratio: aspectRatio, number_of_outputs: numberOfOutputs, seed: typeof seed === "number" ? seed : null },
+    settings: { resolution, aspect_ratio: aspectRatio, number_of_outputs: numberOfOutputs, seed: typeof seed === "number" ? seed : null },
   }, models);
   const autoModel = autoQuote.model;
   const activeModel = selectionMode === "AUTO" ? autoModel : manualModel;
@@ -300,7 +300,6 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
         prompt: prompt.trim() || "pricing preview",
         references: pricedReferences,
         settings: {
-          duration_seconds: 1,
           resolution,
           aspect_ratio: aspectRatio,
           number_of_outputs: 1,
@@ -553,7 +552,6 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
           prompt: submittedPrompt,
           references: resolvedReferences,
           settings: {
-            duration_seconds: 1,
             resolution: submittedResolution,
             aspect_ratio: submittedAspectRatio,
             number_of_outputs: submittedOutputs,
