@@ -34,6 +34,8 @@ export async function calculateRoutingV2GenerationPrice(
   input:RoutingV2BillingInput
 ):Promise<RoutingV2GenerationPricePreview>{
   if(!route.pricing_snapshot)throw Object.assign(new Error('Route V2 não possui pricing snapshot.'),{code:'ROUTING_V2_PRICE_UNAVAILABLE'});
+  if(['PER_SECOND','PER_MINUTE'].includes(route.billing_config.type)&&!(Number(input.duration_seconds)>0))throw Object.assign(new Error('Duração comprovada é obrigatória para este billing.'),{code:'ROUTING_V2_BILLING_INPUT_REQUIRED'});
+  if(route.billing_config.type==='PER_CHARACTER'&&!(Number(input.character_count)>0))throw Object.assign(new Error('Quantidade de caracteres é obrigatória para este billing.'),{code:'ROUTING_V2_BILLING_INPUT_REQUIRED'});
   const billing=calculateRoutingV2ProviderCost(route.billing_config,input);
   const settings=await routingV2PricingSettingsService.get();
   const fx=billing.currency==='USD'?Number(route.pricing_snapshot.fx_rate_usd_brl):undefined;

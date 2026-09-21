@@ -12,7 +12,8 @@ describe('Routing V2 model compatibility',()=>{
     const input={capability_id:'image-to-3d' as const,reference_types:['IMAGE'],parameters:{mesh_mode:'TEXTURED',topology:'QUAD'},number_of_outputs:1};
     expect(isModelCompatibleWithRequirements({},input)).toBe(false);
     expect(isModelCompatibleWithRequirements({supports_image_reference:true,supported_mesh_modes:['TEXTURED'],supported_topologies:['TRIANGLE']},input)).toBe(false);
-    expect(isModelCompatibleWithRequirements({supports_image_reference:true,supported_mesh_modes:['TEXTURED'],supported_topologies:['QUAD']},input)).toBe(true);
+    expect(isModelCompatibleWithRequirements({supports_image_reference:true,max_reference_images:1,supported_mesh_modes:['TEXTURED'],supported_topologies:['QUAD']},input)).toBe(true);
+    expect(isModelCompatibleWithRequirements({supports_image_reference:true,max_reference_images:1,supported_mesh_modes:['TEXTURED'],supported_topologies:['QUAD']},{...input,reference_types:['IMAGE','IMAGE']})).toBe(false);
   });
   it('does not require fictional duration support for still images or speech',()=>{
     expect(isModelCompatibleWithRequirements({}, {capability_id:'text-to-image',duration_seconds:1})).toBe(true);

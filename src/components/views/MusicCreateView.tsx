@@ -101,12 +101,9 @@ export const MusicCreateView: React.FC = () => {
     selectedModelId === "AUTO"
       ? models.some((item) => item.supports_seed)
       : model?.supports_seed === true;
-  const supportsFormat =
-    selectedModelId === "AUTO"
-      ? models.some((item) =>
-          Array.isArray(item.supported_controls?.supported_output_formats),
-        )
-      : Array.isArray(model?.supported_controls?.supported_output_formats);
+  const formats=Array.from(new Set<string>((selectedModelId==='AUTO'?models:model?[model]:[]).flatMap(item=>Array.isArray(item.supported_controls?.supported_output_formats)?(item.supported_controls.supported_output_formats as unknown[]).map(String):[])));
+  const supportsFormat=formats.length>0;
+  const selectedFormat=formats.includes(format)?format:formats[0];
   useEffect(() => {
     if (durations.length && !durations.includes(duration))
       setDuration(durations.includes(60) ? 60 : durations[0]);
@@ -125,7 +122,7 @@ export const MusicCreateView: React.FC = () => {
     controls: {
       duration_seconds: durations.length ? duration : undefined,
       instrumental: supportsInstrumental ? instrumental : undefined,
-      output_format: supportsFormat ? format : undefined,
+      output_format: selectedFormat,
       seed: supportsSeed ? (seed === "" ? null : seed) : undefined,
     },
   });
@@ -292,7 +289,7 @@ export const MusicCreateView: React.FC = () => {
             <GeneratorSettingRow
               icon={FileAudio}
               label="Formato"
-              value={format.toUpperCase()}
+              value={selectedFormat.toUpperCase()}
               open={openCard === "format"}
               onToggle={() =>
                 setOpenCard(openCard === "format" ? null : "format")
@@ -300,11 +297,8 @@ export const MusicCreateView: React.FC = () => {
               semantic="resolution"
             >
               <GeneratorOptionGrid
-                values={[
-                  { value: "mp3", label: "MP3" },
-                  { value: "wav", label: "WAV" },
-                ]}
-                current={format}
+                values={formats.map(value=>({value,label:value.toUpperCase()}))}
+                current={selectedFormat}
                 onSelect={(value) => {
                   setFormat(value);
                   invalidate();

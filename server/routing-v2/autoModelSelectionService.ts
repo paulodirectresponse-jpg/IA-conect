@@ -1,7 +1,7 @@
 import { CapabilityId } from "../beta/capabilityRegistry.js";
 import { routingV2Repository } from "./repository.js";
 import { routingV2RouteService } from "./routeService.js";
-import { calculateRoutingV2GenerationPrice } from "./generationPricingService.js";
+import { routingV2GenerationPricingService } from "./generationPricingService.js";
 
 export interface AutoModelRequirements {
   capability_id: CapabilityId;
@@ -44,6 +44,7 @@ export function isModelCompatibleWithRequirements(
   };
   for (const [key, value] of Object.entries(parameters)) {
     if (value === undefined || value === null) continue;
+    if(key==='target_faces'&&(!(Number(controls.target_faces_min)>0)||!(Number(controls.target_faces_max)>=Number(value))||Number(value)<Number(controls.target_faces_min)))return false;
     if (
       supportedListByControl[key] &&
       !includes(supportedListByControl[key], value)
@@ -63,12 +64,17 @@ export function isModelCompatibleWithRequirements(
       return false;
   }
   const refs = input.reference_types || [];
+  const count=(type:string)=>refs.filter(value=>value===type).length;
   if (refs.includes("IMAGE") && controls.supports_image_reference !== true)
     return false;
+  if(count("IMAGE")>Number(controls.max_reference_images||0))return false;
+  if(count("IMAGE")>1&&controls.supports_multiple_images!==true&&!(input.capability_id==='last-frame'&&controls.supports_start_end_image===true))return false;
   if (refs.includes("VIDEO") && controls.supports_video_reference !== true)
     return false;
+  if(count("VIDEO")>Number(controls.max_reference_videos||0))return false;
   if (refs.includes("AUDIO") && controls.supports_audio_reference !== true)
     return false;
+  if(count("AUDIO")>Number(controls.max_reference_audio||0))return false;
   return true;
 }
 
@@ -87,27 +93,10 @@ export const routingV2AutoModelSelectionService = {
     );
     const priced = [];
     for (const model of eligible) {
-      const modelRoutes = routes.filter(
-          (route) => route.model_id === model.model_id,
-        ),
-        previews = [];
-      for (const route of modelRoutes){
-        try{previews.push(
-          await calculateRoutingV2GenerationPrice(route, {
-            duration_seconds: input.duration_seconds,
-            number_of_outputs: input.number_of_outputs,
-            character_count: input.character_count,
-            dimensions: input.dimensions,
-          }),
-        );}catch{/* A route without an authorized price cannot participate in Auto. */}
-      }
-      previews.sort(
-        (a, b) =>
-          a.retail_credits - b.retail_credits ||
-          b.route.priority - a.route.priority ||
-          a.route.route_id.localeCompare(b.route.route_id),
-      );
-      if (previews[0]) priced.push({ model, preview: previews[0] });
+      try{
+        const preview=await routingV2GenerationPricingService.preview({model_id:model.model_id,capability_id:input.capability_id,duration_seconds:input.duration_seconds,number_of_outputs:input.number_of_outputs,character_count:input.character_count,dimensions:input.dimensions});
+        priced.push({model,preview});
+      }catch{/* A model without an authorized READY route price cannot participate in Auto. */}
     }
     priced.sort(
       (a, b) =>

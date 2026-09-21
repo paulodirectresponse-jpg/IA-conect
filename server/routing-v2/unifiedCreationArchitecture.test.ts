@@ -19,9 +19,12 @@ describe('unified creation architecture',()=>{
     const backend=read('server/routes/generationRoutes.ts');
     expect(backend).toContain('routingV2AutoModelSelectionService.select');
     expect(backend).toContain('routingV2ExecutionService.preview');
+    expect(backend).toContain('character_count: prompt.length');
+    expect(read('server/services/generationService.ts')).toContain('character_count:params.prompt?.length||0');
     const auto=read('server/routing-v2/autoModelSelectionService.ts');
     expect(auto).toContain('routingV2RouteService.listReady');
     expect(auto).toContain('routes.some((route) => route.model_id === model.model_id)');
+    expect(auto).toContain('routingV2GenerationPricingService.preview');
   });
   it('uses one picker base and no operational model defaults',()=>{
     const picker=read('src/components/workspace/UniversalModelPicker.tsx');
@@ -32,5 +35,8 @@ describe('unified creation architecture',()=>{
     expect(image).toContain('CompactModelPicker');
     expect(video).toContain('CompactModelPicker');
     expect(capabilities).not.toContain('KNOWN_MODEL_DEFAULTS');
+    expect(video).not.toContain('[5, 10, 15, 30]');
+    expect(video).not.toContain("['720p','1080p']");
+    expect(image).not.toContain("['1:1','16:9','9:16','4:3','3:4']");
   });
 });

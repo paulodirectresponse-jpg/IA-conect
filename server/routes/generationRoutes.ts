@@ -148,9 +148,10 @@ async function buildGenerationQuote(
     });
 
   const imageMode = mode === "TEXT_TO_IMAGE" || mode === "IMAGE_TO_IMAGE";
+  const providedDuration=Number(settings.duration_seconds)>0?Number(settings.duration_seconds):undefined;
   const duration = imageMode
     ? 1
-    : Math.max(1, Number(settings.duration_seconds || 5));
+    : providedDuration||1;
   const resolution = String(settings.resolution || (imageMode ? "1K" : "720p"));
   const aspectRatio = String(settings.aspect_ratio || "16:9");
   const requestedOutputs = Math.max(
@@ -209,7 +210,8 @@ async function buildGenerationQuote(
     capability_id: capabilityId,
     prompt,
     negative_prompt: body.negative_prompt,
-    duration_seconds: duration,
+    character_count: prompt.length,
+    duration_seconds: imageMode?1:providedDuration,
     number_of_outputs: outputs,
     dimensions: { resolution, aspect_ratio: aspectRatio },
   });
@@ -406,6 +408,7 @@ generationRouter.post(
     try {
       await billingControlService.assertNewGenerationAllowed();
       const uid = req.user!.uid;
+      if(!(Number(req.body.authorized_credit_price)>0))throw Object.assign(new Error("Calcule e autorize o preço antes de gerar."),{code:"QUOTE_REQUIRED"});
       const host = req.get("host") || process.env.APP_URL;
       const authorization = String(req.headers.authorization || "");
       const idToken = authorization.startsWith("Bearer ")
@@ -435,7 +438,7 @@ generationRouter.post(
               capability_id: capabilityId,
               duration_seconds: Number(settings.duration_seconds) || undefined,
               number_of_outputs: Number(settings.number_of_outputs) || 1,
-              character_count: String(req.body.prompt || "").length,
+              character_count: String(req.body.prompt || "").trim().length,
               dimensions: {
                 resolution: settings.resolution,
                 aspect_ratio: settings.aspect_ratio,
@@ -465,7 +468,7 @@ generationRouter.post(
         capability_id: capabilityId,
         mode: (req.body.mode ||
           capabilityId.toUpperCase().replace(/-/g, "_")) as GenerationMode,
-        prompt: req.body.prompt,
+        prompt: String(req.body.prompt||"").trim(),
         negative_prompt: req.body.negative_prompt,
         duration_seconds: Number(settings.duration_seconds || 1),
         resolution: settings.resolution || "",

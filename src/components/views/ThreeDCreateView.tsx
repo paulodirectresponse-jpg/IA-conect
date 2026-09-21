@@ -137,6 +137,9 @@ export const ThreeDCreateView: React.FC = () => {
   const topologies = supportedValues("supported_topologies");
   const selectedMeshMode = meshModes.includes(meshMode) ? meshMode : meshModes[0];
   const selectedTopology = topologies.includes(topology) ? topology : topologies[0];
+  const faceRanges=selectedCandidates.filter(item=>item.supported_controls?.supports_target_faces===true).map(item=>({min:Number(item.supported_controls?.target_faces_min),max:Number(item.supported_controls?.target_faces_max)})).filter(range=>Number.isFinite(range.min)&&Number.isFinite(range.max)&&range.min>0&&range.max>=range.min);
+  const faceMin=faceRanges.length?Math.min(...faceRanges.map(range=>range.min)):0,faceMax=faceRanges.length?Math.max(...faceRanges.map(range=>range.max)):0;
+  const selectedFaces=faceRanges.length?Math.max(faceMin,Math.min(faceMax,targetFaces)):undefined;
   const routeReady = models.length > 0;
   const invalidate = () => {
     setGeneration(null);
@@ -259,7 +262,7 @@ export const ThreeDCreateView: React.FC = () => {
         output_format: supportedValues("supported_output_formats").includes("glb") ? "glb" : undefined,
         mesh_mode: selectedMeshMode,
         pbr: supports("supports_pbr") ? (meshMode === "GEOMETRY" ? false : pbr) : undefined,
-        target_faces: supports("supports_target_faces") ? targetFaces : undefined,
+        target_faces: selectedFaces,
         topology: selectedTopology,
       },
     };
@@ -472,24 +475,24 @@ export const ThreeDCreateView: React.FC = () => {
               }}
             />
           </GeneratorSettingRow>}
-          {supports("supports_target_faces") && <GeneratorSettingRow
+          {selectedFaces!==undefined && <GeneratorSettingRow
             icon={Boxes}
             label="Faces alvo"
-            value={targetFaces.toLocaleString("pt-BR")}
+            value={selectedFaces.toLocaleString("pt-BR")}
             open={openCard === "faces"}
             onToggle={() => setOpenCard(openCard === "faces" ? null : "faces")}
             semantic="outputs"
           >
             <GeneratorRangeSlider
-              min={40000}
-              max={1500000}
-              step={20000}
-              value={targetFaces}
+              min={faceMin}
+              max={faceMax}
+              step={Math.max(1,Math.round((faceMax-faceMin)/100))}
+              value={selectedFaces}
               onChange={(value) => {
                 setTargetFaces(value);
                 invalidate();
               }}
-              headline={targetFaces.toLocaleString("pt-BR")}
+              headline={selectedFaces.toLocaleString("pt-BR")}
               subtitle="densidade aproximada da malha"
             />
           </GeneratorSettingRow>}
