@@ -49,10 +49,11 @@ describe('canonical model identity across generation and editors',()=>{
     expect(router).toContain('activeMappingsByProvider');
   });
 
-  it('only exposes editor capabilities backed by Routing V2 READY routes',()=>{
-    const route=read('server/routes/editorRoutes.ts');
-    expect(route).toContain('routingV2CatalogService.listCapabilityModels');
-    expect(route).not.toContain('betaCatalogPolicyService');
+  it('only exposes editor capabilities backed by the universal Routing V2 READY catalog',()=>{
+    const catalog=read('src/services/editorUniversalCatalog.ts');
+    const universal=read('src/services/universalGenerationClient.ts');
+    expect(catalog).toContain('universalGenerationClient.catalog');
+    expect(universal).toContain('model.readiness === "READY"');
   });
 
   it('shows Stable image and video models only through the READY universal catalog',()=>{
