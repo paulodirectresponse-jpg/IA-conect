@@ -316,4 +316,8 @@ export const betaFlowRuntimeService={
     const runs=await betaFlowRuntimeRepository.listRuns(userId,limit);
     return Promise.all(runs.map(publicRun));
   },
+  async listFlowPublic(userId:string,flowId:string,limit=50){
+    const runs=await betaFlowRuntimeRepository.listRuns(userId,100);
+    return Promise.all(runs.filter(run=>run.flow_id===flowId).slice(0,Math.min(100,Math.max(1,limit))).map(publicRun));
+  },
 };
