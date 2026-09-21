@@ -17,6 +17,7 @@ export const spacesClient={
  assets:()=>apiRequest<UniversalAssetView[]>('/api/spaces/assets'),
  list:()=>apiRequest<FlowRecord[]>('/api/spaces/flows'),
  get:(flowId:string)=>apiRequest<FlowRecord>(`/api/spaces/flows/${encodeURIComponent(flowId)}`),
+ history:(flowId:string,limit=50)=>apiRequest<FlowRunView[]>(`/api/spaces/flows/${encodeURIComponent(flowId)}/runs?limit=${Math.min(100,Math.max(1,limit))}`),
  create:(input:{name:string;description:string;project_id:string|null;graph:FlowGraph})=>apiRequest<FlowRecord>('/api/spaces/flows',{method:'POST',body:JSON.stringify(input)}),
  save:(flowId:string,input:{name:string;description:string;project_id:string|null;graph:FlowGraph;expected_revision:number})=>apiRequest<FlowRecord>(`/api/spaces/flows/${encodeURIComponent(flowId)}`,{method:'PUT',body:JSON.stringify(input)}),
  remove:(flowId:string)=>apiRequest<FlowRecord>(`/api/spaces/flows/${encodeURIComponent(flowId)}`,{method:'DELETE'}),
