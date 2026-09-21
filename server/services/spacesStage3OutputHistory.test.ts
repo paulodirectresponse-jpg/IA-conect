@@ -66,6 +66,6 @@ describe('Spaces stage 3 persistent node output history',()=>{
   const preview=read('src/components/spaces/nodes/NodeResultPreview.tsx');
   expect(generator).toContain('selectedHistory?.authorized_credit_price');
   expect(preview).toContain('authorized_credit_price:number');
-  expect(generator).toContain('Calculado ao executar');
+  expect(generator).toContain('Custo ao executar');
  });
 });
