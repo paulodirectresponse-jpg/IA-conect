@@ -8,7 +8,6 @@ import { billingControlService } from "../services/billingControlService.js";
 import { routingV2CatalogService } from "../routing-v2/catalogService.js";
 import { routingV2ExecutionService } from "../routing-v2/executionService.js";
 import { promptCompilerService } from "../services/promptCompilerService.js";
-import { GenerationMode } from "../../src/types/index.js";
 import { publicGenerationError } from "../services/publicGenerationError.js";
 import { validateConfiguration } from "../../src/services/modelCapabilities.js";
 import {
