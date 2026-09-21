@@ -30,7 +30,9 @@ describe('canonical model identity across generation and editors',()=>{
 
   it('keeps editor-only image models out of the Stable image generator',()=>{
     const view=read('src/components/views/UnifiedImageCreateView.tsx');
-    expect(view).toMatch(/\(m\.supported_modes\s*\|\|\s*\[\]\)\.includes\(["']TEXT_TO_IMAGE["']\)/);
+    expect(view).toContain('universalGenerationClient.catalog("text-to-image")');
+    expect(view).toContain('universalGenerationClient.catalog("image-to-image")');
+    expect(view).not.toContain('universalGenerationClient.catalog("image-edit")');
   });
 
   it('keeps one provider proposal per canonical capability instead of one per duplicated model',()=>{
@@ -53,11 +55,15 @@ describe('canonical model identity across generation and editors',()=>{
     expect(route).not.toContain('betaCatalogPolicyService');
   });
 
-  it('shows Stable image and video models only when their generation route is safe',()=>{
+  it('shows Stable image and video models only through the READY universal catalog',()=>{
     const video=read('src/components/views/CreateView.tsx');
     const image=read('src/components/views/UnifiedImageCreateView.tsx');
-    expect(video).toMatch(/workspaceService\.listModelRoutes\(["']text-to-video["']\)/);
-    expect(image).toMatch(/workspaceService\.listModelRoutes\(["']text-to-image["']\)/);
+    expect(video).toContain('universalGenerationClient.catalog("text-to-video")');
+    expect(video).toContain('universalGenerationClient.catalog("image-to-video")');
+    expect(image).toContain('universalGenerationClient.catalog("text-to-image")');
+    expect(image).toContain('universalGenerationClient.catalog("image-to-image")');
+    expect(video).not.toContain('workspaceService.listModelRoutes');
+    expect(image).not.toContain('workspaceService.listModelRoutes');
   });
 
   it('lets WaveSpeed use an exact verified mapping identifier for newly added image models',()=>{
