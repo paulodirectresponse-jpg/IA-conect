@@ -27,6 +27,7 @@ import { CreationGallery } from "../workspace/CreationGallery.js";
 import { UnifiedImageCreatorPanel } from "../workspace/UnifiedImageCreatorPanel.js";
 import { upsertGeneration } from "../../utils/generationCollection.js";
 import { MobileStudioLayout } from "../workspace/MobileStudioLayout.js";
+import { useBackendAutoQuote } from "../workspace/useBackendAutoQuote.js";
 
 interface Props {
   onUseImageForVideo?: (asset: Asset) => void;
@@ -232,31 +233,16 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
       ),
     [baseCompatibleModels, resolution],
   );
-  const livePricesByModelId = useMemo(() => {
-    const out: Record<string, number | null> = {};
-    models.forEach((m) => {
-      const unit = unitPricesByModelId[m.model_id];
-      out[m.model_id] =
-        unit == null ? null : unit * Math.max(1, numberOfOutputs);
-    });
-    return out;
-  }, [models, unitPricesByModelId, numberOfOutputs]);
-  const autoModel = useMemo(
-    () =>
-      [...compatibleModels].sort(
-        (a, b) =>
-          (livePricesByModelId[a.model_id] ?? Number.MAX_SAFE_INTEGER) -
-            (livePricesByModelId[b.model_id] ?? Number.MAX_SAFE_INTEGER) ||
-          a.name.localeCompare(b.name),
-      )[0] || null,
-    [compatibleModels, livePricesByModelId],
-  );
+  const autoQuote = useBackendAutoQuote(selectionMode === "AUTO" && !references.some(ref => ref.asset_id.startsWith("local_") || ref.asset?.status === "UPLOADING"), {
+    model_id: "AUTO", mode, prompt, references,
+    settings: { duration_seconds: 1, resolution, aspect_ratio: aspectRatio, number_of_outputs: numberOfOutputs, seed: typeof seed === "number" ? seed : null },
+  }, models);
+  const autoModel = autoQuote.model;
   const activeModel = selectionMode === "AUTO" ? autoModel : manualModel;
   const activeCaps = activeModel ? getModelCapabilities(activeModel) : null;
-  const selectedCompatible = Boolean(
-    activeModel &&
-    compatibleModels.some((m) => m.model_id === activeModel.model_id),
-  );
+  const selectedCompatible = selectionMode === "AUTO"
+    ? Boolean(autoQuote.quote && activeModel)
+    : Boolean(activeModel && compatibleModels.some((m) => m.model_id === activeModel.model_id));
   const maxReferences =
     selectionMode === "AUTO"
       ? Math.max(
@@ -267,11 +253,9 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
   const unitPrice = activeModel
       ? (unitPricesByModelId[activeModel.model_id] ?? null)
       : null,
-    estimatedPrice =
+    estimatedPrice = selectionMode === "AUTO" ? (autoQuote.quote?.credit_price ?? null) :
       unitPrice == null ? null : unitPrice * Math.max(1, numberOfOutputs),
-    quoteLoading = Boolean(
-      activeModel && priceLoadingModelIds.includes(activeModel.model_id),
-    ),
+    quoteLoading = selectionMode === "AUTO" ? autoQuote.loading : Boolean(activeModel && priceLoadingModelIds.includes(activeModel.model_id)),
     balance = wallet?.available_credits ?? 0,
     hasBalance = estimatedPrice != null && balance >= estimatedPrice;
   const hasPendingReferences = references.some(
@@ -688,7 +672,7 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
             generating={submitting}
             priceLoading={quoteLoading}
             onGenerate={generate}
-            error={error}
+            error={error || (selectionMode === "AUTO" ? autoQuote.error || "" : "")}
             modelAdjustmentNotice={modelAdjustmentNotice}
             unitPricesByModelId={unitPricesByModelId}
             priceLoadingModelIds={priceLoadingModelIds}

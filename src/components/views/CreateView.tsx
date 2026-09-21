@@ -22,7 +22,6 @@ import {
   adaptConfigurationToModel,
   findCompatibleModels,
   getModelCapabilities,
-  mergeModelCapabilities,
   validateConfiguration,
 } from "../../services/modelCapabilities.js";
 import { DEFAULT_PRESERVATION_RULES } from "../../config/constants.js";
@@ -36,6 +35,7 @@ import { AssetPickerModal } from "../workspace/AssetPickerModal.js";
 import { ReferenceRulesModal } from "../workspace/ReferenceRulesModal.js";
 import { upsertGeneration } from "../../utils/generationCollection.js";
 import { MobileStudioLayout } from "../workspace/MobileStudioLayout.js";
+import { useBackendAutoQuote } from "../workspace/useBackendAutoQuote.js";
 
 function localAliasFor(a: Asset, refs: WorkspaceReference[]) {
   const p = a.type === "VIDEO" ? "video" : a.type === "AUDIO" ? "audio" : "img",
@@ -80,6 +80,7 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
     [showAdvanced, setShowAdvanced] = useState(false),
     [seed, setSeed] = useState<number | "">(""),
     [motionStrength, setMotionStrength] = useState(5),
+    [motionStrengthTouched, setMotionStrengthTouched] = useState(false),
     [availableAssets, setAvailableAssets] = useState<Asset[]>([]),
     [presets, setPresets] = useState<WorkspacePreset[]>([]),
     [favoriteModelIds, setFavoriteModelIds] = useState<string[]>([]),
@@ -215,11 +216,9 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
   }, []);
 
   const manualModel = useMemo(
-      () =>
-        models.find((m) => m.model_id === manualModelId) || models[0] || null,
-      [models, manualModelId],
-    ),
-    autoCapabilities = useMemo(() => mergeModelCapabilities(models), [models]);
+    () => models.find((m) => m.model_id === manualModelId) || models[0] || null,
+    [models, manualModelId],
+  );
   const inferredIntent = useMemo(
       () =>
         generationIntentResolver.resolveMode({
@@ -297,36 +296,19 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
       });
     return out;
   }, [references, initialImage, endImage]);
-  const livePricesByModelId = useMemo(() => {
-    const out: Record<string, number | null> = {};
-    models.forEach((m) => {
-      const unit = unitPricesByModelId[m.model_id];
-      out[m.model_id] =
-        unit == null
-          ? null
-          : unit * Math.max(1, durationSeconds) * Math.max(1, numberOfOutputs);
-    });
-    return out;
-  }, [models, unitPricesByModelId, durationSeconds, numberOfOutputs]);
-  const autoResolvedModel = useMemo(
-    () =>
-      [...autoCompatibleModels].sort(
-        (a, b) =>
-          (livePricesByModelId[a.model_id] ?? 99999999) -
-          (livePricesByModelId[b.model_id] ?? 99999999),
-      )[0] || null,
-    [autoCompatibleModels, livePricesByModelId],
-  );
+  const autoQuote = useBackendAutoQuote(selectionMode === "AUTO" && !refsWithFrames.some(ref => ref.asset_id.startsWith("local_") || ref.asset?.status === "UPLOADING"), {
+    model_id: "AUTO", mode, prompt, negative_prompt: negativePrompt, references: refsWithFrames,
+    settings: { duration_seconds: durationSeconds, resolution, aspect_ratio: aspectRatio, number_of_outputs: numberOfOutputs, seed: seed === "" ? null : seed, motion_strength: motionStrengthTouched ? motionStrength : undefined },
+  }, models);
+  const autoResolvedModel = autoQuote.model;
   const selectedModel =
       selectionMode === "AUTO" ? autoResolvedModel : manualModel,
     activeCapabilities = useMemo(
       () =>
         selectionMode === "AUTO"
-          ? autoResolvedModel
-            ? getModelCapabilities(autoResolvedModel)
-            : autoCapabilities
+          ? getModelCapabilities(autoResolvedModel)
           : getModelCapabilities(manualModel),
-      [selectionMode, autoResolvedModel, autoCapabilities, manualModel],
+      [selectionMode, autoResolvedModel, manualModel],
     );
   useEffect(() => {
     const seq = ++quoteSeqRef.current,
@@ -445,11 +427,11 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
     setValidationErrors(compatibility.errors);
     setGenerationError("");
   }, [compatibility]);
-  const unitPriceCents = selectedModel
+  const unitPriceCents = selectionMode === "AUTO" ? (autoQuote.quote?.request_draft.unit_credit_price ?? null) : selectedModel
       ? (unitPricesByModelId[selectedModel.model_id] ?? null)
       : null,
     totalEstimatedCostCents =
-      unitPriceCents == null
+      selectionMode === "AUTO" ? (autoQuote.quote?.credit_price ?? null) : unitPriceCents == null
         ? null
         : unitPriceCents *
           Math.max(1, durationSeconds) *
@@ -845,7 +827,7 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
             aspect_ratio: submittedAspectRatio,
             number_of_outputs: submittedOutputs,
             seed: activeCapabilities.supports_seed ? submittedSeed : null,
-            motion_strength: activeCapabilities.supports_motion_strength ? submittedMotion : undefined,
+            motion_strength: activeCapabilities.supports_motion_strength && (selectionMode === "MANUAL" || motionStrengthTouched) ? submittedMotion : undefined,
           },
         });
       let quoted = await quoteSubmitted(),
@@ -968,7 +950,7 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
             seed={seed}
             onChangeSeed={setSeed}
             motionStrength={motionStrength}
-            onChangeMotionStrength={setMotionStrength}
+            onChangeMotionStrength={(value) => { setMotionStrength(value); setMotionStrengthTouched(true); }}
             totalEstimatedCostCents={totalEstimatedCostCents}
             unitPriceCents={unitPriceCents}
             availableBalanceCents={availableBalanceCents}
@@ -977,7 +959,7 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
             validating={validating}
             generating={submitting}
             validationErrors={validationErrors}
-            generationError={generationError}
+            generationError={generationError || (selectionMode === "AUTO" ? autoQuote.error || "" : "")}
             modelAdjustmentNotice={modelAdjustmentNotice}
             unitPricesByModelId={unitPricesByModelId}
             priceLoadingModelIds={priceLoadingModelIds}

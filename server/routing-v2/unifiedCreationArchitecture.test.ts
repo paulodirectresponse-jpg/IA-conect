@@ -9,9 +9,20 @@ describe('unified creation architecture',()=>{
   it.each(mediaViews)('%s loads only the READY V2 public catalog and uses universal generation infrastructure',(name)=>{
     const view=read(`src/components/views/${name}.tsx`);
     expect(view).toMatch(/workspaceService\.listModels\(|universalGenerationClient\.catalog\(/);
-    expect(view).toMatch(/generationClient\.quote\(|universalGenerationClient\.quote\(/);
+    expect(view).toMatch(/generationClient\.quote\(|universalGenerationClient\.quote\(|useBackendAutoQuote\(/);
     expect(view).toMatch(/generationClient\.create\(|universalGenerationClient\.create\(/);
     expect(view).not.toMatch(/(?:voice|music|threeD)GenerationClient/);
+  });
+  it('takes the Auto model and price from the backend quote, never from client-side ranking',()=>{
+    const hook=read('src/components/workspace/useBackendAutoQuote.ts');
+    expect(hook).toContain('generationClient.quote');
+    expect(hook).toContain('quote?.resolved_model_id');
+    for(const name of ['UnifiedImageCreateView','CreateView']){
+      const view=read(`src/components/views/${name}.tsx`);
+      expect(view).toContain('useBackendAutoQuote(');
+      expect(view).not.toMatch(/\[\.\.\.(?:compatibleModels|autoCompatibleModels)\]\.sort\(/);
+      expect(view).toContain('autoQuote.quote?.credit_price');
+    }
   });
   it('removes parallel media job routes from the active API',()=>{
     const routes=read('server/routes/index.ts');

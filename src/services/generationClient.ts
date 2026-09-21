@@ -38,6 +38,10 @@ export type PricedGenerationDraft = GenerationRequestDraft & {
 };
 
 export type GenerationQuoteResult = {
+  resolved_model_id: string;
+  requested_model_id: string;
+  credit_price: number;
+  sufficient_funds: boolean;
   request_draft: PricedGenerationDraft;
   notice: string;
 };
