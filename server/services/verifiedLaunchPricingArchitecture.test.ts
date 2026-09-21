@@ -87,11 +87,11 @@ describe('verified Stable launch pricing',()=>{
     expect(admin).toContain('for(let index=0;index<eligible.length;index+=5)');
   });
 
-  it('shows Auto only when the governed Stable catalog exposes an eligible Auto route',()=>{
-    const picker=read('src/components/workspace/StableGeneratorModelPicker.tsx');
+  it('shows Auto only when the Routing V2 catalog exposes an eligible READY model',()=>{
+    const picker=read('src/components/workspace/UniversalModelPicker.tsx');
     const compact=read('src/components/workspace/CompactModelPicker.tsx');
-    expect(picker).toContain("models.some(model=>model.model_id==='AUTO')");
-    expect(picker).toContain("models.filter(model=>model.model_id!=='AUTO')");
+    expect(picker).toContain('showAuto={models.length>0}');
+    expect(picker).toContain('CompactModelPicker');
     expect(compact).toContain('showAuto?:boolean');
     expect(compact).toContain('p.showAuto!==false');
   });

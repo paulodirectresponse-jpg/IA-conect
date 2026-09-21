@@ -46,7 +46,15 @@ editorRouter.get('/editors/catalog',async(_req:AuthenticatedRequest,res)=>{
    ...(videoFlag?.is_enabled?VIDEO_CAPABILITIES:[]),
   ]);
   const capabilities=CAPABILITIES.filter(capability=>enabledCapabilities.has(capability));
-  return res.json({success:true,data:{models:await routingV2CatalogService.listCapabilityModels(capabilities)}});
+  const [editorModels, publicModels] = await Promise.all([
+   routingV2CatalogService.listCapabilityModels(capabilities),
+   routingV2CatalogService.listGeneratorModels(),
+  ]);
+  const publicById = new Map<string,(typeof publicModels)[number]>(publicModels.map(model => [model.model_id, model] as const));
+  return res.json({success:true,data:{models:editorModels.flatMap(model => {
+   const published = publicById.get(model.model_id);
+   return published ? [{...published,capabilities:model.capabilities,providers:model.providers}] : [];
+  })}});
  }catch(error:any){return failure(res,error,'Não foi possível carregar os editores.');}
 });
 

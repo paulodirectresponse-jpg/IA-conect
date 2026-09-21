@@ -35,7 +35,7 @@ describe('Immersive video editor workspace',()=>{
 
  it('always exposes Auto plus manual model selection using the shared picker',()=>{
   const view=read('src/components/views/VideoEditorView.tsx');
-  expect(view).toContain('StableGeneratorModelPicker');
+  expect(view).toContain('UniversalModelPicker');
   expect(view).toContain("modelId==='AUTO'?'AUTO':model.model_id");
   expect(view).toContain("setModelId('AUTO')");
   expect(view).not.toContain('<select value={model?.model_id');

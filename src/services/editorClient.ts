@@ -1,10 +1,10 @@
 import { apiRequest } from './apiClient.js';
-import { Asset } from '../types/index.js';
+import { Asset, ModelRegistryItem } from '../types/index.js';
 
 export type EditorCapability='image-edit'|'inpaint-mask'|'background-remove-replace'|'outpaint'|'upscale'|'variations'|'video-extend'|'video-edit';
 export interface EditorCapabilityView{ id:EditorCapability; name?:string; controls?:string[]; supported_durations?:number[]; supported_resolutions?:string[]; supported_aspect_ratios?:string[]; }
 export interface EditorProviderView{provider_id:string;name:string;capability_ids:EditorCapability[];}
-export interface EditorModelView{model_id:string;name:string;category:string;capabilities:EditorCapabilityView[];providers?:EditorProviderView[];}
+export interface EditorModelView extends ModelRegistryItem{capabilities:EditorCapabilityView[];providers?:EditorProviderView[];}
 export interface EditorJobView{job_id:string;status:'DRAFT'|'QUOTED'|'QUEUED'|'RUNNING'|'SUCCEEDED'|'FAILED'|'CANCELLED';request:any;quote?:{credit_price:number;selected_model_id:string;routing_mode:'MANUAL'|'AUTO';expires_at:string}|null;error_message?:string|null;result_asset_ids?:string[];}
 
 function key(scope:string){return `${scope}:${globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`}`;}

@@ -82,8 +82,8 @@ describe('Immersive image editor workspace',()=>{
 
  it('always exposes Auto plus manual IA selection through the shared model picker',()=>{
   const view=read('src/components/views/ImageEditorView.tsx');
-  const picker=read('src/components/workspace/StableGeneratorModelPicker.tsx');
-  expect(view).toContain('StableGeneratorModelPicker');
+  const picker=read('src/components/workspace/UniversalModelPicker.tsx');
+  expect(view).toContain('UniversalModelPicker');
   expect(view).toContain("modelId==='AUTO'?'AUTO':model.model_id");
   expect(view).toContain("setModelId('AUTO')");
   expect(picker).toContain('CompactModelPicker');
