@@ -155,4 +155,21 @@ export const firestoreAdminRest={
   async commit(writes:any[]){const result=await req(`${base()}/documents:commit`,{method:'POST',body:JSON.stringify({writes})});clearReadCaches();return result;},
   docName(path:string){const cfg=getFirebaseConfig();const db=cfg.firestoreDatabaseId||'(default)';return `projects/${cfg.projectId}/databases/${db}/documents/${path}`;},
   fields:fsFields,
+  async listAuthUsers(){
+    const cfg=getFirebaseConfig();const users:any[]=[];let nextPageToken='';
+    do{
+      const token=await accessToken();const url=new URL(`https://identitytoolkit.googleapis.com/v1/projects/${encodeURIComponent(cfg.projectId)}/accounts:batchGet`);
+      url.searchParams.set('maxResults','1000');if(nextPageToken)url.searchParams.set('nextPageToken',nextPageToken);
+      const response=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});const body:any=await response.json();
+      if(!response.ok)throw Object.assign(new Error(body?.error?.message||`Firebase Auth REST ${response.status}`),{status:response.status,code:'FIREBASE_AUTH_LIST_FAILED'});
+      users.push(...(body.users||[]));nextPageToken=String(body.nextPageToken||'');
+    }while(nextPageToken);
+    return users;
+  },
+  async deleteAuthUser(localId:string){
+    const cfg=getFirebaseConfig();const token=await accessToken();
+    const response=await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${encodeURIComponent(cfg.projectId)}/accounts:delete`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({localId})});
+    const body:any=await response.json().catch(()=>({}));
+    if(!response.ok)throw Object.assign(new Error(body?.error?.message||`Firebase Auth REST ${response.status}`),{status:response.status,code:'FIREBASE_AUTH_DELETE_FAILED'});
+  },
 };

@@ -25,7 +25,8 @@
     "MERCADOPAGO_BASE_URL": "https://api.mercadopago.com",
     "FIRESTORE_PREFER_REST": "true",
     "SUPABASE_URL": "https://hzjyhhenajbjxkwkmzdg.supabase.co",
-    "SUPABASE_BUCKET": "ia-conect-assets"
+    "SUPABASE_BUCKET": "ia-conect-assets",
+    "FACTORY_RESET_PRODUCTION_ENABLED": "true"
   },
   "observability": {"enabled": true}
 }
