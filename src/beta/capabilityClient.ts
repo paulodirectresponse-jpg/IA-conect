@@ -7,6 +7,7 @@ export interface BetaCapability {
   supported_durations?:number[];
   supported_resolutions?:string[];
   supported_aspect_ratios?:string[];
+  control_options?:Record<string,(string|number)[]>;
 }
 export interface BetaCapabilityModel {
   model_id:string;

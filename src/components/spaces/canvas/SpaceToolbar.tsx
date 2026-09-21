@@ -1,0 +1,15 @@
+import React from'react';
+import{ArrowLeft,Check,LoaderCircle,Maximize2,Play,Plus,Save,ZoomIn,ZoomOut}from'lucide-react';
+
+interface Props{name:string;onNameChange:(value:string)=>void;onBack:()=>void;saving:boolean;saved:boolean;running:boolean;zoom:number;onZoomOut:()=>void;onZoomIn:()=>void;onFit:()=>void;onAdd:()=>void;onRunAll:()=>void;}
+
+export const SpaceToolbar:React.FC<Props>=({name,onNameChange,onBack,saving,saved,running,zoom,onZoomOut,onZoomIn,onFit,onAdd,onRunAll})=><header className="flex min-h-14 shrink-0 items-center gap-2 overflow-x-auto border-b border-white/[0.06] bg-[#071019]/95 px-2.5 py-2 sm:h-14 sm:overflow-visible sm:px-4 sm:py-0 backdrop-blur-xl">
+ <button onClick={onBack} className="grid h-8 w-8 place-items-center rounded-xl border border-white/[0.07] text-zinc-500 hover:text-white"><ArrowLeft className="h-4 w-4"/></button>
+ <input value={name} onChange={e=>onNameChange(e.target.value)} className="min-w-[110px] max-w-[320px] flex-1 bg-transparent px-1 text-[12px] font-bold text-white outline-none" aria-label="Nome do Space"/>
+ <span className="hidden items-center gap-1 text-[8px] text-zinc-600 sm:flex">{saving?<><LoaderCircle className="h-3 w-3 animate-spin"/>Salvando…</>:saved?<><Check className="h-3 w-3 text-emerald-400"/>Salvo</>:<><Save className="h-3 w-3"/>Alterações</>}</span>
+ <div className="ml-auto hidden items-center gap-1 rounded-xl border border-white/[0.06] bg-black/20 p-1 sm:flex"><button onClick={onZoomOut} className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 hover:text-white"><ZoomOut className="h-3.5 w-3.5"/></button><span className="w-10 text-center text-[8px] text-zinc-600">{Math.round(zoom*100)}%</span><button onClick={onZoomIn} className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 hover:text-white"><ZoomIn className="h-3.5 w-3.5"/></button><button onClick={onFit} className="grid h-7 w-7 place-items-center rounded-lg text-zinc-500 hover:text-white"><Maximize2 className="h-3.5 w-3.5"/></button></div>
+ <button onClick={onAdd} aria-label="Adicionar ao Space" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.025] px-2.5 text-[9px] font-semibold text-zinc-300 hover:border-cyan-400/20 hover:text-cyan-200 sm:px-3"><Plus className="h-3.5 w-3.5"/><span className="hidden sm:inline">Adicionar</span></button>
+ <button onClick={onRunAll} disabled={running} aria-label="Executar workflow completo" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-cyan-300 px-2.5 text-[9px] font-black text-[#041019] shadow-[0_8px_30px_rgba(103,232,249,.12)] disabled:opacity-40 sm:px-3.5">{running?<LoaderCircle className="h-3.5 w-3.5 animate-spin"/>:<Play className="h-3.5 w-3.5"/>}<span className="hidden sm:inline">Executar tudo</span><span className="sm:hidden">Executar</span></button>
+</header>;
+
+export default SpaceToolbar;

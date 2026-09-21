@@ -18,7 +18,7 @@ declare global{
 export interface FlowNodeRunView{
   node_run_id:string;run_id:string;flow_id:string;user_id:string;node_id:string;status:'WAITING'|'RUNNING'|'SUCCEEDED'|'FAILED'|'CANCELLED';
   job_id?:string|null;retry_count:number;authorized_credit_price:number;inputs:FlowRuntimeValue[];outputs:FlowRuntimeValue[];
-  input_asset_ids:string[];output_asset_ids:string[];error_code?:string|null;error_message?:string|null;created_at:string;updated_at:string;started_at?:string|null;completed_at?:string|null;
+  input_asset_ids:string[];output_asset_ids:string[];reused_from_run_id?:string|null;error_code?:string|null;error_message?:string|null;created_at:string;updated_at:string;started_at?:string|null;completed_at?:string|null;
 }
 export interface FlowBudgetQuoteView{
   flow_quote_id:string;flow_id:string;flow_revision:number;budget_credit_limit:number;available_credits:number;covered:boolean;signature_hash:string;created_at:string;expires_at:string;
@@ -27,7 +27,7 @@ export interface FlowEconomicSummaryView{
   budget_credit_limit:number;authorized_credits_total:number;captured_credits_total:number;released_credits_total:number;in_flight_credits_total:number;remaining_budget_credits:number;status:'WITHIN_BUDGET'|'AT_LIMIT'|'EXCEEDED';
 }
 export interface FlowRunView{
-  run_id:string;flow_id:string;flow_revision:number;user_id:string;status:FlowRunStatus;graph:FlowGraph;active_node_ids:string[];
+  run_id:string;flow_id:string;flow_revision:number;user_id:string;status:FlowRunStatus;graph:FlowGraph;active_node_ids:string[];execution_mode?:'FULL'|'NODE'|'DOWNSTREAM';target_node_id?:string|null;reused_node_ids?:string[];
   inputs:Record<string,FlowRuntimeValue>;outputs:Record<string,FlowRuntimeValue[]>;authorized_credits_total:number;
   flow_quote_id?:string;budget_credit_limit?:number;economics?:FlowEconomicSummaryView|null;
   error_code?:string|null;error_message?:string|null;created_at:string;updated_at:string;started_at:string;completed_at?:string|null;failed_at?:string|null;cancelled_at?:string|null;

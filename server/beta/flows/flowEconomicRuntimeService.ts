@@ -51,4 +51,5 @@ export const betaFlowEconomicRuntimeService={
   async cancel(userId:string,runId:string){return decorate(userId,await betaFlowRuntimeService.cancel(userId,runId));},
   async getPublic(userId:string,runId:string){return decorate(userId,await betaFlowRuntimeService.getPublic(userId,runId));},
   async listPublic(userId:string,limit=30){return Promise.all((await betaFlowRuntimeService.listPublic(userId,limit)).map(run=>decorate(userId,run)));},
+  async listFlowPublic(userId:string,flowId:string,limit=50){return Promise.all((await betaFlowRuntimeService.listFlowPublic(userId,flowId,limit)).map(run=>decorate(userId,run)));},
 };
