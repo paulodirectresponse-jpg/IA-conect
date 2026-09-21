@@ -10,11 +10,10 @@ import { assetRepository, generatedAssetId } from '../repositories/assetReposito
 import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
 import { generationExecutionEconomics } from './generationEconomicsPolicy.js';
 import { routingV2CatalogService } from '../routing-v2/catalogService.js';
-import { validateConfiguration } from '../../src/services/modelCapabilities.js';
 import { generatedAssetStorageService } from './generatedAssetStorageService.js';
 import { audioVoiceService } from '../beta/audio/audioVoiceService.js';
 import { routingV2ExecutionService } from '../routing-v2/executionService.js';
-import { isModelCompatibleWithRequirements } from '../routing-v2/autoModelSelectionService.js';
+import { validateModelCompatibility } from '../routing-v2/modelCompatibilityService.js';
 import { capabilityUsesDuration, resolveGenerationCapability } from '../routing-v2/generationContract.js';
 
 interface GenerationReferenceInput{asset_id:string;slot_type?:'INITIAL'|'END'|'GENERAL';alias?:string;role?:'SOURCE'|'MASK'|'REFERENCE';}
@@ -94,8 +93,18 @@ export const generationService={
   const clientId=params.client_request_id||crypto.randomUUID(),existing=await generationRepository.findByClientRequest(params.userId,clientId);if(existing)return existing;
   const model=(await routingV2CatalogService.listGeneratorModels()).find(row=>row.model_id===params.model_id);if(!model)throw Object.assign(new Error('Modelo indisponível.'),{code:'MODEL_NOT_FOUND'});if(!model.capabilities_ready.includes(capabilityId as any))throw Object.assign(new Error('Capability não comprovada para este modelo.'),{code:'MODEL_CAPABILITY_UNSUPPORTED'});
   const hydratedRefs:any[]=[];for(const ref of refs){const asset=await assetRepository.getAsset(ref.asset_id,params.userId);if(!asset)throw Object.assign(new Error('Uma das referências não foi encontrada ou não pertence a este usuário.'),{code:'REFERENCE_NOT_FOUND'});hydratedRefs.push({asset_id:ref.asset_id,alias_snapshot:ref.alias||asset.alias,role:ref.role|| (ref.slot_type==='INITIAL'?'START_FRAME':ref.slot_type==='END'?'END_FRAME':'GENERAL'),priority:'HIGH',preservation_rules:[],flexible_rules:[],asset});}if(editorJob)assertEditorReferenceInputs(capabilityId,hydratedRefs);
-  if(!isModelCompatibleWithRequirements(model.supported_controls||{},{capability_id:capabilityId,duration_seconds:billDuration,number_of_outputs:params.number_of_outputs,character_count:params.prompt?.length||0,dimensions:{resolution:params.resolution||undefined,aspect_ratio:params.aspect_ratio||undefined},parameters:{seed:params.seed,motion_strength:params.motion_strength,audio_enabled:params.audio_enabled,...params.pricing_options},reference_types:hydratedRefs.map(row=>String(row.asset.type)),reference_roles:hydratedRefs.map(row=>String(row.role||''))}))throw Object.assign(new Error('Controles não comprovados para este modelo.'),{code:'MODEL_CONTROLS_UNSUPPORTED'});
-  if(!audioJob&&!threeDJob&&!editorJob){const compatibility=validateConfiguration(model,{mode,duration_seconds:billDuration??0,resolution:params.resolution,aspect_ratio:params.aspect_ratio,references:hydratedRefs,negative_prompt:params.negative_prompt,promptText:params.prompt,has_start_image:refs.some(r=>r.slot_type==='INITIAL'),has_end_image:refs.some(r=>r.slot_type==='END')});if(!compatibility.valid)throw Object.assign(new Error(compatibility.errors[0]),{code:'VALIDATION_ERROR'});}
+  const compatibility=validateModelCompatibility(model.supported_controls||{},{
+    capability_id:capabilityId,
+    duration_seconds:billDuration,
+    number_of_outputs:params.number_of_outputs,
+    character_count:params.prompt?.length||0,
+    negative_prompt_present:Boolean(params.negative_prompt?.trim()),
+    dimensions:{resolution:params.resolution||undefined,aspect_ratio:params.aspect_ratio||undefined},
+    parameters:{seed:params.seed,motion_strength:params.motion_strength,audio_enabled:params.audio_enabled,...params.pricing_options},
+    reference_types:hydratedRefs.map(row=>String(row.asset.type)),
+    reference_roles:hydratedRefs.map(row=>String(row.role||'')),
+  });
+  if(!compatibility.valid)throw Object.assign(new Error(compatibility.errors[0]),{code:'MODEL_CONTROLS_UNSUPPORTED'});
   const resolvedReferences=refs.length?await enrichedReferences({user_id:params.userId,references:refs},params.reqHost,params.idToken):[];
   return routingV2ExecutionService.start({user_id:params.userId,model_id:params.model_id,capability_id:capabilityId,prompt:params.prompt,negative_prompt:params.negative_prompt,character_count:params.prompt?.length||0,duration_seconds:billDuration,number_of_outputs:params.number_of_outputs,dimensions:{resolution:params.resolution,aspect_ratio:params.aspect_ratio},parameters:{seed:params.seed,motion_strength:params.motion_strength,audio_enabled:params.audio_enabled,model_variant:params.model_variant,...params.pricing_options},references:resolvedReferences.map((row:any)=>({url:row.provider_accessible_url,type:row.type,role:row.role||row.slot_type,asset_id:row.asset_id,alias:row.prompt_alias||row.alias,name:row.name,category:row.category,storage_path:row.storage_path,mime_type:row.mime_type,slot_type:row.slot_type})),client_request_id:clientId,source_job_id:params.source_job_id,derived_from_asset_id:params.derived_from_asset_id,authorized_credit_price:params.authorized_credit_price,requested_model_id:params.requested_model_id,routing_mode:params.routing_mode});
   /* Legacy execution path retained only as an unreachable rollback reference until migration cleanup. */
