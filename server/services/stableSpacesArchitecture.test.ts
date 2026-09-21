@@ -31,7 +31,9 @@ describe('Stable Spaces visual workspace',()=>{
   expect(workspace).toContain('onWheel={onWheel}');
   expect(workspace).toContain('dragRef');
   expect(workspace).toContain('panRef');
-  expect(workspace).toContain('pathFor');
+  const connectionLayer=read('src/components/spaces/canvas/SpaceConnectionLayer.tsx'),layout=read('src/components/spaces/canvas/spaceLayout.ts');
+  expect(connectionLayer).toContain('spaceConnectionPath');
+  expect(layout).toContain('spaceConnectionPath');
   expect(workspace).toContain("window.addEventListener('paste'");
   expect(workspace).toContain('onDrop={onDrop}');
   expect(quickMenu).toContain('O que deseja fazer com esta saída?');
