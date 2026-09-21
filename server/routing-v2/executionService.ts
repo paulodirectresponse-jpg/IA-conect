@@ -10,6 +10,7 @@ import { routingV2GenerationPricingService } from './generationPricingService.js
 import { routingV2Repository } from './repository.js';
 import { ensureRoutingV2LegacyAdapter } from './legacyAdapterBridge.js';
 import { createRoutingV2LegacyWrapperAdapter } from './legacyWrapperAdapter.js';
+import { generationModeForCapability } from './generationContract.js';
 
 export interface RoutingV2ExecutionReference{
   url:string;
@@ -148,7 +149,7 @@ export const routingV2ExecutionService={
       user_id:input.user_id,
       status:'RESERVING_FUNDS',
       model_id:input.model_id,
-      mode:String(input.capability_id).replace(/-/g,'_').toUpperCase(),
+      mode:generationModeForCapability(input.capability_id),
       provider_id:route.provider_id,
       capability_id:input.capability_id,
       resolution:String(input.dimensions?.resolution||''),
