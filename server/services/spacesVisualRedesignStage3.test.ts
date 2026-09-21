@@ -49,9 +49,9 @@ describe('Spaces visual redesign stage 3 final polish',()=>{
   const generator=read('src/components/spaces/nodes/GeneratorNode.tsx');
   const preview=read('src/components/spaces/nodes/NodeResultPreview.tsx');
   expect(layout).toContain('SPACE_GENERATOR_NODE_W=286');
-  expect(generator).toContain('className="relative h-[390px] overflow-hidden"');
+  expect(generator).toContain('className="relative h-full min-h-[170px] overflow-hidden"');
   expect(preview).toContain('fullBleed');
-  expect(preview).toContain('object-cover');
+  expect(preview).toContain("fit==='contain'?'object-contain':'object-cover'");
  });
 
  it('does not alter runtime, billing, history or backend contracts',()=>{
