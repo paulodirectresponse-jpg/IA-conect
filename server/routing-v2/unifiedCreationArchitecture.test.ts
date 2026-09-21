@@ -103,8 +103,10 @@ describe('unified creation architecture',()=>{
     const video=read('src/components/workspace/CreatorPanel.tsx');
     const capabilities=read('src/services/modelCapabilities.ts');
     expect(picker).toContain('CompactModelPicker');
-    expect(image).toContain('CompactModelPicker');
-    expect(video).toContain('CompactModelPicker');
+    expect(image).toContain('UniversalModelPicker');
+    expect(video).toContain('UniversalModelPicker');
+    expect(image).not.toContain('CompactModelPicker');
+    expect(video).not.toContain('CompactModelPicker');
     expect(capabilities).not.toContain('KNOWN_MODEL_DEFAULTS');
     expect(video).not.toContain('[5, 10, 15, 30]');
     expect(video).not.toContain("['720p','1080p']");
