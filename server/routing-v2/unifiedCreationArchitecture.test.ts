@@ -24,6 +24,19 @@ describe('unified creation architecture',()=>{
       expect(view).toContain('autoQuote.quote?.credit_price');
     }
   });
+  it('uses a canonical generation contract without synthetic image duration',()=>{
+    const client=read('src/services/generationClient.ts');
+    const universal=read('src/services/universalGenerationClient.ts');
+    const routes=read('server/routes/generationRoutes.ts');
+    const image=read('src/components/views/UnifiedImageCreateView.tsx');
+    expect(client).toContain('UniversalGenerationRequest');
+    expect(universal).toContain('UniversalGenerationRequest');
+    expect(client).not.toContain('duration_seconds: s.duration_seconds || 1');
+    expect(image).not.toContain('duration_seconds: 1');
+    expect(routes).toContain('resolveGenerationCapability');
+    expect(routes).toContain('generationModeForCapability');
+    expect(routes).not.toContain('capabilityId.toUpperCase().replace');
+  });
   it('removes parallel media job routes from the active API',()=>{
     const routes=read('server/routes/index.ts');
     expect(routes).not.toMatch(/(?:voice|music|threeD)GenerationRouter/);
