@@ -1,8 +1,10 @@
 import { CapabilityId, CapabilityMediaType } from '../capabilityRegistry.js';
 
 export type BetaFlowNodeKind='INPUT'|'ASSET'|'TOOL'|'OUTPUT';
+export interface BetaFlowNodeUi{fit?:'cover'|'contain';width?:number;height?:number;}
 export interface BetaFlowNode{
   node_id:string;
+  schema_version?:2;
   kind:BetaFlowNodeKind;
   label:string;
   x:number;
@@ -13,6 +15,7 @@ export interface BetaFlowNode{
   model_id?:string|null;
   prompt?:string;
   controls?:Record<string,string|number|boolean|null>;
+  ui?:BetaFlowNodeUi;
 }
 export interface BetaFlowEdge{
   edge_id:string;
