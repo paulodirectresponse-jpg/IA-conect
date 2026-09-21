@@ -17,7 +17,6 @@ export const SpaceQuickMenu:React.FC<Props>=({x,y,canvasWidth,canvasHeight,fromS
   {!actions.length&&fromSource&&<div className="px-3 py-6 text-center text-[8px] leading-relaxed text-zinc-600">Nenhuma ação compatível com esta saída.</div>}
   {!fromSource&&<><div className="my-1 h-px bg-white/[0.05]"/><button onClick={onAddImageAsset} className="flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left hover:bg-white/[0.04]"><ImageIcon className="h-4 w-4 text-zinc-500"/><span className="text-[9px] text-zinc-300">Imagem da Biblioteca</span></button><button onClick={onAddVideoAsset} className="flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left hover:bg-white/[0.04]"><Video className="h-4 w-4 text-zinc-500"/><span className="text-[9px] text-zinc-300">Vídeo da Biblioteca</span></button></>}
  </div>
- </div>
 </div>;
 
 export default SpaceQuickMenu;
