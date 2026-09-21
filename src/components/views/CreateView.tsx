@@ -50,11 +50,11 @@ function ratioFromAsset(asset: Asset) {
     d = gcd(asset.width, asset.height);
   return `${Math.round(asset.width / d)}:${Math.round(asset.height / d)}`;
 }
-function baseDurationFor(model: ModelRegistryItem, fallback = 5) {
+function baseDurationFor(model: ModelRegistryItem) {
   const values = (model.supported_durations || [])
     .map(Number)
     .filter((v) => Number.isFinite(v) && v > 0);
-  return values.length ? Math.min(...values) : fallback;
+  return Math.min(...values);
 }
 const terminal = (status: string) =>
   ["SUCCEEDED", "FAILED", "CANCELLED", "REFUNDED"].includes(status);
@@ -122,6 +122,7 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
             m.status !== "INACTIVE" &&
             m.category === "VIDEO" &&
             safeIds.has(m.model_id) &&
+            (m.supported_durations || []).some((duration) => Number.isFinite(Number(duration)) && Number(duration) > 0) &&
             ((m.supported_modes || []).includes("TEXT_TO_VIDEO") ||
               (m.supported_modes || []).includes("IMAGE_TO_VIDEO")),
         );
@@ -367,7 +368,7 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
           negative_prompt: negativePrompt,
           references: pricedReferences,
           settings: {
-            duration_seconds: baseDurationFor(m, durationSeconds),
+            duration_seconds: baseDurationFor(m),
             resolution,
             aspect_ratio: aspectRatio,
             number_of_outputs: 1,
@@ -384,7 +385,7 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
             next[item.key] = null;
             continue;
           }
-          const base = baseDurationFor(m, durationSeconds),
+          const base = baseDurationFor(m),
             total = Number(d.retail_credit_price),
             unit = Number(d.unit_credit_price ?? Math.ceil(total / base));
           if (!Number.isFinite(unit) || unit <= 0) {
