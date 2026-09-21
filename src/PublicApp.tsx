@@ -1,5 +1,6 @@
 import React,{Suspense,lazy,useEffect,useState}from'react';
 import{PublicLandingView}from'./components/views/PublicLandingView.js';
+import { AgentOfficeHealthPage } from './agent-office/AgentOfficeHealthPage.js';
 
 type PublicView='landing'|'login'|'register';
 
@@ -20,6 +21,7 @@ const LoadingCard=()=> <div className="public-auth-loading"><div className="publ
 export default function PublicApp(){
  const[view,setView]=useState<PublicView>('landing');
  const[authenticated,setAuthenticated]=useState(false);
+ if (new URLSearchParams(window.location.search).get('agentOffice') === 'health') return <AgentOfficeHealthPage/>;
 
  useEffect(()=>{
   const applyAction=(action:string)=>{if(action==='login')setView('login');else if(action==='register')setView('register')};

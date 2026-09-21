@@ -34,6 +34,7 @@ import { betaContextRouter } from './betaContextRoutes.js';
 import { betaCopilotRouter } from './betaCopilotRoutes.js';
 import { betaSharingRouter } from './betaSharingRoutes.js';
 import { previewRoutingV2ValidationRouter } from './previewRoutingV2ValidationRoutes.js';
+import { agentOfficeRouter } from './agentOfficeRoutes.js';
 
 export const apiRootRouter = Router();
 apiRootRouter.use(serverTimingMiddleware);
@@ -49,6 +50,7 @@ apiRootRouter.use(entityRouter);
 apiRootRouter.use(generationRouter);
 apiRootRouter.use(communityRouter);
 apiRootRouter.use(previewRoutingV2ValidationRouter);
+apiRootRouter.use(agentOfficeRouter);
 apiRootRouter.use(adminRouter);
 apiRootRouter.use(adminPricingRouter);
 apiRootRouter.use(adminEconomicsRouter);
