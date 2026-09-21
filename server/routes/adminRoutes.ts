@@ -5,12 +5,8 @@ import { featureFlagService } from '../services/featureFlagService.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { auditRepository } from '../repositories/auditRepository.js';
 import { assetReferenceResolver } from '../services/assetReferenceResolver.js';
-import { smartRouterService } from '../services/smartRouterService.js';
 import { generationRepository } from '../repositories/generationRepository.js';
 import { systemHealthService } from '../services/systemHealthService.js';
-import { providerCatalogService } from '../services/providerCatalogService.js';
-import { stableModelPublicationService } from '../services/stableModelPublicationService.js';
-import { stableLaunchSetService } from '../services/stableLaunchSetService.js';
 
 export const adminRouter = Router();
 
@@ -69,151 +65,6 @@ adminRouter.post('/admin/users/:userId/status', requireAuth, requireAdmin, async
     res.json({ success: true, data: updated });
   } catch (err: any) {
     res.status(400).json({ success: false, error: { code: 'STATUS_UPDATE_ERROR', message: err.message } });
-  }
-});
-
-// Admin Model Registry management
-adminRouter.get('/admin/models', requireAuth, requireAdmin, async (_req, res) => {
-  try {
-    res.json({success:true,data:await catalogRepository.listModels()});
-  } catch (err:any) {
-    res.status(500).json({success:false,error:{code:'ADMIN_MODELS_LIST_ERROR',message:err?.message||'Falha ao carregar modelos do runtime.'}});
-  }
-});
-
-adminRouter.get('/admin/models/publication-status', requireAuth, requireAdmin, async (_req, res) => {
-  try {
-    res.json({success:true,data:await stableModelPublicationService.listStatus()});
-  } catch (err:any) {
-    res.status(500).json({success:false,error:{code:'MODEL_PUBLICATION_STATUS_ERROR',message:err?.message||'Falha ao calcular prontidão Stable.'}});
-  }
-});
-
-adminRouter.post('/admin/models/:modelId/publish-stable', requireAuth, requireAdmin, async (req:AuthenticatedRequest, res) => {
-  try {
-    const result=await stableModelPublicationService.publish(req.params.modelId,req.user!.uid);
-    await auditRepository.record({
-      log_id:`aud_${Date.now()}_${Math.random().toString(36).slice(2,10)}`,
-      admin_id:req.user!.uid,admin_email:req.user!.email,
-      action:'MODEL_PUBLISHED_STABLE',entity_type:'MODEL',entity_id:req.params.modelId,
-      before:null,after:result.status,reason:'Publicação Stable após provider, mapping e pricing verificados para todas as capabilities do modelo.',
-      created_at:new Date().toISOString(),
-    });
-    res.json({success:true,data:result});
-  } catch (err:any) {
-    res.status(400).json({success:false,error:{code:err?.code||'MODEL_PUBLISH_ERROR',message:err?.message||'Falha ao publicar modelo no Stable.',details:err?.details}});
-  }
-});
-
-adminRouter.post('/admin/models/publish-launch-set', requireAuth, requireAdmin, async (req:AuthenticatedRequest, res) => {
-  try {
-    const cursor=Math.max(0,Math.floor(Number(req.body?.cursor)||0));
-    const limit=Math.min(3,Math.max(1,Math.floor(Number(req.body?.limit)||2)));
-    const result=await stableLaunchSetService.apply(cursor,limit);
-    res.json({success:true,data:result});
-  } catch (err:any) {
-    res.status(400).json({success:false,error:{code:err?.code||'LAUNCH_SET_PUBLISH_ERROR',message:err?.message||'Falha ao publicar o launch set pronto.'}});
-  }
-});
-
-adminRouter.post('/admin/models/publish-stable-bulk', requireAuth, requireAdmin, async (req:AuthenticatedRequest, res) => {
-  try {
-    const ids=Array.isArray(req.body?.model_ids)?Array.from(new Set(req.body.model_ids.map(String).filter(Boolean))):[];
-    if(!ids.length)return res.status(400).json({success:false,error:{code:'VALIDATION_ERROR',message:'Selecione pelo menos um modelo pronto.'}});
-    if(ids.length>5)return res.status(400).json({success:false,error:{code:'BULK_LIMIT_EXCEEDED',message:'Publique no máximo 5 modelos por lote.'}});
-    const published:any[]=[];
-    for(const id of ids)published.push(await stableModelPublicationService.publish(String(id),req.user!.uid));
-    res.json({success:true,data:{published}});
-  } catch (err:any) {
-    res.status(400).json({success:false,error:{code:err?.code||'MODEL_PUBLISH_BULK_ERROR',message:err?.message||'Falha ao publicar modelos no Stable.',details:err?.details}});
-  }
-});
-
-adminRouter.post('/admin/models', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
-  try {
-    const saved = await catalogRepository.saveModel({
-      ...req.body,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    res.json({ success: true, data: saved });
-  } catch (err: any) {
-    res.status(400).json({ success: false, error: { code: 'MODEL_CREATE_ERROR', message: err.message } });
-  }
-});
-
-adminRouter.post('/admin/models/bulk-curated', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
-  try {
-    const modelIds=Array.isArray(req.body?.model_ids)?req.body.model_ids.map(String):[];
-    if(!modelIds.length) {
-      return res.status(400).json({success:false,error:{code:'VALIDATION_ERROR',message:'Selecione pelo menos um modelo do acervo canônico.'}});
-    }
-    if(modelIds.length>50) {
-      return res.status(400).json({success:false,error:{code:'BULK_LIMIT_EXCEEDED',message:'Adicione no máximo 50 modelos por operação.'}});
-    }
-    const result=await providerCatalogService.ensureCuratedModels(modelIds);
-    res.json({
-      success:true,
-      data:{
-        added:result.added.map(model=>({model_id:model.model_id,name:model.name,status:model.status,beta_only:model.beta_only===true})),
-        already_present:result.alreadyPresent.map(model=>({model_id:model.model_id,name:model.name})),
-        rejected:result.rejected,
-      },
-    });
-  } catch (err:any) {
-    res.status(400).json({success:false,error:{code:err?.code||'MODEL_BULK_CREATE_ERROR',message:err?.message||'Falha ao adicionar modelos em massa.'}});
-  }
-});
-
-adminRouter.patch('/admin/models/:modelId', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
-  try {
-    const existing = await catalogRepository.getModel(req.params.modelId);
-    if (!existing) {
-      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Modelo não encontrado' } });
-    }
-    const updated = await catalogRepository.saveModel({
-      ...existing,
-      ...req.body,
-      updated_at: new Date().toISOString(),
-    });
-    res.json({ success: true, data: updated });
-  } catch (err: any) {
-    res.status(400).json({ success: false, error: { code: 'MODEL_UPDATE_ERROR', message: err.message } });
-  }
-});
-
-// Admin Provider Registry management
-adminRouter.post('/admin/providers', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
-  try {
-    const saved = await catalogRepository.saveProvider({
-      ...req.body,
-      is_configured: false, // Runtime adapter configuration is projected on reads; secrets are never stored here.
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    res.json({ success: true, data: saved });
-  } catch (err: any) {
-    res.status(400).json({ success: false, error: { code: 'PROVIDER_CREATE_ERROR', message: err.message } });
-  }
-});
-
-adminRouter.patch('/admin/providers/:providerId', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
-  try {
-    const existing = await catalogRepository.getProvider(req.params.providerId);
-    if (!existing) {
-      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Provedor não encontrado' } });
-    }
-    // is_configured is server-authoritative and cannot be spoofed by frontend
-    const { is_configured: _ignored, ...allowedFields } = req.body || {};
-    const updated = await catalogRepository.saveProvider({
-      ...existing,
-      ...allowedFields,
-      is_configured: false, // Runtime adapter configuration is projected on reads.
-      updated_at: new Date().toISOString(),
-    });
-    res.json({ success: true, data: updated });
-  } catch (err: any) {
-    res.status(400).json({ success: false, error: { code: 'PROVIDER_UPDATE_ERROR', message: err.message } });
   }
 });
 
@@ -296,19 +147,6 @@ adminRouter.get('/admin/storage-diagnostic', requireAuth, requireAdmin, async (r
     res.json({ success: true, data: diagnostic });
   } catch (err: any) {
     res.status(500).json({ success: false, error: { code: 'DIAGNOSTIC_ERROR', message: err.message } });
-  }
-});
-
-/**
- * Lists recent routing logs and decisions for Smart Router audit.
- */
-adminRouter.get('/admin/routing-logs', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res) => {
-  try {
-    const limit = Math.min(100, Number(req.query.limit || 50));
-    const logs = await smartRouterService.listRoutingLogs(limit);
-    res.json({ success: true, data: logs });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: { code: 'ROUTING_LOGS_ERROR', message: err.message } });
   }
 });
 

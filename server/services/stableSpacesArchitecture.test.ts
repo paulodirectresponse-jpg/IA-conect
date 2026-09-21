@@ -60,22 +60,20 @@ describe('Stable Spaces visual workspace',()=>{
   expect(routes).toContain('betaFlowService');
   expect(routes).toContain('betaFlowEconomicRuntimeService');
   expect(routes).toContain('assetRepository.listUserAssets');
-  expect(routes).toContain('publicCapabilityCatalog');
-  expect(routes).toContain('betaCatalogPolicyService');
+  expect(routes).toContain('routingV2CatalogService.listCapabilityModels');
+  expect(routes).not.toContain('betaCatalogPolicyService');
  });
  it('publishes only capabilities already promoted to Stable',()=>{
   const routes=read('server/routes/spacesRoutes.ts');
   for(const capability of ['text-to-image','image-edit','text-to-video','video-extend','video-edit','text-to-speech','music','text-to-3d','image-to-3d','multi-image-to-3d'])expect(routes).toContain(`'${capability}'`);
   for(const futureCapability of ['sound-effects','transcription','subtitles','authorized-voice-clone','dubbing','texture-3d'])expect(routes).not.toContain(`'${futureCapability}'`);
  });
- it('only exposes provider-ready and priced model capabilities while tolerating degraded metadata reads',()=>{
+ it('only exposes capabilities backed by Routing V2 READY routes',()=>{
   const routes=read('server/routes/spacesRoutes.ts');
-  expect(routes).toContain('providerCatalogService.listProviders');
-  expect(routes).toContain('providerPricingCatalogService.list');
-  expect(routes).toContain('providerRegistry.listAdapters');
-  expect(routes).toContain('configured.get');
-  expect(routes).toContain('verifiedPriceKeys');
-  expect(routes).toContain('Promise.allSettled');
+  expect(routes).toContain('routingV2CatalogService.listCapabilityModels');
+  expect(routes).not.toContain('providerCatalogService');
+  expect(routes).not.toContain('providerPricingCatalogService');
+  expect(routes).not.toContain('providerRegistry');
  });
  it('does not depend on beta.enabled for Stable Spaces access',()=>{
   const routes=read('server/routes/spacesRoutes.ts');

@@ -47,10 +47,10 @@ describe('canonical model identity across generation and editors',()=>{
     expect(router).toContain('activeMappingsByProvider');
   });
 
-  it('only exposes editor capabilities backed by a configured priced provider route',()=>{
+  it('only exposes editor capabilities backed by Routing V2 READY routes',()=>{
     const route=read('server/routes/editorRoutes.ts');
-    expect(route).toContain('const readyCapabilityIds=new Set');
-    expect(route).toContain('readyCapabilityIds.has(item.id as any)');
+    expect(route).toContain('routingV2CatalogService.listCapabilityModels');
+    expect(route).not.toContain('betaCatalogPolicyService');
   });
 
   it('shows Stable image and video models only when their generation route is safe',()=>{

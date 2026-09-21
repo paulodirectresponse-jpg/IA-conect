@@ -2,14 +2,10 @@ import {NextFunction,Response,Router} from 'express';
 import {AuthenticatedRequest,requireAuth} from '../middleware/authMiddleware.js';
 import {catalogRepository} from '../repositories/catalogRepository.js';
 import {assetRepository} from '../repositories/assetRepository.js';
-import {publicCapabilityCatalog,getCapabilityDefinition} from '../beta/capabilityRegistry.js';
-import {betaCatalogPolicyService} from '../beta/catalog/catalogPolicyService.js';
 import {betaFlowService} from '../beta/flows/flowService.js';
 import {betaFlowEconomicRuntimeService} from '../beta/flows/flowEconomicRuntimeService.js';
 import {normalizeBetaPublicError} from '../beta/http/publicError.js';
-import {providerCatalogService} from '../services/providerCatalogService.js';
-import {providerPricingCatalogService} from '../services/providerPricingCatalogService.js';
-import {providerRegistry} from '../adapters/providerRegistry.js';
+import {routingV2CatalogService} from '../routing-v2/catalogService.js';
 
 export const spacesRouter=Router();
 const STABLE_CAPABILITY_IDS=[
@@ -17,61 +13,16 @@ const STABLE_CAPABILITY_IDS=[
  'text-to-video','image-to-video','first-frame','last-frame','video-extend','video-edit',
  'text-to-speech','music','text-to-3d','image-to-3d','multi-image-to-3d',
 ] as const;
-const STABLE_CAPABILITIES=new Set<string>(STABLE_CAPABILITY_IDS);
 function failure(res:Response,error:any,fallback:string){const n=normalizeBetaPublicError(error,fallback);return res.status(n.status).json({success:false,error:n.error});}
 function idem(req:AuthenticatedRequest){return String(req.headers['idempotency-key']||'').trim();}
 function host(req:AuthenticatedRequest){return req.get('host')||process.env.APP_URL;}
-function intersection<T>(rows:T[][]):T[]{if(!rows.length)return[];return rows[0].filter(value=>rows.every(row=>row.includes(value)));}
 async function requireSpaces(_req:AuthenticatedRequest,res:Response,next:NextFunction){try{const flows=await catalogRepository.getFeatureFlag('beta.flows');if(!flows?.is_enabled)return failure(res,{code:'FLOWS_DISABLED'},'Spaces indisponível no momento.');next();}catch{return failure(res,{code:'FLOWS_DISABLED'},'Spaces indisponível no momento.');}}
 
 spacesRouter.use('/spaces',requireAuth,requireSpaces);
 
 spacesRouter.get('/spaces/catalog',async(_req:AuthenticatedRequest,res)=>{
  try{
-  const[models,policies,mappings]=await Promise.all([
-   catalogRepository.listModels(),betaCatalogPolicyService.listCatalog(),catalogRepository.listMappings(),
-  ]);
-  const[providersResult,pricingResult]=await Promise.allSettled([
-   providerCatalogService.listProviders(),providerPricingCatalogService.list(),
-  ]);
-  const providers=providersResult.status==='fulfilled'?providersResult.value:[];
-  const pricing=pricingResult.status==='fulfilled'?pricingResult.value:[];
-  const base=publicCapabilityCatalog(models);
-  const policyByModel=new Map(policies.map(policy=>[policy.model_id,policy]));
-  const providerById=new Map(providers.map(provider=>[String(provider.provider_id),provider]));
-  const configured=new Map(providerRegistry.listAdapters().map(adapter=>[String(adapter.providerId),adapter.isConfigured()]));
-  const verifiedPriceKeys=new Set(pricing.filter(row=>row.verified).flatMap(row=>[
-   `${row.provider_id}|${row.provider_model_identifier}|${row.capability_id||''}`,
-   row.capability_id?null:`${row.provider_id}|${row.provider_model_identifier}|*`,
-  ].filter(Boolean) as string[]));
-  const readyCapabilities=(modelId:string)=>new Set(mappings.filter(mapping=>mapping.model_id===modelId&&mapping.status==='ACTIVE').flatMap(mapping=>{
-   const provider=providerById.get(String(mapping.provider_id));
-   if(!provider||provider.status!=='ACTIVE'||!configured.get(String(mapping.provider_id)))return[];
-   return STABLE_CAPABILITY_IDS.filter(capability=>(!mapping.capabilities?.length||mapping.capabilities.includes(capability as any))&&(
-    verifiedPriceKeys.has(`${mapping.provider_id}|${mapping.provider_model_identifier}|${capability}`)||verifiedPriceKeys.has(`${mapping.provider_id}|${mapping.provider_model_identifier}|*`)
-   ));
-  }));
-  const governed=base.map(model=>{
-   const policy=policyByModel.get(model.model_id);if(!policy?.eligible)return null;
-   const allowed=new Set(policy.capability_ids.filter(id=>STABLE_CAPABILITIES.has(String(id))));
-   const ready=readyCapabilities(model.model_id);
-   const capabilities=model.capabilities.filter(cap=>allowed.has(cap.id)&&ready.has(cap.id as any));
-   return capabilities.length?{...model,capabilities,pricing_policy_id:policy.pricing_policy_id}:null;
-  }).filter(Boolean) as any[];
-  const autoPolicies=policies.filter(policy=>policy.eligible&&policy.auto_routing_enabled);
-  const autoPolicyIds=new Set(autoPolicies.map(policy=>policy.model_id));
-  const autoCapabilities=Array.from(new Set(autoPolicies.flatMap(policy=>policy.capability_ids).filter(id=>STABLE_CAPABILITIES.has(String(id))))).map(id=>{
-   const def=getCapabilityDefinition(id);if(!def)return null;
-   const supporting=governed.filter(model=>autoPolicyIds.has(model.model_id)).flatMap(model=>model.capabilities.filter((cap:any)=>cap.id===id));
-   if(!supporting.length)return null;
-   const controls=supporting[0].controls.filter((control:string)=>supporting.every((cap:any)=>cap.controls.includes(control)));
-   const durations=intersection<number>(supporting.map((cap:any)=>cap.supported_durations||[]));
-   const resolutions=intersection<string>(supporting.map((cap:any)=>cap.supported_resolutions||[]));
-   const ratios=intersection<string>(supporting.map((cap:any)=>cap.supported_aspect_ratios||[]));
-   return{id,inputs:def.inputs,outputs:def.outputs,controls:controls.filter((c:string)=>c!=='duration'||durations.length).filter((c:string)=>c!=='resolution'||resolutions.length).filter((c:string)=>c!=='aspect_ratio'||ratios.length),supported_durations:durations,supported_resolutions:resolutions,supported_aspect_ratios:ratios};
-  }).filter(Boolean);
-  if(autoCapabilities.length)governed.unshift({model_id:'AUTO',name:'AUTO',category:'AUTO',capabilities:autoCapabilities,pricing_policy_id:null});
-  return res.json({success:true,data:{models:governed}});
+  return res.json({success:true,data:{models:await routingV2CatalogService.listCapabilityModels([...STABLE_CAPABILITY_IDS])}});
  }catch(error){return failure(res,error,'Não foi possível carregar as ferramentas do Spaces.');}
 });
 

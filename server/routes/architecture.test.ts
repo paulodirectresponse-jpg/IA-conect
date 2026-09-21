@@ -16,7 +16,7 @@ const routeFiles = [
   'server/routes/communityRoutes.ts',
   'server/routes/adminRoutes.ts',
   'server/routes/providerFinanceRoutes.ts',
-  'server/routes/adminPricingRoutes.ts',
+  'server/routes/adminBillingRoutes.ts',
   'server/routes/adminEconomicsRoutes.ts',
 ];
 
@@ -33,7 +33,7 @@ const routerNames = [
   'communityRouter',
   'adminRouter',
   'providerFinanceRouter',
-  'adminPricingRouter',
+  'adminBillingRouter',
   'adminEconomicsRouter',
 ];
 

@@ -45,10 +45,10 @@ describe('Stable image and video editors',()=>{
  });
  it('keeps provider choice server-governed and does not expose provider secrets',()=>{
   const routes=read('server/routes/editorRoutes.ts'),client=read('src/services/editorClient.ts');
-  expect(routes).toContain('providerChoices');
-  expect(routes).toContain("provider.status!=='ACTIVE'");
-  expect(routes).toContain('configured.get');
-  expect(routes).toContain('verifiedPriceKeys');
+  expect(routes).toContain('routingV2CatalogService.listCapabilityModels');
+  expect(routes).not.toContain('providerCatalogService');
+  expect(routes).not.toContain('providerPricingCatalogService');
+  expect(routes).not.toContain('providerRegistry');
   expect(client).not.toMatch(/api[_-]?key|authorization|bearer/i);
  });
  it('does not create parallel jobs, assets or libraries',()=>{

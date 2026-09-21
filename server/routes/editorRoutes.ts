@@ -2,13 +2,9 @@ import { Router,Response,NextFunction } from 'express';
 import { requireAuth,AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
 import { assetRepository } from '../repositories/assetRepository.js';
-import { publicCapabilityCatalog } from '../beta/capabilityRegistry.js';
-import { betaCatalogPolicyService } from '../beta/catalog/catalogPolicyService.js';
 import { betaJobOrchestrator } from '../beta/jobs/jobOrchestrator.js';
 import { normalizeBetaPublicError } from '../beta/http/publicError.js';
-import { providerCatalogService } from '../services/providerCatalogService.js';
-import { providerPricingCatalogService } from '../services/providerPricingCatalogService.js';
-import { providerRegistry } from '../adapters/providerRegistry.js';
+import { routingV2CatalogService } from '../routing-v2/catalogService.js';
 
 export const editorRouter=Router();
 const IMAGE_CAPABILITIES=['image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations'] as const;
@@ -44,50 +40,13 @@ editorRouter.use('/editors',requireAuth,requireEditorsEnabled);
 
 editorRouter.get('/editors/catalog',async(_req:AuthenticatedRequest,res)=>{
  try{
-  const[models,policies,mappings,imageFlag,videoFlag]=await Promise.all([
-   catalogRepository.listModels(),betaCatalogPolicyService.listCatalog(),catalogRepository.listMappings(),catalogRepository.getFeatureFlag('beta.image_editor'),catalogRepository.getFeatureFlag('beta.video_editor'),
-  ]);
-  const[providersResult,pricingResult]=await Promise.allSettled([
-   providerCatalogService.listProviders(),providerPricingCatalogService.list(),
-  ]);
-  const providers=providersResult.status==='fulfilled'?providersResult.value:[];
-  const pricing=pricingResult.status==='fulfilled'?pricingResult.value:[];
+  const[imageFlag,videoFlag]=await Promise.all([catalogRepository.getFeatureFlag('beta.image_editor'),catalogRepository.getFeatureFlag('beta.video_editor')]);
   const enabledCapabilities=new Set<string>([
    ...(imageFlag?.is_enabled?IMAGE_CAPABILITIES:[]),
    ...(videoFlag?.is_enabled?VIDEO_CAPABILITIES:[]),
   ]);
-  const base=publicCapabilityCatalog(models).filter(model=>model.category==='IMAGE'||model.category==='VIDEO');
-  const policyByModel=new Map(policies.map(policy=>[policy.model_id,policy]));
-  const providerById=new Map(providers.map(provider=>[String(provider.provider_id),provider]));
-  const configured=new Map(providerRegistry.listAdapters().map(adapter=>[String(adapter.providerId),adapter.isConfigured()]));
-  const verifiedPriceKeys=new Set(pricing.filter(row=>row.verified).flatMap(row=>[
-   `${row.provider_id}|${row.provider_model_identifier}|${row.capability_id||''}`,
-   row.capability_id?null:`${row.provider_id}|${row.provider_model_identifier}|*`,
-  ].filter(Boolean) as string[]));
-  const providerChoices=(modelId:string)=>mappings.filter(mapping=>mapping.model_id===modelId&&mapping.status==='ACTIVE').flatMap(mapping=>{
-   const provider=providerById.get(String(mapping.provider_id));
-   if(!provider||provider.status!=='ACTIVE'||!configured.get(String(mapping.provider_id)))return[];
-   const supported=CAPABILITIES.filter(capability=>enabledCapabilities.has(capability)&&(!mapping.capabilities?.length||mapping.capabilities.includes(capability as any))&&(
-    verifiedPriceKeys.has(`${mapping.provider_id}|${mapping.provider_model_identifier}|${capability}`)||verifiedPriceKeys.has(`${mapping.provider_id}|${mapping.provider_model_identifier}|*`)
-   ));
-   return supported.length?[{provider_id:String(provider.provider_id),name:provider.name,capability_ids:supported}]:[];
-  }).filter((row,index,rows)=>rows.findIndex(item=>item.provider_id===row.provider_id)===index);
-  const governed=base.flatMap(model=>{
-   const policy=policyByModel.get(model.model_id);
-   const choices=providerChoices(model.model_id);
-   const readyCapabilityIds=new Set(choices.flatMap(choice=>choice.capability_ids));
-   const capabilities=model.capabilities.filter(item=>enabledCapabilities.has(item.id)&&policy?.capability_ids.includes(item.id as any)&&readyCapabilityIds.has(item.id as any));
-   if(!policy?.eligible||!capabilities.length)return[];
-   const providers=choices.filter(choice=>choice.capability_ids.some(id=>capabilities.some(cap=>cap.id===id)));
-   return[{...model,capabilities,pricing_policy_id:policy.pricing_policy_id,providers}];
-  });
-  const autoEligible=policies.some(policy=>policy.eligible&&policy.auto_routing_enabled&&policy.capability_ids.some(id=>enabledCapabilities.has(String(id))));
-  if(autoEligible&&governed.length){
-   const capabilities=Array.from(new Map(governed.flatMap(model=>model.capabilities).map(cap=>[cap.id,cap])).values());
-   const autoProviders=governed.flatMap((model:any)=>model.providers||[]).filter((row:any,index:number,rows:any[])=>rows.findIndex(item=>item.provider_id===row.provider_id)===index);
-   governed.unshift({model_id:'AUTO',name:'AUTO',category:'IMAGE',supported_durations:[],supported_resolutions:[],supported_aspect_ratios:[],capabilities,pricing_policy_id:null,providers:autoProviders} as any);
-  }
-  return res.json({success:true,data:{models:governed}});
+  const capabilities=CAPABILITIES.filter(capability=>enabledCapabilities.has(capability));
+  return res.json({success:true,data:{models:await routingV2CatalogService.listCapabilityModels(capabilities)}});
  }catch(error:any){return failure(res,error,'Não foi possível carregar os editores.');}
 });
 

@@ -41,8 +41,8 @@ describe('Immersive image editor workspace',()=>{
   expect(view).toContain('refreshWallet');
   expect(view).toContain("new CustomEvent('creations:updated'");
   expect(view).not.toContain('preferred_provider_id');
-  expect(routes).toContain('verifiedPriceKeys');
-  expect(routes).toContain('providerRegistry');
+  expect(routes).toContain('routingV2CatalogService.listCapabilityModels');
+  expect(routes).not.toContain('providerRegistry');
   expect(routes).toContain('betaJobOrchestrator');
  });
 
@@ -89,10 +89,10 @@ describe('Immersive image editor workspace',()=>{
   expect(picker).toContain('CompactModelPicker');
  });
 
- it('keeps the editor catalog useful when optional provider metadata is degraded',()=>{
+ it('does not reconstruct editor availability from optional legacy provider metadata',()=>{
   const routes=read('server/routes/editorRoutes.ts');
-  expect(routes).toContain('Promise.allSettled');
-  expect(routes).toContain("providersResult.status==='fulfilled'");
-  expect(routes).toContain("pricingResult.status==='fulfilled'");
+  expect(routes).toContain('routingV2CatalogService.listCapabilityModels');
+  expect(routes).not.toContain('providersResult');
+  expect(routes).not.toContain('pricingResult');
  });
 });

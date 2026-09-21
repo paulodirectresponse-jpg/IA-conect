@@ -86,9 +86,10 @@ describe('final IA Connect architecture closure',()=>{
   expect(read('src/components/views/AdminView.tsx')).toContain('Saúde operacional');
  });
 
- it('projects provider configuration from runtime adapters',()=>{
+ it('does not expose legacy provider configuration as catalog availability',()=>{
   const source=read('server/routes/catalogRoutes.ts');
-  expect(source).toContain('providerRegistry.listAdapters()');
-  expect(source).toContain('adapter.isConfigured()');
+  expect(source).toContain('routingV2CatalogService.listGeneratorModels()');
+  expect(source).not.toContain('providerRegistry.listAdapters()');
+  expect(source).not.toContain("get('/catalog/providers'");
  });
 });
