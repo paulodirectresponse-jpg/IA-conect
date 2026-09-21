@@ -38,7 +38,7 @@ spacesRouter.get('/spaces/home',async(req:AuthenticatedRequest,res)=>{try{
  const assetMap=new Map(assets.filter(asset=>asset.type==='IMAGE'||asset.type==='VIDEO').map(asset=>[asset.asset_id,asset]));
  const byFlow=new Map<string,typeof assets>();
  for(const nodeRun of nodeRuns){
-  if(nodeRun.status!=='SUCCEEDED'||!nodeRun.output_asset_ids?.length)continue;
+  if(nodeRun.status!=='SUCCEEDED'||nodeRun.reused_from_run_id||!nodeRun.output_asset_ids?.length)continue;
   const bucket=byFlow.get(nodeRun.flow_id)||[];
   if(bucket.length>=3)continue;
   for(const assetId of nodeRun.output_asset_ids){
