@@ -18,7 +18,7 @@ describe('Spaces stage 6 selective execution',()=>{
   const planner=read('server/beta/flows/flowExecutionPlan.ts');
   expect(planner).toContain('subgraphSignature');
   expect(planner).toContain("row.status!=='SUCCEEDED'");
-  expect(planner).toContain('currentSig===priorSig');
+  expect(planner).toContain('currentSig!==priorSig');
   expect(planner).toContain("node.kind==='INPUT'");
   expect(planner).toContain('assetRepository.getAsset');
  });
