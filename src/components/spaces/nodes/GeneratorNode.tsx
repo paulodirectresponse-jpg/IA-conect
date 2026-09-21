@@ -26,8 +26,8 @@ export const GeneratorNode:React.FC<Props>=({node,capability,models,nodeRun,hist
  const patchControl=(key:string,next:ControlValue)=>onPatch({controls:{...(node.controls||{}),[key]:next}});
  const selectedHistory=history[Math.max(0,Math.min(historyIndex,Math.max(0,history.length-1)))];
  const price=selectedHistory?.authorized_credit_price||nodeRun?.authorized_credit_price;
- return <div className="relative h-[390px] overflow-hidden">
-  <NodeResultPreview items={history} index={historyIndex} onIndexChange={onHistoryIndexChange} fullBleed/>
+ return <div className="relative h-full min-h-[170px] overflow-hidden">
+  <NodeResultPreview items={history} index={historyIndex} onIndexChange={onHistoryIndexChange} fullBleed fit={node.ui?.fit||'cover'}/>
   <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 via-transparent via-40% to-[#03070c]/95"/>
   <div className="absolute inset-x-0 bottom-0 z-10 space-y-2 p-2.5 pt-16">
    <textarea rows={2} value={node.prompt||''} onChange={e=>onPatch({prompt:e.target.value})} placeholder={mediaLabel==='imagem'?'Descreva a imagem que deseja criar…':'Descreva o vídeo, movimento e cena…'} className="max-h-[66px] min-h-[48px] w-full resize-none rounded-xl border border-white/10 bg-black/35 px-2.5 py-2 text-[9px] leading-relaxed text-white outline-none backdrop-blur-md placeholder:text-white/35 focus:border-cyan-300/30"/>
