@@ -74,6 +74,29 @@ describe('unified creation architecture',()=>{
     expect(service).not.toContain('../../src/services/modelCapabilities');
     expect(compatibility).toContain('validateModelCompatibility');
   });
+  it('uses one creator shell, one picker base and one footer contract across every generator',()=>{
+    const shell=read('src/components/workspace/GeneratorControls.tsx');
+    expect(shell).toContain('UniversalCreatorShell');
+    expect(shell).toContain('GeneratorFooter');
+
+    for(const name of ['VoiceCreateView','MusicCreateView','ThreeDCreateView']){
+      const view=read(`src/components/views/${name}.tsx`);
+      expect(view).toContain('UniversalCreatorShell');
+      expect(view).toContain('UniversalModelPicker');
+      expect(view).toContain('GeneratorFooter');
+      expect(view).not.toContain('GeneratorPanel');
+      expect(view).not.toContain('GeneratorScroll');
+    }
+
+    for(const name of ['UnifiedImageCreatorPanel','CreatorPanel']){
+      const panel=read(`src/components/workspace/${name}.tsx`);
+      expect(panel).toContain('UniversalCreatorShell');
+      expect(panel).toContain('UniversalModelPicker');
+      expect(panel).toContain('GeneratorFooter');
+      expect(panel).not.toContain('CompactModelPicker');
+      expect(panel).not.toContain('ia-generator-actionbar shrink-0');
+    }
+  });
   it('uses one picker base and no operational model defaults',()=>{
     const picker=read('src/components/workspace/UniversalModelPicker.tsx');
     const image=read('src/components/workspace/UnifiedImageCreatorPanel.tsx');
