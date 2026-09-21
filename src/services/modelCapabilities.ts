@@ -6,113 +6,25 @@ import {
 } from '../types/index.js';
 
 export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
-  supported_modes: ['TEXT_TO_VIDEO', 'IMAGE_TO_VIDEO', 'REFERENCE_TO_VIDEO'],
-  supported_resolutions: ['720p', '1080p'],
-  supported_durations: [5, 10],
-  supported_aspect_ratios: ['16:9', '9:16', '1:1'],
-  supports_image_reference: true,
-  supports_multiple_images: true,
+  supported_modes: [],
+  supported_resolutions: [],
+  supported_durations: [],
+  supported_aspect_ratios: [],
+  supports_image_reference: false,
+  supports_multiple_images: false,
   supports_video_reference: false,
   supports_audio_reference: false,
-  supports_negative_prompt: true,
-  supports_seed: true,
-  max_reference_images: 3,
+  supports_negative_prompt: false,
+  supports_seed: false,
+  max_reference_images: 0,
   max_reference_videos: 0,
   max_reference_audio: 0,
-  max_prompt_length: 2000,
+  max_prompt_length: 0,
   supports_camera_control: false,
   supports_motion_strength: false,
   supports_loop: false,
   supports_start_end_image: false,
 };
-
-type KnownCapabilityDefaults = Partial<ModelCapabilities>;
-
-const KNOWN_MODEL_DEFAULTS: Record<string, KnownCapabilityDefaults> = {
-  'wan-3-0': {
-    supports_image_reference: true,
-    supports_multiple_images: true,
-    supports_video_reference: true,
-    supports_audio_reference: true,
-    supports_start_end_image: true,
-    max_reference_images: 10,
-    max_reference_videos: 5,
-    max_reference_audio: 5,
-    max_prompt_length: 20000,
-  },
-  'wan-3-0-prime': {
-    supports_image_reference: true,
-    supports_multiple_images: true,
-    supports_video_reference: true,
-    supports_audio_reference: true,
-    supports_start_end_image: true,
-    max_reference_images: 10,
-    max_reference_videos: 5,
-    max_reference_audio: 5,
-    max_prompt_length: 20000,
-  },
-  'seedance-2-5': {
-    supports_image_reference: true,
-    supports_multiple_images: true,
-    supports_video_reference: true,
-    supports_audio_reference: true,
-    supports_start_end_image: true,
-    max_reference_images: 30,
-    max_reference_videos: 10,
-    max_reference_audio: 10,
-  },
-  'minimax-h3': {
-    supports_image_reference: true,
-    supports_multiple_images: true,
-    supports_video_reference: true,
-    supports_audio_reference: true,
-    supports_start_end_image: true,
-    max_reference_images: 9,
-    max_reference_videos: 3,
-    max_reference_audio: 3,
-  },
-  'seedance-2-0': {
-    supports_image_reference: true,
-    supports_multiple_images: false,
-    supports_video_reference: false,
-    supports_audio_reference: false,
-    supports_start_end_image: true,
-    max_reference_images: 2,
-    max_reference_videos: 0,
-    max_reference_audio: 0,
-  },
-  'kling-3-0': {
-    supports_image_reference: true,
-    supports_multiple_images: false,
-    supports_video_reference: false,
-    supports_audio_reference: false,
-    supports_start_end_image: true,
-    max_reference_images: 2,
-    max_reference_videos: 0,
-    max_reference_audio: 0,
-  },
-  'google-omni-flash': {
-    supports_image_reference: true,
-    supports_multiple_images: true,
-    supports_video_reference: true,
-    supports_audio_reference: false,
-    supports_start_end_image: true,
-    max_reference_images: 10,
-    max_reference_videos: 3,
-    max_reference_audio: 0,
-  },
-};
-
-function knownValue<K extends keyof ModelCapabilities>(
-  model: Partial<ModelRegistryItem>,
-  key: K,
-  fallback: ModelCapabilities[K]
-): ModelCapabilities[K] {
-  const explicit = model[key as keyof ModelRegistryItem] as ModelCapabilities[K] | undefined;
-  if (explicit !== undefined && explicit !== null) return explicit;
-  const known = KNOWN_MODEL_DEFAULTS[model.model_id || '']?.[key] as ModelCapabilities[K] | undefined;
-  return known ?? fallback;
-}
 
 export function getModelCapabilities(model?: Partial<ModelRegistryItem> | null): ModelCapabilities {
   if (!model) return DEFAULT_MODEL_CAPABILITIES;
@@ -120,33 +32,33 @@ export function getModelCapabilities(model?: Partial<ModelRegistryItem> | null):
     supported_modes:
       model.supported_modes && model.supported_modes.length > 0
         ? model.supported_modes
-        : DEFAULT_MODEL_CAPABILITIES.supported_modes,
+        : [],
     supported_resolutions:
       model.supported_resolutions && model.supported_resolutions.length > 0
         ? model.supported_resolutions
-        : DEFAULT_MODEL_CAPABILITIES.supported_resolutions,
+        : [],
     supported_durations:
       model.supported_durations && model.supported_durations.length > 0
         ? model.supported_durations
-        : DEFAULT_MODEL_CAPABILITIES.supported_durations,
+        : [],
     supported_aspect_ratios:
       model.supported_aspect_ratios && model.supported_aspect_ratios.length > 0
         ? model.supported_aspect_ratios
-        : DEFAULT_MODEL_CAPABILITIES.supported_aspect_ratios,
-    supports_image_reference: knownValue(model, 'supports_image_reference', DEFAULT_MODEL_CAPABILITIES.supports_image_reference),
-    supports_multiple_images: knownValue(model, 'supports_multiple_images', DEFAULT_MODEL_CAPABILITIES.supports_multiple_images),
-    supports_video_reference: knownValue(model, 'supports_video_reference', DEFAULT_MODEL_CAPABILITIES.supports_video_reference),
-    supports_audio_reference: knownValue(model, 'supports_audio_reference', DEFAULT_MODEL_CAPABILITIES.supports_audio_reference),
-    supports_negative_prompt: model.supports_negative_prompt ?? DEFAULT_MODEL_CAPABILITIES.supports_negative_prompt,
-    supports_seed: model.supports_seed ?? DEFAULT_MODEL_CAPABILITIES.supports_seed,
-    max_reference_images: knownValue(model, 'max_reference_images', DEFAULT_MODEL_CAPABILITIES.max_reference_images),
-    max_reference_videos: knownValue(model, 'max_reference_videos', DEFAULT_MODEL_CAPABILITIES.max_reference_videos),
-    max_reference_audio: knownValue(model, 'max_reference_audio', DEFAULT_MODEL_CAPABILITIES.max_reference_audio),
-    max_prompt_length: knownValue(model, 'max_prompt_length', DEFAULT_MODEL_CAPABILITIES.max_prompt_length),
+        : [],
+    supports_image_reference: model.supports_image_reference===true,
+    supports_multiple_images: model.supports_multiple_images===true,
+    supports_video_reference: model.supports_video_reference===true,
+    supports_audio_reference: model.supports_audio_reference===true,
+    supports_negative_prompt: model.supports_negative_prompt===true,
+    supports_seed: model.supports_seed===true,
+    max_reference_images: Number(model.max_reference_images||0),
+    max_reference_videos: Number(model.max_reference_videos||0),
+    max_reference_audio: Number(model.max_reference_audio||0),
+    max_prompt_length: Number(model.max_prompt_length||0),
     supports_camera_control: model.supports_camera_control ?? false,
     supports_motion_strength: model.supports_motion_strength ?? false,
     supports_loop: model.supports_loop ?? false,
-    supports_start_end_image: knownValue(model, 'supports_start_end_image', false),
+    supports_start_end_image: model.supports_start_end_image===true,
   };
 }
 
@@ -162,7 +74,7 @@ function isFrameReference(ref: WorkspaceReference) {
 
 export function mergeModelCapabilities(models: ModelRegistryItem[]): ModelCapabilities {
   const active = models.filter((m) => m.status !== 'INACTIVE');
-  if (!active.length) return DEFAULT_MODEL_CAPABILITIES;
+  if (!active.length) return {...DEFAULT_MODEL_CAPABILITIES};
   const caps = active.map(getModelCapabilities);
   return {
     supported_modes: unique(caps.flatMap((c) => c.supported_modes)),
@@ -178,7 +90,7 @@ export function mergeModelCapabilities(models: ModelRegistryItem[]): ModelCapabi
     max_reference_images: Math.max(...caps.map((c) => c.max_reference_images), 0),
     max_reference_videos: Math.max(...caps.map((c) => c.max_reference_videos), 0),
     max_reference_audio: Math.max(...caps.map((c) => c.max_reference_audio), 0),
-    max_prompt_length: Math.max(...caps.map((c) => c.max_prompt_length), 2000),
+    max_prompt_length: Math.max(...caps.map((c) => c.max_prompt_length), 0),
     supports_camera_control: caps.some((c) => c.supports_camera_control),
     supports_motion_strength: caps.some((c) => c.supports_motion_strength),
     supports_loop: caps.some((c) => c.supports_loop),

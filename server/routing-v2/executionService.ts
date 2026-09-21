@@ -32,6 +32,8 @@ export interface StartRoutingV2GenerationInput{
   client_request_id?:string;
   source_job_id?:string|null;
   authorized_credit_price?:number;
+  requested_model_id?:string|null;
+  routing_mode?:'MANUAL'|'AUTO';
 }
 
 function outputAssetType(capabilityId:CapabilityId):AssetType{
@@ -137,8 +139,11 @@ export const routingV2ExecutionService={
       user_id:input.user_id,
       status:'RESERVING_FUNDS',
       model_id:input.model_id,
+      mode:String(input.capability_id).replace(/-/g,'_').toUpperCase(),
       provider_id:route.provider_id,
       capability_id:input.capability_id,
+      resolution:String(input.dimensions?.resolution||''),
+      aspect_ratio:String(input.dimensions?.aspect_ratio||''),
       original_prompt:String(input.prompt||''),
       negative_prompt:String(input.negative_prompt||''),
       duration_seconds:input.duration_seconds,
@@ -150,7 +155,8 @@ export const routingV2ExecutionService={
       provider_job_id:undefined,
       client_request_id:clientRequestId,
       source_job_id:input.source_job_id||null,
-      routing_mode:'MANUAL',
+      requested_model_id:input.requested_model_id||input.model_id,
+      routing_mode:input.routing_mode||'MANUAL',
       progress_percent:0,
       result_asset_id:null,
       result_asset_ids:[],

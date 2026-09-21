@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { STUDIO_SEED_MODELS } from '../config/studioCatalog.js';
-import { adaptConfigurationToModel, validateConfiguration } from './modelCapabilities.js';
+import { adaptConfigurationToModel, getModelCapabilities, validateConfiguration } from './modelCapabilities.js';
 import { WorkspaceReference, Asset } from '../types/index.js';
 
 const model=(id:string)=>{
@@ -36,6 +36,14 @@ const ref=(id:string,type:Asset['type']):WorkspaceReference=>({
 });
 
 describe('model-driven video configuration',()=>{
+  it('treats missing operational evidence as unsupported',()=>{
+    const caps=getModelCapabilities({model_id:'unknown',name:'Unknown'} as any);
+    expect(caps.supported_modes).toEqual([]);
+    expect(caps.supported_resolutions).toEqual([]);
+    expect(caps.supports_image_reference).toBe(false);
+    expect(caps.supports_seed).toBe(false);
+    expect(caps.max_reference_images).toBe(0);
+  });
   it('maps 720p to Kling Standard when Kling is selected',()=>{
     const next=adaptConfigurationToModel(model('kling-3-0'),{
       duration_seconds:5,
