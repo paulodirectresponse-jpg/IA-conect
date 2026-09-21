@@ -6,6 +6,17 @@ import { courseEntitlementService } from '../services/courseEntitlementService.j
 
 export const courseSalesRouter = Router();
 
+const attributionKeys=['angle','utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid','gclid'] as const;
+function sanitizeAttribution(input:any){
+  const result:Record<string,string>={};
+  if(!input||typeof input!=='object')return result;
+  for(const key of attributionKeys){
+    const value=String(input[key]||'').trim();
+    if(value)result[key]=value.slice(0,180);
+  }
+  return result;
+}
+
 courseSalesRouter.get('/course-sales/animation-3d/offer', (_req, res) => {
   const offer=courseOfferService.get(ANIMATION_3D_COURSE_ID);
   if(!offer)return res.status(404).json({success:false,error:{code:'COURSE_NOT_FOUND',message:'Curso não encontrado.'}});
@@ -21,6 +32,7 @@ courseSalesRouter.post('/course-sales/animation-3d/checkout', requireAuth, async
       courseId:offer.course_id,
       courseVersion:offer.version,
       method:'PIX',
+      attribution:sanitizeAttribution(req.body?.attribution),
     });
     return res.json({success:true,data:payment});
   }catch(err:any){
