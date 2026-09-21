@@ -31,6 +31,10 @@ async function ownedReferenceTypes(uid:string,references:any[]):Promise<string[]
   return types;
 }
 
+function referenceRoles(references:any[]):string[]{
+  return references.map(reference=>String(reference?.role||reference?.slot_type||"").toUpperCase());
+}
+
 function publicGeneration(g: any) {
   const publicFailure =
     g.error_code || g.error_message
@@ -129,6 +133,7 @@ async function buildGenerationQuote(
           dimensions,
           parameters,
           reference_types: await ownedReferenceTypes(uid,body.references || []),
+          reference_roles: referenceRoles(body.references || []),
         })
       : null;
   const model =
@@ -448,6 +453,7 @@ generationRouter.post(
                 editor_operation: settings.editor_operation,
               },
               reference_types: await ownedReferenceTypes(uid,req.body.references || []),
+              reference_roles: referenceRoles(req.body.references || []),
             })
           : null;
       const g = await generationService.createAndStartGeneration({
