@@ -130,7 +130,7 @@ export function validateConfiguration(
 
   const caps = getModelCapabilities(model);
   if (!caps.supported_modes.includes(config.mode)) errors.push(`O modelo ${model.name} não suporta o modo ${config.mode}.`);
-  if (!caps.supported_durations.includes(config.duration_seconds)) errors.push(`Duração de ${config.duration_seconds}s não suportada por ${model.name}.`);
+  if (!['TEXT_TO_IMAGE','IMAGE_TO_IMAGE'].includes(config.mode) && !caps.supported_durations.includes(config.duration_seconds)) errors.push(`Duração de ${config.duration_seconds}s não suportada por ${model.name}.`);
   if (!caps.supported_resolutions.includes(config.resolution)) errors.push(`Resolução ${config.resolution} não suportada por ${model.name}.`);
   if (!caps.supported_aspect_ratios.includes(config.aspect_ratio)) errors.push(`Proporção ${config.aspect_ratio} não suportada por ${model.name}.`);
   if (config.has_end_image && !caps.supports_start_end_image) errors.push(`${model.name} não suporta quadro final.`);
@@ -151,7 +151,7 @@ export function validateConfiguration(
   if (audioRefs.length > 0 && !caps.supports_audio_reference) errors.push(`O modelo ${model.name} não suporta áudios de referência.`);
   else if (audioRefs.length > caps.max_reference_audio) errors.push(`O modelo ${model.name} aceita no máximo ${caps.max_reference_audio} áudio(s) de referência.`);
   if (config.negative_prompt?.trim() && !caps.supports_negative_prompt) warnings.push(`O modelo ${model.name} não processa negative prompt; este campo será ignorado.`);
-  if (config.promptText && config.promptText.length > caps.max_prompt_length) errors.push(`O prompt excede o limite de ${caps.max_prompt_length} caracteres de ${model.name}.`);
+  if (config.promptText && caps.max_prompt_length>0 && config.promptText.length > caps.max_prompt_length) errors.push(`O prompt excede o limite de ${caps.max_prompt_length} caracteres de ${model.name}.`);
 
   return { valid: errors.length === 0, errors, warnings };
 }

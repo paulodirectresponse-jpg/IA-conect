@@ -44,6 +44,11 @@ describe('model-driven video configuration',()=>{
     expect(caps.supports_seed).toBe(false);
     expect(caps.max_reference_images).toBe(0);
   });
+  it('does not require a video duration or invented prompt limit for an image route',()=>{
+    const image={model_id:'ready-image',name:'Ready image',supported_modes:['TEXT_TO_IMAGE'],supported_resolutions:['1K'],supported_aspect_ratios:['1:1']} as any;
+    expect(validateConfiguration(image,{mode:'TEXT_TO_IMAGE',duration_seconds:1,resolution:'1K',aspect_ratio:'1:1',references:[],promptText:'An image'}).valid).toBe(true);
+    expect(validateConfiguration(image,{mode:'TEXT_TO_IMAGE',duration_seconds:1,resolution:'2K',aspect_ratio:'1:1',references:[],promptText:'An image'}).valid).toBe(false);
+  });
   it('maps 720p to Kling Standard when Kling is selected',()=>{
     const next=adaptConfigurationToModel(model('kling-3-0'),{
       duration_seconds:5,
