@@ -12,10 +12,9 @@ import {
   Asset,
   AssetType,
   Generation,
-  GenerationRequestDraft,
 } from "../../types/index.js";
 import { workspaceService } from "../../services/workspaceService.js";
-import { generationClient } from "../../services/generationClient.js";
+import { universalGenerationClient } from "../../services/universalGenerationClient.js";
 import { assetService } from "../../services/assetService.js";
 import { useAuth } from "../../context/AuthContext.js";
 import {
@@ -55,6 +54,18 @@ function baseDurationFor(model: ModelRegistryItem) {
     .map(Number)
     .filter((v) => Number.isFinite(v) && v > 0);
   return Math.min(...values);
+}
+function videoCapabilityFor(
+  mode: string,
+  hasInitial: boolean,
+  hasEnd: boolean,
+) {
+  if (mode === "VIDEO_TO_VIDEO") return "video-edit";
+  if (mode === "IMAGE_TO_VIDEO" && hasInitial && hasEnd) return "last-frame";
+  if (mode === "IMAGE_TO_VIDEO" && hasInitial) return "first-frame";
+  if (mode === "IMAGE_TO_VIDEO" || mode === "REFERENCE_TO_VIDEO")
+    return "image-to-video";
+  return "text-to-video";
 }
 const terminal = (status: string) =>
   ["SUCCEEDED", "FAILED", "CANCELLED", "REFUNDED"].includes(status);
@@ -112,20 +123,28 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
   useEffect(() => {
     let mounted = true;
     Promise.all([
-      workspaceService.listModels(),
-      workspaceService.listModelRoutes("text-to-video"),
+      universalGenerationClient.catalog("text-to-video"),
+      universalGenerationClient.catalog("image-to-video"),
+      universalGenerationClient.catalog("first-frame"),
+      universalGenerationClient.catalog("last-frame"),
+      universalGenerationClient.catalog("video-edit"),
     ])
-      .then(([rows, routes]) => {
+      .then((catalogs) => {
         if (!mounted) return;
-        const safeIds = new Set(routes.map((route) => route.model_id));
-        const active = rows.filter(
-          (m) =>
-            m.status !== "INACTIVE" &&
-            m.category === "VIDEO" &&
-            safeIds.has(m.model_id) &&
-            (m.supported_durations || []).some((duration) => Number.isFinite(Number(duration)) && Number(duration) > 0) &&
-            ((m.supported_modes || []).includes("TEXT_TO_VIDEO") ||
-              (m.supported_modes || []).includes("IMAGE_TO_VIDEO")),
+        const active = Array.from(
+          new Map(
+            catalogs
+              .flat()
+              .filter(
+                (m) =>
+                  m.status !== "INACTIVE" &&
+                  m.category === "VIDEO" &&
+                  (m.supported_durations || []).some(
+                    (duration) => Number.isFinite(Number(duration)) && Number(duration) > 0,
+                  ),
+              )
+              .map((m) => [m.model_id, m]),
+          ).values(),
         );
         setModels(active);
         setManualModelId((c) =>
@@ -296,9 +315,18 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
       });
     return out;
   }, [references, initialImage, endImage]);
+  const capabilityId = videoCapabilityFor(mode, Boolean(initialImage), Boolean(endImage));
   const autoQuote = useBackendAutoQuote(selectionMode === "AUTO" && !refsWithFrames.some(ref => ref.asset_id.startsWith("local_") || ref.asset?.status === "UPLOADING"), {
-    model_id: "AUTO", mode, prompt, negative_prompt: negativePrompt, references: refsWithFrames,
-    settings: { duration_seconds: durationSeconds, resolution, aspect_ratio: aspectRatio, number_of_outputs: numberOfOutputs, seed: seed === "" ? null : seed, motion_strength: motionStrengthTouched ? motionStrength : undefined },
+    model_id: "AUTO",
+    capability_id: capabilityId,
+    prompt,
+    negative_prompt: negativePrompt,
+    references: refsWithFrames.map((ref) => ({
+      asset_id: ref.asset_id,
+      slot_type: String(ref.role || "").toUpperCase() === "START_FRAME" ? "INITIAL" as const : String(ref.role || "").toUpperCase() === "END_FRAME" ? "END" as const : "GENERAL" as const,
+      alias: ref.alias_snapshot,
+    })),
+    controls: { duration_seconds: durationSeconds, resolution, aspect_ratio: aspectRatio, number_of_outputs: numberOfOutputs, seed: seed === "" ? null : seed, motion_strength: motionStrengthTouched ? motionStrength : undefined },
   }, models);
   const autoResolvedModel = autoQuote.model;
   const selectedModel =
@@ -345,11 +373,15 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
         requests = missing.map((m) => ({
           key: m.model_id,
           model_id: m.model_id,
-          mode,
+          capability_id: capabilityId,
           prompt: prompt.trim() || "pricing preview",
           negative_prompt: negativePrompt,
-          references: pricedReferences,
-          settings: {
+          references: pricedReferences.map((ref) => ({
+            asset_id: ref.asset_id,
+            slot_type: String(ref.role || "").toUpperCase() === "START_FRAME" ? "INITIAL" as const : String(ref.role || "").toUpperCase() === "END_FRAME" ? "END" as const : "GENERAL" as const,
+            alias: ref.alias_snapshot,
+          })),
+          controls: {
             duration_seconds: baseDurationFor(m),
             resolution,
             aspect_ratio: aspectRatio,
@@ -359,7 +391,7 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
           },
         }));
       try {
-        const batch = await generationClient.quoteBatch(requests);
+        const batch = await universalGenerationClient.quoteBatch(requests);
         for (const item of batch.items) {
           const m = missing.find((model) => model.model_id === item.key),
             d: any = item.pricing;
@@ -813,30 +845,36 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
     try {
       const resolvedReferences =
         await assetService.resolveWorkspaceReferences(submittedReferences);
-      const quoteSubmitted = () =>
-        generationClient.quote({
-          model_id:
-            selectionMode === "AUTO" ? "AUTO" : submittedModel.model_id,
-          mode: submittedMode,
-          prompt: submittedPrompt,
-          negative_prompt: submittedNegativePrompt,
-          references: resolvedReferences,
-          settings: {
-            duration_seconds: submittedDuration,
-            resolution: submittedResolution,
-            aspect_ratio: submittedAspectRatio,
-            number_of_outputs: submittedOutputs,
-            seed: activeCapabilities.supports_seed ? submittedSeed : null,
-            motion_strength: activeCapabilities.supports_motion_strength && (selectionMode === "MANUAL" || motionStrengthTouched) ? submittedMotion : undefined,
-          },
-        });
-      let quoted = await quoteSubmitted(),
-        draft: any = quoted.request_draft;
-      if (!draft.has_sufficient_funds) {
+      const request = {
+        model_id: selectionMode === "AUTO" ? "AUTO" : submittedModel.model_id,
+        capability_id: videoCapabilityFor(
+          submittedMode,
+          Boolean(initialImage),
+          Boolean(endImage),
+        ),
+        prompt: submittedPrompt,
+        negative_prompt: submittedNegativePrompt,
+        references: resolvedReferences.map((ref) => ({
+          asset_id: ref.asset_id,
+          slot_type: String(ref.role || "").toUpperCase() === "START_FRAME" ? "INITIAL" as const : String(ref.role || "").toUpperCase() === "END_FRAME" ? "END" as const : "GENERAL" as const,
+          alias: ref.alias_snapshot,
+        })),
+        controls: {
+          duration_seconds: submittedDuration,
+          resolution: submittedResolution,
+          aspect_ratio: submittedAspectRatio,
+          number_of_outputs: submittedOutputs,
+          seed: activeCapabilities.supports_seed ? submittedSeed : null,
+          motion_strength: activeCapabilities.supports_motion_strength && (selectionMode === "MANUAL" || motionStrengthTouched) ? submittedMotion : undefined,
+        },
+      };
+      const quoteSubmitted = () => universalGenerationClient.quote(request);
+      let quoted = await quoteSubmitted();
+      if (!quoted.sufficient_funds) {
         setGenerationError("Créditos insuficientes para esta geração.");
         return;
       }
-      const unit = Number(draft.unit_credit_price);
+      const unit = Number(quoted.request_draft.unit_credit_price);
       if (Number.isFinite(unit) && unit > 0)
         setUnitPricesByModelId((prev) => ({
           ...prev,
@@ -846,27 +884,22 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
       setSubmitting(true);
       let started: Generation;
       try {
-        started = await generationClient.create(
-          draft as GenerationRequestDraft,
-        );
+        started = await universalGenerationClient.create(request, quoted);
       } catch (e: any) {
         if (e?.code !== "PRICE_CHANGED_REQUOTE_REQUIRED") throw e;
         quoted = await quoteSubmitted();
-        draft = quoted.request_draft;
-        if (!draft.has_sufficient_funds)
+        if (!quoted.sufficient_funds)
           throw Object.assign(
             new Error("Créditos insuficientes para esta geração."),
             { code: "CREDIT_INSUFFICIENT_FUNDS" },
           );
-        const retryUnit = Number(draft.unit_credit_price);
+        const retryUnit = Number(quoted.request_draft.unit_credit_price);
         if (Number.isFinite(retryUnit) && retryUnit > 0)
           setUnitPricesByModelId((prev) => ({
             ...prev,
             [submittedModel.model_id]: retryUnit,
           }));
-        started = await generationClient.create(
-          draft as GenerationRequestDraft,
-        );
+        started = await universalGenerationClient.create(request, quoted);
       }
       setLiveGenerations((prev) => upsertGeneration(prev, started));
       window.dispatchEvent(
