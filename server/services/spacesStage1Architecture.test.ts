@@ -19,7 +19,7 @@ describe('Spaces stage 1 visual foundation',()=>{
   expect(layout).toContain('SPACE_WORLD_W=8000');
   expect(layout).toContain('SPACE_WORLD_H=5000');
   expect(layout).toContain('SPACE_NODE_W=260');
-  expect(layout).toContain('SPACE_BASE_NODE_H=170');
+  expect(layout).toContain('SPACE_BASE_NODE_H=156');
   expect(workspace).toContain('SPACE_NODE_W');
   expect(workspace).toContain('SPACE_BASE_NODE_H');
  });
