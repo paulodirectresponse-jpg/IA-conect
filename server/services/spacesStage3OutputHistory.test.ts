@@ -17,7 +17,10 @@ describe('Spaces stage 3 persistent node output history',()=>{
  it('filters a Space history before expanding node runs',()=>{
   const runtime=read('server/beta/flows/flowRuntimeService.ts');
   expect(runtime).toContain('listFlowPublic');
-  expect(runtime).toContain('runs.filter(run=>run.flow_id===flowId)');
+  const repository=read('server/beta/flows/flowRuntimeRepository.ts');
+  expect(runtime).toContain('betaFlowRuntimeRepository.listFlowRuns(flowId,userId,limit)');
+  expect(repository).toContain("fieldPath:'flow_id'");
+  expect(repository).toContain("value:{stringValue:flowId}");
   expect(runtime).toContain('.map(publicRun)');
  });
 
