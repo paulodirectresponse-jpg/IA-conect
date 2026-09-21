@@ -43,6 +43,18 @@ describe('Etapa 8 — structural regression guardrails',()=>{
     }
   });
 
+  it('binds create to the exact Routing V2 pricing snapshot authorized by quote',()=>{
+    const client=read('src/services/universalGenerationClient.ts');
+    const routes=read('server/routes/generationRoutes.ts');
+    const service=read('server/services/generationService.ts');
+    const execution=read('server/routing-v2/executionService.ts');
+    expect(client).toContain('pricing_signature_hash');
+    expect(routes).toContain('pricing_signature_hash: req.body.pricing_signature_hash');
+    expect(service).toContain('expected_pricing_id:params.pricing_signature_hash||params.retail_pricing_id');
+    expect(execution).toContain('expected_pricing_id?:string');
+    expect(execution).toContain('PRICE_CHANGED_REQUOTE_REQUIRED');
+    expect(execution).toContain('routing-v2:${preview.route.route_id}:${preview.pricing_fetched_at}');
+  });
   it('keeps one canonical request type shared by quote and create',()=>{
     const universal=read('src/services/universalGenerationClient.ts');
     const types=read('src/types/universalGeneration.ts');
