@@ -46,13 +46,6 @@ describe('Spaces post-review fixes',()=>{
   expect(activeExecutionSucceeded(active,runs)).toBe(false);
  });
 
- it('rejects a second run while the same Space is already running',()=>{
-  const runtime=read('server/beta/flows/flowRuntimeService.ts');
-  expect(runtime).toContain("item.flow_id===flowId&&item.status==='RUNNING'");
-  expect(runtime).toContain("FLOW_RUN_ALREADY_RUNNING");
-  expect(runtime).toContain('Este Space já possui uma execução em andamento.');
- });
-
  it('marks reused node outputs without presenting them as new creations',()=>{
   const runtime=read('server/beta/flows/flowRuntimeService.ts');
   const planner=read('server/beta/flows/flowExecutionPlan.ts');
@@ -65,12 +58,15 @@ describe('Spaces post-review fixes',()=>{
   expect(workspace).toContain('if(nodeRun.reused_from_run_id)continue');
  });
 
- it('keeps execution controls disabled for the whole RUNNING lifecycle, not only the start request',()=>{
+ it('keeps execution controls disabled for the whole RUNNING lifecycle without changing backend idempotency',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
   expect(workspace).toContain("if(busy==='run'||run?.status==='RUNNING')return");
   expect(workspace).toContain("busy={busy==='run'||run?.status==='RUNNING'}");
   expect(workspace).toContain("running={busy==='run'||run?.status==='RUNNING'}");
   expect(workspace).toContain("run?.status==='RUNNING'||!cap");
+  const runtime=read('server/beta/flows/flowRuntimeService.ts');
+  expect(runtime).toContain('createIdempotent');
+  expect(runtime).not.toContain('FLOW_RUN_ALREADY_RUNNING');
  });
 
  it('uses the active execution set as the runtime completion authority',()=>{
