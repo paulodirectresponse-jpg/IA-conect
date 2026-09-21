@@ -3,14 +3,16 @@ import{Brush,CheckCircle2,Download,Eraser,Expand,FolderOpen,Image as ImageIcon,L
 import{useAuth}from'../../context/AuthContext.js';
 import{assetService}from'../../services/assetService.js';
 import{apiRequest,ApiError}from'../../services/apiClient.js';
-import{editorClient,EditorCapability,EditorJobView}from'../../services/editorClient.js';
-import{Asset}from'../../types/index.js';
+import{universalGenerationClient}from'../../services/universalGenerationClient.js';
+import{editorCapabilityForSelection,loadUniversalEditorCatalog,UniversalEditorCapability,UniversalEditorModelView}from'../../services/editorUniversalCatalog.js';
+import type{UniversalCreationQuote,UniversalCreationRequest}from'../../services/universalGenerationClient.js';
+import{Asset,Generation}from'../../types/index.js';
 import{EditorWorkspaceShell}from'../editors/shared/EditorWorkspaceShell.js';
 import{EditorAssetPicker}from'../editors/shared/EditorAssetPicker.js';
 import{ImageEditorCanvas,ImageEditorViewMode}from'../editors/image/ImageEditorCanvas.js';
 import{UniversalModelPicker}from'../workspace/UniversalModelPicker.js';
 
-type Tool=Extract<EditorCapability,'image-edit'|'inpaint-mask'|'background-remove-replace'|'outpaint'|'upscale'|'variations'>;
+type Tool=Extract<UniversalEditorCapability,'image-edit'|'inpaint-mask'|'background-remove-replace'|'outpaint'|'upscale'|'variations'>;
 const TOOLS:Array<{id:Tool;label:string;shortLabel:string;description:string;icon:React.ComponentType<{className?:string}>}>=[
  {id:'image-edit',label:'Editar imagem',shortLabel:'Editar',description:'Transforme a imagem a partir de uma instrução.',icon:WandSparkles},
  {id:'inpaint-mask',label:'Inpaint',shortLabel:'Inpaint',description:'Pinte uma área e altere somente a região selecionada.',icon:Brush},
@@ -21,12 +23,12 @@ const TOOLS:Array<{id:Tool;label:string;shortLabel:string;description:string;ico
 ];
 const promptRequired=(tool:Tool,backgroundMode:'TRANSPARENT'|'REPLACE')=>['image-edit','inpaint-mask','outpaint'].includes(tool)||(tool==='background-remove-replace'&&backgroundMode==='REPLACE');
 const errorText=(error:any)=>error instanceof ApiError?error.message:error?.message||'Não foi possível concluir esta operação.';
-const status=(job:EditorJobView|null)=>job?.status==='SUCCEEDED'?'Concluído':job?.status==='FAILED'?'Falhou':job?.status==='RUNNING'?'Processando':job?.status==='QUEUED'?'Na fila':job?.status==='QUOTED'?'Preço calculado':'Preparando';
+const status=(job:Generation|null,quoted:boolean)=>job?.status==='SUCCEEDED'?'Concluído':job?.status==='FAILED'?'Falhou':job?.status==='CANCELLED'?'Cancelado':job&&['RESERVING_FUNDS','SUBMITTED','PROCESSING'].includes(job.status)?'Processando':job?.status==='QUEUED'?'Na fila':quoted?'Preço calculado':'Preparando';
 
 export const ImageEditorView:React.FC=()=>{
  const{wallet,refreshWallet}=useAuth();
  const[tool,setTool]=useState<Tool>('image-edit');
- const[models,setModels]=useState<any[]>([]);
+ const[models,setModels]=useState<UniversalEditorModelView[]>([]);
  const[images,setImages]=useState<Asset[]>([]);
  const[sourceId,setSourceId]=useState('');
  const[modelId,setModelId]=useState('AUTO');
@@ -37,7 +39,9 @@ export const ImageEditorView:React.FC=()=>{
  const[variationStrength,setVariationStrength]=useState(.35);
  const[brushSize,setBrushSize]=useState(46);
  const[maskDirty,setMaskDirty]=useState(false);
- const[job,setJob]=useState<EditorJobView|null>(null);
+ const[job,setJob]=useState<Generation|null>(null);
+ const[quoteState,setQuoteState]=useState<UniversalCreationQuote|null>(null);
+ const[quotedRequest,setQuotedRequest]=useState<UniversalCreationRequest|null>(null);
  const[result,setResult]=useState<Asset|null>(null);
  const[busy,setBusy]=useState('');
  const[catalogLoading,setCatalogLoading]=useState(true);
@@ -52,34 +56,34 @@ export const ImageEditorView:React.FC=()=>{
  const[comparePosition,setComparePosition]=useState(50);
  const maskRef=useRef<HTMLCanvasElement|null>(null),drawing=useRef(false);
 
- const invalidate=useCallback(()=>{setJob(null);setResult(null);setPollCount(0);setError('');setViewMode('source');},[]);
- const loadCatalog=useCallback(async()=>{setCatalogLoading(true);setCatalogError('');try{const catalog=await editorClient.catalog();setModels(catalog.filter(model=>model.capabilities.some((cap:any)=>TOOLS.some(item=>item.id===cap.id))));}catch(err){setModels([]);setCatalogError(errorText(err));}finally{setCatalogLoading(false);}},[]);
+ const invalidate=useCallback(()=>{setJob(null);setQuoteState(null);setQuotedRequest(null);setResult(null);setPollCount(0);setError('');setViewMode('source');},[]);
+ const loadCatalog=useCallback(async()=>{setCatalogLoading(true);setCatalogError('');try{setModels(await loadUniversalEditorCatalog(TOOLS.map(item=>item.id)));}catch(err){setModels([]);setCatalogError(errorText(err));}finally{setCatalogLoading(false);}},[]);
  const loadImages=useCallback(async()=>{setAssetsLoading(true);setAssetsError('');try{const assets=(await assetService.listAssets()).filter(asset=>asset.type==='IMAGE');setImages(assets);setSourceId(current=>current&&assets.some(asset=>asset.asset_id===current)?current:'');}catch(err){setAssetsError(errorText(err));}finally{setAssetsLoading(false);}},[]);
  useEffect(()=>{void loadCatalog();void loadImages();},[loadCatalog,loadImages]);
  useEffect(()=>{const refresh=()=>void loadImages();window.addEventListener('creations:updated',refresh);window.addEventListener('ia:asset-upload-complete',refresh);return()=>{window.removeEventListener('creations:updated',refresh);window.removeEventListener('ia:asset-upload-complete',refresh);};},[loadImages]);
 
  const source=images.find(asset=>asset.asset_id===sourceId)||null;
- const eligible=useMemo(()=>models.filter(model=>model.capabilities.some((cap:any)=>cap.id===tool)),[models,tool]);
- const manualModels=useMemo(()=>eligible.filter(model=>model.model_id!=='AUTO'),[eligible]);
+ const eligible=useMemo(()=>models.filter(model=>model.editor_capabilities.some(cap=>cap.id===tool)),[models,tool]);
+ const manualModels=eligible;
  useEffect(()=>{if(modelId!=='AUTO'&&!manualModels.some(model=>model.model_id===modelId))setModelId('AUTO');},[manualModels,modelId]);
- const model=eligible.find(item=>item.model_id===modelId)||eligible.find(item=>item.model_id==='AUTO')||manualModels[0]||null;
- const capability=model?.capabilities.find((cap:any)=>cap.id===tool)||null;
- const routeReady=manualModels.length>0||eligible.some(item=>item.model_id==='AUTO');
+ const model=modelId==='AUTO'?null:manualModels.find(item=>item.model_id===modelId)||null;
+ const capability=editorCapabilityForSelection(manualModels,tool,modelId);
+ const routeReady=manualModels.length>0;
  const controls=useMemo(()=>new Set<string>(capability?.controls||[]),[capability]);
- const resolutionOptions=capability?.supported_resolutions?.length?capability.supported_resolutions:['1K','2K','4K'];
- const ratioOptions=capability?.supported_aspect_ratios?.length?capability.supported_aspect_ratios:['1:1','16:9','9:16','4:3','3:4','21:9'];
+ const resolutionOptions=capability?.supported_resolutions||[];
+ const ratioOptions=capability?.supported_aspect_ratios||[];
  const activeTool=TOOLS.find(item=>item.id===tool)!;
  const promptVisible=tool==='image-edit'||tool==='inpaint-mask'||tool==='outpaint'||(tool==='background-remove-replace'&&backgroundMode==='REPLACE');
 
  useEffect(()=>{invalidate();},[tool,sourceId,modelId,invalidate]);
- useEffect(()=>{if(controls.has('resolution')&&!resolutionOptions.includes(resolution))setResolution(resolutionOptions[0]||'2K');if(controls.has('aspect_ratio')&&!ratioOptions.includes(aspectRatio))setAspectRatio(ratioOptions[0]||'1:1');},[tool,model?.model_id]);
- useEffect(()=>{if(!job||!['QUEUED','RUNNING'].includes(job.status)||pollCount>=150)return;const timer=window.setTimeout(async()=>{try{setJob(await editorClient.get(job.job_id));setPollCount(v=>v+1);}catch(err){setError(errorText(err));setPollCount(150);}},Math.min(6500,1800+pollCount*120));return()=>window.clearTimeout(timer);},[job,pollCount]);
- useEffect(()=>{if(job?.status!=='SUCCEEDED')return;void refreshWallet();const id=job.result_asset_ids?.[0];if(id)void editorClient.asset(id).then(asset=>{setResult(asset);setViewMode('compare');setComparePosition(50);}).catch(()=>setResult(null));window.dispatchEvent(new CustomEvent('creations:updated',{detail:{kind:'IMAGE',asset_ids:job.result_asset_ids||[]}}));},[job?.status,job?.result_asset_ids,refreshWallet]);
+ useEffect(()=>{if(controls.has('resolution')&&resolutionOptions.length&&!resolutionOptions.includes(resolution))setResolution(resolutionOptions[0]);if(controls.has('aspect_ratio')&&ratioOptions.length&&!ratioOptions.includes(aspectRatio))setAspectRatio(ratioOptions[0]);},[tool,model?.model_id,controls,resolutionOptions,ratioOptions,resolution,aspectRatio]);
+ useEffect(()=>{if(!job||['SUCCEEDED','FAILED','CANCELLED','REFUNDED'].includes(job.status)||pollCount>=150)return;const timer=window.setTimeout(async()=>{try{setJob(await universalGenerationClient.get(job.generation_id));setPollCount(v=>v+1);}catch(err){setError(errorText(err));setPollCount(150);}},Math.min(6500,1800+pollCount*120));return()=>window.clearTimeout(timer);},[job,pollCount]);
+ useEffect(()=>{if(job?.status!=='SUCCEEDED')return;void refreshWallet();const id=job.result_asset_ids?.[0];if(id)void assetService.listAssets({type:'IMAGE'}).then(assets=>{const asset=assets.find(item=>item.asset_id===id)||null;setResult(asset);if(asset){setImages(rows=>[asset,...rows.filter(row=>row.asset_id!==asset.asset_id)]);setViewMode('compare');setComparePosition(50);}}).catch(()=>setResult(null));window.dispatchEvent(new CustomEvent('creations:updated',{detail:{kind:'IMAGE',asset_ids:job.result_asset_ids||[]}}));},[job?.status,job?.result_asset_ids,refreshWallet]);
 
  const clearMask=useCallback(()=>{const canvas=maskRef.current,ctx=canvas?.getContext('2d');if(!canvas||!ctx)return;ctx.fillStyle='#000';ctx.fillRect(0,0,canvas.width,canvas.height);setMaskDirty(false);},[]);
  useEffect(()=>{if(tool==='inpaint-mask')requestAnimationFrame(clearMask);},[tool,sourceId,clearMask]);
  const point=(event:React.PointerEvent<HTMLCanvasElement>)=>{const canvas=event.currentTarget,rect=canvas.getBoundingClientRect();return{x:(event.clientX-rect.left)*canvas.width/rect.width,y:(event.clientY-rect.top)*canvas.height/rect.height};};
- const begin=(event:React.PointerEvent<HTMLCanvasElement>)=>{if(job||result)invalidate();drawing.current=true;event.currentTarget.setPointerCapture(event.pointerId);const p=point(event),ctx=event.currentTarget.getContext('2d');ctx?.beginPath();ctx?.moveTo(p.x,p.y);};
+ const begin=(event:React.PointerEvent<HTMLCanvasElement>)=>{if(job||quoteState||result)invalidate();drawing.current=true;event.currentTarget.setPointerCapture(event.pointerId);const p=point(event),ctx=event.currentTarget.getContext('2d');ctx?.beginPath();ctx?.moveTo(p.x,p.y);};
  const move=(event:React.PointerEvent<HTMLCanvasElement>)=>{if(!drawing.current)return;const p=point(event),ctx=event.currentTarget.getContext('2d');if(!ctx)return;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#fff';ctx.lineWidth=brushSize*event.currentTarget.width/700;ctx.lineTo(p.x,p.y);ctx.stroke();setMaskDirty(true);};
  const end=()=>{drawing.current=false;};
 
@@ -87,13 +91,13 @@ export const ImageEditorView:React.FC=()=>{
  const selectAsset=(asset:Asset)=>{setSourceId(asset.asset_id);setPickerOpen(false);setZoom(1);invalidate();};
  const uploadMask=async()=>{const canvas=maskRef.current;if(!canvas||!maskDirty)throw new Error('Pinte a área que deseja alterar.');const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error('Não foi possível gerar a máscara.')),'image/png'));const file=new File([blob],`mask-${Date.now()}.png`,{type:'image/png'});const asset=await assetService.uploadAsset({file,name:'Máscara de inpaint'});await apiRequest(`/api/assets/${encodeURIComponent(asset.asset_id)}`,{method:'PATCH',body:JSON.stringify({media_metadata:{editor_mask:true}})});return asset;};
 
- const buildRequest=async()=>{if(!source)throw new Error('Selecione uma imagem.');if(!model)throw new Error('Nenhum modelo elegível está disponível.');if(promptRequired(tool,backgroundMode)&&!prompt.trim())throw new Error(tool==='background-remove-replace'?'Descreva o novo fundo.':'Descreva a edição desejada.');const references:any[]=[{asset_id:source.asset_id,slot_type:'GENERAL',role:'SOURCE'}];if(tool==='inpaint-mask'){const mask=await uploadMask();references.push({asset_id:mask.asset_id,slot_type:'GENERAL',role:'MASK'});}const operation:Record<Tool,string>={'image-edit':'EDIT','inpaint-mask':'INPAINT','background-remove-replace':backgroundMode==='TRANSPARENT'?'BACKGROUND_REMOVE':'BACKGROUND_REPLACE','outpaint':'OUTPAINT','upscale':'UPSCALE','variations':'VARIATIONS'};const requestControls:any={output_format:'png',number_of_outputs:1,editor_operation:operation[tool]};if(controls.has('resolution'))requestControls.resolution=resolution;if(controls.has('aspect_ratio'))requestControls.aspect_ratio=aspectRatio;if(tool==='background-remove-replace')requestControls.background_mode=backgroundMode;if(tool==='variations')requestControls.variation_strength=variationStrength;return{capability_id:tool,model_id:modelId==='AUTO'?'AUTO':model.model_id,prompt:prompt.trim(),references,controls:requestControls};};
- const quote=async()=>{setBusy('quote');setError('');try{const created=await editorClient.create(await buildRequest());setJob(await editorClient.quote(created.job_id));setPollCount(0);}catch(err){setError(errorText(err));}finally{setBusy('');}};
- const execute=async()=>{if(!job)return;setBusy('execute');setError('');try{setJob(await editorClient.queue(job.job_id));setPollCount(0);}catch(err){setError(errorText(err));}finally{setBusy('');}};
+ const buildRequest=async():Promise<UniversalCreationRequest>=>{if(!source)throw new Error('Selecione uma imagem.');if(!routeReady)throw new Error('Nenhum modelo elegível está disponível.');if(modelId!=='AUTO'&&!model)throw new Error('O modelo selecionado não está mais disponível.');if(promptRequired(tool,backgroundMode)&&!prompt.trim())throw new Error(tool==='background-remove-replace'?'Descreva o novo fundo.':'Descreva a edição desejada.');const references:any[]=[{asset_id:source.asset_id,slot_type:'GENERAL',role:'SOURCE'}];if(tool==='inpaint-mask'){const mask=await uploadMask();references.push({asset_id:mask.asset_id,slot_type:'GENERAL',role:'MASK'});}const operation:Record<Tool,string>={'image-edit':'EDIT','inpaint-mask':'INPAINT','background-remove-replace':backgroundMode==='TRANSPARENT'?'BACKGROUND_REMOVE':'BACKGROUND_REPLACE','outpaint':'OUTPAINT','upscale':'UPSCALE','variations':'VARIATIONS'};const requestControls:any={number_of_outputs:1,editor_operation:operation[tool]};if(controls.has('resolution')&&resolutionOptions.length)requestControls.resolution=resolution;if(controls.has('aspect_ratio')&&ratioOptions.length)requestControls.aspect_ratio=aspectRatio;if(tool==='background-remove-replace'&&controls.has('background_mode'))requestControls.background_mode=backgroundMode;if(tool==='variations'&&controls.has('variation_strength'))requestControls.variation_strength=variationStrength;return{capability_id:tool,model_id:modelId==='AUTO'?'AUTO':model!.model_id,prompt:prompt.trim(),references,controls:requestControls};};
+ const quote=async()=>{setBusy('quote');setError('');try{const request=await buildRequest();const preview=await universalGenerationClient.quote(request);setQuotedRequest(request);setQuoteState(preview);setJob(null);setPollCount(0);}catch(err){setQuoteState(null);setQuotedRequest(null);setError(errorText(err));}finally{setBusy('');}};
+ const execute=async()=>{if(!quoteState||!quotedRequest)return;setBusy('execute');setError('');try{setJob(await universalGenerationClient.create(quotedRequest,quoteState));setPollCount(0);}catch(err:any){if(['ROUTING_V2_PRICE_CHANGED','PRICE_CHANGED_REQUOTE_REQUIRED'].includes(String(err?.code||''))){try{const refreshed=await universalGenerationClient.quote(quotedRequest);setQuoteState(refreshed);}catch{}setError('O preço mudou. Revise a nova cotação antes de executar.');}else setError(errorText(err));}finally{setBusy('');}};
  const useResultAsSource=()=>{if(!result)return;setImages(rows=>[result,...rows.filter(row=>row.asset_id!==result.asset_id)]);setSourceId(result.asset_id);setZoom(1);invalidate();};
 
- const price=job?.quote?.credit_price??null,balance=wallet?.available_credits??0,insufficient=price!=null&&balance<price;
- const processing=Boolean(job&&['QUEUED','RUNNING'].includes(job.status));
+ const price=quoteState?.credit_price??null,balance=wallet?.available_credits??0,insufficient=price!=null&&balance<price;
+ const processing=Boolean(job&&!['SUCCEEDED','FAILED','CANCELLED','REFUNDED'].includes(job.status));
  const actionLabel=tool==='image-edit'?'Aplicar edição':tool==='inpaint-mask'?'Aplicar inpaint':tool==='background-remove-replace'?(backgroundMode==='REPLACE'?'Substituir fundo':'Remover fundo'):tool==='outpaint'?'Expandir imagem':tool==='upscale'?'Fazer upscale':'Criar variação';
 
  const topbar=<div className="flex min-h-[60px] flex-wrap items-center gap-2 px-3 py-2.5 sm:px-4 lg:px-5">
@@ -110,7 +114,7 @@ export const ImageEditorView:React.FC=()=>{
 
  const tools=<div className="flex gap-2 overflow-x-auto xl:flex-col xl:overflow-visible">{TOOLS.map(item=>{const Icon=item.icon;const selected=tool===item.id;const hasRoute=models.some(model=>model.capabilities?.some((cap:any)=>cap.id===item.id));return <button key={item.id} onClick={()=>setTool(item.id)} title={hasRoute||catalogLoading?item.label:`${item.label} · rota de IA indisponível no momento`} className={`min-w-[72px] rounded-xl border px-2 py-2.5 text-center transition xl:min-w-0 ${selected?'border-cyan-400/35 bg-cyan-400/[0.09] text-cyan-100 shadow-[inset_0_0_20px_rgba(34,211,238,.035)]':'border-white/[0.06] bg-white/[0.018] text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300'}`}><Icon className={`mx-auto h-4 w-4 ${selected?'text-cyan-300':hasRoute?'':'text-zinc-700'}`}/><span className="mt-1.5 block text-[8px] font-semibold leading-tight">{item.shortLabel}</span></button>;})}</div>;
 
- const canvas=<ImageEditorCanvas source={source} result={result} tool={tool} zoom={zoom} viewMode={viewMode} comparePosition={comparePosition} processing={processing} statusLabel={status(job)} maskRef={maskRef} onOpenPicker={()=>setPickerOpen(true)} onViewMode={setViewMode} onComparePosition={setComparePosition} onPointerDown={begin} onPointerMove={move} onPointerEnd={end}/>;
+ const canvas=<ImageEditorCanvas source={source} result={result} tool={tool} zoom={zoom} viewMode={viewMode} comparePosition={comparePosition} processing={processing} statusLabel={status(job,Boolean(quoteState))} maskRef={maskRef} onOpenPicker={()=>setPickerOpen(true)} onViewMode={setViewMode} onComparePosition={setComparePosition} onPointerDown={begin} onPointerMove={move} onPointerEnd={end}/>;
 
  const inspector=<div className="flex min-h-full flex-col p-4">
   <div className="border-b border-white/[0.06] pb-4"><span className="text-[8px] font-bold uppercase tracking-[.16em] text-cyan-400">Ferramenta ativa</span><div className="mt-2 flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-cyan-400/15 bg-cyan-400/[0.06]"><activeTool.icon className="h-4 w-4 text-cyan-300"/></span><div><h2 className="text-[12px] font-bold text-white">{activeTool.label}</h2><p className="mt-1 text-[9px] leading-relaxed text-zinc-500">{activeTool.description}</p></div></div></div>
@@ -135,7 +139,7 @@ export const ImageEditorView:React.FC=()=>{
    {error&&<div className="mb-3 rounded-xl border border-rose-400/15 bg-rose-400/[0.05] p-3 text-[9px] leading-relaxed text-rose-300">{error}</div>}
    <div className="mb-3 flex items-end justify-between gap-3"><div><span className="text-[8px] uppercase tracking-wider text-zinc-600">Preço</span><strong className="mt-0.5 block text-[11px] text-white">{price==null?'Calcule antes de executar':`${price.toLocaleString('pt-BR')} créditos`}</strong></div><div className="text-right"><span className="text-[8px] uppercase tracking-wider text-zinc-600">Saldo</span><strong className={`mt-0.5 block text-[10px] ${insufficient?'text-rose-300':'text-zinc-300'}`}>{balance.toLocaleString('pt-BR')} créditos</strong></div></div>
 
-   {!job?.quote?<button onClick={()=>void quote()} disabled={Boolean(busy)||catalogLoading||!routeReady||!model||!source} className="ia-generator-generate flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-40">{busy==='quote'?<LoaderCircle className="h-4 w-4 animate-spin"/>:<Sparkles className="h-4 w-4"/>}Calcular créditos</button>:['DRAFT','QUOTED'].includes(job.status)?<div className="grid grid-cols-[40px_1fr] gap-2"><button onClick={()=>void quote()} title="Recalcular" className="grid h-11 place-items-center rounded-xl border border-white/[0.08] text-zinc-500 hover:text-white"><RefreshCw className="h-3.5 w-3.5"/></button><button onClick={()=>void execute()} disabled={Boolean(busy)||insufficient} className="ia-generator-generate flex min-h-[44px] items-center justify-center gap-2 rounded-xl text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-40">{busy==='execute'?<LoaderCircle className="h-4 w-4 animate-spin"/>:<WandSparkles className="h-4 w-4"/>}{actionLabel}</button></div>:<button disabled className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] text-[9px] text-zinc-500">{processing&&<LoaderCircle className="h-3.5 w-3.5 animate-spin"/>}{status(job)}</button>}
+   {!quoteState?<button onClick={()=>void quote()} disabled={Boolean(busy)||catalogLoading||!routeReady||!source} className="ia-generator-generate flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-40">{busy==='quote'?<LoaderCircle className="h-4 w-4 animate-spin"/>:<Sparkles className="h-4 w-4"/>}Calcular créditos</button>:!job?<div className="grid grid-cols-[40px_1fr] gap-2"><button onClick={()=>void quote()} title="Recalcular" className="grid h-11 place-items-center rounded-xl border border-white/[0.08] text-zinc-500 hover:text-white"><RefreshCw className="h-3.5 w-3.5"/></button><button onClick={()=>void execute()} disabled={Boolean(busy)||insufficient} className="ia-generator-generate flex min-h-[44px] items-center justify-center gap-2 rounded-xl text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-40">{busy==='execute'?<LoaderCircle className="h-4 w-4 animate-spin"/>:<WandSparkles className="h-4 w-4"/>}{actionLabel}</button></div>:<button disabled className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] text-[9px] text-zinc-500">{processing&&<LoaderCircle className="h-3.5 w-3.5 animate-spin"/>}{status(job,Boolean(quoteState))}</button>}
 
    {job?.status==='SUCCEEDED'&&result&&<div className="mt-3 grid grid-cols-2 gap-2"><button onClick={useResultAsSource} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] text-[9px] text-zinc-300 hover:border-cyan-400/20 hover:text-cyan-200"><CheckCircle2 className="h-3.5 w-3.5"/>Usar como origem</button><button onClick={()=>{setViewMode('compare');setComparePosition(50);}} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] text-[9px] text-zinc-300 hover:border-cyan-400/20 hover:text-cyan-200"><RotateCcw className="h-3.5 w-3.5"/>Comparar</button></div>}
   </div>
