@@ -1,14 +1,14 @@
 import React,{useEffect,useState}from'react';
 import{AlertCircle,CheckCircle2,Clock,Loader2,PlayCircle}from'lucide-react';
 import{Generation}from'../../types/index.js';
-import{generationClient}from'../../services/generationClient.js';
+import{universalGenerationClient}from'../../services/universalGenerationClient.js';
 
 const credits=(v?:number)=>`${Math.max(0,Number(v||0)).toLocaleString('pt-BR')} créditos`;
 const isImage=(g:Generation)=>g.mode==='TEXT_TO_IMAGE'||g.mode==='IMAGE_TO_IMAGE';
 
 export const HistoryView:React.FC=()=>{
  const[items,setItems]=useState<Generation[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState('');
- useEffect(()=>{generationClient.list().then(setItems).catch(e=>setError(e?.message||'Falha ao carregar histórico.')).finally(()=>setLoading(false))},[]);
+ useEffect(()=>{universalGenerationClient.list().then(setItems).catch(e=>setError(e?.message||'Falha ao carregar histórico.')).finally(()=>setLoading(false))},[]);
  return <div className="ia-history space-y-7 pb-10">
   <header className="ia-view-header"><h1 className="ia-view-title">Histórico</h1><p className="ia-view-description">Resultados, status e créditos das suas gerações.</p></header>
   {loading?<div className="py-20 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-[var(--ia-text-3)]"/></div>
@@ -19,7 +19,7 @@ export const HistoryView:React.FC=()=>{
     <div className="min-w-0 flex-1">
      <div className="flex items-center gap-2"><p className="text-[13px] font-semibold text-[var(--ia-text-1)] truncate">{g.model_id}</p><span className="ia-badge">{g.status}</span></div>
      <p className="mt-1 text-[12px] text-[var(--ia-text-3)] truncate">{g.original_prompt||'Sem prompt'}</p>
-     <p className="mt-1.5 text-[10px] text-[var(--ia-text-4)]">{g.duration_seconds}s · {g.resolution} · {new Date(g.created_at).toLocaleString('pt-BR')}</p>
+     <p className="mt-1.5 text-[10px] text-[var(--ia-text-4)]">{[g.duration_seconds?`${g.duration_seconds}s`:null,g.resolution||null,new Date(g.created_at).toLocaleString('pt-BR')].filter(Boolean).join(' · ')}</p>
     </div>
     <div className="shrink-0 text-right"><p className="text-[12px] font-semibold text-[var(--ia-text-2)]">{credits(g.final_credit_cost??g.retail_credit_price)}</p>{g.result_url&&<a href={g.result_url} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex min-h-8 items-center gap-1 text-[11px] font-semibold text-sky-300 hover:text-sky-200"><PlayCircle className="w-3.5 h-3.5"/>Abrir</a>}</div>
    </article>)}</div>}

@@ -22,6 +22,7 @@ const guard=[requireAuth,requireAdmin] as const;
 
 adminRoutingV2Router.use(...guard,routingV2HealthAdminRoutes);
 
+adminRoutingV2Router.get('/admin/factory-reset/dry-run',...guard,async(_req,res)=>{try{return res.json({success:true,data:await factoryResetService.dryRun()});}catch(err){return error(res,err,'FACTORY_RESET_DRY_RUN_FAILED');}});
 adminRoutingV2Router.get('/admin/factory-reset/inventory',...guard,async(_req,res)=>{try{return res.json({success:true,data:await factoryResetService.inventory()});}catch(err){return error(res,err,'FACTORY_RESET_INVENTORY_FAILED');}});
 adminRoutingV2Router.post('/admin/factory-reset/snapshot',...guard,async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await factoryResetService.snapshot(req.user!.uid,req.body||{})});}catch(err){return error(res,err,'FACTORY_RESET_SNAPSHOT_FAILED');}});
 adminRoutingV2Router.post('/admin/factory-reset/execute',...guard,async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await factoryResetService.execute(req.body||{},req.user!.uid)});}catch(err){return error(res,err,'FACTORY_RESET_EXECUTION_FAILED');}});

@@ -1,39 +1,31 @@
 import fs from 'fs';
 import path from 'path';
 import {describe,expect,it} from 'vitest';
-const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
+const root=process.cwd();
+const read=(file:string)=>fs.readFileSync(path.join(root,file),'utf8');
+const exists=(file:string)=>fs.existsSync(path.join(root,file));
 
-describe('pricing repair closure',()=>{
- it('repairs published capabilities in bounded Cloudflare-safe batches',()=>{
+describe('pricing repair closure after Routing V2 cutover',()=>{
+ it('keeps the historical repair service isolated from the active API',()=>{
   const service=read('server/services/pricingRepairService.ts');
   expect(service).toContain('Math.min(2');
-  expect(service).toContain('targets.slice(safeCursor,safeCursor+safeLimit)');
   expect(service).toContain('next_cursor');
+  expect(exists('server/routes/adminPricingRoutes.ts')).toBe(false);
+  expect(read('server/routes/index.ts')).not.toContain('adminPricingRouter');
  });
 
- it('bootstraps provider pricing and retail pricing from a successful live quote',()=>{
-  const service=read('server/services/pricingRepairService.ts');
-  expect(service).toContain('providerPricingCatalogService.save');
-  expect(service).toContain('retailPricingService.resolveOrBootstrap');
-  expect(service).toContain("quote_mode:'LIVE_PROVIDER'");
+ it('uses Routing V2 bounded pricing sync as the active repair path',()=>{
+  const routes=read('server/routes/adminRoutingV2Routes.ts');
+  const sync=read('server/routing-v2/priceSyncService.ts');
+  const ui=read('src/components/admin/AdminRoutingV2.tsx');
+  expect(routes).toContain('routingV2PriceSyncService.runBatch');
+  expect(routes).toContain('cursor:req.body?.cursor');
+  expect(routes).toContain('limit:req.body?.limit');
+  expect(sync).toContain('next_cursor');
+  expect(ui).toContain('routingV2AdminService.syncPricing');
  });
 
- it('enables quotable capabilities and hides capabilities with no valid quote',()=>{
-  const service=read('server/services/pricingRepairService.ts');
-  expect(service).toContain("actions.push('CAPABILITY_ENABLED')");
-  expect(service).toContain("actions.push('CAPABILITY_DISABLED')");
-  expect(service).toContain("status:'INACTIVE'");
-  expect(service).toContain("actions.push('MAPPING_DISABLED')");
- });
-
- it('does not freeze system-managed policies after Stable publication or repair',()=>{
-  const catalog=read('server/beta/catalog/catalogPolicyService.ts');
-  const publication=read('server/services/stableModelPublicationService.ts');
-  expect(catalog).toContain("!String(existing.updated_by).startsWith('system:')");
-  expect(publication).toContain("'system:stable-publish'");
- });
-
- it('uses edit and extend endpoint suffixes for reference-to-video capabilities',()=>{
+ it('keeps provider endpoint normalization used by transitional adapters',()=>{
   const wave=read('server/adapters/wavespeedProviderAdapter.ts');
   const atlas=read('server/adapters/atlasProviderAdapter.ts');
   for(const adapter of [wave,atlas]){
@@ -41,13 +33,5 @@ describe('pricing repair closure',()=>{
    expect(adapter).toContain("capabilityId==='video-extend'");
    expect(adapter).toContain('normalizeVideoIdentifier');
   }
- });
-
- it('exposes a one-click repair action in Pricing & Credits',()=>{
-  const routes=read('server/routes/adminPricingRoutes.ts');
-  const ui=read('src/components/admin/AdminPricing.tsx');
-  expect(routes).toContain("post('/admin/pricing/repair'");
-  expect(ui).toContain('Corrigir todos os preços');
-  expect(ui).toContain('runPricingRepair(cursor,2)');
  });
 });
