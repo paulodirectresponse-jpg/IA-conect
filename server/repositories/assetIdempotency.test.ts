@@ -124,7 +124,7 @@ describe('generated asset architecture guardrails',()=>{
     const fs=await import('node:fs');
     const source=fs.readFileSync('src/components/workspace/CreationGallery.tsx','utf8');
     expect(source).toContain('assetIdentity(asset)');
-    expect(source).toContain('source_output_index:index');
+    expect(source).toMatch(/source_output_index:\s*index/);
     expect(source).not.toContain("identity=asset.public_url||asset.asset_id");
   });
 });

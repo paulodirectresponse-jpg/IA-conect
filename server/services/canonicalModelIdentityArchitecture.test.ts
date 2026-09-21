@@ -30,7 +30,7 @@ describe('canonical model identity across generation and editors',()=>{
 
   it('keeps editor-only image models out of the Stable image generator',()=>{
     const view=read('src/components/views/UnifiedImageCreateView.tsx');
-    expect(view).toContain("(m.supported_modes||[]).includes('TEXT_TO_IMAGE')");
+    expect(view).toMatch(/\(m\.supported_modes\s*\|\|\s*\[\]\)\.includes\(["']TEXT_TO_IMAGE["']\)/);
   });
 
   it('keeps one provider proposal per canonical capability instead of one per duplicated model',()=>{
@@ -56,8 +56,8 @@ describe('canonical model identity across generation and editors',()=>{
   it('shows Stable image and video models only when their generation route is safe',()=>{
     const video=read('src/components/views/CreateView.tsx');
     const image=read('src/components/views/UnifiedImageCreateView.tsx');
-    expect(video).toContain("workspaceService.listModelRoutes('text-to-video')");
-    expect(image).toContain("workspaceService.listModelRoutes('text-to-image')");
+    expect(video).toMatch(/workspaceService\.listModelRoutes\(["']text-to-video["']\)/);
+    expect(image).toMatch(/workspaceService\.listModelRoutes\(["']text-to-image["']\)/);
   });
 
   it('lets WaveSpeed use an exact verified mapping identifier for newly added image models',()=>{

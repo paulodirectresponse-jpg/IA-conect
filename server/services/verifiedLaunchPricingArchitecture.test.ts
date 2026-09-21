@@ -35,7 +35,7 @@ describe('verified Stable launch pricing',()=>{
     const view=read('src/components/views/MusicCreateView.tsx');
     expect(registry).toContain("control==='output_format'&&id==='music'&&model.model_id==='ace-step-music'");
     expect(view).toContain('supportsFormat');
-    expect(view).toContain('output_format:supportsFormat?format:undefined');
+    expect(view).toMatch(/output_format:\s*supportsFormat\s*\?\s*format\s*:\s*undefined/);
   });
 
   it('restores authoritative pricing sync without reintroducing provider fan-out',()=>{

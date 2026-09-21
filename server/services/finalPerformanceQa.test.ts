@@ -36,9 +36,9 @@ describe('stage 8 final QA gates',()=>{
     const gallery=read('src/components/workspace/CreationGallery.tsx');
     expect(gallery).toContain('generationClient.list(100)');
     expect(gallery).toContain('generationClient.statusBatch(activeGenerationIds)');
-    expect(gallery).toContain("document.addEventListener('visibilitychange',onVisibility)");
-    expect(gallery).toContain('document.hidden?12000:2200');
-    expect(gallery).toContain('document.hidden?12000:150');
+    expect(gallery).toMatch(/document\.addEventListener\(["']visibilitychange["'],\s*onVisibility\)/);
+    expect(gallery).toMatch(/document\.hidden\s*\?\s*12000\s*:\s*2200/);
+    expect(gallery).toMatch(/document\.hidden\s*\?\s*12000\s*:\s*150/);
   });
 
   it('keeps cancellation, insufficient-funds and price-change protections intact',()=>{
@@ -48,7 +48,7 @@ describe('stage 8 final QA gates',()=>{
     expect(service).toContain('creditWalletService.releaseForGeneration(userId,id)');
     expect(service).toContain("code:'PRICE_CHANGED_REQUOTE_REQUIRED'");
     expect(image).toContain("Créditos insuficientes para esta geração.");
-    expect(video).toContain("e?.code!=='PRICE_CHANGED_REQUOTE_REQUIRED'");
+    expect(video).toMatch(/e\?\.code\s*!==\s*["']PRICE_CHANGED_REQUOTE_REQUIRED["']/);
   });
 
   it('does not add a service worker that could cache authenticated API responses',()=>{

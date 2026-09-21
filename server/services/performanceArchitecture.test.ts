@@ -29,9 +29,9 @@ describe('performance architecture stages 4 and 5',()=>{
     const routes=read('server/routes/generationRoutes.ts');
     expect(image).toContain('generationClient.quoteBatch(requests)');
     expect(video).toContain('generationClient.quoteBatch(requests)');
-    expect(client).toContain("'/api/generations/quote-batch'");
-    expect(routes).toContain("'/generations/quote-batch'");
-    expect(routes).toContain('pricing:{model_id:draft.model_id');
+    expect(client).toMatch(/["']\/api\/generations\/quote-batch["']/);
+    expect(routes).toMatch(/["']\/generations\/quote-batch["']/);
+    expect(routes).toMatch(/pricing:\s*\{\s*model_id:\s*draft\.model_id/);
   });
 
   it('polls only active generation ids and batch-reads their records',()=>{
@@ -40,8 +40,8 @@ describe('performance architecture stages 4 and 5',()=>{
     const routes=read('server/routes/generationRoutes.ts');
     const repo=read('server/repositories/generationRepository.ts');
     expect(gallery).toContain('generationClient.statusBatch(activeGenerationIds)');
-    expect(client).toContain("'/api/generations/status-batch'");
-    expect(routes).toContain("'/generations/status-batch'");
+    expect(client).toMatch(/["']\/api\/generations\/status-batch["']/);
+    expect(routes).toMatch(/["']\/generations\/status-batch["']/);
     expect(repo).toContain('firestoreAdminRest.batchGet(paths)');
   });
 

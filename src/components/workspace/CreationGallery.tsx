@@ -1,59 +1,794 @@
-import React,{useCallback,useEffect,useMemo,useState}from'react';
-import{AudioLines,Box,Download,Edit3,Film,Image as ImageIcon,Loader2,MoreHorizontal,Music2,RotateCcw,Search,Sparkles,XCircle}from'lucide-react';
-import{Asset,Generation}from'../../types/index.js';
-import{assetService}from'../../services/assetService.js';
-import{generationClient}from'../../services/generationClient.js';
-import{threeDGenerationClient}from'../../services/threeDGenerationClient.js';
-import{downloadMediaDirect,safeDownloadName}from'../../utils/mediaDownload.js';
-import{isGenerationTerminal,isGenerationWorking,mergeGenerationRows,upsertGeneration}from'../../utils/generationCollection.js';
-import{StableModel3DPreview}from'./StableModel3DPreview.js';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  AudioLines,
+  Box,
+  Download,
+  Edit3,
+  Film,
+  Image as ImageIcon,
+  Loader2,
+  MoreHorizontal,
+  Music2,
+  RotateCcw,
+  Search,
+  Sparkles,
+  XCircle,
+} from "lucide-react";
+import { Asset, Generation } from "../../types/index.js";
+import { assetService } from "../../services/assetService.js";
+import { generationClient } from "../../services/generationClient.js";
+import {
+  downloadMediaDirect,
+  safeDownloadName,
+} from "../../utils/mediaDownload.js";
+import {
+  isGenerationTerminal,
+  isGenerationWorking,
+  mergeGenerationRows,
+  upsertGeneration,
+} from "../../utils/generationCollection.js";
+import { StableModel3DPreview } from "./StableModel3DPreview.js";
 
-export type CreationGalleryFilter='VIDEO'|'IMAGE'|'VOICE'|'MUSIC'|'THREE_D'|'ALL';
-type CreationKind=Exclude<CreationGalleryFilter,'ALL'>;
-interface Props{defaultFilter:CreationGalleryFilter;title?:string;subtitle?:string;liveGenerations?:Generation[];onGenerationSettled?:()=>void;onRestoreGeneration?:(generation:Generation)=>void;onUseImageAsReference?:(asset:Asset)=>void;onEditImage?:(asset:Asset)=>void;onCreateVideoFromImage?:(asset:Asset)=>void;onActiveCountChange?:(count:number)=>void;}
-type MediaGroup={id:string;generation?:Generation;assets:Asset[];ratio:string;kind:CreationKind;title:string;meta:string;searchText:string};
-const isImageGeneration=(g:Generation)=>g.mode==='TEXT_TO_IMAGE'||g.mode==='IMAGE_TO_IMAGE';
-const generationKind=(g:Generation):CreationKind=>g.capability_id==='music'?'MUSIC':g.capability_id==='text-to-speech'||g.mode==='TEXT_TO_SPEECH'?'VOICE':isImageGeneration(g)?'IMAGE':'VIDEO';
-const cssRatio=(r?:string)=>(r||'16:9').replace(':',' / ');
-const ratioValue=(r?:string)=>{const[w,h]=String(r||'16:9').split(':').map(Number);return w>0&&h>0?w/h:16/9};
-const widthClassFor=(r?:string)=>{const v=ratioValue(r);if(v<.8)return'w-[196px] md:w-[218px] xl:w-[228px]';if(v<1.2)return'w-[244px] md:w-[266px] xl:w-[280px]';if(v<1.6)return'w-[288px] md:w-[314px] xl:w-[330px]';return'w-[336px] md:w-[368px] xl:w-[388px]'};
-const generatedAsset=(a:Asset)=>!a.deleted_at&&Boolean(a.source_generation_id||a.source_job_id||String(a.origin||'').toUpperCase()==='GENERATED');
-const outputIndex=(a:Asset)=>{if(Number.isInteger(a.source_output_index)&&Number(a.source_output_index)>=0)return Number(a.source_output_index);const m=String(a.storage_path||'').match(/\/(\d+)$/);return m?Math.max(0,Number(m[1])-1):null};
-const assetIdentity=(a:Asset)=>{const sourceId=String(a.source_generation_id||a.source_job_id||'');const index=outputIndex(a);return sourceId&&index!==null?`${sourceId}:${index}`:`${sourceId}:${a.storage_path||a.public_url||a.asset_id}`};
-function runtimeAsset(g:Generation,url:string,index:number,kind:'IMAGE'|'VIDEO'):Asset{return{asset_id:`runtime-${g.generation_id}-${index}`,owner_user_id:g.user_id,type:kind,category:'GENERIC',name:kind==='IMAGE'?`Imagem gerada ${index+1}`:`Vídeo gerado ${index+1}`,alias:`resultado_${g.generation_id.slice(-6)}_${index+1}`,storage_path:'',public_url:url,thumbnail_url:kind==='IMAGE'?(index===0?(g.thumbnail_url||url):url):g.thumbnail_url||undefined,mime_type:kind==='IMAGE'?'image/png':'video/mp4',size_bytes:0,status:'READY',source_generation_id:g.generation_id,source_output_index:index,created_at:g.completed_at||g.created_at,updated_at:g.completed_at||g.created_at}}
+export type CreationGalleryFilter =
+  "VIDEO" | "IMAGE" | "VOICE" | "MUSIC" | "THREE_D" | "ALL";
+type CreationKind = Exclude<CreationGalleryFilter, "ALL">;
+interface Props {
+  defaultFilter: CreationGalleryFilter;
+  title?: string;
+  subtitle?: string;
+  liveGenerations?: Generation[];
+  onGenerationSettled?: () => void;
+  onRestoreGeneration?: (generation: Generation) => void;
+  onUseImageAsReference?: (asset: Asset) => void;
+  onEditImage?: (asset: Asset) => void;
+  onCreateVideoFromImage?: (asset: Asset) => void;
+  onActiveCountChange?: (count: number) => void;
+}
+type MediaGroup = {
+  id: string;
+  generation?: Generation;
+  assets: Asset[];
+  ratio: string;
+  kind: CreationKind;
+  title: string;
+  meta: string;
+  searchText: string;
+};
+const isImageGeneration = (g: Generation) =>
+  g.capability_id === "text-to-image" || g.capability_id === "image-to-image" ||
+  g.mode === "TEXT_TO_IMAGE" || g.mode === "IMAGE_TO_IMAGE";
+const generationKind = (g: Generation): CreationKind =>
+  g.capability_id === "music"
+    ? "MUSIC"
+    : ["text-to-3d","image-to-3d","multi-image-to-3d"].includes(String(g.capability_id||""))
+      ? "THREE_D"
+    : g.capability_id === "text-to-speech" || g.mode === "TEXT_TO_SPEECH"
+      ? "VOICE"
+      : isImageGeneration(g)
+        ? "IMAGE"
+        : "VIDEO";
+const cssRatio = (r?: string) => (r || "16:9").replace(":", " / ");
+const ratioValue = (r?: string) => {
+  const [w, h] = String(r || "16:9")
+    .split(":")
+    .map(Number);
+  return w > 0 && h > 0 ? w / h : 16 / 9;
+};
+const widthClassFor = (r?: string) => {
+  const v = ratioValue(r);
+  if (v < 0.8) return "w-[196px] md:w-[218px] xl:w-[228px]";
+  if (v < 1.2) return "w-[244px] md:w-[266px] xl:w-[280px]";
+  if (v < 1.6) return "w-[288px] md:w-[314px] xl:w-[330px]";
+  return "w-[336px] md:w-[368px] xl:w-[388px]";
+};
+const generatedAsset = (a: Asset) =>
+  !a.deleted_at &&
+  Boolean(
+    a.source_generation_id ||
+    a.source_job_id ||
+    String(a.origin || "").toUpperCase() === "GENERATED",
+  );
+const outputIndex = (a: Asset) => {
+  if (
+    Number.isInteger(a.source_output_index) &&
+    Number(a.source_output_index) >= 0
+  )
+    return Number(a.source_output_index);
+  const m = String(a.storage_path || "").match(/\/(\d+)$/);
+  return m ? Math.max(0, Number(m[1]) - 1) : null;
+};
+const assetIdentity = (a: Asset) => {
+  const sourceId = String(a.source_generation_id || a.source_job_id || "");
+  const index = outputIndex(a);
+  return sourceId && index !== null
+    ? `${sourceId}:${index}`
+    : `${sourceId}:${a.storage_path || a.public_url || a.asset_id}`;
+};
+function runtimeAsset(
+  g: Generation,
+  url: string,
+  index: number,
+  kind: "IMAGE" | "VIDEO",
+): Asset {
+  return {
+    asset_id: `runtime-${g.generation_id}-${index}`,
+    owner_user_id: g.user_id,
+    type: kind,
+    category: "GENERIC",
+    name:
+      kind === "IMAGE"
+        ? `Imagem gerada ${index + 1}`
+        : `Vídeo gerado ${index + 1}`,
+    alias: `resultado_${g.generation_id.slice(-6)}_${index + 1}`,
+    storage_path: "",
+    public_url: url,
+    thumbnail_url:
+      kind === "IMAGE"
+        ? index === 0
+          ? g.thumbnail_url || url
+          : url
+        : g.thumbnail_url || undefined,
+    mime_type: kind === "IMAGE" ? "image/png" : "video/mp4",
+    size_bytes: 0,
+    status: "READY",
+    source_generation_id: g.generation_id,
+    source_output_index: index,
+    created_at: g.completed_at || g.created_at,
+    updated_at: g.completed_at || g.created_at,
+  };
+}
 
-export const CreationGallery:React.FC<Props>=({defaultFilter,title='Minhas criações',subtitle='Seu histórico de gerações fica disponível aqui.',liveGenerations=[],onGenerationSettled,onRestoreGeneration,onUseImageAsReference,onEditImage,onCreateVideoFromImage,onActiveCountChange})=>{
- const[filter,setFilter]=useState<CreationGalleryFilter>(defaultFilter),[generations,setGenerations]=useState<Generation[]>([]),[assets,setAssets]=useState<Asset[]>([]),[threeDAssets,setThreeDAssets]=useState<Asset[]>([]),[loading,setLoading]=useState(true),[query,setQuery]=useState(''),[error,setError]=useState(''),[cancellingId,setCancellingId]=useState<string|null>(null),[openMenuId,setOpenMenuId]=useState<string|null>(null);
- useEffect(()=>setFilter(defaultFilter),[defaultFilter]);
- const refresh=useCallback(async(loadAssets=true)=>{try{const g=await generationClient.list(100);setGenerations(g||[]);if(loadAssets){const[a,d]=await Promise.all([assetService.listAssets(),threeDGenerationClient.listAssets().catch(()=>[] as Asset[])]);setAssets(a||[]);setThreeDAssets(d||[])}}catch{}finally{setLoading(false)}},[]);
- useEffect(()=>{void refresh();let refreshTimer:number|undefined;const generationHandler=(event:Event)=>{const raw=(event as CustomEvent<any>).detail,next=raw?.generation||raw;if(next?.generation_id)setGenerations(rows=>upsertGeneration(rows,next as Generation));else{if(refreshTimer)window.clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void refresh(true),250)}};const creationsHandler=()=>{if(refreshTimer)window.clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void refresh(true),150)};window.addEventListener('generation:updated',generationHandler);window.addEventListener('creations:updated',creationsHandler);return()=>{window.removeEventListener('generation:updated',generationHandler);window.removeEventListener('creations:updated',creationsHandler);if(refreshTimer)window.clearTimeout(refreshTimer)}},[refresh]);
- useEffect(()=>{if(!onRestoreGeneration||!generations.length)return;const raw=sessionStorage.getItem('ia-connect:community-recreate');if(!raw)return;try{const id=JSON.parse(raw)?.generation_id,match=id?generations.find(g=>g.generation_id===id):null;if(match){sessionStorage.removeItem('ia-connect:community-recreate');setFilter(generationKind(match));onRestoreGeneration(match)}}catch{sessionStorage.removeItem('ia-connect:community-recreate')}},[generations,onRestoreGeneration]);
- const mergedGenerations=useMemo(()=>mergeGenerationRows(liveGenerations,generations),[generations,liveGenerations]);
- const activeGenerationIds=useMemo(()=>mergedGenerations.filter(g=>isGenerationWorking(g.status)).map(g=>g.generation_id).sort(),[mergedGenerations]);
- const activeKey=activeGenerationIds.join('|'),activeCount=activeGenerationIds.length;
- useEffect(()=>{onActiveCountChange?.(activeCount)},[activeCount,onActiveCountChange]);
- useEffect(()=>{if(!activeKey)return;let disposed=false,timer:number|undefined;const activeIds=new Set(activeGenerationIds);const schedule=(delay:number)=>{if(disposed)return;if(timer)window.clearTimeout(timer);timer=window.setTimeout(tick,delay)};const tick=async()=>{try{const rows=await generationClient.statusBatch(activeGenerationIds);if(disposed)return;setGenerations(current=>mergeGenerationRows(current,rows||[]));const settled=(rows||[]).some(g=>activeIds.has(g.generation_id)&&isGenerationTerminal(g.status));if(settled){const[nextAssets,next3d]=await Promise.all([assetService.listAssets().catch(()=>null),threeDGenerationClient.listAssets().catch(()=>null)]);if(disposed)return;if(nextAssets)setAssets(nextAssets);if(next3d)setThreeDAssets(next3d);onGenerationSettled?.();}}catch{}finally{schedule(document.hidden?12000:2200)}};const onVisibility=()=>schedule(document.hidden?12000:150);document.addEventListener('visibilitychange',onVisibility);schedule(document.hidden?5000:800);return()=>{disposed=true;document.removeEventListener('visibilitychange',onVisibility);if(timer)window.clearTimeout(timer)}},[activeKey,onGenerationSettled]);
- const groups=useMemo<MediaGroup[]>(()=>{
-  const generated=assets.filter(generatedAsset),generationById=new Map<string,Generation>(mergedGenerations.map(g=>[g.generation_id,g] as [string,Generation])),byGeneration=new Map<string,Asset[]>();
-  for(const asset of generated){const id=String(asset.source_generation_id||'');if(!id)continue;const bucket=byGeneration.get(id)||[],identity=assetIdentity(asset);if(!bucket.some(x=>assetIdentity(x)===identity))bucket.push(asset);byGeneration.set(id,bucket)}
-  const visualGroups=mergedGenerations.filter(g=>['IMAGE','VIDEO'].includes(generationKind(g))).map(g=>{const kind=generationKind(g) as 'IMAGE'|'VIDEO',groupAssets=[...(byGeneration.get(g.generation_id)||[])],urls=Array.from(new Set([...(g.result_urls||[]),g.result_url].filter(Boolean).map(String))),existing=new Set(groupAssets.map(assetIdentity));urls.forEach((url,i)=>{const runtime=runtimeAsset(g,url,i,kind);if(!existing.has(assetIdentity(runtime)))groupAssets.push(runtime)});return{id:`generation:${g.generation_id}`,generation:g,assets:groupAssets,ratio:g.aspect_ratio||'16:9',kind,title:g.original_prompt||'Geração sem título',meta:`${g.model_id} · ${g.aspect_ratio||'16:9'} · ${g.resolution||'-'}`,searchText:`${g.original_prompt||''} ${g.model_id||''}`}});
-  const audioBySource=new Map<string,Asset[]>();
-  for(const asset of generated.filter(item=>item.type==='AUDIO')){const source=String(asset.source_job_id||asset.source_generation_id||asset.asset_id),bucket=audioBySource.get(source)||[];if(!bucket.some(x=>assetIdentity(x)===assetIdentity(asset)))bucket.push(asset);audioBySource.set(source,bucket)}
-  const audioGroups=Array.from(audioBySource.entries()).map(([source,groupAssets])=>{const first=[...groupAssets].sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at))[0],generation=first?.source_generation_id?generationById.get(String(first.source_generation_id)):undefined,capability=String(first?.media_metadata?.capability_id||generation?.capability_id||''),kind:CreationKind=capability==='music'?'MUSIC':'VOICE',model=first?.source_model_id||(kind==='MUSIC'?'Música':'Voz'),label=kind==='MUSIC'?'Música':'Voz';return{id:`audio:${source}`,generation,assets:groupAssets,ratio:'16:9',kind,title:first?.name||(kind==='MUSIC'?'Música gerada':'Voz gerada'),meta:`${model} · ${label}${first?.duration_seconds?` · ${Math.round(first.duration_seconds)}s`:''}`,searchText:`${first?.name||''} ${model} ${label}`}});
-  const modelBySource=new Map<string,Asset[]>();
-  for(const asset of threeDAssets.filter(item=>item.type==='MODEL_3D'&&!item.deleted_at)){const source=String(asset.source_job_id||asset.source_generation_id||asset.asset_id),bucket=modelBySource.get(source)||[];if(!bucket.some(x=>assetIdentity(x)===assetIdentity(asset)))bucket.push(asset);modelBySource.set(source,bucket)}
-  const modelGroups=Array.from(modelBySource.entries()).map(([source,groupAssets])=>{const first=[...groupAssets].sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at))[0],model=first?.source_model_id||'Modelo 3D';return{id:`3d:${source}`,assets:groupAssets,ratio:'16:10',kind:'THREE_D' as CreationKind,title:first?.name||'Modelo 3D gerado',meta:`${model} · GLB 3D`,searchText:`${first?.name||''} ${model} 3D GLB`}});
-  return[...visualGroups,...audioGroups,...modelGroups].sort((a,b)=>{const aDate=a.generation?.created_at||a.assets[0]?.created_at||'',bDate=b.generation?.created_at||b.assets[0]?.created_at||'';return Date.parse(bDate)-Date.parse(aDate)});
- },[assets,threeDAssets,mergedGenerations]);
- const visibleGroups=useMemo(()=>{const q=query.trim().toLowerCase();return groups.filter(group=>(filter==='ALL'||group.kind===filter)&&(!q||group.searchText.toLowerCase().includes(q)))},[groups,filter,query]);
- const download=async(asset:Asset)=>{if(!asset.public_url)return;setError('');try{const filename=asset.type==='MODEL_3D'?`${(asset.name||'modelo-3d').replace(/[^a-zA-Z0-9._-]+/g,'-')}${/\.glb$/i.test(asset.name||'')?'':'.glb'}`:safeDownloadName(asset.name,asset.type==='VIDEO'?'VIDEO':asset.type==='AUDIO'?'AUDIO':'IMAGE');await downloadMediaDirect(asset.public_url,filename)}catch(err:any){setError(err?.message||'Não foi possível baixar este arquivo.')}};
- const cancel=async(g:Generation)=>{if(cancellingId||!isGenerationWorking(g.status))return;if(!window.confirm('Cancelar esta geração? Os créditos reservados serão liberados somente se o cancelamento for permitido neste estágio.'))return;setError('');setCancellingId(g.generation_id);setGenerations(rows=>rows.map(x=>x.generation_id===g.generation_id?({...x,status:'CANCELLING'} as Generation):x));try{const updated=await generationClient.cancel(g.generation_id);setGenerations(rows=>upsertGeneration(rows,updated));onGenerationSettled?.();window.dispatchEvent(new CustomEvent('generation:updated',{detail:{generation:updated}}))}catch(err:any){setError(err?.message||'Não foi possível cancelar esta geração. Ela pode já estar em processamento pelo provedor.');await refresh()}finally{setCancellingId(null)}};
- const menuItem=(label:string,onClick:()=>void,icon:React.ReactNode)=><button type="button" onClick={()=>{setOpenMenuId(null);onClick()}} className="w-full px-3 py-2 flex items-center gap-2 text-left text-[10px] text-zinc-200 hover:bg-white/[0.06] transition-colors">{icon}<span>{label}</span></button>;
- const filters:CreationGalleryFilter[]=['VIDEO','IMAGE','VOICE','MUSIC','THREE_D','ALL'];
- const labelFor=(value:CreationGalleryFilter)=>value==='VIDEO'?'Vídeos':value==='IMAGE'?'Imagens':value==='VOICE'?'Voz':value==='MUSIC'?'Música':value==='THREE_D'?'3D':'Todos';
- const isAudioKind=(kind:CreationKind)=>kind==='VOICE'||kind==='MUSIC';
- return <main className="ia-creation-gallery flex-1 min-w-0 h-full overflow-y-auto">
-  <header className="ia-creation-gallery-header sticky top-0 z-20 px-5 lg:px-6 pt-5 pb-3 border-b border-white/[0.055] bg-[#0b0e13]/95 backdrop-blur-xl"><div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-3"><div><div className="flex items-center gap-2"><h2 className="text-[20px] font-bold tracking-tight text-white">{title}</h2>{activeCount>0&&<span className="rounded-full border border-cyan-300/15 bg-cyan-300/[0.07] px-2 py-0.5 text-[8px] font-bold text-cyan-200">{activeCount} em andamento</span>}</div><p className="mt-0.5 text-[11px] text-zinc-500">{subtitle}</p></div><div className="flex flex-wrap items-center gap-2"><div className="relative w-56 max-w-full"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar criações..." className="w-full h-9 pl-9 pr-3 rounded-xl bg-white/[0.035] border border-white/[0.07] text-[10px] text-zinc-300 outline-none"/></div><div className="flex flex-wrap gap-1.5">{filters.map(v=><button key={v} onClick={()=>setFilter(v)} className={`px-3 py-1.5 rounded-lg border text-[9px] font-semibold transition-colors ${filter===v?'border-cyan-300/25 bg-cyan-300/10 text-cyan-200':'border-white/[0.06] text-zinc-600 hover:text-zinc-300'}`}>{labelFor(v)}</button>)}</div></div></div>{error&&<p className="mt-2 text-[9px] text-rose-400">{error}</p>}</header>
-  <div className="p-5 lg:p-6">{loading&&!visibleGroups.length?<div className="min-h-[420px] grid place-items-center"><Loader2 className="w-6 h-6 animate-spin text-cyan-300"/></div>:visibleGroups.length?<div className="space-y-7">{visibleGroups.map(group=>{const g=group.generation,working=Boolean(g&&isGenerationWorking(g.status)),busy=Boolean(g&&(cancellingId===g.generation_id||g.status==='CANCELLING')),placeholders=g&&working&&!group.assets.length?Math.max(1,g.number_of_outputs||1):0,audioKind=isAudioKind(group.kind),modelKind=group.kind==='THREE_D';return <section key={group.id}><div className="mb-2.5 flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[12px] font-semibold text-zinc-300 truncate">{group.title}</p><p className="mt-1 text-[9px] text-zinc-600">{group.meta}{g&&group.kind==='VIDEO'&&g.duration_seconds?` · ${g.duration_seconds}s`:''}{working?` · ${busy?'Cancelando...':'Em processamento'}`:''}</p></div>{g&&working&&!audioKind&&!modelKind&&<button type="button" disabled={busy} onClick={()=>cancel(g)} className="shrink-0 h-8 px-3 rounded-xl border border-rose-400/20 bg-rose-400/[0.06] text-[9px] font-semibold text-rose-300 hover:bg-rose-400/[0.10] disabled:opacity-50 flex items-center gap-1.5">{busy?<Loader2 className="w-3.5 h-3.5 animate-spin text-rose-300"/>:<XCircle className="w-3.5 h-3.5"/>}{busy?'Cancelando':'Cancelar geração'}</button>}</div><div className="ia-creation-strip flex gap-3 overflow-x-auto pb-2 items-start">{group.assets.map(asset=><article key={asset.asset_id} className={`ia-creation-card group/card shrink-0 ${audioKind?'w-[320px] md:w-[360px]':modelKind?'w-[300px] md:w-[340px]':widthClassFor(group.ratio)}`}><div className={`relative overflow-visible rounded-[14px] border border-white/[0.07] bg-[#11151c] ${audioKind?'min-h-[150px]':''}`} style={audioKind||modelKind?undefined:{aspectRatio:cssRatio(group.ratio)}}><div className={`w-full h-full overflow-hidden rounded-[13px] ${audioKind?'p-4 pr-12 flex flex-col justify-center gap-3':''}`}>{asset.type==='VIDEO'?<video src={asset.public_url} controls preload="metadata" className="w-full h-full object-cover"/>:asset.type==='AUDIO'?<><div className="flex items-center gap-2 text-zinc-300"><div className="w-9 h-9 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.06] grid place-items-center">{group.kind==='MUSIC'?<Music2 className="w-4 h-4 text-cyan-200"/>:<AudioLines className="w-4 h-4 text-cyan-200"/>}</div><div className="min-w-0"><p className="text-[10px] font-semibold truncate">{asset.name||(group.kind==='MUSIC'?'Música gerada':'Voz gerada')}</p><p className="text-[8px] text-zinc-600">{new Date(asset.created_at).toLocaleDateString('pt-BR')}</p></div></div>{asset.public_url?<audio src={asset.public_url} controls preload="metadata" className="w-full h-9"/>:<p className="text-[9px] text-zinc-600">Áudio indisponível.</p>}</>:asset.type==='MODEL_3D'?asset.public_url?<StableModel3DPreview url={asset.public_url} label={asset.name} compact/>:<div className="h-[168px] grid place-items-center text-zinc-600"><Box className="w-6 h-6"/></div>:<img src={asset.public_url} alt={asset.name} className="w-full h-full object-cover"/>}</div><div className="absolute top-2.5 right-2.5 z-10"><button type="button" onClick={()=>setOpenMenuId(openMenuId===asset.asset_id?null:asset.asset_id)} aria-label="Ações" title="Ações" className="w-8 h-8 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 grid place-items-center text-white hover:bg-black/90"><MoreHorizontal className="w-4 h-4"/></button>{openMenuId===asset.asset_id&&<div className="absolute right-0 mt-2 w-48 rounded-xl overflow-hidden border border-white/[0.10] bg-[#0a1119]/98 backdrop-blur-xl shadow-2xl py-1">{g&&!audioKind&&!modelKind&&onRestoreGeneration&&menuItem('Gerar novamente',()=>onRestoreGeneration(g),<RotateCcw className="w-3.5 h-3.5"/>)}{asset.type==='IMAGE'&&onUseImageAsReference&&menuItem('Usar como referência',()=>onUseImageAsReference(asset),<ImageIcon className="w-3.5 h-3.5"/>)}{asset.type==='IMAGE'&&onEditImage&&menuItem('Editar imagem',()=>onEditImage(asset),<Edit3 className="w-3.5 h-3.5"/>)}{asset.type==='IMAGE'&&onCreateVideoFromImage&&menuItem('Usar como frame inicial',()=>onCreateVideoFromImage(asset),<Film className="w-3.5 h-3.5"/>)}{asset.type==='MODEL_3D'&&asset.public_url&&menuItem('Abrir GLB',()=>window.open(asset.public_url,'_blank','noopener,noreferrer'),<Box className="w-3.5 h-3.5"/>)}{menuItem('Baixar',()=>download(asset),<Download className="w-3.5 h-3.5"/>)}</div>}</div></div></article>)}{Array.from({length:placeholders}).map((_,i)=><article key={`${g!.generation_id}-loading-${i}`} className={`ia-creation-card shrink-0 ${widthClassFor(group.ratio)}`}><div className="relative overflow-hidden rounded-[14px] border border-cyan-300/20 bg-[#10151c] shadow-[0_0_32px_rgba(34,211,238,.05)]" style={{aspectRatio:cssRatio(group.ratio)}}><div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(34,211,238,.10),transparent_48%)] animate-pulse"/><div className="absolute inset-0 grid place-items-center text-center"><div>{busy?<Loader2 className="w-4 h-4 mx-auto animate-spin text-rose-300"/>:<Sparkles className="w-4 h-4 mx-auto text-cyan-200/80"/>}<p className="mt-2 text-[8px] text-zinc-500">{busy?'Cancelando...':`${Math.max(4,Math.min(96,g!.progress_percent||8))}%`}</p></div></div></div></article>)}</div></section>})}</div>:<div className="min-h-[420px] flex flex-col items-center justify-center text-center"><div className="w-14 h-14 rounded-2xl bg-white/[0.035] border border-white/[0.06] grid place-items-center">{filter==='VOICE'?<AudioLines className="w-6 h-6 text-zinc-700"/>:filter==='MUSIC'?<Music2 className="w-6 h-6 text-zinc-700"/>:filter==='THREE_D'?<Box className="w-6 h-6 text-zinc-700"/>:<ImageIcon className="w-6 h-6 text-zinc-700"/>}</div><h3 className="mt-4 text-sm font-semibold text-zinc-300">Nenhuma criação neste filtro</h3><p className="mt-1 text-[10px] text-zinc-600">Suas gerações permanecem aqui para reutilização.</p></div>}</div>
- </main>;
+export const CreationGallery: React.FC<Props> = ({
+  defaultFilter,
+  title = "Minhas criações",
+  subtitle = "Seu histórico de gerações fica disponível aqui.",
+  liveGenerations = [],
+  onGenerationSettled,
+  onRestoreGeneration,
+  onUseImageAsReference,
+  onEditImage,
+  onCreateVideoFromImage,
+  onActiveCountChange,
+}) => {
+  const [filter, setFilter] = useState<CreationGalleryFilter>(defaultFilter),
+    [generations, setGenerations] = useState<Generation[]>([]),
+    [assets, setAssets] = useState<Asset[]>([]),
+    [loading, setLoading] = useState(true),
+    [query, setQuery] = useState(""),
+    [error, setError] = useState(""),
+    [cancellingId, setCancellingId] = useState<string | null>(null),
+    [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  useEffect(() => setFilter(defaultFilter), [defaultFilter]);
+  const refresh = useCallback(async (loadAssets = true) => {
+    try {
+      const g = await generationClient.list(100);
+      setGenerations(g || []);
+      if (loadAssets) setAssets(await assetService.listAssets());
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    void refresh();
+    let refreshTimer: number | undefined;
+    const generationHandler = (event: Event) => {
+      const raw = (event as CustomEvent<any>).detail,
+        next = raw?.generation || raw;
+      if (next?.generation_id)
+        setGenerations((rows) => upsertGeneration(rows, next as Generation));
+      else {
+        if (refreshTimer) window.clearTimeout(refreshTimer);
+        refreshTimer = window.setTimeout(() => void refresh(true), 250);
+      }
+    };
+    const creationsHandler = () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => void refresh(true), 150);
+    };
+    window.addEventListener("generation:updated", generationHandler);
+    window.addEventListener("creations:updated", creationsHandler);
+    return () => {
+      window.removeEventListener("generation:updated", generationHandler);
+      window.removeEventListener("creations:updated", creationsHandler);
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+    };
+  }, [refresh]);
+  useEffect(() => {
+    if (!onRestoreGeneration || !generations.length) return;
+    const raw = sessionStorage.getItem("ia-connect:community-recreate");
+    if (!raw) return;
+    try {
+      const id = JSON.parse(raw)?.generation_id,
+        match = id ? generations.find((g) => g.generation_id === id) : null;
+      if (match) {
+        sessionStorage.removeItem("ia-connect:community-recreate");
+        setFilter(generationKind(match));
+        onRestoreGeneration(match);
+      }
+    } catch {
+      sessionStorage.removeItem("ia-connect:community-recreate");
+    }
+  }, [generations, onRestoreGeneration]);
+  const mergedGenerations = useMemo(
+    () => mergeGenerationRows(liveGenerations, generations),
+    [generations, liveGenerations],
+  );
+  const activeGenerationIds = useMemo(
+    () =>
+      mergedGenerations
+        .filter((g) => isGenerationWorking(g.status))
+        .map((g) => g.generation_id)
+        .sort(),
+    [mergedGenerations],
+  );
+  const activeKey = activeGenerationIds.join("|"),
+    activeCount = activeGenerationIds.length;
+  useEffect(() => {
+    onActiveCountChange?.(activeCount);
+  }, [activeCount, onActiveCountChange]);
+  useEffect(() => {
+    if (!activeKey) return;
+    let disposed = false,
+      timer: number | undefined;
+    const activeIds = new Set(activeGenerationIds);
+    const schedule = (delay: number) => {
+      if (disposed) return;
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(tick, delay);
+    };
+    const tick = async () => {
+      try {
+        const rows = await generationClient.statusBatch(activeGenerationIds);
+        if (disposed) return;
+        setGenerations((current) => mergeGenerationRows(current, rows || []));
+        const settled = (rows || []).some(
+          (g) =>
+            activeIds.has(g.generation_id) && isGenerationTerminal(g.status),
+        );
+        if (settled) {
+          const nextAssets = await assetService.listAssets().catch(() => null);
+          if (disposed) return;
+          if (nextAssets) setAssets(nextAssets);
+          onGenerationSettled?.();
+        }
+      } catch {
+      } finally {
+        schedule(document.hidden ? 12000 : 2200);
+      }
+    };
+    const onVisibility = () => schedule(document.hidden ? 12000 : 150);
+    document.addEventListener("visibilitychange", onVisibility);
+    schedule(document.hidden ? 5000 : 800);
+    return () => {
+      disposed = true;
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [activeKey, onGenerationSettled]);
+  const groups = useMemo<MediaGroup[]>(() => {
+    const generated = assets.filter(generatedAsset),
+      generationById = new Map<string, Generation>(
+        mergedGenerations.map(
+          (g) => [g.generation_id, g] as [string, Generation],
+        ),
+      ),
+      byGeneration = new Map<string, Asset[]>();
+    for (const asset of generated) {
+      const id = String(asset.source_generation_id || "");
+      if (!id) continue;
+      const bucket = byGeneration.get(id) || [],
+        identity = assetIdentity(asset);
+      if (!bucket.some((x) => assetIdentity(x) === identity))
+        bucket.push(asset);
+      byGeneration.set(id, bucket);
+    }
+    const visualGroups = mergedGenerations
+      .filter((g) => ["IMAGE", "VIDEO"].includes(generationKind(g)))
+      .map((g) => {
+        const kind = generationKind(g) as "IMAGE" | "VIDEO",
+          groupAssets = [...(byGeneration.get(g.generation_id) || [])],
+          urls = Array.from(
+            new Set(
+              [...(g.result_urls || []), g.result_url]
+                .filter(Boolean)
+                .map(String),
+            ),
+          ),
+          existing = new Set(groupAssets.map(assetIdentity));
+        urls.forEach((url, i) => {
+          const runtime = runtimeAsset(g, url, i, kind);
+          if (!existing.has(assetIdentity(runtime))) groupAssets.push(runtime);
+        });
+        return {
+          id: `generation:${g.generation_id}`,
+          generation: g,
+          assets: groupAssets,
+          ratio: g.aspect_ratio || "16:9",
+          kind,
+          title: g.original_prompt || "Geração sem título",
+          meta: `${g.model_id} · ${g.aspect_ratio || "16:9"} · ${g.resolution || "-"}`,
+          searchText: `${g.original_prompt || ""} ${g.model_id || ""}`,
+        };
+      });
+    const audioBySource = new Map<string, Asset[]>();
+    for (const asset of generated.filter((item) => item.type === "AUDIO")) {
+      const source = String(
+          asset.source_job_id || asset.source_generation_id || asset.asset_id,
+        ),
+        bucket = audioBySource.get(source) || [];
+      if (!bucket.some((x) => assetIdentity(x) === assetIdentity(asset)))
+        bucket.push(asset);
+      audioBySource.set(source, bucket);
+    }
+    const audioGroups = Array.from(audioBySource.entries()).map(
+      ([source, groupAssets]) => {
+        const first = [...groupAssets].sort(
+            (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at),
+          )[0],
+          generation = first?.source_generation_id
+            ? generationById.get(String(first.source_generation_id))
+            : undefined,
+          capability = String(
+            first?.media_metadata?.capability_id ||
+              generation?.capability_id ||
+              "",
+          ),
+          kind: CreationKind = capability === "music" ? "MUSIC" : "VOICE",
+          model =
+            first?.source_model_id || (kind === "MUSIC" ? "Música" : "Voz"),
+          label = kind === "MUSIC" ? "Música" : "Voz";
+        return {
+          id: `audio:${source}`,
+          generation,
+          assets: groupAssets,
+          ratio: "16:9",
+          kind,
+          title:
+            first?.name || (kind === "MUSIC" ? "Música gerada" : "Voz gerada"),
+          meta: `${model} · ${label}${first?.duration_seconds ? ` · ${Math.round(first.duration_seconds)}s` : ""}`,
+          searchText: `${first?.name || ""} ${model} ${label}`,
+        };
+      },
+    );
+    const modelBySource = new Map<string, Asset[]>();
+    for (const asset of generated.filter((item) => item.type === "MODEL_3D")) {
+      const source = String(
+          asset.source_job_id || asset.source_generation_id || asset.asset_id,
+        ),
+        bucket = modelBySource.get(source) || [];
+      if (!bucket.some((x) => assetIdentity(x) === assetIdentity(asset)))
+        bucket.push(asset);
+      modelBySource.set(source, bucket);
+    }
+    const modelGroups = Array.from(modelBySource.entries()).map(
+      ([source, groupAssets]) => {
+        const first = [...groupAssets].sort(
+            (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at),
+          )[0],
+          model = first?.source_model_id || "Modelo 3D";
+        return {
+          id: `3d:${source}`,
+          assets: groupAssets,
+          ratio: "16:10",
+          kind: "THREE_D" as CreationKind,
+          title: first?.name || "Modelo 3D gerado",
+          meta: `${model} · GLB 3D`,
+          searchText: `${first?.name || ""} ${model} 3D GLB`,
+        };
+      },
+    );
+    return [...visualGroups, ...audioGroups, ...modelGroups].sort((a, b) => {
+      const aDate = a.generation?.created_at || a.assets[0]?.created_at || "",
+        bDate = b.generation?.created_at || b.assets[0]?.created_at || "";
+      return Date.parse(bDate) - Date.parse(aDate);
+    });
+  }, [assets, mergedGenerations]);
+  const visibleGroups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return groups.filter(
+      (group) =>
+        (filter === "ALL" || group.kind === filter) &&
+        (!q || group.searchText.toLowerCase().includes(q)),
+    );
+  }, [groups, filter, query]);
+  const download = async (asset: Asset) => {
+    if (!asset.public_url) return;
+    setError("");
+    try {
+      const filename =
+        asset.type === "MODEL_3D"
+          ? `${(asset.name || "modelo-3d").replace(/[^a-zA-Z0-9._-]+/g, "-")}${/\.glb$/i.test(asset.name || "") ? "" : ".glb"}`
+          : safeDownloadName(
+              asset.name,
+              asset.type === "VIDEO"
+                ? "VIDEO"
+                : asset.type === "AUDIO"
+                  ? "AUDIO"
+                  : "IMAGE",
+            );
+      await downloadMediaDirect(asset.public_url, filename);
+    } catch (err: any) {
+      setError(err?.message || "Não foi possível baixar este arquivo.");
+    }
+  };
+  const cancel = async (g: Generation) => {
+    if (cancellingId || !isGenerationWorking(g.status)) return;
+    if (
+      !window.confirm(
+        "Cancelar esta geração? Os créditos reservados serão liberados somente se o cancelamento for permitido neste estágio.",
+      )
+    )
+      return;
+    setError("");
+    setCancellingId(g.generation_id);
+    setGenerations((rows) =>
+      rows.map((x) =>
+        x.generation_id === g.generation_id
+          ? ({ ...x, status: "CANCELLING" } as Generation)
+          : x,
+      ),
+    );
+    try {
+      const updated = await generationClient.cancel(g.generation_id);
+      setGenerations((rows) => upsertGeneration(rows, updated));
+      onGenerationSettled?.();
+      window.dispatchEvent(
+        new CustomEvent("generation:updated", {
+          detail: { generation: updated },
+        }),
+      );
+    } catch (err: any) {
+      setError(
+        err?.message ||
+          "Não foi possível cancelar esta geração. Ela pode já estar em processamento pelo provedor.",
+      );
+      await refresh();
+    } finally {
+      setCancellingId(null);
+    }
+  };
+  const menuItem = (
+    label: string,
+    onClick: () => void,
+    icon: React.ReactNode,
+  ) => (
+    <button
+      type="button"
+      onClick={() => {
+        setOpenMenuId(null);
+        onClick();
+      }}
+      className="w-full px-3 py-2 flex items-center gap-2 text-left text-[10px] text-zinc-200 hover:bg-white/[0.06] transition-colors"
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+  const filters: CreationGalleryFilter[] = [
+    "VIDEO",
+    "IMAGE",
+    "VOICE",
+    "MUSIC",
+    "THREE_D",
+    "ALL",
+  ];
+  const labelFor = (value: CreationGalleryFilter) =>
+    value === "VIDEO"
+      ? "Vídeos"
+      : value === "IMAGE"
+        ? "Imagens"
+        : value === "VOICE"
+          ? "Voz"
+          : value === "MUSIC"
+            ? "Música"
+            : value === "THREE_D"
+              ? "3D"
+              : "Todos";
+  const isAudioKind = (kind: CreationKind) =>
+    kind === "VOICE" || kind === "MUSIC";
+  return (
+    <main className="ia-creation-gallery flex-1 min-w-0 h-full overflow-y-auto">
+      <header className="ia-creation-gallery-header sticky top-0 z-20 px-5 lg:px-6 pt-5 pb-3 border-b border-white/[0.055] bg-[#0b0e13]/95 backdrop-blur-xl">
+        <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-[20px] font-bold tracking-tight text-white">
+                {title}
+              </h2>
+              {activeCount > 0 && (
+                <span className="rounded-full border border-cyan-300/15 bg-cyan-300/[0.07] px-2 py-0.5 text-[8px] font-bold text-cyan-200">
+                  {activeCount} em andamento
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 text-[11px] text-zinc-500">{subtitle}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-56 max-w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar criações..."
+                className="w-full h-9 pl-9 pr-3 rounded-xl bg-white/[0.035] border border-white/[0.07] text-[10px] text-zinc-300 outline-none"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {filters.map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setFilter(v)}
+                  className={`px-3 py-1.5 rounded-lg border text-[9px] font-semibold transition-colors ${filter === v ? "border-cyan-300/25 bg-cyan-300/10 text-cyan-200" : "border-white/[0.06] text-zinc-600 hover:text-zinc-300"}`}
+                >
+                  {labelFor(v)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {error && <p className="mt-2 text-[9px] text-rose-400">{error}</p>}
+      </header>
+      <div className="p-5 lg:p-6">
+        {loading && !visibleGroups.length ? (
+          <div className="min-h-[420px] grid place-items-center">
+            <Loader2 className="w-6 h-6 animate-spin text-cyan-300" />
+          </div>
+        ) : visibleGroups.length ? (
+          <div className="space-y-7">
+            {visibleGroups.map((group) => {
+              const g = group.generation,
+                working = Boolean(g && isGenerationWorking(g.status)),
+                busy = Boolean(
+                  g &&
+                  (cancellingId === g.generation_id ||
+                    g.status === "CANCELLING"),
+                ),
+                placeholders =
+                  g && working && !group.assets.length
+                    ? Math.max(1, g.number_of_outputs || 1)
+                    : 0,
+                audioKind = isAudioKind(group.kind),
+                modelKind = group.kind === "THREE_D";
+              return (
+                <section key={group.id}>
+                  <div className="mb-2.5 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-semibold text-zinc-300 truncate">
+                        {group.title}
+                      </p>
+                      <p className="mt-1 text-[9px] text-zinc-600">
+                        {group.meta}
+                        {g && group.kind === "VIDEO" && g.duration_seconds
+                          ? ` · ${g.duration_seconds}s`
+                          : ""}
+                        {working
+                          ? ` · ${busy ? "Cancelando..." : "Em processamento"}`
+                          : ""}
+                      </p>
+                    </div>
+                    {g && working && !audioKind && !modelKind && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => cancel(g)}
+                        className="shrink-0 h-8 px-3 rounded-xl border border-rose-400/20 bg-rose-400/[0.06] text-[9px] font-semibold text-rose-300 hover:bg-rose-400/[0.10] disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {busy ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-300" />
+                        ) : (
+                          <XCircle className="w-3.5 h-3.5" />
+                        )}
+                        {busy ? "Cancelando" : "Cancelar geração"}
+                      </button>
+                    )}
+                  </div>
+                  <div className="ia-creation-strip flex gap-3 overflow-x-auto pb-2 items-start">
+                    {group.assets.map((asset) => (
+                      <article
+                        key={asset.asset_id}
+                        className={`ia-creation-card group/card shrink-0 ${audioKind ? "w-[320px] md:w-[360px]" : modelKind ? "w-[300px] md:w-[340px]" : widthClassFor(group.ratio)}`}
+                      >
+                        <div
+                          className={`relative overflow-visible rounded-[14px] border border-white/[0.07] bg-[#11151c] ${audioKind ? "min-h-[150px]" : ""}`}
+                          style={
+                            audioKind || modelKind
+                              ? undefined
+                              : { aspectRatio: cssRatio(group.ratio) }
+                          }
+                        >
+                          <div
+                            className={`w-full h-full overflow-hidden rounded-[13px] ${audioKind ? "p-4 pr-12 flex flex-col justify-center gap-3" : ""}`}
+                          >
+                            {asset.type === "VIDEO" ? (
+                              <video
+                                src={asset.public_url}
+                                controls
+                                preload="metadata"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : asset.type === "AUDIO" ? (
+                              <>
+                                <div className="flex items-center gap-2 text-zinc-300">
+                                  <div className="w-9 h-9 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.06] grid place-items-center">
+                                    {group.kind === "MUSIC" ? (
+                                      <Music2 className="w-4 h-4 text-cyan-200" />
+                                    ) : (
+                                      <AudioLines className="w-4 h-4 text-cyan-200" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-[10px] font-semibold truncate">
+                                      {asset.name ||
+                                        (group.kind === "MUSIC"
+                                          ? "Música gerada"
+                                          : "Voz gerada")}
+                                    </p>
+                                    <p className="text-[8px] text-zinc-600">
+                                      {new Date(
+                                        asset.created_at,
+                                      ).toLocaleDateString("pt-BR")}
+                                    </p>
+                                  </div>
+                                </div>
+                                {asset.public_url ? (
+                                  <audio
+                                    src={asset.public_url}
+                                    controls
+                                    preload="metadata"
+                                    className="w-full h-9"
+                                  />
+                                ) : (
+                                  <p className="text-[9px] text-zinc-600">
+                                    Áudio indisponível.
+                                  </p>
+                                )}
+                              </>
+                            ) : asset.type === "MODEL_3D" ? (
+                              asset.public_url ? (
+                                <StableModel3DPreview
+                                  url={asset.public_url}
+                                  label={asset.name}
+                                  compact
+                                />
+                              ) : (
+                                <div className="h-[168px] grid place-items-center text-zinc-600">
+                                  <Box className="w-6 h-6" />
+                                </div>
+                              )
+                            ) : (
+                              <img
+                                src={asset.public_url}
+                                alt={asset.name}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                          </div>
+                          <div className="absolute top-2.5 right-2.5 z-10">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenMenuId(
+                                  openMenuId === asset.asset_id
+                                    ? null
+                                    : asset.asset_id,
+                                )
+                              }
+                              aria-label="Ações"
+                              title="Ações"
+                              className="w-8 h-8 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 grid place-items-center text-white hover:bg-black/90"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                            {openMenuId === asset.asset_id && (
+                              <div className="absolute right-0 mt-2 w-48 rounded-xl overflow-hidden border border-white/[0.10] bg-[#0a1119]/98 backdrop-blur-xl shadow-2xl py-1">
+                                {g &&
+                                  !audioKind &&
+                                  !modelKind &&
+                                  onRestoreGeneration &&
+                                  menuItem(
+                                    "Gerar novamente",
+                                    () => onRestoreGeneration(g),
+                                    <RotateCcw className="w-3.5 h-3.5" />,
+                                  )}
+                                {asset.type === "IMAGE" &&
+                                  onUseImageAsReference &&
+                                  menuItem(
+                                    "Usar como referência",
+                                    () => onUseImageAsReference(asset),
+                                    <ImageIcon className="w-3.5 h-3.5" />,
+                                  )}
+                                {asset.type === "IMAGE" &&
+                                  onEditImage &&
+                                  menuItem(
+                                    "Editar imagem",
+                                    () => onEditImage(asset),
+                                    <Edit3 className="w-3.5 h-3.5" />,
+                                  )}
+                                {asset.type === "IMAGE" &&
+                                  onCreateVideoFromImage &&
+                                  menuItem(
+                                    "Usar como frame inicial",
+                                    () => onCreateVideoFromImage(asset),
+                                    <Film className="w-3.5 h-3.5" />,
+                                  )}
+                                {asset.type === "MODEL_3D" &&
+                                  asset.public_url &&
+                                  menuItem(
+                                    "Abrir GLB",
+                                    () =>
+                                      window.open(
+                                        asset.public_url,
+                                        "_blank",
+                                        "noopener,noreferrer",
+                                      ),
+                                    <Box className="w-3.5 h-3.5" />,
+                                  )}
+                                {menuItem(
+                                  "Baixar",
+                                  () => download(asset),
+                                  <Download className="w-3.5 h-3.5" />,
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                    {Array.from({ length: placeholders }).map((_, i) => (
+                      <article
+                        key={`${g!.generation_id}-loading-${i}`}
+                        className={`ia-creation-card shrink-0 ${widthClassFor(group.ratio)}`}
+                      >
+                        <div
+                          className="relative overflow-hidden rounded-[14px] border border-cyan-300/20 bg-[#10151c] shadow-[0_0_32px_rgba(34,211,238,.05)]"
+                          style={{ aspectRatio: cssRatio(group.ratio) }}
+                        >
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(34,211,238,.10),transparent_48%)] animate-pulse" />
+                          <div className="absolute inset-0 grid place-items-center text-center">
+                            <div>
+                              {busy ? (
+                                <Loader2 className="w-4 h-4 mx-auto animate-spin text-rose-300" />
+                              ) : (
+                                <Sparkles className="w-4 h-4 mx-auto text-cyan-200/80" />
+                              )}
+                              <p className="mt-2 text-[8px] text-zinc-500">
+                                {busy
+                                  ? "Cancelando..."
+                                  : `${Math.max(4, Math.min(96, g!.progress_percent || 8))}%`}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="min-h-[420px] flex flex-col items-center justify-center text-center">
+            <div className="w-14 h-14 rounded-2xl bg-white/[0.035] border border-white/[0.06] grid place-items-center">
+              {filter === "VOICE" ? (
+                <AudioLines className="w-6 h-6 text-zinc-700" />
+              ) : filter === "MUSIC" ? (
+                <Music2 className="w-6 h-6 text-zinc-700" />
+              ) : filter === "THREE_D" ? (
+                <Box className="w-6 h-6 text-zinc-700" />
+              ) : (
+                <ImageIcon className="w-6 h-6 text-zinc-700" />
+              )}
+            </div>
+            <h3 className="mt-4 text-sm font-semibold text-zinc-300">
+              Nenhuma criação neste filtro
+            </h3>
+            <p className="mt-1 text-[10px] text-zinc-600">
+              Suas gerações permanecem aqui para reutilização.
+            </p>
+          </div>
+        )}
+      </div>
+    </main>
+  );
 };

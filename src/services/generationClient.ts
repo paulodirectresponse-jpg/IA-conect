@@ -1,101 +1,146 @@
-import { apiRequest } from './apiClient.js';
-import { Generation, GenerationMode, GenerationRequestDraft, WorkspaceReference } from '../types/index.js';
-import { canonicalReferenceSlot } from '../utils/generationReferenceMode.js';
+import { apiRequest } from "./apiClient.js";
+import {
+  Generation,
+  GenerationMode,
+  GenerationRequestDraft,
+  WorkspaceReference,
+} from "../types/index.js";
+import { canonicalReferenceSlot } from "../utils/generationReferenceMode.js";
 
 export interface GenerationQuoteParams {
-  model_id:string;
-  mode:GenerationMode;
-  prompt:string;
-  negative_prompt?:string;
-  references:WorkspaceReference[];
-  settings:{
-    duration_seconds:number;
-    resolution:string;
-    aspect_ratio:string;
-    number_of_outputs:number;
-    seed?:number|null;
-    motion_strength?:number;
-    audio_enabled?:boolean;
-    model_variant?:string;
-    pricing_options?:Record<string,string|number|boolean|null|undefined>;
+  model_id: string;
+  mode: GenerationMode;
+  prompt: string;
+  negative_prompt?: string;
+  references: WorkspaceReference[];
+  settings: {
+    duration_seconds: number;
+    resolution: string;
+    aspect_ratio: string;
+    number_of_outputs: number;
+    seed?: number | null;
+    motion_strength?: number;
+    audio_enabled?: boolean;
+    model_variant?: string;
+    pricing_options?: Record<
+      string,
+      string | number | boolean | null | undefined
+    >;
   };
 }
 
 export type PricedGenerationDraft = GenerationRequestDraft & {
-  has_sufficient_funds:boolean;
-  unit_credit_price?:number;
-  pricing_unit?:string;
-  base_duration_seconds?:number;
-  billing_units?:number;
+  has_sufficient_funds: boolean;
+  unit_credit_price?: number;
+  pricing_unit?: string;
+  base_duration_seconds?: number;
+  billing_units?: number;
 };
 
-export type GenerationQuoteResult={request_draft:PricedGenerationDraft;notice:string};
-export type GenerationBatchQuoteResult={items:Array<{key:string;ok:boolean;pricing?:{model_id:string;retail_credit_price:number;unit_credit_price?:number;has_sufficient_funds:boolean};error?:{code?:string;message?:string}}>};
+export type GenerationQuoteResult = {
+  request_draft: PricedGenerationDraft;
+  notice: string;
+};
+export type GenerationBatchQuoteResult = {
+  items: Array<{
+    key: string;
+    ok: boolean;
+    pricing?: {
+      model_id: string;
+      retail_credit_price: number;
+      unit_credit_price?: number;
+      has_sufficient_funds: boolean;
+    };
+    error?: { code?: string; message?: string };
+  }>;
+};
 
-function normalizeReferences(draft:GenerationRequestDraft) {
-  const refs=draft.references||[];
-  const hasExplicitRoles=refs.some((r)=>canonicalReferenceSlot(r)!=='GENERAL');
-  return refs.map((r,index)=>{
-    let slot_type=canonicalReferenceSlot(r);
-    if(!hasExplicitRoles&&draft.mode==='IMAGE_TO_VIDEO'){
-      slot_type=index===0?'INITIAL':index===1?'END':'GENERAL';
+function normalizeReferences(draft: GenerationRequestDraft) {
+  const refs = draft.references || [];
+  const hasExplicitRoles = refs.some(
+    (r) => canonicalReferenceSlot(r) !== "GENERAL",
+  );
+  return refs.map((r, index) => {
+    let slot_type = canonicalReferenceSlot(r);
+    if (!hasExplicitRoles && draft.mode === "IMAGE_TO_VIDEO") {
+      slot_type = index === 0 ? "INITIAL" : index === 1 ? "END" : "GENERAL";
     }
-    return{asset_id:r.asset_id,slot_type,alias:r.alias_snapshot};
+    return { asset_id: r.asset_id, slot_type, alias: r.alias_snapshot };
   });
 }
 
 export const generationClient = {
-  quote(params:GenerationQuoteParams):Promise<GenerationQuoteResult> {
-    return apiRequest('/api/generations/quote', {method:'POST',body:JSON.stringify(params)});
+  quote(params: GenerationQuoteParams): Promise<GenerationQuoteResult> {
+    return apiRequest("/api/generations/quote", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
   },
 
-  quoteBatch(requests:Array<GenerationQuoteParams&{key:string}>):Promise<GenerationBatchQuoteResult>{
-    return apiRequest('/api/generations/quote-batch',{method:'POST',body:JSON.stringify({requests})});
+  quoteBatch(
+    requests: Array<GenerationQuoteParams & { key: string }>,
+  ): Promise<GenerationBatchQuoteResult> {
+    return apiRequest("/api/generations/quote-batch", {
+      method: "POST",
+      body: JSON.stringify({ requests }),
+    });
   },
 
-  async create(draft:GenerationRequestDraft):Promise<Generation> {
-    const d:any = draft;
-    const s:any = draft.settings || {};
-    return apiRequest<Generation>('/api/generations', {
-      method:'POST',
-      body:JSON.stringify({
-        model_id:draft.model_id,
-        mode:draft.mode,
-        prompt:draft.prompt,
-        negative_prompt:d.negative_prompt,
-        duration_seconds:s.duration_seconds || 1,
-        resolution:s.resolution,
-        aspect_ratio:s.aspect_ratio,
-        number_of_outputs:s.number_of_outputs,
-        seed:s.seed,
-        motion_strength:s.motion_strength,
-        audio_enabled:s.audio_enabled === undefined ? undefined : Boolean(s.audio_enabled),
-        model_variant:s.model_variant,
-        pricing_options:s.pricing_options,
-        references:normalizeReferences(draft),
-        client_request_id:draft.request_id,
-        authorized_credit_price:draft.authorized_credit_price,
-        retail_pricing_id:draft.retail_pricing_id,
-        pricing_signature_hash:draft.pricing_signature_hash,
+  async create(draft: GenerationRequestDraft): Promise<Generation> {
+    const d: any = draft;
+    const s: any = draft.settings || {};
+    return apiRequest<Generation>("/api/generations", {
+      method: "POST",
+      body: JSON.stringify({
+        model_id: draft.requested_model_id || draft.model_id,
+        capability_id: draft.capability_id,
+        mode: draft.mode,
+        prompt: draft.prompt,
+        negative_prompt: d.negative_prompt,
+        duration_seconds: s.duration_seconds || 1,
+        resolution: s.resolution,
+        aspect_ratio: s.aspect_ratio,
+        number_of_outputs: s.number_of_outputs,
+        seed: s.seed,
+        motion_strength: s.motion_strength,
+        audio_enabled:
+          s.audio_enabled === undefined ? undefined : Boolean(s.audio_enabled),
+        model_variant: s.model_variant,
+        pricing_options: s.pricing_options,
+        references: normalizeReferences(draft),
+        client_request_id: draft.request_id,
+        authorized_credit_price: draft.authorized_credit_price,
+        retail_pricing_id: draft.retail_pricing_id,
+        pricing_signature_hash: draft.pricing_signature_hash,
       }),
     });
   },
 
-  get(id:string) {
+  get(id: string) {
     return apiRequest<Generation>(`/api/generations/${id}`);
   },
 
-  list(max=50) {
-    return apiRequest<Generation[]>(`/api/generations?limit=${Math.min(100,max)}`);
+  list(max = 50) {
+    return apiRequest<Generation[]>(
+      `/api/generations?limit=${Math.min(100, max)}`,
+    );
   },
 
-  statusBatch(ids:string[]) {
-    const generation_ids=Array.from(new Set(ids.filter(Boolean))).slice(0,24);
-    if(!generation_ids.length)return Promise.resolve([] as Generation[]);
-    return apiRequest<Generation[]>('/api/generations/status-batch',{method:'POST',body:JSON.stringify({generation_ids})});
+  statusBatch(ids: string[]) {
+    const generation_ids = Array.from(new Set(ids.filter(Boolean))).slice(
+      0,
+      24,
+    );
+    if (!generation_ids.length) return Promise.resolve([] as Generation[]);
+    return apiRequest<Generation[]>("/api/generations/status-batch", {
+      method: "POST",
+      body: JSON.stringify({ generation_ids }),
+    });
   },
 
-  cancel(id:string) {
-    return apiRequest<Generation>(`/api/generations/${id}/cancel`, {method:'POST'});
+  cancel(id: string) {
+    return apiRequest<Generation>(`/api/generations/${id}/cancel`, {
+      method: "POST",
+    });
   },
 };

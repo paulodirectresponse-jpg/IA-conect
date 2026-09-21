@@ -32,12 +32,12 @@ describe('direct video generation UX',()=>{
   const source=read('src/components/views/CreateView.tsx');
   expect(source).not.toContain('GenerationRequestPreviewModal');
   expect(source).not.toContain('isPreviewModalOpen');
-  expect(source).toContain('const handleGenerate=async');
+  expect(source).toMatch(/const handleGenerate\s*=\s*async/);
   expect(source).toContain('generationClient.quote');
   expect(source).toContain('generationClient.create');
-  expect(source).toContain("e?.code!=='PRICE_CHANGED_REQUOTE_REQUIRED'");
+  expect(source).toMatch(/e\?\.code\s*!==\s*["']PRICE_CHANGED_REQUOTE_REQUIRED["']/);
   expect(source).toContain('liveGenerations={liveGenerations}');
-  expect(source).toContain('setLiveGenerations(prev=>upsertGeneration(prev,started))');
+  expect(source).toMatch(/setLiveGenerations\(\s*\(?(prev)\)?\s*=>\s*upsertGeneration\(prev,\s*started\)\s*\)/);
   expect(source).not.toContain('generationPollRef');
   expect(source).not.toContain('pollGeneration');
  });
@@ -45,7 +45,7 @@ describe('direct video generation UX',()=>{
  it('keeps runtime errors retryable instead of turning them into blocking validation',()=>{
   const view=read('src/components/views/CreateView.tsx');
   const panel=read('src/components/workspace/CreatorPanel.tsx');
-  expect(view).toContain("setGenerationError('')");
+  expect(view).toMatch(/setGenerationError\(["']["']\)/);
   expect(view).toContain('compatibility.errors.length');
   expect(panel).toContain('generationError?: string');
   expect(panel).toContain('!p.generating');

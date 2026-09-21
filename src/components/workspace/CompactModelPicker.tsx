@@ -20,13 +20,14 @@ export const CompactModelPicker:React.FC<Props>=(p)=>{
  const unitPriceText=(model:ModelRegistryItem)=>{
   if(isLoading(model.model_id))return'—';
   const value=p.unitPricesByModelId?.[model.model_id];
-  if(value==null||!Number.isFinite(Number(value)))return'—';
-  const unit=model.category==='VIDEO'?'cr/s':'cr/img';
+  if(value==null||!Number.isFinite(Number(value))){const minimum=Number(model.minimum_credit_price);return model.pricing_available&&Number.isFinite(minimum)&&minimum>0?`a partir de ${Math.ceil(minimum).toLocaleString('pt-BR')} cr`:'—';}
+  const unit=model.category==='VIDEO'?'cr/s':model.category==='IMAGE'?'cr/img':'cr';
   return`${Math.max(0,Math.round(Number(value))).toLocaleString('pt-BR')} ${unit}`;
  };
  const filtered=useMemo(()=>{const q=search.trim().toLowerCase();return p.models.filter(m=>m.status!=='INACTIVE'&&(!q||`${m.name} ${m.description} ${m.best_for||''}`.toLowerCase().includes(q)))},[p.models,search]);
  const sorted=[...filtered].sort((a,b)=>Number(p.favoriteModelIds.includes(b.model_id))-Number(p.favoriteModelIds.includes(a.model_id))||Number(p.recentModelIds.includes(b.model_id))-Number(p.recentModelIds.includes(a.model_id))||a.name.localeCompare(b.name));
  const autoSelected=p.showAuto!==false&&p.selectionMode==='AUTO',displayModel=autoSelected?null:selected,maxDuration=displayModel?.supported_durations?.length?Math.max(...displayModel.supported_durations):null,coverUrl=!autoSelected?p.selectedCoverUrl:null,coverSources=!autoSelected?p.selectedCoverSources:null;
+ if(!p.models.length)return <div className="ia-model-picker rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 py-5 text-zinc-500" aria-disabled="true"><p className="text-[12px] font-semibold text-zinc-300">Nenhum modelo disponível.</p><p className="mt-1 text-[10px]">As IAs serão exibidas quando houver uma Route pronta.</p></div>;
  return <div className={`ia-model-picker relative ${autoSelected?'is-auto':'is-manual'}`} ref={ref}>
   <button type="button" onClick={()=>setOpen(v=>!v)} className={`group relative w-full ${coverUrl||coverSources?'ia-model-cover-card min-h-[148px]':'min-h-[112px]'} overflow-hidden rounded-[16px] border border-white/[0.08] bg-gradient-to-br ${accentFor(displayModel?.model_id)} text-left shadow-[0_16px_45px_rgba(0,0,0,.2)]`}>
    {coverSources?<><picture className="absolute inset-0 block h-full w-full"><source srcSet={coverSources.avif} type="image/avif"/><source srcSet={coverSources.webp} type="image/webp"/><img src={coverSources.png} alt="" aria-hidden="true" decoding="async" className="absolute inset-0 h-full w-full object-cover object-center scale-[1.01]"/></picture><div className="absolute inset-0" style={{background:'linear-gradient(180deg,rgba(3,7,18,.18) 0%,rgba(3,7,18,.34) 44%,rgba(3,7,18,.92) 100%)'}}/></>:coverUrl?<><img src={coverUrl} alt="" aria-hidden="true" decoding="async" className="absolute inset-0 h-full w-full object-cover object-center scale-[1.01]"/><div className="absolute inset-0" style={{background:'linear-gradient(180deg,rgba(3,7,18,.18) 0%,rgba(3,7,18,.34) 44%,rgba(3,7,18,.92) 100%)'}}/></>:<div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_25%,rgba(255,255,255,.12),transparent_28%),linear-gradient(to_top,rgba(4,6,10,.92),rgba(4,6,10,.18))]"/>}

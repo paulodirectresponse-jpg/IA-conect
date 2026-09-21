@@ -1,69 +1,732 @@
-import React,{useCallback,useEffect,useMemo,useRef,useState}from'react';
-import{Asset,Generation,GenerationMode,GenerationRequestDraft,ModelRegistryItem,WorkspaceReference}from'../../types/index.js';
-import{workspaceService}from'../../services/workspaceService.js';
-import{assetService}from'../../services/assetService.js';
-import{generationClient}from'../../services/generationClient.js';
-import{getModelCapabilities}from'../../services/modelCapabilities.js';
-import{DEFAULT_PRESERVATION_RULES}from'../../config/constants.js';
-import{useAuth}from'../../context/AuthContext.js';
-import{AssetPickerContentView,AssetPickerModal}from'../workspace/AssetPickerModal.js';
-import{CreationGallery}from'../workspace/CreationGallery.js';
-import{UnifiedImageCreatorPanel}from'../workspace/UnifiedImageCreatorPanel.js';
-import{upsertGeneration}from'../../utils/generationCollection.js';import{MobileStudioLayout}from'../workspace/MobileStudioLayout.js';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Asset,
+  Generation,
+  GenerationMode,
+  GenerationRequestDraft,
+  ModelRegistryItem,
+  WorkspaceReference,
+} from "../../types/index.js";
+import { workspaceService } from "../../services/workspaceService.js";
+import { assetService } from "../../services/assetService.js";
+import { generationClient } from "../../services/generationClient.js";
+import { getModelCapabilities } from "../../services/modelCapabilities.js";
+import { DEFAULT_PRESERVATION_RULES } from "../../config/constants.js";
+import { useAuth } from "../../context/AuthContext.js";
+import {
+  AssetPickerContentView,
+  AssetPickerModal,
+} from "../workspace/AssetPickerModal.js";
+import { CreationGallery } from "../workspace/CreationGallery.js";
+import { UnifiedImageCreatorPanel } from "../workspace/UnifiedImageCreatorPanel.js";
+import { upsertGeneration } from "../../utils/generationCollection.js";
+import { MobileStudioLayout } from "../workspace/MobileStudioLayout.js";
 
-interface Props{onUseImageForVideo?:(asset:Asset)=>void;initialEditAsset?:Asset|null;}
-type SelectionMode='AUTO'|'MANUAL';
-const terminal=(s:string)=>['SUCCEEDED','FAILED','CANCELLED','REFUNDED'].includes(s);
-const resolutionRank=(v:string)=>({'1K':1,'1.5K':1.5,'2K':2,'4K':4}[v.toUpperCase()]||0);
-function localAlias(refs:WorkspaceReference[]){const used=new Set(refs.map(r=>r.alias_snapshot.toLowerCase()));let i=1;while(used.has(`img${i}`))i++;return`img${i}`;}
-function referenceFor(asset:Asset,refs:WorkspaceReference[],alias?:string):WorkspaceReference{const d=DEFAULT_PRESERVATION_RULES.GENERIC;return{asset_id:asset.asset_id,alias_snapshot:alias||localAlias(refs),role:'GENERAL',priority:'HIGH',preservation_rules:d.preserve,flexible_rules:d.flexible,asset};}
-function ratioFromAsset(asset:Asset){if(!asset.width||!asset.height)return'1:1';const gcd=(a:number,b:number):number=>b?gcd(b,a%b):a,d=gcd(asset.width,asset.height);return`${Math.round(asset.width/d)}:${Math.round(asset.height/d)}`;}
+interface Props {
+  onUseImageForVideo?: (asset: Asset) => void;
+  initialEditAsset?: Asset | null;
+}
+type SelectionMode = "AUTO" | "MANUAL";
+const terminal = (s: string) =>
+  ["SUCCEEDED", "FAILED", "CANCELLED", "REFUNDED"].includes(s);
+const resolutionRank = (v: string) =>
+  ({ "1K": 1, "1.5K": 1.5, "2K": 2, "4K": 4 })[v.toUpperCase()] || 0;
+function localAlias(refs: WorkspaceReference[]) {
+  const used = new Set(refs.map((r) => r.alias_snapshot.toLowerCase()));
+  let i = 1;
+  while (used.has(`img${i}`)) i++;
+  return `img${i}`;
+}
+function referenceFor(
+  asset: Asset,
+  refs: WorkspaceReference[],
+  alias?: string,
+): WorkspaceReference {
+  const d = DEFAULT_PRESERVATION_RULES.GENERIC;
+  return {
+    asset_id: asset.asset_id,
+    alias_snapshot: alias || localAlias(refs),
+    role: "GENERAL",
+    priority: "HIGH",
+    preservation_rules: d.preserve,
+    flexible_rules: d.flexible,
+    asset,
+  };
+}
+function ratioFromAsset(asset: Asset) {
+  if (!asset.width || !asset.height) return "1:1";
+  const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a),
+    d = gcd(asset.width, asset.height);
+  return `${Math.round(asset.width / d)}:${Math.round(asset.height / d)}`;
+}
 
-export const UnifiedImageCreateView:React.FC<Props>=({onUseImageForVideo,initialEditAsset})=>{
- const{wallet,refreshWallet}=useAuth();
- const[models,setModels]=useState<ModelRegistryItem[]>([]),[assets,setAssets]=useState<Asset[]>([]),[favoriteModelIds,setFavoriteModelIds]=useState<string[]>([]),[recentModelIds,setRecentModelIds]=useState<string[]>([]),[selectionMode,setSelectionMode]=useState<SelectionMode>('AUTO'),[manualModelId,setManualModelId]=useState(''),[prompt,setPrompt]=useState(''),[references,setReferences]=useState<WorkspaceReference[]>([]),[aspectRatio,setAspectRatio]=useState('1:1'),[resolution,setResolution]=useState('1K'),[numberOfOutputs,setNumberOfOutputs]=useState(1),[seed,setSeed]=useState<number|''>(''),[showAdvanced,setShowAdvanced]=useState(false),[pickerOpen,setPickerOpen]=useState(false),[pickerView,setPickerView]=useState<AssetPickerContentView>('ASSETS'),[submitting,setSubmitting]=useState(false),[liveGenerations,setLiveGenerations]=useState<Generation[]>([]),[error,setError]=useState(''),[unitPricesByModelId,setUnitPricesByModelId]=useState<Record<string,number|null>>({}),[priceLoadingModelIds,setPriceLoadingModelIds]=useState<string[]>([]),[uploadBusy,setUploadBusy]=useState(false),[modelAdjustmentNotice,setModelAdjustmentNotice]=useState('');
- const quoteSeq=useRef(0),quoteCache=useRef(new Map<string,number>());
- const[mobileActiveCount,setMobileActiveCount]=useState(0);
- useEffect(()=>{let mounted=true;Promise.all([workspaceService.listModels().catch(()=>[]),workspaceService.listModelRoutes('text-to-image').catch(()=>[]),assetService.listAssets().catch(()=>[]),workspaceService.getUserPreferences().catch(()=>({favorite_model_ids:[],recent_model_ids:[]}as any))]).then(([mr,routes,ar,prefs])=>{if(!mounted)return;const safeIds=new Set(routes.map(route=>route.model_id));const imageModels=mr.filter(m=>m.category==='IMAGE'&&m.status!=='INACTIVE'&&safeIds.has(m.model_id)&&(m.supported_modes||[]).includes('TEXT_TO_IMAGE'));setModels(imageModels);setManualModelId(c=>imageModels.some(m=>m.model_id===c)?c:imageModels[0]?.model_id||'');setAssets(ar||[]);setFavoriteModelIds(prefs.favorite_model_ids||[]);setRecentModelIds(prefs.recent_model_ids||[]);});return()=>{mounted=false;};},[]);
- const editImage=useCallback((asset:Asset)=>{setError('');setSelectionMode('AUTO');setPrompt('');setReferences([referenceFor(asset,[])]);setAspectRatio(ratioFromAsset(asset));setNumberOfOutputs(1);window.scrollTo({top:0,behavior:'smooth'});},[]);
- useEffect(()=>{if(initialEditAsset?.type==='IMAGE')editImage(initialEditAsset);},[initialEditAsset?.asset_id,editImage]);
- useEffect(()=>{const complete=(event:Event)=>{const detail=(event as CustomEvent<{local_asset_id:string;asset:Asset}>).detail;if(!detail?.asset)return;const localId=detail.local_asset_id,real=detail.asset;setAssets(prev=>[real,...prev.filter(x=>x.asset_id!==localId&&x.asset_id!==real.asset_id)]);setReferences(prev=>prev.map(ref=>ref.asset_id===localId?{...ref,asset_id:real.asset_id,alias_snapshot:real.alias||ref.alias_snapshot,asset:real}:ref));};const failed=(event:Event)=>{const detail=(event as CustomEvent<{local_asset_id:string}>).detail;if(!detail?.local_asset_id)return;const localId=detail.local_asset_id;setAssets(prev=>prev.filter(x=>x.asset_id!==localId));setReferences(prev=>prev.filter(ref=>ref.asset_id!==localId));};window.addEventListener('ia:asset-upload-complete',complete);window.addEventListener('ia:asset-upload-failed',failed);return()=>{window.removeEventListener('ia:asset-upload-complete',complete);window.removeEventListener('ia:asset-upload-failed',failed);}},[]);
- const mode:GenerationMode=references.length?'IMAGE_TO_IMAGE':'TEXT_TO_IMAGE';
- const baseCompatibleModels=useMemo(()=>models.filter(model=>{const caps=getModelCapabilities(model);return model.supported_modes.includes(mode)&&model.supported_aspect_ratios.includes(aspectRatio)&&(!references.length||(caps.supports_image_reference&&references.length<=caps.max_reference_images));}),[models,mode,aspectRatio,references.length]);
- const manualModel=models.find(m=>m.model_id===manualModelId)||models[0]||null;
- const availableResolutions=useMemo(()=>{const values=selectionMode==='MANUAL'&&manualModel?manualModel.supported_resolutions:Array.from(new Set(baseCompatibleModels.flatMap(m=>m.supported_resolutions||[])));return[...values].sort((a,b)=>resolutionRank(a)-resolutionRank(b));},[selectionMode,manualModel,baseCompatibleModels]);
- useEffect(()=>{if(availableResolutions.length&&!availableResolutions.includes(resolution))setResolution(availableResolutions.includes('1K')?'1K':availableResolutions[0]);},[availableResolutions,resolution]);
- const compatibleModels=useMemo(()=>baseCompatibleModels.filter(m=>m.supported_resolutions.includes(resolution)),[baseCompatibleModels,resolution]);
- const livePricesByModelId=useMemo(()=>{const out:Record<string,number|null>={};models.forEach(m=>{const unit=unitPricesByModelId[m.model_id];out[m.model_id]=unit==null?null:unit*Math.max(1,numberOfOutputs);});return out;},[models,unitPricesByModelId,numberOfOutputs]);
- const autoModel=useMemo(()=>[...compatibleModels].sort((a,b)=>(livePricesByModelId[a.model_id]??Number.MAX_SAFE_INTEGER)-(livePricesByModelId[b.model_id]??Number.MAX_SAFE_INTEGER)||a.name.localeCompare(b.name))[0]||null,[compatibleModels,livePricesByModelId]);
- const activeModel=selectionMode==='AUTO'?autoModel:manualModel;
- const activeCaps=activeModel?getModelCapabilities(activeModel):null;
- const selectedCompatible=Boolean(activeModel&&compatibleModels.some(m=>m.model_id===activeModel.model_id));
- const maxReferences=selectionMode==='AUTO'?Math.max(0,...models.map(m=>getModelCapabilities(m).max_reference_images)):activeCaps?.max_reference_images||0;
- const unitPrice=activeModel?unitPricesByModelId[activeModel.model_id]??null:null,estimatedPrice=unitPrice==null?null:unitPrice*Math.max(1,numberOfOutputs),quoteLoading=Boolean(activeModel&&priceLoadingModelIds.includes(activeModel.model_id)),balance=wallet?.available_credits??0,hasBalance=estimatedPrice!=null&&balance>=estimatedPrice;
- const hasPendingReferences=references.some(ref=>ref.asset?.status==='UPLOADING'||ref.asset_id.startsWith('local_'));
- useEffect(()=>{const seq=++quoteSeq.current,compatibleIds=new Set(compatibleModels.map(m=>m.model_id)),baseline:Record<string,number|null>={},missing:ModelRegistryItem[]=[];models.forEach(m=>{if(!compatibleIds.has(m.model_id)){baseline[m.model_id]=null;return;}const key=`${m.model_id}|${mode}|${resolution}|${aspectRatio}|${references.length}`,cached=quoteCache.current.get(key);if(cached!=null)baseline[m.model_id]=cached;else{baseline[m.model_id]=unitPricesByModelId[m.model_id]??null;missing.push(m);}});setUnitPricesByModelId(baseline);setPriceLoadingModelIds(missing.map(m=>m.model_id));if(!missing.length)return;const timer=window.setTimeout(async()=>{const next={...baseline};let pricedReferences:WorkspaceReference[];try{pricedReferences=await assetService.resolveWorkspaceReferences(references);}catch{if(seq===quoteSeq.current)setPriceLoadingModelIds([]);return;}const requests=missing.map(model=>({key:model.model_id,model_id:model.model_id,mode,prompt:prompt.trim()||'pricing preview',references:pricedReferences,settings:{duration_seconds:1,resolution,aspect_ratio:aspectRatio,number_of_outputs:1,seed:typeof seed==='number'?seed:null}}));try{const batch=await generationClient.quoteBatch(requests);for(const item of batch.items){const model=missing.find(m=>m.model_id===item.key),d:any=item.pricing;if(!model||!item.ok||!d){next[item.key]=null;continue;}const unit=Number(d.unit_credit_price??d.retail_credit_price);if(!Number.isFinite(unit)||unit<=0){next[model.model_id]=null;continue;}const key=`${model.model_id}|${mode}|${resolution}|${aspectRatio}|${references.length}`;quoteCache.current.set(key,unit);next[model.model_id]=unit;}}catch{missing.forEach(model=>{next[model.model_id]=null;});}if(seq!==quoteSeq.current)return;setUnitPricesByModelId(next);setPriceLoadingModelIds([]);},120);return()=>window.clearTimeout(timer);},[models,compatibleModels,mode,resolution,aspectRatio,references.length]);
- const selectModel=async(model:ModelRegistryItem)=>{const caps=getModelCapabilities(model),changes:string[]=[];let nextRatio=aspectRatio,nextResolution=resolution,nextReferences=references;
-  if(!caps.supported_aspect_ratios.includes(nextRatio)){nextRatio=model.recommended_aspect_ratio&&caps.supported_aspect_ratios.includes(model.recommended_aspect_ratio)?model.recommended_aspect_ratio:caps.supported_aspect_ratios[0]||nextRatio;changes.push(`proporção ${aspectRatio} → ${nextRatio}`);}
-  if(!caps.supported_resolutions.includes(nextResolution)){const ranked=[...caps.supported_resolutions].sort((a,b)=>Math.abs(resolutionRank(a)-resolutionRank(resolution))-Math.abs(resolutionRank(b)-resolutionRank(resolution)));nextResolution=ranked[0]||nextResolution;changes.push(`resolução ${resolution} → ${nextResolution}`);}
-  if(nextReferences.length&&(!caps.supports_image_reference||!caps.supported_modes.includes('IMAGE_TO_IMAGE'))){nextReferences=[];changes.push('referências removidas');}
-  else if(nextReferences.length>caps.max_reference_images){nextReferences=nextReferences.slice(0,caps.max_reference_images);changes.push(`referências limitadas a ${caps.max_reference_images}`);}
-  setSelectionMode('MANUAL');setManualModelId(model.model_id);setAspectRatio(nextRatio);setResolution(nextResolution);setReferences(nextReferences);if(!caps.supports_seed)setSeed('');setModelAdjustmentNotice(changes.length?`${model.name}: ${changes.join(' · ')}.`:'');
-  const p=await workspaceService.trackRecentModel(model.model_id,nextReferences.length?'IMAGE_TO_IMAGE':'TEXT_TO_IMAGE').catch(()=>null);if(p)setRecentModelIds(p.recent_model_ids||[]);};
- const toggleFavorite=async(id:string)=>{const p=await workspaceService.toggleFavoriteModel(id).catch(()=>null);if(p)setFavoriteModelIds(p.favorite_model_ids||[]);};
- const addReference=(asset:Asset)=>setReferences(prev=>prev.some(r=>r.asset_id===asset.asset_id)||prev.length>=maxReferences?prev:[...prev,referenceFor(asset,prev)]);
- const removeReference=(id:string)=>setReferences(prev=>prev.filter(r=>r.asset_id!==id));
- const openPicker=(view:AssetPickerContentView='ASSETS')=>{setPickerView(view);setPickerOpen(true);};
- const quickUpload=useCallback((files:File[])=>{const capacity=Math.max(0,maxReferences-references.length),images=files.filter(f=>f.type.startsWith('image/')).slice(0,capacity);if(!images.length)return;const handles=assetService.startOptimisticImageUploads(images,{category:'GENERIC'},3);setUploadBusy(true);setAssets(prev=>[...handles.map(h=>h.asset),...prev.filter(x=>!handles.some(h=>h.asset.asset_id===x.asset_id))]);setReferences(prev=>{let next=prev;for(const handle of handles){if(next.length>=maxReferences)break;if(!next.some(r=>r.asset_id===handle.asset.asset_id))next=[...next,referenceFor(handle.asset,next)];}return next;});handles.forEach(handle=>{const localId=handle.asset.asset_id;void handle.ready.then(real=>{setAssets(prev=>[real,...prev.filter(x=>x.asset_id!==localId&&x.asset_id!==real.asset_id)]);setReferences(prev=>prev.map(ref=>ref.asset_id===localId?{...ref,asset_id:real.asset_id,alias_snapshot:real.alias||ref.alias_snapshot,asset:real}:ref));},(e:any)=>{setAssets(prev=>prev.filter(x=>x.asset_id!==localId));setReferences(prev=>prev.filter(ref=>ref.asset_id!==localId));setError(e?.message||'Não foi possível enviar a imagem.');});});void Promise.allSettled(handles.map(handle=>handle.ready)).then(()=>setUploadBusy(false));},[maxReferences,references.length]);
- useEffect(()=>{const onPaste=(e:ClipboardEvent)=>{const files=Array.from(e.clipboardData?.files||[]).filter(f=>f.type.startsWith('image/'));if(files.length)void quickUpload(files);};window.addEventListener('paste',onPaste);return()=>window.removeEventListener('paste',onPaste);},[quickUpload]);
- const restoreGeneration=(saved:Generation)=>{setError('');setSelectionMode('MANUAL');setManualModelId(saved.model_id);setPrompt(saved.original_prompt||'');setAspectRatio(saved.aspect_ratio||'1:1');setResolution(saved.resolution||'1K');setNumberOfOutputs(saved.number_of_outputs||1);setSeed(saved.seed??'');const restored:WorkspaceReference[]=[];(saved.references||[]).forEach((snapshot,index)=>{const asset=assets.find(a=>a.asset_id===snapshot.asset_id);if(asset)restored.push(referenceFor(asset,restored,snapshot.alias||`img${index+1}`));});setReferences(restored);window.scrollTo({top:0,behavior:'smooth'});};
- const refreshAssets=useCallback(async()=>{const rows=await assetService.listAssets().catch(()=>[]);setAssets(rows||[])},[]);
- const handleGenerationSettled=useCallback(()=>{void refreshAssets();void refreshWallet();},[refreshAssets,refreshWallet]);
- const generate=async()=>{setError('');if(submitting)return;const submittedPrompt=prompt.trim(),submittedModel=activeModel,submittedMode=mode,submittedReferences=[...references],submittedResolution=resolution,submittedAspectRatio=aspectRatio,submittedOutputs=numberOfOutputs,submittedSeed=typeof seed==='number'?seed:null,submittedHasPending=submittedReferences.some(ref=>ref.asset?.status==='UPLOADING'||ref.asset_id.startsWith('local_')),expectedPrice=submittedHasPending?null:estimatedPrice;if(!submittedPrompt)return setError('Descreva a imagem que deseja criar.');if(!submittedModel||!selectedCompatible)return setError('Escolha uma IA compatível ou use Auto para encontrar uma rota válida.');if(!submittedHasPending&&(quoteLoading||expectedPrice==null))return setError('Aguarde o preço da configuração antes de gerar.');if(!submittedHasPending&&!hasBalance)return setError('Créditos insuficientes para esta geração.');try{setSubmitting(true);const resolvedReferences=await assetService.resolveWorkspaceReferences(submittedReferences);const preview=await generationClient.quote({model_id:submittedModel.model_id,mode:submittedMode,prompt:submittedPrompt,references:resolvedReferences,settings:{duration_seconds:1,resolution:submittedResolution,aspect_ratio:submittedAspectRatio,number_of_outputs:submittedOutputs,seed:submittedSeed}}),draft:any=preview.request_draft,current=Number(draft.retail_credit_price),quotedUnit=Number(draft.unit_credit_price);if(Number.isFinite(quotedUnit)&&quotedUnit>0)setUnitPricesByModelId(prev=>({...prev,[submittedModel.model_id]:quotedUnit}));if(!draft.has_sufficient_funds)return setError('Créditos insuficientes para esta geração.');if(expectedPrice!=null&&current!==expectedPrice)return setError('O preço fixo foi atualizado. Nenhum crédito foi cobrado.');const started=await generationClient.create(draft as GenerationRequestDraft);setLiveGenerations(prev=>upsertGeneration(prev,started));window.dispatchEvent(new CustomEvent('generation:updated',{detail:started}));void refreshWallet();if(terminal(started.status)){if(started.status==='SUCCEEDED')handleGenerationSettled();else setError(started.error_message||'A geração não pôde ser concluída.');}}catch(e:any){setError(e?.message||'Não foi possível iniciar a geração.');}finally{setSubmitting(false)}};
- const useForVideo=async(asset:Asset)=>{try{const d=DEFAULT_PRESERVATION_RULES.GENERIC;await workspaceService.saveDraft({model_id:'AUTO',mode:'IMAGE_TO_VIDEO',prompt:'',references:[{asset_id:asset.asset_id,alias_snapshot:'img1',role:'START_FRAME',priority:'HIGH',preservation_rules:d.preserve,flexible_rules:d.flexible,asset}],settings:{duration_seconds:5,resolution:'720p',aspect_ratio:ratioFromAsset(asset),number_of_outputs:1}});onUseImageForVideo?.(asset);}catch(e:any){setError(e?.message||'Não foi possível preparar esta imagem para vídeo.');}};
- return <>
-  {models.length===0&&<div role="status" className="mb-4 rounded-2xl border border-amber-300/20 bg-amber-300/[0.06] p-4 text-sm text-amber-100"><strong>Nenhum modelo disponível.</strong><p className="mt-1 text-xs text-amber-100/70">As IAs serão exibidas quando uma Route estiver pronta.</p></div>}
-  <MobileStudioLayout activeCount={mobileActiveCount} creator={<UnifiedImageCreatorPanel models={models} selectionMode={selectionMode} selectedModelId={manualModelId} autoResolvedModel={autoModel} onSelectAuto={()=>{setSelectionMode('AUTO');setModelAdjustmentNotice('')}} onSelectModel={selectModel} favoriteModelIds={favoriteModelIds} recentModelIds={recentModelIds} onToggleFavorite={toggleFavorite} references={references} onOpenPicker={()=>openPicker('ASSETS')} onRemoveReference={removeReference} onQuickUpload={quickUpload} uploadBusy={uploadBusy} hasPendingReferences={hasPendingReferences} prompt={prompt} onChangePrompt={setPrompt} aspectRatio={aspectRatio} onChangeAspectRatio={setAspectRatio} resolution={resolution} onChangeResolution={setResolution} numberOfOutputs={numberOfOutputs} onChangeNumberOfOutputs={setNumberOfOutputs} availableResolutions={availableResolutions} activeModel={activeModel} showAdvanced={showAdvanced} onToggleAdvanced={()=>setShowAdvanced(v=>!v)} seed={seed} onChangeSeed={setSeed} totalPrice={estimatedPrice} unitPrice={unitPrice} balance={balance} hasBalance={hasBalance} generating={submitting} priceLoading={quoteLoading} onGenerate={generate} error={error} modelAdjustmentNotice={modelAdjustmentNotice} unitPricesByModelId={unitPricesByModelId} priceLoadingModelIds={priceLoadingModelIds}/>} gallery={<CreationGallery defaultFilter="IMAGE" title="Minhas criações" subtitle="Imagens, vídeos e histórico do seu studio." liveGenerations={liveGenerations} onGenerationSettled={handleGenerationSettled} onRestoreGeneration={restoreGeneration} onUseImageAsReference={addReference} onEditImage={editImage} onCreateVideoFromImage={useForVideo} onActiveCountChange={setMobileActiveCount}/>}/>
-  <AssetPickerModal isOpen={pickerOpen} onClose={()=>setPickerOpen(false)} availableAssets={assets} onSelectAsset={addReference} onAssetUploaded={asset=>setAssets(prev=>[asset,...prev.filter(i=>i.asset_id!==asset.asset_id)])} attachedAssetIds={references.map(r=>r.asset_id)} title="Adicionar referência à imagem" subtitle="Escolha mídia, personagem, produto ou estilo sem repetir etapas." defaultTab="LIBRARY" defaultContentView={pickerView} allowedTypes={['IMAGE']}/>
- </>;
+export const UnifiedImageCreateView: React.FC<Props> = ({
+  onUseImageForVideo,
+  initialEditAsset,
+}) => {
+  const { wallet, refreshWallet } = useAuth();
+  const [models, setModels] = useState<ModelRegistryItem[]>([]),
+    [assets, setAssets] = useState<Asset[]>([]),
+    [favoriteModelIds, setFavoriteModelIds] = useState<string[]>([]),
+    [recentModelIds, setRecentModelIds] = useState<string[]>([]),
+    [selectionMode, setSelectionMode] = useState<SelectionMode>("AUTO"),
+    [manualModelId, setManualModelId] = useState(""),
+    [prompt, setPrompt] = useState(""),
+    [references, setReferences] = useState<WorkspaceReference[]>([]),
+    [aspectRatio, setAspectRatio] = useState("1:1"),
+    [resolution, setResolution] = useState("1K"),
+    [numberOfOutputs, setNumberOfOutputs] = useState(1),
+    [seed, setSeed] = useState<number | "">(""),
+    [showAdvanced, setShowAdvanced] = useState(false),
+    [pickerOpen, setPickerOpen] = useState(false),
+    [pickerView, setPickerView] = useState<AssetPickerContentView>("ASSETS"),
+    [submitting, setSubmitting] = useState(false),
+    [liveGenerations, setLiveGenerations] = useState<Generation[]>([]),
+    [error, setError] = useState(""),
+    [unitPricesByModelId, setUnitPricesByModelId] = useState<
+      Record<string, number | null>
+    >({}),
+    [priceLoadingModelIds, setPriceLoadingModelIds] = useState<string[]>([]),
+    [uploadBusy, setUploadBusy] = useState(false),
+    [modelAdjustmentNotice, setModelAdjustmentNotice] = useState("");
+  const quoteSeq = useRef(0),
+    quoteCache = useRef(new Map<string, number>());
+  const [mobileActiveCount, setMobileActiveCount] = useState(0);
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      workspaceService.listModels().catch(() => []),
+      workspaceService.listModelRoutes("text-to-image").catch(() => []),
+      assetService.listAssets().catch(() => []),
+      workspaceService
+        .getUserPreferences()
+        .catch(() => ({ favorite_model_ids: [], recent_model_ids: [] }) as any),
+    ]).then(([mr, routes, ar, prefs]) => {
+      if (!mounted) return;
+      const safeIds = new Set(routes.map((route) => route.model_id));
+      const imageModels = mr.filter(
+        (m) =>
+          m.category === "IMAGE" &&
+          m.status !== "INACTIVE" &&
+          safeIds.has(m.model_id) &&
+          (m.supported_modes || []).includes("TEXT_TO_IMAGE"),
+      );
+      setModels(imageModels);
+      setManualModelId((c) =>
+        imageModels.some((m) => m.model_id === c)
+          ? c
+          : imageModels[0]?.model_id || "",
+      );
+      setAssets(ar || []);
+      setFavoriteModelIds(prefs.favorite_model_ids || []);
+      setRecentModelIds(prefs.recent_model_ids || []);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  const editImage = useCallback((asset: Asset) => {
+    setError("");
+    setSelectionMode("AUTO");
+    setPrompt("");
+    setReferences([referenceFor(asset, [])]);
+    setAspectRatio(ratioFromAsset(asset));
+    setNumberOfOutputs(1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+  useEffect(() => {
+    if (initialEditAsset?.type === "IMAGE") editImage(initialEditAsset);
+  }, [initialEditAsset?.asset_id, editImage]);
+  useEffect(() => {
+    const complete = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ local_asset_id: string; asset: Asset }>
+      ).detail;
+      if (!detail?.asset) return;
+      const localId = detail.local_asset_id,
+        real = detail.asset;
+      setAssets((prev) => [
+        real,
+        ...prev.filter(
+          (x) => x.asset_id !== localId && x.asset_id !== real.asset_id,
+        ),
+      ]);
+      setReferences((prev) =>
+        prev.map((ref) =>
+          ref.asset_id === localId
+            ? {
+                ...ref,
+                asset_id: real.asset_id,
+                alias_snapshot: real.alias || ref.alias_snapshot,
+                asset: real,
+              }
+            : ref,
+        ),
+      );
+    };
+    const failed = (event: Event) => {
+      const detail = (event as CustomEvent<{ local_asset_id: string }>).detail;
+      if (!detail?.local_asset_id) return;
+      const localId = detail.local_asset_id;
+      setAssets((prev) => prev.filter((x) => x.asset_id !== localId));
+      setReferences((prev) => prev.filter((ref) => ref.asset_id !== localId));
+    };
+    window.addEventListener("ia:asset-upload-complete", complete);
+    window.addEventListener("ia:asset-upload-failed", failed);
+    return () => {
+      window.removeEventListener("ia:asset-upload-complete", complete);
+      window.removeEventListener("ia:asset-upload-failed", failed);
+    };
+  }, []);
+  const mode: GenerationMode = references.length
+    ? "IMAGE_TO_IMAGE"
+    : "TEXT_TO_IMAGE";
+  const baseCompatibleModels = useMemo(
+    () =>
+      models.filter((model) => {
+        const caps = getModelCapabilities(model);
+        return (
+          model.supported_modes.includes(mode) &&
+          model.supported_aspect_ratios.includes(aspectRatio) &&
+          (!references.length ||
+            (caps.supports_image_reference &&
+              references.length <= caps.max_reference_images))
+        );
+      }),
+    [models, mode, aspectRatio, references.length],
+  );
+  const manualModel =
+    models.find((m) => m.model_id === manualModelId) || models[0] || null;
+  const availableResolutions = useMemo(() => {
+    const values =
+      selectionMode === "MANUAL" && manualModel
+        ? manualModel.supported_resolutions
+        : Array.from(
+            new Set(
+              baseCompatibleModels.flatMap(
+                (m) => m.supported_resolutions || [],
+              ),
+            ),
+          );
+    return [...values].sort((a, b) => resolutionRank(a) - resolutionRank(b));
+  }, [selectionMode, manualModel, baseCompatibleModels]);
+  useEffect(() => {
+    if (
+      availableResolutions.length &&
+      !availableResolutions.includes(resolution)
+    )
+      setResolution(
+        availableResolutions.includes("1K") ? "1K" : availableResolutions[0],
+      );
+  }, [availableResolutions, resolution]);
+  const compatibleModels = useMemo(
+    () =>
+      baseCompatibleModels.filter((m) =>
+        m.supported_resolutions.includes(resolution),
+      ),
+    [baseCompatibleModels, resolution],
+  );
+  const livePricesByModelId = useMemo(() => {
+    const out: Record<string, number | null> = {};
+    models.forEach((m) => {
+      const unit = unitPricesByModelId[m.model_id];
+      out[m.model_id] =
+        unit == null ? null : unit * Math.max(1, numberOfOutputs);
+    });
+    return out;
+  }, [models, unitPricesByModelId, numberOfOutputs]);
+  const autoModel = useMemo(
+    () =>
+      [...compatibleModels].sort(
+        (a, b) =>
+          (livePricesByModelId[a.model_id] ?? Number.MAX_SAFE_INTEGER) -
+            (livePricesByModelId[b.model_id] ?? Number.MAX_SAFE_INTEGER) ||
+          a.name.localeCompare(b.name),
+      )[0] || null,
+    [compatibleModels, livePricesByModelId],
+  );
+  const activeModel = selectionMode === "AUTO" ? autoModel : manualModel;
+  const activeCaps = activeModel ? getModelCapabilities(activeModel) : null;
+  const selectedCompatible = Boolean(
+    activeModel &&
+    compatibleModels.some((m) => m.model_id === activeModel.model_id),
+  );
+  const maxReferences =
+    selectionMode === "AUTO"
+      ? Math.max(
+          0,
+          ...models.map((m) => getModelCapabilities(m).max_reference_images),
+        )
+      : activeCaps?.max_reference_images || 0;
+  const unitPrice = activeModel
+      ? (unitPricesByModelId[activeModel.model_id] ?? null)
+      : null,
+    estimatedPrice =
+      unitPrice == null ? null : unitPrice * Math.max(1, numberOfOutputs),
+    quoteLoading = Boolean(
+      activeModel && priceLoadingModelIds.includes(activeModel.model_id),
+    ),
+    balance = wallet?.available_credits ?? 0,
+    hasBalance = estimatedPrice != null && balance >= estimatedPrice;
+  const hasPendingReferences = references.some(
+    (ref) =>
+      ref.asset?.status === "UPLOADING" || ref.asset_id.startsWith("local_"),
+  );
+  useEffect(() => {
+    const seq = ++quoteSeq.current,
+      compatibleIds = new Set(compatibleModels.map((m) => m.model_id)),
+      baseline: Record<string, number | null> = {},
+      missing: ModelRegistryItem[] = [];
+    models.forEach((m) => {
+      if (!compatibleIds.has(m.model_id)) {
+        baseline[m.model_id] = null;
+        return;
+      }
+      const key = `${m.model_id}|${mode}|${resolution}|${aspectRatio}|${references.length}`,
+        cached = quoteCache.current.get(key);
+      if (cached != null) baseline[m.model_id] = cached;
+      else {
+        baseline[m.model_id] = unitPricesByModelId[m.model_id] ?? null;
+        missing.push(m);
+      }
+    });
+    setUnitPricesByModelId(baseline);
+    setPriceLoadingModelIds(missing.map((m) => m.model_id));
+    if (!missing.length) return;
+    const timer = window.setTimeout(async () => {
+      const next = { ...baseline };
+      let pricedReferences: WorkspaceReference[];
+      try {
+        pricedReferences =
+          await assetService.resolveWorkspaceReferences(references);
+      } catch {
+        if (seq === quoteSeq.current) setPriceLoadingModelIds([]);
+        return;
+      }
+      const requests = missing.map((model) => ({
+        key: model.model_id,
+        model_id: model.model_id,
+        mode,
+        prompt: prompt.trim() || "pricing preview",
+        references: pricedReferences,
+        settings: {
+          duration_seconds: 1,
+          resolution,
+          aspect_ratio: aspectRatio,
+          number_of_outputs: 1,
+          seed: model.supports_seed && typeof seed === "number" ? seed : null,
+        },
+      }));
+      try {
+        const batch = await generationClient.quoteBatch(requests);
+        for (const item of batch.items) {
+          const model = missing.find((m) => m.model_id === item.key),
+            d: any = item.pricing;
+          if (!model || !item.ok || !d) {
+            next[item.key] = null;
+            continue;
+          }
+          const unit = Number(d.unit_credit_price ?? d.retail_credit_price);
+          if (!Number.isFinite(unit) || unit <= 0) {
+            next[model.model_id] = null;
+            continue;
+          }
+          const key = `${model.model_id}|${mode}|${resolution}|${aspectRatio}|${references.length}`;
+          quoteCache.current.set(key, unit);
+          next[model.model_id] = unit;
+        }
+      } catch {
+        missing.forEach((model) => {
+          next[model.model_id] = null;
+        });
+      }
+      if (seq !== quoteSeq.current) return;
+      setUnitPricesByModelId(next);
+      setPriceLoadingModelIds([]);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [
+    models,
+    compatibleModels,
+    mode,
+    resolution,
+    aspectRatio,
+    references.length,
+  ]);
+  const selectModel = async (model: ModelRegistryItem) => {
+    const caps = getModelCapabilities(model),
+      changes: string[] = [];
+    let nextRatio = aspectRatio,
+      nextResolution = resolution,
+      nextReferences = references;
+    if (!caps.supported_aspect_ratios.includes(nextRatio)) {
+      nextRatio =
+        model.recommended_aspect_ratio &&
+        caps.supported_aspect_ratios.includes(model.recommended_aspect_ratio)
+          ? model.recommended_aspect_ratio
+          : caps.supported_aspect_ratios[0] || nextRatio;
+      changes.push(`proporção ${aspectRatio} → ${nextRatio}`);
+    }
+    if (!caps.supported_resolutions.includes(nextResolution)) {
+      const ranked = [...caps.supported_resolutions].sort(
+        (a, b) =>
+          Math.abs(resolutionRank(a) - resolutionRank(resolution)) -
+          Math.abs(resolutionRank(b) - resolutionRank(resolution)),
+      );
+      nextResolution = ranked[0] || nextResolution;
+      changes.push(`resolução ${resolution} → ${nextResolution}`);
+    }
+    if (
+      nextReferences.length &&
+      (!caps.supports_image_reference ||
+        !caps.supported_modes.includes("IMAGE_TO_IMAGE"))
+    ) {
+      nextReferences = [];
+      changes.push("referências removidas");
+    } else if (nextReferences.length > caps.max_reference_images) {
+      nextReferences = nextReferences.slice(0, caps.max_reference_images);
+      changes.push(`referências limitadas a ${caps.max_reference_images}`);
+    }
+    setSelectionMode("MANUAL");
+    setManualModelId(model.model_id);
+    setAspectRatio(nextRatio);
+    setResolution(nextResolution);
+    setReferences(nextReferences);
+    if (!caps.supports_seed) setSeed("");
+    setModelAdjustmentNotice(
+      changes.length ? `${model.name}: ${changes.join(" · ")}.` : "",
+    );
+    const p = await workspaceService
+      .trackRecentModel(
+        model.model_id,
+        nextReferences.length ? "IMAGE_TO_IMAGE" : "TEXT_TO_IMAGE",
+      )
+      .catch(() => null);
+    if (p) setRecentModelIds(p.recent_model_ids || []);
+  };
+  const toggleFavorite = async (id: string) => {
+    const p = await workspaceService.toggleFavoriteModel(id).catch(() => null);
+    if (p) setFavoriteModelIds(p.favorite_model_ids || []);
+  };
+  const addReference = (asset: Asset) =>
+    setReferences((prev) =>
+      prev.some((r) => r.asset_id === asset.asset_id) ||
+      prev.length >= maxReferences
+        ? prev
+        : [...prev, referenceFor(asset, prev)],
+    );
+  const removeReference = (id: string) =>
+    setReferences((prev) => prev.filter((r) => r.asset_id !== id));
+  const openPicker = (view: AssetPickerContentView = "ASSETS") => {
+    setPickerView(view);
+    setPickerOpen(true);
+  };
+  const quickUpload = useCallback(
+    (files: File[]) => {
+      const capacity = Math.max(0, maxReferences - references.length),
+        images = files
+          .filter((f) => f.type.startsWith("image/"))
+          .slice(0, capacity);
+      if (!images.length) return;
+      const handles = assetService.startOptimisticImageUploads(
+        images,
+        { category: "GENERIC" },
+        3,
+      );
+      setUploadBusy(true);
+      setAssets((prev) => [
+        ...handles.map((h) => h.asset),
+        ...prev.filter(
+          (x) => !handles.some((h) => h.asset.asset_id === x.asset_id),
+        ),
+      ]);
+      setReferences((prev) => {
+        let next = prev;
+        for (const handle of handles) {
+          if (next.length >= maxReferences) break;
+          if (!next.some((r) => r.asset_id === handle.asset.asset_id))
+            next = [...next, referenceFor(handle.asset, next)];
+        }
+        return next;
+      });
+      handles.forEach((handle) => {
+        const localId = handle.asset.asset_id;
+        void handle.ready.then(
+          (real) => {
+            setAssets((prev) => [
+              real,
+              ...prev.filter(
+                (x) => x.asset_id !== localId && x.asset_id !== real.asset_id,
+              ),
+            ]);
+            setReferences((prev) =>
+              prev.map((ref) =>
+                ref.asset_id === localId
+                  ? {
+                      ...ref,
+                      asset_id: real.asset_id,
+                      alias_snapshot: real.alias || ref.alias_snapshot,
+                      asset: real,
+                    }
+                  : ref,
+              ),
+            );
+          },
+          (e: any) => {
+            setAssets((prev) => prev.filter((x) => x.asset_id !== localId));
+            setReferences((prev) =>
+              prev.filter((ref) => ref.asset_id !== localId),
+            );
+            setError(e?.message || "Não foi possível enviar a imagem.");
+          },
+        );
+      });
+      void Promise.allSettled(handles.map((handle) => handle.ready)).then(() =>
+        setUploadBusy(false),
+      );
+    },
+    [maxReferences, references.length],
+  );
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const files = Array.from(e.clipboardData?.files || []).filter((f) =>
+        f.type.startsWith("image/"),
+      );
+      if (files.length) void quickUpload(files);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [quickUpload]);
+  const restoreGeneration = (saved: Generation) => {
+    setError("");
+    setSelectionMode("MANUAL");
+    setManualModelId(saved.model_id);
+    setPrompt(saved.original_prompt || "");
+    setAspectRatio(saved.aspect_ratio || "1:1");
+    setResolution(saved.resolution || "1K");
+    setNumberOfOutputs(saved.number_of_outputs || 1);
+    setSeed(saved.seed ?? "");
+    const restored: WorkspaceReference[] = [];
+    (saved.references || []).forEach((snapshot, index) => {
+      const asset = assets.find((a) => a.asset_id === snapshot.asset_id);
+      if (asset)
+        restored.push(
+          referenceFor(asset, restored, snapshot.alias || `img${index + 1}`),
+        );
+    });
+    setReferences(restored);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const refreshAssets = useCallback(async () => {
+    const rows = await assetService.listAssets().catch(() => []);
+    setAssets(rows || []);
+  }, []);
+  const handleGenerationSettled = useCallback(() => {
+    void refreshAssets();
+    void refreshWallet();
+  }, [refreshAssets, refreshWallet]);
+  const generate = async () => {
+    setError("");
+    if (submitting) return;
+    const submittedPrompt = prompt.trim(),
+      submittedModel = activeModel,
+      submittedMode = mode,
+      submittedReferences = [...references],
+      submittedResolution = resolution,
+      submittedAspectRatio = aspectRatio,
+      submittedOutputs = numberOfOutputs,
+      submittedSeed = typeof seed === "number" ? seed : null,
+      submittedHasPending = submittedReferences.some(
+        (ref) =>
+          ref.asset?.status === "UPLOADING" ||
+          ref.asset_id.startsWith("local_"),
+      ),
+      expectedPrice = submittedHasPending ? null : estimatedPrice;
+    if (!submittedPrompt)
+      return setError("Descreva a imagem que deseja criar.");
+    if (!submittedModel || !selectedCompatible)
+      return setError(
+        "Escolha uma IA compatível ou use Auto para encontrar uma rota válida.",
+      );
+    if (!submittedHasPending && (quoteLoading || expectedPrice == null))
+      return setError("Aguarde o preço da configuração antes de gerar.");
+    if (!submittedHasPending && !hasBalance)
+      return setError("Créditos insuficientes para esta geração.");
+    try {
+      setSubmitting(true);
+      const resolvedReferences =
+        await assetService.resolveWorkspaceReferences(submittedReferences);
+      const preview = await generationClient.quote({
+          model_id:
+            selectionMode === "AUTO" ? "AUTO" : submittedModel.model_id,
+          mode: submittedMode,
+          prompt: submittedPrompt,
+          references: resolvedReferences,
+          settings: {
+            duration_seconds: 1,
+            resolution: submittedResolution,
+            aspect_ratio: submittedAspectRatio,
+            number_of_outputs: submittedOutputs,
+            seed: submittedModel.supports_seed ? submittedSeed : null,
+          },
+        }),
+        draft: any = preview.request_draft,
+        current = Number(draft.retail_credit_price),
+        quotedUnit = Number(draft.unit_credit_price);
+      if (Number.isFinite(quotedUnit) && quotedUnit > 0)
+        setUnitPricesByModelId((prev) => ({
+          ...prev,
+          [submittedModel.model_id]: quotedUnit,
+        }));
+      if (!draft.has_sufficient_funds)
+        return setError("Créditos insuficientes para esta geração.");
+      if (expectedPrice != null && current !== expectedPrice)
+        return setError(
+          "O preço fixo foi atualizado. Nenhum crédito foi cobrado.",
+        );
+      const started = await generationClient.create(
+        draft as GenerationRequestDraft,
+      );
+      setLiveGenerations((prev) => upsertGeneration(prev, started));
+      window.dispatchEvent(
+        new CustomEvent("generation:updated", { detail: started }),
+      );
+      void refreshWallet();
+      if (terminal(started.status)) {
+        if (started.status === "SUCCEEDED") handleGenerationSettled();
+        else
+          setError(
+            started.error_message || "A geração não pôde ser concluída.",
+          );
+      }
+    } catch (e: any) {
+      setError(e?.message || "Não foi possível iniciar a geração.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const useForVideo = async (asset: Asset) => {
+    try {
+      const d = DEFAULT_PRESERVATION_RULES.GENERIC;
+      await workspaceService.saveDraft({
+        model_id: "AUTO",
+        mode: "IMAGE_TO_VIDEO",
+        prompt: "",
+        references: [
+          {
+            asset_id: asset.asset_id,
+            alias_snapshot: "img1",
+            role: "START_FRAME",
+            priority: "HIGH",
+            preservation_rules: d.preserve,
+            flexible_rules: d.flexible,
+            asset,
+          },
+        ],
+        settings: {
+          duration_seconds: 5,
+          resolution: "720p",
+          aspect_ratio: ratioFromAsset(asset),
+          number_of_outputs: 1,
+        },
+      });
+      onUseImageForVideo?.(asset);
+    } catch (e: any) {
+      setError(
+        e?.message || "Não foi possível preparar esta imagem para vídeo.",
+      );
+    }
+  };
+  return (
+    <>
+      <MobileStudioLayout
+        activeCount={mobileActiveCount}
+        creator={
+          <UnifiedImageCreatorPanel
+            models={models}
+            selectionMode={selectionMode}
+            selectedModelId={manualModelId}
+            autoResolvedModel={autoModel}
+            onSelectAuto={() => {
+              setSelectionMode("AUTO");
+              setModelAdjustmentNotice("");
+            }}
+            onSelectModel={selectModel}
+            favoriteModelIds={favoriteModelIds}
+            recentModelIds={recentModelIds}
+            onToggleFavorite={toggleFavorite}
+            references={references}
+            onOpenPicker={() => openPicker("ASSETS")}
+            onRemoveReference={removeReference}
+            onQuickUpload={quickUpload}
+            uploadBusy={uploadBusy}
+            hasPendingReferences={hasPendingReferences}
+            prompt={prompt}
+            onChangePrompt={setPrompt}
+            aspectRatio={aspectRatio}
+            onChangeAspectRatio={setAspectRatio}
+            resolution={resolution}
+            onChangeResolution={setResolution}
+            numberOfOutputs={numberOfOutputs}
+            onChangeNumberOfOutputs={setNumberOfOutputs}
+            availableResolutions={availableResolutions}
+            activeModel={activeModel}
+            showAdvanced={showAdvanced}
+            onToggleAdvanced={() => setShowAdvanced((v) => !v)}
+            seed={seed}
+            onChangeSeed={setSeed}
+            totalPrice={estimatedPrice}
+            unitPrice={unitPrice}
+            balance={balance}
+            hasBalance={hasBalance}
+            generating={submitting}
+            priceLoading={quoteLoading}
+            onGenerate={generate}
+            error={error}
+            modelAdjustmentNotice={modelAdjustmentNotice}
+            unitPricesByModelId={unitPricesByModelId}
+            priceLoadingModelIds={priceLoadingModelIds}
+          />
+        }
+        gallery={
+          <CreationGallery
+            defaultFilter="IMAGE"
+            title="Minhas criações"
+            subtitle="Imagens, vídeos e histórico do seu studio."
+            liveGenerations={liveGenerations}
+            onGenerationSettled={handleGenerationSettled}
+            onRestoreGeneration={restoreGeneration}
+            onUseImageAsReference={addReference}
+            onEditImage={editImage}
+            onCreateVideoFromImage={useForVideo}
+            onActiveCountChange={setMobileActiveCount}
+          />
+        }
+      />
+      <AssetPickerModal
+        isOpen={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        availableAssets={assets}
+        onSelectAsset={addReference}
+        onAssetUploaded={(asset) =>
+          setAssets((prev) => [
+            asset,
+            ...prev.filter((i) => i.asset_id !== asset.asset_id),
+          ])
+        }
+        attachedAssetIds={references.map((r) => r.asset_id)}
+        title="Adicionar referência à imagem"
+        subtitle="Escolha mídia, personagem, produto ou estilo sem repetir etapas."
+        defaultTab="LIBRARY"
+        defaultContentView={pickerView}
+        allowedTypes={["IMAGE"]}
+      />
+    </>
+  );
 };

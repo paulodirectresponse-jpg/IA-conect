@@ -12,8 +12,8 @@ describe('mobile Studio stage 2',()=>{
     const layout=read('src/components/workspace/MobileStudioLayout.tsx');
     const videoPanel=read('src/components/workspace/CreatorPanel.tsx');
     const imagePanel=read('src/components/workspace/UnifiedImageCreatorPanel.tsx');
-    expect(video).toContain('<MobileStudioLayout activeCount={mobileActiveCount}');
-    expect(image).toContain('<MobileStudioLayout activeCount={mobileActiveCount}');
+    expect(video).toMatch(/<MobileStudioLayout\s+activeCount=\{mobileActiveCount\}/);
+    expect(image).toMatch(/<MobileStudioLayout\s+activeCount=\{mobileActiveCount\}/);
     expect(layout).toContain('Criar');
     expect(layout).toContain('Resultados');
     expect(layout).toContain('role="tablist"');
@@ -23,10 +23,10 @@ describe('mobile Studio stage 2',()=>{
 
   it('reports active jobs to the mobile Results badge without changing polling semantics',()=>{
     const gallery=read('src/components/workspace/CreationGallery.tsx');
-    expect(gallery).toContain('onActiveCountChange?:(count:number)=>void');
-    expect(gallery).toContain('onActiveCountChange?.(activeCount)');
+    expect(gallery).toMatch(/onActiveCountChange\?:\s*\(count:\s*number\)\s*=>\s*void/);
+    expect(gallery).toMatch(/onActiveCountChange\?\.\(activeCount\)/);
     expect(gallery).toContain('generationClient.statusBatch(activeGenerationIds)');
-    expect(gallery).toContain('document.hidden?12000:2200');
+    expect(gallery).toMatch(/document\.hidden\s*\?\s*12000\s*:\s*2200/);
   });
 
   it('uses visualViewport to survive the mobile keyboard and keeps submit action sticky',()=>{
