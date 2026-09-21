@@ -1,5 +1,4 @@
 import { apiRequest } from "./apiClient.js";
-import { generationClient } from "./generationClient.js";
 import { workspaceService } from "./workspaceService.js";
 import type { Generation, ModelRegistryItem } from "../types/index.js";
 import type {
@@ -10,6 +9,20 @@ import type {
 
 export type UniversalCreationRequest = UniversalGenerationRequest;
 export type UniversalCreationQuote = UniversalGenerationQuote;
+
+export interface UniversalBatchQuoteResult {
+  items: Array<{
+    key: string;
+    ok: boolean;
+    pricing?: {
+      model_id: string;
+      retail_credit_price: number;
+      unit_credit_price?: number;
+      has_sufficient_funds: boolean;
+    };
+    error?: { code?: string; message?: string };
+  }>;
+}
 
 export const universalGenerationClient = {
   async catalog(capabilityId: string): Promise<ModelRegistryItem[]> {
@@ -24,6 +37,15 @@ export const universalGenerationClient = {
     return apiRequest<UniversalGenerationQuote>("/api/generations/quote", {
       method: "POST",
       body: JSON.stringify(request),
+    });
+  },
+
+  quoteBatch(
+    requests: Array<UniversalGenerationRequest & { key: string }>,
+  ): Promise<UniversalBatchQuoteResult> {
+    return apiRequest("/api/generations/quote-batch", {
+      method: "POST",
+      body: JSON.stringify({ requests }),
     });
   },
 
@@ -50,6 +72,31 @@ export const universalGenerationClient = {
     });
   },
 
-  get: generationClient.get,
-  cancel: generationClient.cancel,
+  get(id: string) {
+    return apiRequest<Generation>(`/api/generations/${id}`);
+  },
+
+  list(max = 50) {
+    return apiRequest<Generation[]>(
+      `/api/generations?limit=${Math.min(100, max)}`,
+    );
+  },
+
+  statusBatch(ids: string[]) {
+    const generation_ids = Array.from(new Set(ids.filter(Boolean))).slice(
+      0,
+      24,
+    );
+    if (!generation_ids.length) return Promise.resolve([] as Generation[]);
+    return apiRequest<Generation[]>("/api/generations/status-batch", {
+      method: "POST",
+      body: JSON.stringify({ generation_ids }),
+    });
+  },
+
+  cancel(id: string) {
+    return apiRequest<Generation>(`/api/generations/${id}/cancel`, {
+      method: "POST",
+    });
+  },
 };
