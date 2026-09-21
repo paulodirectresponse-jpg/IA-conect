@@ -1,3 +1,7 @@
+/* UI-only capability projection and pre-validation.
+ * Operational compatibility is authoritative only in server/routing-v2/modelCompatibilityService.ts.
+ * This module may improve UX, but must never authorize a generation.
+ */
 import {
   ModelRegistryItem,
   ModelCapabilities,
