@@ -115,6 +115,9 @@ async function buildGenerationQuote(
     topology: settings.topology,
     motion_strength: settings.motion_strength,
     audio_enabled: settings.audio_enabled,
+    background_mode: settings.background_mode,
+    variation_strength: settings.variation_strength,
+    editor_operation: settings.editor_operation,
   };
   const auto =
     String(body.model_id) === "AUTO"
@@ -440,6 +443,9 @@ generationRouter.post(
                 topology: settings.topology,
                 motion_strength: settings.motion_strength,
                 audio_enabled: settings.audio_enabled,
+                background_mode: settings.background_mode,
+                variation_strength: settings.variation_strength,
+                editor_operation: settings.editor_operation,
               },
               reference_types: await ownedReferenceTypes(uid,req.body.references || []),
             })
@@ -477,8 +483,16 @@ generationRouter.post(
           pbr: settings.pbr,
           target_faces: settings.target_faces,
           topology: settings.topology,
+          background_mode: settings.background_mode,
+          variation_strength: settings.variation_strength,
+          editor_operation: settings.editor_operation,
         },
         references: req.body.references || [],
+        derived_from_asset_id: Array.isArray(req.body.references)
+          ? req.body.references.find((reference: any) =>
+              String(reference?.role || "").toUpperCase() === "SOURCE",
+            )?.asset_id
+          : undefined,
         client_request_id: req.body.client_request_id,
         authorized_credit_price: Number.isFinite(
           Number(req.body.authorized_credit_price),
