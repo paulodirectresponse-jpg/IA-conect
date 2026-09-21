@@ -20,12 +20,16 @@ type QuickAction=SpaceQuickAction;
 const errorText=(error:any)=>error instanceof ApiError?error.message:error?.message||'Não foi possível concluir a operação.';
 const uid=(prefix:string)=>`${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
 const capabilityLabels:Record<string,string>={
- 'text-to-image':'Gerar imagem','image-to-image':'Gerar imagem','image-edit':'Editar imagem','video-edit':'Editar vídeo','video-extend':'Estender vídeo','text-to-video':'Gerar vídeo','image-to-video':'Gerar vídeo',
+ 'text-to-image':'Gerar imagem','image-to-image':'Gerar imagem','image-edit':'Editar imagem','background-remove-replace':'Remover ou trocar fundo','upscale':'Melhorar resolução','outpaint':'Expandir imagem','variations':'Criar variações','video-edit':'Editar vídeo','video-extend':'Estender vídeo','text-to-video':'Gerar vídeo','image-to-video':'Gerar vídeo',
 };
 const mediaFallback:Record<string,{inputs:BetaCapabilityMediaType[];outputs:BetaCapabilityMediaType[]}>={
  'text-to-image':{inputs:['TEXT'],outputs:['IMAGE']},
  'image-to-image':{inputs:['TEXT','IMAGE'],outputs:['IMAGE']},
  'image-edit':{inputs:['TEXT','IMAGE'],outputs:['IMAGE']},
+ 'background-remove-replace':{inputs:['IMAGE'],outputs:['IMAGE']},
+ 'upscale':{inputs:['IMAGE'],outputs:['IMAGE']},
+ 'outpaint':{inputs:['TEXT','IMAGE'],outputs:['IMAGE']},
+ 'variations':{inputs:['IMAGE'],outputs:['IMAGE']},
  'text-to-video':{inputs:['TEXT'],outputs:['VIDEO']},
  'image-to-video':{inputs:['TEXT','IMAGE'],outputs:['VIDEO']},
  'video-edit':{inputs:['TEXT','VIDEO'],outputs:['VIDEO']},
