@@ -43,6 +43,7 @@ export interface StartRoutingV2GenerationInput{
   authorized_credit_price?:number;
   requested_model_id?:string|null;
   routing_mode?:'MANUAL'|'AUTO';
+  expected_pricing_id?:string;
 }
 
 function outputAssetType(capabilityId:CapabilityId):AssetType{
@@ -129,6 +130,10 @@ export const routingV2ExecutionService={
 
     const preview=await this.preview(input);
     const authorized=Number(input.authorized_credit_price);
+    const pricingId=`routing-v2:${preview.route.route_id}:${preview.pricing_fetched_at}`;
+    if(input.expected_pricing_id&&input.expected_pricing_id!==pricingId){
+      throw Object.assign(new Error('A rota ou o snapshot de preço mudou desde a cotação. Atualize a prévia antes de gerar.'),{code:'PRICE_CHANGED_REQUOTE_REQUIRED',quoted_pricing_id:input.expected_pricing_id,current_pricing_id:pricingId});
+    }
     if(Number.isFinite(authorized)&&authorized>0&&authorized!==preview.retail_credits){
       throw Object.assign(new Error('O preço mudou desde a autorização. Atualize a prévia antes de gerar.'),{code:'ROUTING_V2_PRICE_CHANGED',quoted_credit_price:authorized,current_credit_price:preview.retail_credits});
     }
