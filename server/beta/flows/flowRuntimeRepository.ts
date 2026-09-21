@@ -61,6 +61,14 @@ export const betaFlowRuntimeRepository={
     });
     return rows.map((row:any)=>row.data as BetaFlowRun).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at));
   },
+  async listFlowRuns(flowId:string,userId:string,limit=50):Promise<BetaFlowRun[]>{
+    const rows=await firestoreAdminRest.runQuery({
+      from:[{collectionId:RUNS}],
+      where:{fieldFilter:{field:{fieldPath:'flow_id'},op:'EQUAL',value:{stringValue:flowId}}},
+      limit:Math.min(100,Math.max(1,limit)),
+    });
+    return rows.map((row:any)=>row.data as BetaFlowRun).filter((row:BetaFlowRun)=>row.user_id===userId).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at));
+  },
   async getNodeRun(run:string,node:string,userId:string):Promise<BetaFlowNodeRun|null>{
     const doc=await firestoreAdminRest.get(`${NODES}/${safe(nodeRunId(run,node))}`);
     if(!doc.exists)return null;
