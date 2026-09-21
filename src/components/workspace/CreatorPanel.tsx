@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, Clock3, Image as ImageIcon, Layers3, Music, Plus, Ratio, Settings2, SlidersHorizontal, Video, WandSparkles, X, UploadCloud } from 'lucide-react';
+import { ChevronDown, Clock3, Image as ImageIcon, Layers3, Music, Plus, Ratio, Settings2, SlidersHorizontal, Video, X, UploadCloud } from 'lucide-react';
 import { ModelRegistryItem, WorkspaceReference, Asset, GenerationMode, ModelCapabilities } from '../../types/index.js';
 import { PromptComposer } from './PromptComposer.js';
-import { CompactModelPicker } from './CompactModelPicker.js';
-import { GeneratorPanel,GeneratorScroll } from './GeneratorControls.js';
+import { UniversalModelPicker } from './UniversalModelPicker.js';
+import { GeneratorFooter,UniversalCreatorShell } from './GeneratorControls.js';
 import { formatCredits } from '../../utils/creditFormat.js';
 import { getVideoModelCover } from '../../config/videoModelCovers.js';
 
@@ -45,7 +45,6 @@ export const CreatorPanel: React.FC<Props> = (p) => {
   const resolutionLabel = resolutions.every((value)=>/^(?:\d+(?:\.\d+)?p|\d+(?:\.\d+)?k)$/i.test(String(value))) ? 'Resolução' : 'Qualidade';
   const acceptedReferenceLabels=[caps?.supports_image_reference?'imagem':null,caps?.supports_video_reference?'vídeo':null,caps?.supports_audio_reference?'áudio':null].filter(Boolean).join(' · ');
   const generalRefs = p.references.filter((r) => !['START_FRAME','INITIAL_FRAME','END_FRAME'].includes(String(r.role || '').toUpperCase()));
-  const costText = p.totalEstimatedCostCents == null ? 'Preço indisponível' : formatCredits(p.totalEstimatedCostCents);
   const activeAliases = useMemo(() => new Set(generalRefs.filter((r)=>p.prompt.toLowerCase().includes(`@${r.alias_snapshot.toLowerCase()}`)).map((r)=>r.asset_id)), [generalRefs, p.prompt]);
   const durationIndex=Math.max(0,durations.findIndex(v=>v===p.durationSeconds));
   const acceptDrop=(target:'INITIAL'|'END'|'GENERAL',e:React.DragEvent)=>{e.preventDefault();e.stopPropagation();setDragTarget(null);const files=filesFromDrop(e);if(files.length)p.onQuickUpload?.(target,files)};
@@ -57,9 +56,33 @@ export const CreatorPanel: React.FC<Props> = (p) => {
   const optionGrid = (values: Array<string|number>, current: string|number, select: (v:any)=>void) => <div className="flex flex-wrap gap-1.5">{values.map((value)=><button key={String(value)} type="button" onClick={()=>select(value)} className={`min-w-12 px-2.5 py-1.5 rounded-lg border text-[9px] font-semibold ${String(current)===String(value)?'border-cyan-300/35 bg-cyan-300/10 text-cyan-200':'border-white/[0.06] bg-black/15 text-zinc-500 hover:text-zinc-200'}`}>{value}</button>)}</div>;
   const durationSlider=<div className="px-1 pt-1 pb-0.5"><div className="flex items-end justify-between gap-3 mb-2"><div><p className="text-[17px] font-black text-white tabular-nums">{p.durationSeconds}s</p><p className="text-[8px] text-zinc-600">duração do vídeo</p></div>{p.unitPriceCents!=null&&<div className="text-right"><p className="text-[8px] text-zinc-600">preço fixo</p><p className="text-[9px] font-bold text-cyan-200">{formatCredits(p.unitPriceCents)} / segundo</p></div>}</div><input aria-label="Duração do vídeo" type="range" min={0} max={Math.max(0,durations.length-1)} step={1} value={durationIndex} disabled={durations.length<=1} onChange={e=>p.onChangeDuration(durations[Number(e.target.value)]??durations[0])} className="w-full h-1.5 accent-cyan-300 cursor-pointer disabled:opacity-40"/><div className="mt-1.5 flex justify-between text-[7px] text-zinc-700"><span>{durations[0]}s</span>{durations.length>2&&<span>arraste para ajustar</span>}<span>{durations[durations.length-1]}s</span></div></div>;
   const settingRow = (id: Exclude<OpenCard,null>, icon: any, label: string, value: string, body: React.ReactNode) => { const Icon=icon,opened=openCard===id; return <div className={`rounded-xl border transition-colors ${opened?'border-cyan-300/20 bg-cyan-300/[0.035]':'border-white/[0.065] bg-white/[0.025]'}`}><button type="button" onClick={()=>setOpenCard(opened?null:id)} className="h-10 w-full px-3 flex items-center gap-2"><span className={`ia-generator-setting-icon ia-generator-setting-icon-${id}`}><Icon className="w-3.5 h-3.5"/></span><span className="text-[10px] font-semibold text-zinc-300">{label}</span><span className="ml-auto text-[10px] font-bold text-white">{value}</span><ChevronDown className={`w-3.5 h-3.5 text-zinc-600 transition-transform ${opened?'rotate-180':''}`}/></button>{opened&&<div className="px-2.5 pb-2.5 pt-0.5">{body}</div>}</div> };
-  return <GeneratorPanel ariaLabel="Gerador de vídeo" className="ia-generator-panel-video">
-    <GeneratorScroll>
-      <CompactModelPicker models={p.models} selectionMode={p.selectionMode} selectedModelId={p.selectedModelId} autoResolvedModel={p.autoResolvedModel} onSelectAuto={p.onSelectAuto} onSelectModel={p.onSelectModel} favoriteModelIds={p.favoriteModelIds} recentModelIds={p.recentModelIds} onToggleFavorite={p.onToggleFavorite} unitPricesByModelId={p.unitPricesByModelId} priceLoadingModelIds={p.priceLoadingModelIds} selectedCoverUrl={selectedCoverUrl}/>
+  return <UniversalCreatorShell
+    ariaLabel="Gerador de vídeo"
+    className="ia-generator-panel-video"
+    modelPicker={<UniversalModelPicker
+      models={p.models}
+      selectedModelId={p.selectionMode==='AUTO'?'AUTO':p.selectedModelId}
+      autoResolvedModel={p.autoResolvedModel}
+      onSelect={(modelId)=>{if(modelId==='AUTO')p.onSelectAuto();else{const model=p.models.find(item=>item.model_id===modelId);if(model)p.onSelectModel(model)}}}
+      favoriteModelIds={p.favoriteModelIds}
+      recentModelIds={p.recentModelIds}
+      onToggleFavorite={p.onToggleFavorite}
+      unitPricesByModelId={p.unitPricesByModelId}
+      priceLoadingModelIds={p.priceLoadingModelIds}
+      selectedCoverUrl={selectedCoverUrl}
+    />}
+    footer={<GeneratorFooter
+      error={p.validationErrors[0]||p.generationError}
+      price={p.totalEstimatedCostCents}
+      balance={p.availableBalanceCents}
+      hasBalance={p.hasSufficientFunds}
+      primaryLabel={p.hasPendingReferences?'Gerar assim que a imagem enviar':p.totalEstimatedCostCents==null?'Gerar vídeo':`Gerar • ${formatCredits(p.totalEstimatedCostCents)}`}
+      busyLabel={p.validating?'Validando...':'Enviando...'}
+      onPrimary={p.onGenerate}
+      primaryDisabled={!canGenerate}
+      primaryBusy={Boolean(p.generating||p.validating)}
+    />}
+  >
       {showFrames&&<><div className="flex items-center justify-between"><span className="text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-600">Frames</span><span className="text-[8px] text-zinc-750"><span className="ia-desktop-copy">cole, clique ou arraste</span><span className="ia-mobile-copy">toque para adicionar</span></span></div>
       <div className={`grid gap-2 ${caps?.supports_start_end_image?'grid-cols-2':'grid-cols-1'}`}>{slot(p.initialImage,'Imagem inicial','INITIAL')}{caps?.supports_start_end_image&&slot(p.endImage,'Imagem final','END')}</div></>}
       {supportsGeneralReferences&&<section onDragEnter={(e)=>{e.preventDefault();setDragTarget('GENERAL')}} onDragOver={(e)=>e.preventDefault()} onDragLeave={()=>setDragTarget(v=>v==='GENERAL'?null:v)} onDrop={(e)=>acceptDrop('GENERAL',e)} className={`ia-reference-panel rounded-xl border p-2.5 transition-colors ${dragTarget==='GENERAL'?'border-cyan-300/50 bg-cyan-300/[0.06]':'border-white/[0.065] bg-white/[0.025]'}`}><div className="flex items-center justify-between"><div><p className="text-[10px] font-semibold text-zinc-300">Referências</p><p className="text-[8px] text-zinc-700"><span className="ia-desktop-copy">{acceptedReferenceLabels||'mídia compatível'} · clique ou arraste</span><span className="ia-mobile-copy">{acceptedReferenceLabels||'mídia compatível'} · toque para adicionar</span></p></div><button onClick={()=>p.onOpenPicker('GENERAL')} className="w-7 h-7 rounded-lg border border-white/[0.07] bg-white/[0.035] grid place-items-center text-zinc-400 hover:text-white"><Plus className="w-3.5 h-3.5"/></button></div>{generalRefs.length>0?<div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5">{generalRefs.map((ref)=>{const type=ref.asset?.type||'IMAGE';return <div key={ref.asset_id} onDoubleClick={()=>p.onConfigureReference(ref)} className={`ia-reference-thumb relative w-12 h-12 shrink-0 rounded-lg overflow-hidden border-2 transition-colors duration-150 ease-out ${activeAliases.has(ref.asset_id)?'border-cyan-300 ring-2 ring-cyan-300/10':'border-white/[0.07]'}`}>{type==='IMAGE'&&ref.asset?.public_url?<img src={ref.asset.thumbnail_url||ref.asset.public_url} alt="" decoding="async" className="w-full h-full object-cover"/>:<div className="w-full h-full grid place-items-center bg-black/20">{type==='VIDEO'?<Video className="w-4 h-4 text-sky-300"/>:type==='AUDIO'?<Music className="w-4 h-4 text-violet-300"/>:<ImageIcon className="w-4 h-4 text-zinc-600"/>}</div>}<span className="absolute left-1 top-1 px-1 py-0.5 rounded bg-black/65 text-[6px] font-bold uppercase text-zinc-300">{type==='IMAGE'?'img':type==='VIDEO'?'vídeo':'áudio'}</span><button onClick={()=>p.onRemoveReference(ref.asset_id)} className="absolute top-0.5 right-0.5 w-4 h-4 rounded bg-black/70 grid place-items-center"><X className="w-2.5 h-2.5"/></button>{ref.asset?.status==='UPLOADING'&&<span className="absolute inset-x-1 bottom-1 rounded bg-black/75 px-1 py-0.5 text-center text-[6px] font-bold text-cyan-200">enviando…</span>}{activeAliases.has(ref.asset_id)&&ref.asset?.status!=='UPLOADING'&&<span className="absolute left-1 bottom-1 px-1 py-0.5 rounded bg-cyan-300 text-[6.5px] font-black uppercase text-[#071015]">em uso</span>}</div>})}</div>:<div className="ia-reference-dropzone mt-2 h-9 rounded-lg border border-dashed border-white/[0.07] flex items-center justify-center text-[8px] text-zinc-700">{p.uploadBusy?'Enviando mídia...':<><span className="ia-desktop-copy">{`Arraste ${acceptedReferenceLabels||'mídia'} aqui`}</span><span className="ia-mobile-copy">Adicionar referência</span></>}</div>}</section>}
@@ -67,8 +90,5 @@ export const CreatorPanel: React.FC<Props> = (p) => {
       <div className="space-y-1.5">{durations.length>0&&settingRow('duration',Clock3,'Duração',`${p.durationSeconds}s`,durationSlider)}{ratios.length>0&&settingRow('ratio',Ratio,'Proporção',p.aspectRatio,optionGrid(ratios,p.aspectRatio,p.onChangeAspectRatio))}{resolutions.length>0&&settingRow('resolution',SlidersHorizontal,resolutionLabel,p.resolution,optionGrid(resolutions,p.resolution,p.onChangeResolution))}</div>
       {hasAdvanced&&<section className="rounded-xl border border-white/[0.065] bg-white/[0.025] overflow-hidden"><button onClick={p.onToggleAdvanced} className="w-full h-10 px-3 flex items-center gap-2 text-[10px] font-semibold text-zinc-400"><Settings2 className="w-3.5 h-3.5"/> Configurações avançadas <ChevronDown className={`ml-auto w-3.5 h-3.5 transition-transform ${p.showAdvanced?'rotate-180':''}`}/></button>{p.showAdvanced&&<div className={`px-3 pb-3 grid gap-2 ${supportsSeed&&supportsMotion?'grid-cols-2':'grid-cols-1'}`}>{supportsSeed&&<label className="text-[8px] text-zinc-600">Seed<input value={p.seed} onChange={(e)=>p.onChangeSeed(e.target.value===''?'':Number(e.target.value))} type="number" placeholder="Aleatório" className="mt-1 w-full h-8 px-2 rounded-lg bg-[#0b0e13] border border-white/[0.06] text-[9px] text-zinc-300 outline-none"/></label>}{supportsMotion&&<label className="text-[8px] text-zinc-600">Movimento<input value={p.motionStrength} onChange={(e)=>p.onChangeMotionStrength(Number(e.target.value))} type="range" min="0" max="10" className="mt-2 w-full accent-cyan-400"/></label>}</div>}</section>}
       {p.modelAdjustmentNotice&&<div role="status" className="rounded-xl border border-cyan-300/15 bg-cyan-300/[0.055] px-3 py-2 text-[9px] leading-relaxed text-cyan-100">Configuração ajustada automaticamente · {p.modelAdjustmentNotice}</div>}
-      {(p.validationErrors[0]||p.generationError)&&<div role="alert" className="rounded-xl border border-rose-400/15 bg-rose-500/[0.06] px-3 py-2 text-[9px] text-rose-300">{p.validationErrors[0]||p.generationError}</div>}
-    </GeneratorScroll>
-    <div className="ia-generator-actionbar shrink-0 p-3.5"><div className="mb-2 flex items-center justify-between"><div><p className="text-[8px] uppercase tracking-wider text-zinc-700">Preço</p><p className="text-[11px] font-bold text-white">{costText}</p></div><div className="text-right"><p className="text-[8px] text-zinc-700">Saldo</p><p className={`text-[10px] font-semibold ${p.hasSufficientFunds?'text-zinc-400':'text-rose-400'}`}>{formatCredits(p.availableBalanceCents)}</p></div></div><button disabled={!canGenerate} onClick={p.onGenerate} className="ia-generator-generate w-full h-11.5 rounded-[12px] text-[12px] font-black flex items-center justify-center gap-2 disabled:opacity-35 disabled:grayscale"><WandSparkles className="w-4 h-4"/>{p.generating?'Enviando...':p.validating?'Validando...':p.hasPendingReferences?'Gerar assim que a imagem enviar':p.totalEstimatedCostCents==null?'Gerar vídeo':`Gerar • ${formatCredits(p.totalEstimatedCostCents)}`}</button></div>
-  </GeneratorPanel>;
+  </UniversalCreatorShell>;
 };
