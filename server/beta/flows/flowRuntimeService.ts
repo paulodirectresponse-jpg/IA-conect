@@ -8,6 +8,7 @@ import { BetaFlowEdge,BetaFlowGraph,BetaFlowNode } from './flowTypes.js';
 import { betaFlowRuntimeRepository } from './flowRuntimeRepository.js';
 import { BetaFlowNodeRun,BetaFlowRun,BetaFlowValue } from './flowRuntimeTypes.js';
 import { buildFlowExecutionPlan } from './flowExecutionPlan.js';
+import { activeExecutionSucceeded,activeTerminalNodeIds } from './flowExecutionCompletion.js';
 
 const now=()=>new Date().toISOString();
 function fail(code:string,message:string):never{throw Object.assign(new Error(message),{code});}
@@ -89,7 +90,6 @@ function emptyNodeRun(run:BetaFlowRun,node:BetaFlowNode):BetaFlowNodeRun{
   };
 }
 function incomingEdges(graph:BetaFlowGraph,nodeId:string,active:Set<string>){return graph.edges.filter(edge=>edge.to_node_id===nodeId&&active.has(edge.from_node_id));}
-function activeTerminalNodes(graph:BetaFlowGraph,active:Set<string>){return graph.nodes.filter(node=>active.has(node.node_id)&&!graph.edges.some(edge=>edge.from_node_id===node.node_id&&active.has(edge.to_node_id)));}
 function valuesForEdges(edges:BetaFlowEdge[],runs:Map<string,BetaFlowNodeRun>){
   const values:BetaFlowValue[]=[];
   for(const edge of edges){
@@ -284,11 +284,10 @@ export const betaFlowRuntimeService={
       }
     }
 
-    const activeNodes=order.filter(node=>active.has(node.node_id));
-    const terminalNodes=activeTerminalNodes(run.graph,active);
-    if(activeNodes.length>0&&activeNodes.every(node=>runs.get(node.node_id)?.status==='SUCCEEDED')){
+    const terminalNodeIds=activeTerminalNodeIds(run.graph,active);
+    if(activeExecutionSucceeded(active,runs)){
       const outputs:Record<string,BetaFlowValue[]>={};
-      for(const node of terminalNodes)outputs[node.node_id]=runs.get(node.node_id)?.outputs||[];
+      for(const nodeId of terminalNodeIds)outputs[nodeId]=runs.get(nodeId)?.outputs||[];
       run=await finishRun(run,runs,'SUCCEEDED',{outputs,error_code:null,error_message:null});
     }else{
       run=await betaFlowRuntimeRepository.saveRun({...run,status:'RUNNING',authorized_credits_total:sumAuthorized(runs),updated_at:now(),error_code:null,error_message:null});
