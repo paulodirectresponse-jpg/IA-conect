@@ -28,7 +28,7 @@ export interface CourseAccessResult {
 
 export const courseSalesClient={
   getOffer(){return apiRequest<CourseOffer>('/api/course-sales/animation-3d/offer');},
-  createCheckout(){return apiRequest<PaymentRecord>('/api/course-sales/animation-3d/checkout',{method:'POST',body:JSON.stringify({})});},
+  createCheckout(attribution?:Record<string,string>){return apiRequest<PaymentRecord>('/api/course-sales/animation-3d/checkout',{method:'POST',body:JSON.stringify({attribution:attribution||{}})});},
   getPayment(paymentId:string){return apiRequest<PaymentRecord>(`/api/payments/${encodeURIComponent(paymentId)}`);},
   getAccess(){return apiRequest<CourseAccessResult>('/api/course-sales/animation-3d/access');},
 };
