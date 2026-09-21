@@ -22,10 +22,21 @@ const media=(key:string)=>`https://hzjyhhenajbjxkwkmzdg.supabase.co/functions/v1
 const terminal=(status?:string)=>['CONFIRMED','FAILED','EXPIRED'].includes(String(status||''));
 const brl=(cents:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Math.max(0,cents)/100);
 
+const attributionKeys=['angle','utm_source','utm_medium','utm_campaign','utm_content','utm_term','fbclid','gclid'] as const;
+function getCourseAttribution(){
+ if(typeof window==='undefined')return{} as Record<string,string>;
+ const storageKey='ia_course_animation_3d_attribution';
+ let saved:Record<string,string>={};
+ try{saved=JSON.parse(window.sessionStorage.getItem(storageKey)||'{}')||{}}catch{}
+ const params=new URLSearchParams(window.location.search),next={...saved};
+ for(const key of attributionKeys){const value=String(params.get(key)||'').trim();if(value)next[key]=value.slice(0,180)}
+ try{window.sessionStorage.setItem(storageKey,JSON.stringify(next))}catch{}
+ return next;
+}
 function track(name:string,properties:Record<string,unknown>={}){
  if(typeof window==='undefined')return;
  const detail={event:`course_${name}`,course_id:'animacao-3d-ia',...properties};
- const dataLayer=(window as any).dataLayer;
+ const dataLayer=((window as any).dataLayer=(window as any).dataLayer||[]);
  if(Array.isArray(dataLayer))dataLayer.push(detail);
  window.dispatchEvent(new CustomEvent('ia:course-funnel',{detail}));
 }
@@ -84,7 +95,7 @@ export const CourseAnimationSalesPage:React.FC=()=>{
   const oldCanonical=canonical?.href||'';
   if(!canonical){canonical=document.createElement('link');canonical.rel='canonical';document.head.appendChild(canonical)}
   canonical.href=`${window.location.origin}/curso/animacao-3d`;
-  track('page_view',{path:window.location.pathname});
+  track('page_view',{path:window.location.pathname,...getCourseAttribution()});
   return()=>{document.title=oldTitle;setMeta('description',oldDescription);if(canonical&&oldCanonical)canonical.href=oldCanonical};
  },[]);
 
@@ -131,7 +142,7 @@ export const CourseAnimationSalesPage:React.FC=()=>{
  const createPix=async()=>{
   setCreating(true);setPaymentError('');confirmedTracked.current=false;
   try{
-   const created=await courseSalesClient.createCheckout();
+   const created=await courseSalesClient.createCheckout(getCourseAttribution());
    setPayment(created);track('pix_created',{payment_id:created.payment_id,value:created.amount_cents/100,currency:'BRL'});
    if(created.status==='CONFIRMED'){setAccessActive(true);confirmedTracked.current=true;track('purchase_confirmed',{payment_id:created.payment_id,value:created.amount_cents/100,currency:'BRL'})}
   }catch(err:any){setPaymentError(err?.message||'Não foi possível gerar o Pix.')}finally{setCreating(false)}
@@ -243,7 +254,7 @@ export const CourseAnimationSalesPage:React.FC=()=>{
 
    <section className="course-offer" id="oferta">
     <div className="course-wrap course-offer-grid">
-     <div className="course-offer-copy"><span>OFERTA DE ENTRADA</span><h2>Uma habilidade nova custa menos que uma noite pedindo delivery.</h2><p>Entre no treinamento, acompanhe o projeto inteiro e descubra na prática se animação 3D com IA faz sentido para você.</p><div className="course-offer-list"><div><Check/>4 módulos objetivos</div><div><Check/>10 aulas práticas</div><div><Check/>Projeto guiado de 30s–1min</div><div><Check/>Compra vinculada à sua conta</div><div><Check/>Pagamento seguro via Pix</div></div></div>
+     <div className="course-offer-copy"><span>OFERTA DE ENTRADA</span><h2>Comece por um projeto completo — não por meses de teoria.</h2><p>Entre no treinamento, acompanhe a construção do início ao fim e descubra na prática se animação 3D com IA é uma habilidade que você quer levar adiante.</p><div className="course-offer-list"><div><Check/>4 módulos objetivos</div><div><Check/>10 aulas práticas</div><div><Check/>Projeto guiado de 30s–1min</div><div><Check/>Compra vinculada à sua conta</div><div><Check/>Pagamento seguro via Pix</div></div></div>
      <div className="course-checkout-card">
       <div className="course-checkout-badge">ACESSO AO TREINAMENTO</div>
       <h3>{offer.title}</h3>
