@@ -33,8 +33,9 @@ describe('direct video generation UX',()=>{
   expect(source).not.toContain('GenerationRequestPreviewModal');
   expect(source).not.toContain('isPreviewModalOpen');
   expect(source).toMatch(/const handleGenerate\s*=\s*async/);
-  expect(source).toContain('generationClient.quote');
-  expect(source).toContain('generationClient.create');
+  expect(source).toContain('universalGenerationClient.quote');
+  expect(source).toContain('universalGenerationClient.create');
+  expect(source).not.toContain('generationClient.');
   expect(source).toMatch(/e\?\.code\s*!==\s*["']PRICE_CHANGED_REQUOTE_REQUIRED["']/);
   expect(source).toContain('liveGenerations={liveGenerations}');
   expect(source).toMatch(/setLiveGenerations\(\s*\(?(prev)\)?\s*=>\s*upsertGeneration\(prev,\s*started\)\s*\)/);
