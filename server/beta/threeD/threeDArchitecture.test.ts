@@ -59,7 +59,7 @@ describe('PR-09 3D V1 architecture',()=>{
   it('has an explicit 3D kill switch and responsive mobile layout',()=>{
     const jobs=read('server/beta/jobs/jobOrchestrator.ts');
     const css=read('src/beta/styles/beta.css');
-    expect(jobs).toContain("getFeatureFlag('beta.three_d')");
+    expect(jobs).toContain("featureFlagService.getFlag('beta.three_d')");
     expect(jobs).toContain('THREE_D_MODULE_DISABLED');
     expect(css).toContain('.ia-beta-3d-layout');
     expect(css).toContain('@media(max-width:767px)');

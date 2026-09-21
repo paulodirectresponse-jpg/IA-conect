@@ -1,6 +1,6 @@
 import { Router,Response,NextFunction } from 'express';
 import { requireAuth,AuthenticatedRequest } from '../middleware/authMiddleware.js';
-import { catalogRepository } from '../repositories/catalogRepository.js';
+import { featureFlagService } from '../services/featureFlagService.js';
 import { assetRepository } from '../repositories/assetRepository.js';
 import { betaJobOrchestrator } from '../beta/jobs/jobOrchestrator.js';
 import { normalizeBetaPublicError } from '../beta/http/publicError.js';
@@ -22,7 +22,7 @@ function capabilityOf(value:any):EditorCapability{const id=String(value||'');if(
 
 async function assertCapabilityEnabled(capability:string){
  const flagName=imageSet.has(capability)?'beta.image_editor':'beta.video_editor';
- const flag=await catalogRepository.getFeatureFlag(flagName);
+ const flag=await featureFlagService.getFlag(flagName);
  if(!flag?.is_enabled)throw Object.assign(new Error('Editor temporariamente indisponível.'),{code:'CAPABILITY_DISABLED'});
 }
 async function assertEditorJob(userId:string,jobId:string){
@@ -40,7 +40,7 @@ editorRouter.use('/editors',requireAuth,requireEditorsEnabled);
 
 editorRouter.get('/editors/catalog',async(_req:AuthenticatedRequest,res)=>{
  try{
-  const[imageFlag,videoFlag]=await Promise.all([catalogRepository.getFeatureFlag('beta.image_editor'),catalogRepository.getFeatureFlag('beta.video_editor')]);
+  const[imageFlag,videoFlag]=await Promise.all([featureFlagService.getFlag('beta.image_editor'),featureFlagService.getFlag('beta.video_editor')]);
   const enabledCapabilities=new Set<string>([
    ...(imageFlag?.is_enabled?IMAGE_CAPABILITIES:[]),
    ...(videoFlag?.is_enabled?VIDEO_CAPABILITIES:[]),

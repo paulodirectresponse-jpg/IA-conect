@@ -64,8 +64,8 @@ describe('PR-11 Video Unification architecture',()=>{
     const jobs=read('server/beta/jobs/jobOrchestrator.ts');
     const flags=read('src/beta/betaFlags.ts');
     const css=read('src/beta/styles/beta.css');
-    expect(jobs).toContain("getFeatureFlag('beta.video')");
-    expect(jobs).toContain("getFeatureFlag('beta.video_editor')");
+    expect(jobs).toContain("featureFlagService.getFlag('beta.video')");
+    expect(jobs).toContain("featureFlagService.getFlag('beta.video_editor')");
     expect(flags).toContain("flag_key: 'beta.video'");
     expect(css).toContain('.ia-beta-video-layout');
     expect(css).toContain('@media(max-width:767px)');

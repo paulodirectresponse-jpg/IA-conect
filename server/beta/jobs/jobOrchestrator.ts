@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { GenerationMode } from '../../../src/types/index.js';
-import { catalogRepository } from '../../repositories/catalogRepository.js';
+import { featureFlagService } from '../../services/featureFlagService.js';
 import { generationRepository } from '../../repositories/generationRepository.js';
 import { assetRepository } from '../../repositories/assetRepository.js';
 import { assetReferenceResolver } from '../../services/assetReferenceResolver.js';
@@ -148,27 +148,27 @@ function normalizeRequest(raw:any):BetaJobRequest{
 
 async function assertCapabilityEnabled(capabilityId:string){
   if(['text-to-video','image-to-video','first-frame','last-frame','video-extend','video-edit'].includes(capabilityId)){
-    const video=await catalogRepository.getFeatureFlag('beta.video');
+    const video=await featureFlagService.getFlag('beta.video');
     if(!video?.is_enabled)throw Object.assign(new Error('O módulo de vídeo está temporariamente indisponível.'),{code:'VIDEO_MODULE_DISABLED'});
     if(['video-extend','video-edit'].includes(capabilityId)){
-      const editor=await catalogRepository.getFeatureFlag('beta.video_editor');
+      const editor=await featureFlagService.getFlag('beta.video_editor');
       if(!editor?.is_enabled)throw Object.assign(new Error('Edição e extensão de vídeo estão temporariamente indisponíveis.'),{code:'VIDEO_EDITOR_DISABLED'});
     }
     return;
   }
   if(['image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations'].includes(capabilityId)){
-    const flag=await catalogRepository.getFeatureFlag('beta.image_editor');
+    const flag=await featureFlagService.getFlag('beta.image_editor');
     if(!flag?.is_enabled)throw Object.assign(new Error('O editor de imagem está temporariamente indisponível.'),{code:'IMAGE_EDITOR_DISABLED'});
     return;
   }
   if(['text-to-3d','image-to-3d','multi-image-to-3d'].includes(capabilityId)){
-    const flag=await catalogRepository.getFeatureFlag('beta.three_d');
+    const flag=await featureFlagService.getFlag('beta.three_d');
     if(!flag?.is_enabled)throw Object.assign(new Error('O módulo 3D está temporariamente indisponível.'),{code:'THREE_D_MODULE_DISABLED'});
     return;
   }
   const audioCapabilities=new Set(['text-to-speech','sound-effects','music','transcription','subtitles','authorized-voice-clone','dubbing']);
   if(!audioCapabilities.has(capabilityId))return;
-  const audio=await catalogRepository.getFeatureFlag('beta.audio');
+  const audio=await featureFlagService.getFlag('beta.audio');
   if(!audio?.is_enabled)throw Object.assign(new Error('O módulo de áudio está temporariamente indisponível.'),{code:'AUDIO_MODULE_DISABLED'});
   const keyed:Record<string,string>={
     'sound-effects':'beta.audio.sfx','music':'beta.audio.music','transcription':'beta.audio.transcription',
@@ -176,7 +176,7 @@ async function assertCapabilityEnabled(capabilityId:string){
   };
   const key=keyed[capabilityId];
   if(key){
-    const flag=await catalogRepository.getFeatureFlag(key);
+    const flag=await featureFlagService.getFlag(key);
     if(!flag?.is_enabled)throw Object.assign(new Error('Este recurso de áudio está temporariamente indisponível.'),{code:'AUDIO_CAPABILITY_DISABLED'});
   }
 }
