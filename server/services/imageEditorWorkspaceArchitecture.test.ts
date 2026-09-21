@@ -31,19 +31,20 @@ describe('Immersive image editor workspace',()=>{
   for(const fake of ["label:'Brilho'","label:'Contraste'","label:'Saturação'","label:'Nitidez'","label:'Camadas'","label:'Forma'","label:'Texto'"])expect(view).not.toContain(fake);
  });
 
- it('keeps pricing jobs assets and provider routing server-authoritative',()=>{
+ it('keeps pricing execution assets and provider routing server-authoritative',()=>{
   const view=read('src/components/views/ImageEditorView.tsx');
-  const routes=read('server/routes/editorRoutes.ts');
-  expect(view).toContain('editorClient.create');
-  expect(view).toContain('editorClient.quote');
-  expect(view).toContain('editorClient.queue');
-  expect(view).toContain('job?.quote?.credit_price');
+  const routes=read('server/routes/generationRoutes.ts');
+  const root=read('server/routes/index.ts');
+  expect(view).toContain('universalGenerationClient.quote');
+  expect(view).toContain('universalGenerationClient.create');
+  expect(view).toContain('universalGenerationClient.get');
+  expect(view).toContain('quoteState?.credit_price');
   expect(view).toContain('refreshWallet');
   expect(view).toContain("new CustomEvent('creations:updated'");
   expect(view).not.toContain('preferred_provider_id');
-  expect(routes).toContain('routingV2CatalogService.listCapabilityModels');
-  expect(routes).not.toContain('providerRegistry');
-  expect(routes).toContain('betaJobOrchestrator');
+  expect(view).not.toContain('editorClient');
+  expect(routes).toContain('routingV2AutoModelSelectionService.select');
+  expect(root).not.toContain('editorRouter');
  });
 
  it('supports source result comparison and reusing a derived result as the next source',()=>{
@@ -75,7 +76,8 @@ describe('Immersive image editor workspace',()=>{
   const view=read('src/components/views/ImageEditorView.tsx');
   expect(view).toContain('loadCatalog');
   expect(view).toContain('loadImages');
-  expect(view).not.toContain('Promise.all([editorClient.catalog(),assetService.listAssets');
+  expect(view).not.toContain('editorClient.catalog');
+  expect(view).toContain('loadUniversalEditorCatalog');
   expect(view).not.toContain('disabled={!available}');
   expect(view).toContain('onClick={()=>setTool(item.id)}');
  });
@@ -84,15 +86,17 @@ describe('Immersive image editor workspace',()=>{
   const view=read('src/components/views/ImageEditorView.tsx');
   const picker=read('src/components/workspace/UniversalModelPicker.tsx');
   expect(view).toContain('UniversalModelPicker');
-  expect(view).toContain("modelId==='AUTO'?'AUTO':model.model_id");
+  expect(view).toContain("modelId==='AUTO'?'AUTO':model!.model_id");
   expect(view).toContain("setModelId('AUTO')");
   expect(picker).toContain('CompactModelPicker');
  });
 
- it('does not reconstruct editor availability from optional legacy provider metadata',()=>{
-  const routes=read('server/routes/editorRoutes.ts');
-  expect(routes).toContain('routingV2CatalogService.listCapabilityModels');
-  expect(routes).not.toContain('providersResult');
-  expect(routes).not.toContain('pricingResult');
+ it('derives editor availability only from the universal READY catalog',()=>{
+  const view=read('src/components/views/ImageEditorView.tsx');
+  const catalog=read('src/services/editorUniversalCatalog.ts');
+  expect(view).toContain('loadUniversalEditorCatalog');
+  expect(catalog).toContain('universalGenerationClient.catalog');
+  expect(catalog).toContain('model.readiness');
+  expect(view).not.toContain('editorClient');
  });
 });
