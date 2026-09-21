@@ -32,8 +32,8 @@ describe('Spaces stage 4 smart contextual connections',()=>{
 
  it('connects the new node immediately with the compatible media type',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
-  expect(workspace).toContain('capabilityForOutput(models,source)');
-  expect(workspace).toContain('capabilityForInput(models,next)');
+  expect(workspace).toContain('spaceNodeOutputTypes(models,source)');
+  expect(workspace).toContain('spaceNodeInputTypes(models,next)');
   expect(workspace).toContain('from_node_id:source.node_id');
   expect(workspace).toContain('to_node_id:next.node_id');
  });
