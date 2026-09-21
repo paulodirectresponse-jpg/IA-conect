@@ -13,8 +13,7 @@ import { UniversalModelPicker } from "../workspace/UniversalModelPicker.js";
 import {
   GeneratorFooter,
   GeneratorOptionGrid,
-  GeneratorPanel,
-  GeneratorScroll,
+  UniversalCreatorShell,
   GeneratorSettingRow,
 } from "../workspace/GeneratorControls.js";
 import { PromptComposer } from "../workspace/PromptComposer.js";
@@ -237,9 +236,9 @@ export const VoiceCreateView: React.FC = () => {
         onSecondary: !generation ? quote : undefined,
       };
   const creator = (
-    <GeneratorPanel ariaLabel="Gerador de voz">
-      <GeneratorScroll>
-        <UniversalModelPicker
+    <UniversalCreatorShell
+      ariaLabel="Gerador de voz"
+      modelPicker={<UniversalModelPicker
           models={models}
           selectedModelId={selectedModelId}
           loading={busy === "load"}
@@ -247,8 +246,24 @@ export const VoiceCreateView: React.FC = () => {
             setSelectedModelId(modelId);
             invalidate();
           }}
-        />
-        <PromptComposer
+        />}
+      footer={<GeneratorFooter
+        error={error}
+        price={price}
+        balance={balance}
+        hasBalance={!insufficient}
+        primaryLabel={footer.label}
+        onPrimary={() => void footer.onClick()}
+        primaryDisabled={footer.disabled}
+        primaryBusy={busy === "quote" || busy === "generate"}
+        secondaryLabel={footer.secondary}
+        onSecondary={
+          footer.onSecondary ? () => void footer.onSecondary?.() : undefined
+        }
+        secondaryDisabled={Boolean(busy)}
+      />}
+    >
+      <PromptComposer
           prompt={text}
           onChangePrompt={(value) => {
             setText(value);
@@ -357,23 +372,7 @@ export const VoiceCreateView: React.FC = () => {
             )}
           </section>
         )}
-      </GeneratorScroll>
-      <GeneratorFooter
-        error={error}
-        price={price}
-        balance={balance}
-        hasBalance={!insufficient}
-        primaryLabel={footer.label}
-        onPrimary={() => void footer.onClick()}
-        primaryDisabled={footer.disabled}
-        primaryBusy={busy === "quote" || busy === "generate"}
-        secondaryLabel={footer.secondary}
-        onSecondary={
-          footer.onSecondary ? () => void footer.onSecondary?.() : undefined
-        }
-        secondaryDisabled={Boolean(busy)}
-      />
-    </GeneratorPanel>
+    </UniversalCreatorShell>
   );
   return (
     <MobileStudioLayout
