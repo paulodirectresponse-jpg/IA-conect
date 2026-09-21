@@ -148,6 +148,7 @@ async function buildGenerationQuote(
           duration_seconds: Number(settings.duration_seconds) || undefined,
           number_of_outputs: Number(settings.number_of_outputs) || 1,
           character_count: prompt.length,
+          negative_prompt_present: Boolean(String(body.negative_prompt || "").trim()),
           dimensions,
           parameters,
           reference_types: referenceTypes,
