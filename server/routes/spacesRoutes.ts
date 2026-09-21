@@ -40,6 +40,7 @@ spacesRouter.get('/spaces/home',async(req:AuthenticatedRequest,res)=>{try{
  for(const nodeRun of nodeRuns){
   if(nodeRun.status!=='SUCCEEDED'||!nodeRun.output_asset_ids?.length)continue;
   const bucket=byFlow.get(nodeRun.flow_id)||[];
+  if(bucket.length>=3)continue;
   for(const assetId of nodeRun.output_asset_ids){
    const asset=assetMap.get(assetId);
    if(!asset||bucket.some(item=>item.asset_id===asset.asset_id))continue;
