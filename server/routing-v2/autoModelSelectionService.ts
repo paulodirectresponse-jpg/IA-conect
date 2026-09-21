@@ -11,6 +11,7 @@ export interface AutoModelRequirements {
   dimensions?: Record<string, string | number | boolean | null | undefined>;
   parameters?: Record<string, string | number | boolean | null | undefined>;
   reference_types?: string[];
+  reference_roles?: string[];
 }
 
 export function isModelCompatibleWithRequirements(
@@ -66,15 +67,17 @@ export function isModelCompatibleWithRequirements(
       return false;
   }
   const refs = input.reference_types || [];
-  const count=(type:string)=>refs.filter(value=>value===type).length;
-  if (refs.includes("IMAGE") && controls.supports_image_reference !== true)
+  const roles = input.reference_roles || [];
+  const ordinaryRefs = refs.filter((_, index) => String(roles[index] || "").toUpperCase() !== "MASK");
+  const count=(type:string)=>ordinaryRefs.filter(value=>value===type).length;
+  if (ordinaryRefs.includes("IMAGE") && controls.supports_image_reference !== true)
     return false;
   if(count("IMAGE")>Number(controls.max_reference_images||0))return false;
   if(count("IMAGE")>1&&controls.supports_multiple_images!==true&&!(input.capability_id==='last-frame'&&controls.supports_start_end_image===true))return false;
-  if (refs.includes("VIDEO") && controls.supports_video_reference !== true)
+  if (ordinaryRefs.includes("VIDEO") && controls.supports_video_reference !== true)
     return false;
   if(count("VIDEO")>Number(controls.max_reference_videos||0))return false;
-  if (refs.includes("AUDIO") && controls.supports_audio_reference !== true)
+  if (ordinaryRefs.includes("AUDIO") && controls.supports_audio_reference !== true)
     return false;
   if(count("AUDIO")>Number(controls.max_reference_audio||0))return false;
   return true;
