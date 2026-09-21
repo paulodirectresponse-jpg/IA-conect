@@ -62,6 +62,18 @@ describe('unified creation architecture',()=>{
     expect(auto).toContain('routes.some((route) => route.model_id === model.model_id)');
     expect(auto).toContain('routingV2GenerationPricingService.preview');
   });
+  it('keeps operational compatibility authority entirely in the backend',()=>{
+    const routes=read('server/routes/generationRoutes.ts');
+    const service=read('server/services/generationService.ts');
+    const compatibility=read('server/routing-v2/modelCompatibilityService.ts');
+    const auto=read('server/routing-v2/autoModelSelectionService.ts');
+    expect(routes).toContain('validateModelCompatibility');
+    expect(service).toContain('validateModelCompatibility');
+    expect(auto).toContain('modelCompatibilityService');
+    expect(routes).not.toContain('../../src/services/modelCapabilities');
+    expect(service).not.toContain('../../src/services/modelCapabilities');
+    expect(compatibility).toContain('validateModelCompatibility');
+  });
   it('uses one picker base and no operational model defaults',()=>{
     const picker=read('src/components/workspace/UniversalModelPicker.tsx');
     const image=read('src/components/workspace/UnifiedImageCreatorPanel.tsx');
