@@ -14,12 +14,14 @@ const RegisterView=lazy(()=>Promise.all([
 ]).then(([,m])=>({default:m.RegisterView})));
 
 const AuthenticatedApp=lazy(()=>import('./App.js').then(m=>({default:m.default})));
+const CourseAnimationSalesPage=lazy(()=>import('./components/views/CourseAnimationSalesPage.js').then(m=>({default:m.CourseAnimationSalesPage})));
 
 const LoadingCard=()=> <div className="public-auth-loading"><div className="public-auth-spinner"/><span>Carregando acesso seguro</span></div>;
 
 export default function PublicApp(){
  const[view,setView]=useState<PublicView>('landing');
  const[authenticated,setAuthenticated]=useState(false);
+ const isCourseRoute=typeof window!=='undefined'&&/^\/curso\/animacao-3d\/?$/.test(window.location.pathname);
 
  useEffect(()=>{
   const applyAction=(action:string)=>{if(action==='login')setView('login');else if(action==='register')setView('register')};
@@ -32,8 +34,8 @@ export default function PublicApp(){
 
  useEffect(()=>{
   const shell=document.getElementById('public-shell');
-  if(shell)shell.hidden=authenticated||view!=='landing';
- },[authenticated,view]);
+  if(shell)shell.hidden=isCourseRoute||authenticated||view!=='landing';
+ },[authenticated,view,isCourseRoute]);
 
  useEffect(()=>{
   if(authenticated||view!=='landing')return;
@@ -73,6 +75,7 @@ export default function PublicApp(){
   return()=>{cancelled=true;window.removeEventListener('load',probe);if(timer)window.clearTimeout(timer)};
  },[]);
 
+ if(isCourseRoute)return <Suspense fallback={<LoadingCard/>}><CourseAnimationSalesPage/></Suspense>;
  if(authenticated)return <Suspense fallback={<LoadingCard/>}><AuthenticatedApp onSignedOut={()=>{setAuthenticated(false);setView('landing')}}/></Suspense>;
  if(view==='login')return <Suspense fallback={<LoadingCard/>}><LoginView onSwitchToRegister={()=>setView('register')} onSuccess={()=>setAuthenticated(true)}/></Suspense>;
  if(view==='register')return <Suspense fallback={<LoadingCard/>}><RegisterView onSwitchToLogin={()=>setView('login')} onSuccess={()=>setAuthenticated(true)}/></Suspense>;
