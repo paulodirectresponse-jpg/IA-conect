@@ -4,6 +4,7 @@ import {catalogRepository} from '../repositories/catalogRepository.js';
 import {assetRepository} from '../repositories/assetRepository.js';
 import {betaFlowService} from '../beta/flows/flowService.js';
 import {betaFlowEconomicRuntimeService} from '../beta/flows/flowEconomicRuntimeService.js';
+import {betaFlowRuntimeRepository} from '../beta/flows/flowRuntimeRepository.js';
 import {normalizeBetaPublicError} from '../beta/http/publicError.js';
 import {routingV2CatalogService} from '../routing-v2/catalogService.js';
 
@@ -27,6 +28,28 @@ spacesRouter.get('/spaces/catalog',async(_req:AuthenticatedRequest,res)=>{
 });
 
 spacesRouter.get('/spaces/assets',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await assetRepository.listUserAssets(req.user!.uid,{includeUniversal:true})});}catch(error){return failure(res,error,'Não foi possível carregar seus assets.');}});
+spacesRouter.get('/spaces/home',async(req:AuthenticatedRequest,res)=>{try{
+ const userId=req.user!.uid;
+ const [flows,nodeRuns,assets]=await Promise.all([
+  betaFlowService.list(userId),
+  betaFlowRuntimeRepository.listUserNodeRuns(userId,500),
+  assetRepository.listUserAssets(userId,{includeUniversal:true}),
+ ]);
+ const assetMap=new Map(assets.filter(asset=>asset.type==='IMAGE'||asset.type==='VIDEO').map(asset=>[asset.asset_id,asset]));
+ const byFlow=new Map<string,typeof assets>();
+ for(const nodeRun of nodeRuns){
+  if(nodeRun.status!=='SUCCEEDED'||!nodeRun.output_asset_ids?.length)continue;
+  const bucket=byFlow.get(nodeRun.flow_id)||[];
+  for(const assetId of nodeRun.output_asset_ids){
+   const asset=assetMap.get(assetId);
+   if(!asset||bucket.some(item=>item.asset_id===asset.asset_id))continue;
+   bucket.push(asset);
+   if(bucket.length>=3)break;
+  }
+  byFlow.set(nodeRun.flow_id,bucket);
+ }
+ return res.json({success:true,data:flows.map(flow=>({flow,cover_asset:byFlow.get(flow.flow_id)?.[0]||null,recent_assets:byFlow.get(flow.flow_id)||[]}))});
+}catch(error){return failure(res,error,'Não foi possível carregar a Home dos Spaces.');}});
 spacesRouter.get('/spaces/flows',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaFlowService.list(req.user!.uid)});}catch(error){return failure(res,error,'Não foi possível carregar seus Spaces.');}});
 spacesRouter.get('/spaces/flows/:flowId',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaFlowService.get(req.user!.uid,req.params.flowId)});}catch(error){return failure(res,error,'Não foi possível carregar o Space.');}});
 spacesRouter.get('/spaces/flows/:flowId/runs',async(req:AuthenticatedRequest,res)=>{try{const limit=Math.min(100,Math.max(1,Number(req.query.limit)||50));return res.json({success:true,data:await betaFlowEconomicRuntimeService.listFlowPublic(req.user!.uid,req.params.flowId,limit)});}catch(error){return failure(res,error,'Não foi possível carregar o histórico do Space.');}});
