@@ -59,6 +59,7 @@ const faqs=[
  ['Nunca fiz uma animação. Consigo acompanhar?','Sim. O projeto é construído do começo ao fim e cada etapa existe para levar você da ideia ao primeiro resultado sem presumir experiência anterior.'],
  ['A animação completa fica pronta em 30 minutos?','O desafio de cerca de 30 minutos se refere ao primeiro teste simples em movimento. O projeto completo de 30 segundos a 1 minuto, com várias cenas e acabamento, naturalmente exige mais tempo.'],
  ['O curso serve para quem já trabalha com vídeo ou design?','Sim. Para editores, creators, designers e profissionais de conteúdo, o treinamento funciona como uma nova habilidade que pode ser adicionada ao repertório criativo e ao portfólio.'],
+ ['Vocês ensinam a conseguir clientes ou prometem renda?','Não. O foco deste treinamento é ensinar a habilidade de criar animações com IA. Como essa habilidade será aplicada profissionalmente depende de cada aluno; não há promessa de faturamento ou resultado financeiro.'],
  ['Posso comprar para meu filho?','O conteúdo também pode ser interessante para jovens que gostam de criação e tecnologia. Para menores de idade, recomendamos que a compra e o uso das ferramentas sejam acompanhados por um responsável.'],
  ['Como funciona o pagamento?','O checkout usa Pix com processamento pelo Mercado Pago. A confirmação é automática e a compra fica vinculada à conta usada no checkout.'],
 ];
