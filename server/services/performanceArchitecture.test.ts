@@ -25,10 +25,10 @@ describe('performance architecture stages 4 and 5',()=>{
   it('batches model pricing previews instead of issuing one HTTP quote per model',()=>{
     const image=read('src/components/views/UnifiedImageCreateView.tsx');
     const video=read('src/components/views/CreateView.tsx');
-    const client=read('src/services/generationClient.ts');
+    const client=read('src/services/universalGenerationClient.ts');
     const routes=read('server/routes/generationRoutes.ts');
-    expect(image).toContain('generationClient.quoteBatch(requests)');
-    expect(video).toContain('generationClient.quoteBatch(requests)');
+    expect(image).toContain('universalGenerationClient.quoteBatch(requests)');
+    expect(video).toContain('universalGenerationClient.quoteBatch(requests)');
     expect(client).toMatch(/["']\/api\/generations\/quote-batch["']/);
     expect(routes).toMatch(/["']\/generations\/quote-batch["']/);
     expect(routes).toMatch(/pricing:\s*\{\s*model_id:\s*draft\.model_id/);
