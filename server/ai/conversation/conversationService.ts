@@ -1,6 +1,7 @@
 import{aiConversationRepository}from'./conversationRepository.js';
 import{conversationalModel}from'./conversationalModel.js';
 import{aiConversationContextEngine}from'./contextEngine.js';
+import{aiConversationToolPlanner}from'./toolPlanner.js';
 
 const clean=(v:any,max:number)=>String(v||'').trim().slice(0,max);
 function fail(code:string,message:string):never{throw Object.assign(new Error(message),{code});}
@@ -12,8 +13,8 @@ export const aiConversationService={
   const conversation=await aiConversationRepository.get(userId,conversationId);
   if(!conversation)fail('AI_CONVERSATION_NOT_FOUND','Conversa não encontrada.');
   const messages=(await aiConversationRepository.listMessages(conversationId)).filter(message=>message.owner_user_id===userId);
-  const context=await aiConversationContextEngine.get(userId,conversationId);
-  return{conversation,messages,context};
+  const [context,actions]=await Promise.all([aiConversationContextEngine.get(userId,conversationId),aiConversationRepository.listActions(userId,conversationId)]);
+  return{conversation,messages,context,actions};
  },
  async create(userId:string){
   const cfg=await conversationalModel.getConfig();
@@ -38,8 +39,9 @@ export const aiConversationService={
   if(!response.content)fail('AI_LLM_EMPTY_RESPONSE','A IA não retornou uma resposta utilizável.');
   const assistantMessage=await aiConversationRepository.addMessage({conversation_id:conversationId,owner_user_id:userId,role:'ASSISTANT',content:response.content,model_id:response.model_id});
   const context=await aiConversationContextEngine.applyTurn(userId,built.context,response,userMessage);
+  const toolPlan=await aiConversationToolPlanner.plan(userId,conversationId,assistantMessage,response);
   conversation=await aiConversationRepository.saveConversation({...conversation,message_count:conversation.message_count+1,logical_model_id:response.logical_model_id});
-  return{conversation,user_message:userMessage,assistant_message:assistantMessage,context,intent:{type:response.intent,readiness:response.readiness,missing_information:response.missing_information}};
+  return{conversation,user_message:userMessage,assistant_message:assistantMessage,context,intent:{type:response.intent,readiness:response.readiness,missing_information:response.missing_information},action:toolPlan.action};
  },
  async model(){
   const cfg=await conversationalModel.getConfig();
