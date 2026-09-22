@@ -12,14 +12,14 @@ describe('Spaces stage 5 real Home previews',()=>{
   expect(view).toContain('homeItems');
  });
 
- it('builds covers from persisted visual outputs already owned by the user',()=>{
+ it('builds previews from persisted visual outputs already owned by the user',()=>{
   const routes=read('server/routes/spacesRoutes.ts');
   expect(routes).toContain("spacesRouter.get('/spaces/home'");
   expect(routes).toContain('betaFlowRuntimeRepository.listUserNodeRuns');
   expect(routes).toContain("asset.type==='IMAGE'||asset.type==='VIDEO'");
   expect(routes).toContain("nodeRun.status!=='SUCCEEDED'");
   expect(routes).toContain('nodeRun.output_asset_ids');
-  expect(routes).toContain('cover_asset:byFlow.get(flow.flow_id)?.[0]||null');
+  expect(routes).toContain('preview_nodes');
  });
 
  it('does not issue one backend request per Space card',()=>{
@@ -30,34 +30,34 @@ describe('Spaces stage 5 real Home previews',()=>{
   expect(routes).not.toMatch(/for\s*\([^)]*flow[^)]*\)[\s\S]{0,300}getAsset\(/);
  });
 
- it('uses the latest real creation as the primary card cover',()=>{
+ it('renders real visual media inside the graph nodes on the Home card',()=>{
   const home=read('src/components/spaces/SpacesHome.tsx');
-  expect(home).toContain('MediaCover');
-  expect(home).toContain('item?.cover_asset');
-  expect(home).toContain("cover.type==='VIDEO'?'Vídeo recente':'Criação recente'");
-  expect(home).toContain('object-cover');
+  expect(home).toContain('NodeMedia');
+  expect(home).toContain('item?.preview_nodes');
+  expect(home).toContain("asset.type==='VIDEO'");
+  expect(home).toContain('object-contain');
   expect(home).toContain('loading="lazy"');
  });
 
- it('keeps graph preview only as fallback when no visual creation exists',()=>{
+ it('keeps the graph visible even when nodes do not have visual outputs',()=>{
   const home=read('src/components/spaces/SpacesHome.tsx');
-  expect(home).toContain('GraphFallback');
-  expect(home).toContain('if(!cover)return <GraphFallback flow={flow}/>');
+  expect(home).toContain('RealWorkspacePreview');
+  expect(home).toContain('node.label');
   expect(home).toContain('Space vazio');
  });
 
  it('keeps at most three recent visual assets in the Home payload',()=>{
   const routes=read('server/routes/spacesRoutes.ts');
-  expect(routes).toContain('if(bucket.length>=3)continue');
+  expect(routes).toContain('if(bucket.length<3)');
   expect(routes).toContain('if(bucket.length>=3)break');
   expect(routes).toContain('recent_assets:byFlow.get(flow.flow_id)||[]');
  });
 
- it('does not persist cover URLs or duplicate media state into the flow graph',()=>{
+ it('persists only universal asset ids for preview state, never duplicate media URLs',()=>{
   const flowTypes=read('server/beta/flows/flowTypes.ts');
-  const routes=read('server/routes/spacesRoutes.ts');
+  const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
   expect(flowTypes).not.toContain('cover_asset');
   expect(flowTypes).not.toContain('preview_url');
-  expect(routes).not.toMatch(/beta_flows[^\n]*cover/);
+  expect(workspace).toContain('space_preview_assets:previewAssetIds');
  });
 });
