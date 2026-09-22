@@ -36,20 +36,39 @@ spacesRouter.get('/spaces/home',async(req:AuthenticatedRequest,res)=>{try{
   assetRepository.listUserAssets(userId,{includeUniversal:true}),
  ]);
  const assetMap=new Map(assets.filter(asset=>asset.type==='IMAGE'||asset.type==='VIDEO').map(asset=>[asset.asset_id,asset]));
- const byFlow=new Map<string,typeof assets>();
+ const byFlow=new Map<string,typeof assets>(),latestByFlowNode=new Map<string,typeof nodeRuns[number]>();
  for(const nodeRun of nodeRuns){
   if(nodeRun.status!=='SUCCEEDED'||nodeRun.reused_from_run_id||!nodeRun.output_asset_ids?.length)continue;
+  const key=`${nodeRun.flow_id}:${nodeRun.node_id}`;
+  if(!latestByFlowNode.has(key))latestByFlowNode.set(key,nodeRun);
   const bucket=byFlow.get(nodeRun.flow_id)||[];
-  if(bucket.length>=3)continue;
-  for(const assetId of nodeRun.output_asset_ids){
-   const asset=assetMap.get(assetId);
-   if(!asset||bucket.some(item=>item.asset_id===asset.asset_id))continue;
-   bucket.push(asset);
-   if(bucket.length>=3)break;
+  if(bucket.length<3){
+   for(const assetId of nodeRun.output_asset_ids){
+    const asset=assetMap.get(assetId);
+    if(!asset||bucket.some(item=>item.asset_id===asset.asset_id))continue;
+    bucket.push(asset);
+    if(bucket.length>=3)break;
+   }
+   byFlow.set(nodeRun.flow_id,bucket);
   }
-  byFlow.set(nodeRun.flow_id,bucket);
  }
- return res.json({success:true,data:flows.map(flow=>({flow,cover_asset:byFlow.get(flow.flow_id)?.[0]||null,recent_assets:byFlow.get(flow.flow_id)||[]}))});
+ return res.json({success:true,data:flows.map(flow=>{
+  const preview_nodes=(flow.graph?.nodes||[]).map(node=>{
+   const width=Number(node.ui?.width)||((node.kind==='TOOL'&&['text-to-image','image-to-image','text-to-video','image-to-video'].includes(String(node.capability_id||'')))?286:260);
+   const height=Number(node.ui?.height)||((node.kind==='TOOL'&&['text-to-image','image-to-image','text-to-video','image-to-video'].includes(String(node.capability_id||'')))?390:156);
+   let asset=node.asset_id?assetMap.get(node.asset_id)||null:null;
+   if(!asset&&node.kind==='TOOL'){
+    const latest=latestByFlowNode.get(`${flow.flow_id}:${node.node_id}`);
+    const outputId=latest?.output_asset_ids?.find(id=>assetMap.has(id));
+    if(outputId)asset=assetMap.get(outputId)||null;
+   }
+   return{node_id:node.node_id,kind:node.kind,label:node.label,x:node.x,y:node.y,width,height,media_type:(asset?.type||node.media_type||null) as any,asset};
+  });
+  const graphAssets=preview_nodes.map(node=>node.asset).filter(Boolean) as typeof assets;
+  const recent=byFlow.get(flow.flow_id)||[];
+  const cover=graphAssets[0]||recent[0]||null;
+  return{flow,cover_asset:cover,recent_assets:recent,preview_nodes};
+ })});
 }catch(error){return failure(res,error,'Não foi possível carregar a Home dos Spaces.');}});
 spacesRouter.get('/spaces/flows',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaFlowService.list(req.user!.uid)});}catch(error){return failure(res,error,'Não foi possível carregar seus Spaces.');}});
 spacesRouter.get('/spaces/flows/:flowId',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await betaFlowService.get(req.user!.uid,req.params.flowId)});}catch(error){return failure(res,error,'Não foi possível carregar o Space.');}});
