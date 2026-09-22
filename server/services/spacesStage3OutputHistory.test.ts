@@ -28,7 +28,7 @@ describe('Spaces stage 3 persistent node output history',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
   const client=read('src/services/spacesClient.ts');
   expect(client).toContain('history:(flowId:string,limit=50)');
-  expect(workspace).toContain('spacesClient.history(flow.flow_id,50)');
+  expect(workspace).toContain('spacesClient.history(flow.flow_id,100)');
   expect(workspace).toContain('historyRuns');
   expect(workspace).toContain('loadHistory()');
   expect(workspace).toContain('Promise.all([loadAssets(),loadHistory()])');
