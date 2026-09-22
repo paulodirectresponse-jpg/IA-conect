@@ -11,7 +11,7 @@ export type AiConversationIntent='GENERAL_CONVERSATION'|'IDEATION'|'IMAGE_GENERA
 export type AiIntentReadiness='CONVERSATION'|'NEEDS_CLARIFICATION'|'READY_FOR_ACTION';
 export interface AiConversationContext{conversation_id:string;summary:string;creative_state:Record<string,any>;references:Array<{label:string;kind:string;value:string;message_id:string|null;asset_id:string|null}>;last_intent:AiConversationIntent;readiness:AiIntentReadiness;missing_information:string[];revision:number;updated_at:string;}
 export interface AiConversationAction{
- action_id:string;conversation_id:string;message_id:string;capability_id:string;tool_label:string;generation_prompt:string;negative_prompt:string|null;model_id:string;quantity:number;controls:Record<string,string|number|boolean|null>;reference_terms:string[];unresolved_references:string[];compatible_model_ids:string[];status:'DRAFT'|'UNAVAILABLE'|'AWAITING_QUOTE';unavailable_reason:string|null;created_at:string;updated_at:string;
+ action_id:string;conversation_id:string;message_id:string;capability_id:string;tool_label:string;generation_prompt:string;negative_prompt:string|null;model_id:string;quantity:number;controls:Record<string,string|number|boolean|null>;reference_terms:string[];unresolved_references:string[];compatible_model_ids:string[];status:'DRAFT'|'UNAVAILABLE'|'QUOTING'|'AWAITING_CONFIRMATION'|'CONFIRMED'|'QUEUED'|'RUNNING'|'SUCCEEDED'|'FAILED'|'CANCELLED';unavailable_reason:string|null;job_id:string|null;selected_model_id:string|null;quote_credit_price:number|null;quote_expires_at:string|null;confirmed_at:string|null;result_asset_ids:string[];error_code:string|null;error_message:string|null;created_at:string;updated_at:string;
 }
 export interface AiConversationDetail{conversation:AiConversation;messages:AiConversationMessage[];context:AiConversationContext;actions:AiConversationAction[]}
 export interface AiModelInfo{logical_model_id:string;display_name:string;enabled:boolean}
@@ -23,4 +23,7 @@ export const aiConversationClient={
  get:(id:string)=>apiRequest<AiConversationDetail>(`/api/ai/conversations/${encodeURIComponent(id)}`),
  remove:(id:string)=>apiRequest<AiConversation>(`/api/ai/conversations/${encodeURIComponent(id)}`,{method:'DELETE'}),
  send:(id:string,content:string)=>apiRequest<{conversation:AiConversation;user_message:AiConversationMessage;assistant_message:AiConversationMessage;context:AiConversationContext;intent:{type:AiConversationIntent;readiness:AiIntentReadiness;missing_information:string[]};action:AiConversationAction|null}>(`/api/ai/conversations/${encodeURIComponent(id)}/messages`,{method:'POST',body:JSON.stringify({content})}),
+ quoteAction:(conversationId:string,actionId:string)=>apiRequest<AiConversationAction>(`/api/ai/conversations/${encodeURIComponent(conversationId)}/actions/${encodeURIComponent(actionId)}/quote`,{method:'POST',body:'{}'}),
+ confirmAction:(conversationId:string,actionId:string)=>apiRequest<AiConversationAction>(`/api/ai/conversations/${encodeURIComponent(conversationId)}/actions/${encodeURIComponent(actionId)}/confirm`,{method:'POST',body:'{}'}),
+ refreshAction:(conversationId:string,actionId:string)=>apiRequest<AiConversationAction>(`/api/ai/conversations/${encodeURIComponent(conversationId)}/actions/${encodeURIComponent(actionId)}`),
 };
