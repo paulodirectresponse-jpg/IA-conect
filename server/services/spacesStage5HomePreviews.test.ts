@@ -50,7 +50,7 @@ describe('Spaces stage 5 real Home previews',()=>{
   const routes=read('server/routes/spacesRoutes.ts');
   expect(routes).toContain('if(bucket.length<3)');
   expect(routes).toContain('if(bucket.length>=3)break');
-  expect(routes).toContain('recent_assets:byFlow.get(flow.flow_id)||[]');
+  expect(routes).toContain('recent_assets:recent');
  });
 
  it('persists only universal asset ids for preview state, never duplicate media URLs',()=>{
