@@ -59,7 +59,7 @@ export async function listRunwareCatalogModels(query=''):Promise<RoutingV2Catalo
   const apiKey=process.env.RUNWARE_API_KEY?.trim();
   if(!apiKey)throw Object.assign(new Error('Runware não configurada.'),{code:'ROUTING_V2_PROVIDER_NOT_CONFIGURED'});
 
-  const url=String(process.env.RUNWARE_BASE_URL||'https://api.runware.ai/v1').replace(/\\/+$/,'');
+  const url=String(process.env.RUNWARE_BASE_URL||'https://api.runware.ai/v1').replace(/\/+$/,'');
   const taskUUID=crypto.randomUUID();
   const body=await readJson(url,{
     method:'POST',
