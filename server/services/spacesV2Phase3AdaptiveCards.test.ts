@@ -46,7 +46,7 @@ describe('Spaces V2 phase 3 adaptive cards',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
   expect(layout).toContain('const adaptive=Number(node.ui?.width)');
   expect(workspace).toContain('applyAdaptiveSpaceNodeVisual(node,descriptor)');
-  expect(workspace).toContain('if(changed){setNodes(next);setDirty(true);setSaved(false);}');
+  expect(workspace).toContain('if(changed){setNodes(next);markDirty();}');
  });
 
  it('renders visual nodes at adaptive height and avoids cropping by default after media is known',()=>{
