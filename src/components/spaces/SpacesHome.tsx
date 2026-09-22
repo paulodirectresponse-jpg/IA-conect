@@ -35,7 +35,7 @@ const RealWorkspacePreview:React.FC<{flow:FlowRecord;item?:SpaceHomeItem}>=({flo
  const viewW=360,viewH=215,pad=18;
  const scale=Math.min((viewW-pad*2)/worldW,(viewH-pad*2)/worldH,0.72);
  const ox=(viewW-worldW*scale)/2-minX*scale,oy=(viewH-worldH*scale)/2-minY*scale;
- const nodeMap=new Map(nodes.map(node=>[node.node_id,node]));
+ const nodeMap=new Map<string,SpaceHomePreviewNode>(nodes.map(node=>[node.node_id,node]));
  return <div className="relative h-full overflow-hidden bg-[radial-gradient(rgba(125,211,252,.10)_1px,transparent_1px),#080d13] bg-[size:16px_16px]">
   <svg viewBox={`0 0 ${viewW} ${viewH}`} preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full">{edges.map(edge=>{const a=nodeMap.get(edge.from_node_id),b=nodeMap.get(edge.to_node_id);if(!a||!b)return null;const x1=ox+(a.x+a.width)*scale,y1=oy+(a.y+a.height/2)*scale,x2=ox+b.x*scale,y2=oy+(b.y+b.height/2)*scale,curve=Math.max(18,Math.abs(x2-x1)*.42);return <path key={edge.edge_id} d={`M ${x1} ${y1} C ${x1+curve} ${y1}, ${x2-curve} ${y2}, ${x2} ${y2}`} fill="none" stroke="rgba(103,232,249,.42)" strokeWidth="1.25"/>})}</svg>
   {nodes.slice(0,24).map(node=>{const visual=Boolean(node.asset);return <div key={node.node_id} className={`absolute overflow-hidden rounded-[5px] border shadow-lg ${visual?'border-white/[0.12] bg-[#071018]':'border-white/[0.07] bg-[#0d1722]'}`} style={{left:ox+node.x*scale,top:oy+node.y*scale,width:Math.max(24,node.width*scale),height:Math.max(18,node.height*scale)}}>
