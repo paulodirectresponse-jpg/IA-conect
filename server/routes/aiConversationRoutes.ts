@@ -2,6 +2,7 @@ import{Router,Response}from'express';
 import{AuthenticatedRequest,requireAuth}from'../middleware/authMiddleware.js';
 import{normalizeBetaPublicError}from'../beta/http/publicError.js';
 import{aiConversationService}from'../ai/conversation/conversationService.js';
+import{aiConversationActionService}from'../ai/conversation/actionService.js';
 
 export const aiConversationRouter=Router();
 const failure=(res:Response,error:any,fallback:string)=>{const normalized=normalizeBetaPublicError(error,fallback);return res.status(normalized.status).json({success:false,error:normalized.error});};
@@ -12,3 +13,20 @@ aiConversationRouter.post('/ai/conversations',async(req:AuthenticatedRequest,res
 aiConversationRouter.get('/ai/conversations/:conversationId',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await aiConversationService.get(req.user!.uid,req.params.conversationId)});}catch(error){return failure(res,error,'Não foi possível carregar a conversa.');}});
 aiConversationRouter.delete('/ai/conversations/:conversationId',async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await aiConversationService.remove(req.user!.uid,req.params.conversationId)});}catch(error){return failure(res,error,'Não foi possível excluir a conversa.');}});
 aiConversationRouter.post('/ai/conversations/:conversationId/messages',async(req:AuthenticatedRequest,res)=>{try{return res.status(201).json({success:true,data:await aiConversationService.send(req.user!.uid,req.params.conversationId,req.body||{})});}catch(error){return failure(res,error,'A IA Connect não conseguiu responder agora.');}});
+
+aiConversationRouter.post('/ai/conversations/:conversationId/actions/:actionId/quote',async(req:AuthenticatedRequest,res)=>{
+ try{return res.json({success:true,data:await aiConversationActionService.quote(req.user!.uid,req.params.conversationId,req.params.actionId)});}
+ catch(error){return failure(res,error,'Não foi possível calcular o preço desta ação.');}
+});
+aiConversationRouter.post('/ai/conversations/:conversationId/actions/:actionId/confirm',async(req:AuthenticatedRequest,res)=>{
+ try{
+  const host=req.get('host')||process.env.APP_URL;
+  const authorization=String(req.headers.authorization||'');
+  const idToken=authorization.startsWith('Bearer ')?authorization.slice(7):undefined;
+  return res.json({success:true,data:await aiConversationActionService.confirm(req.user!.uid,req.params.conversationId,req.params.actionId,host,idToken)});
+ }catch(error){return failure(res,error,'Não foi possível confirmar esta ação.');}
+});
+aiConversationRouter.get('/ai/conversations/:conversationId/actions/:actionId',async(req:AuthenticatedRequest,res)=>{
+ try{return res.json({success:true,data:await aiConversationActionService.refresh(req.user!.uid,req.params.conversationId,req.params.actionId)});}
+ catch(error){return failure(res,error,'Não foi possível atualizar esta ação.');}
+});

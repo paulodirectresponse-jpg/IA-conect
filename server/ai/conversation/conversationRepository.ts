@@ -7,6 +7,7 @@ const safe=(v:string)=>encodeURIComponent(v),now=()=>new Date().toISOString();
 const conversationId=()=>`conv_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
 const messageId=()=>`msg_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
 const actionId=()=>`act_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
+const actionDefaults=(row:AiConversationActionDraft):AiConversationActionDraft=>({...row,job_id:row.job_id||null,selected_model_id:row.selected_model_id||null,quote_credit_price:Number.isFinite(Number(row.quote_credit_price))?Number(row.quote_credit_price):null,quote_expires_at:row.quote_expires_at||null,confirmed_at:row.confirmed_at||null,result_asset_ids:Array.isArray(row.result_asset_ids)?row.result_asset_ids:[],error_code:row.error_code||null,error_message:row.error_message||null});
 
 export const aiConversationRepository={
  async list(userId:string){
@@ -64,6 +65,17 @@ export const aiConversationRepository={
  },
  async listActions(userId:string,conversationIdValue:string){
   const rows=await firestoreAdminRest.runQuery({from:[{collectionId:ACTIONS}],where:{fieldFilter:{field:{fieldPath:'conversation_id'},op:'EQUAL',value:{stringValue:conversationIdValue}}},limit:200});
-  return rows.map((row:any)=>row.data as AiConversationActionDraft).filter(row=>row.owner_user_id===userId).sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at));
+  return rows.map((row:any)=>actionDefaults(row.data as AiConversationActionDraft)).filter(row=>row.owner_user_id===userId).sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at));
+ },
+ async getAction(userId:string,conversationIdValue:string,actionIdValue:string){
+  const doc=await firestoreAdminRest.get(`${ACTIONS}/${safe(actionIdValue)}`);
+  if(!doc.exists)return null;
+  const row=actionDefaults(doc.data as AiConversationActionDraft);
+  return row.owner_user_id===userId&&row.conversation_id===conversationIdValue?row:null;
+ },
+ async saveAction(userId:string,row:AiConversationActionDraft){
+  if(row.owner_user_id!==userId)throw Object.assign(new Error('Action inválida.'),{code:'AI_ACTION_FORBIDDEN'});
+  const next={...row,updated_at:now()};
+  await firestoreAdminRest.set(`${ACTIONS}/${safe(row.action_id)}`,next);return next;
  },
 };

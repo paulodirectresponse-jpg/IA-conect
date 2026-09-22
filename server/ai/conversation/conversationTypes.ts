@@ -96,7 +96,7 @@ export interface AiModelTurn{
 }
 
 
-export type AiConversationActionStatus='DRAFT'|'UNAVAILABLE'|'AWAITING_QUOTE';
+export type AiConversationActionStatus='DRAFT'|'UNAVAILABLE'|'QUOTING'|'AWAITING_CONFIRMATION'|'CONFIRMED'|'QUEUED'|'RUNNING'|'SUCCEEDED'|'FAILED'|'CANCELLED';
 
 export interface AiToolRequest{
  capability_id:string;
@@ -126,6 +126,14 @@ export interface AiConversationActionDraft{
  compatible_model_ids:string[];
  status:AiConversationActionStatus;
  unavailable_reason:string|null;
+ job_id:string|null;
+ selected_model_id:string|null;
+ quote_credit_price:number|null;
+ quote_expires_at:string|null;
+ confirmed_at:string|null;
+ result_asset_ids:string[];
+ error_code:string|null;
+ error_message:string|null;
  created_at:string;
  updated_at:string;
 }
