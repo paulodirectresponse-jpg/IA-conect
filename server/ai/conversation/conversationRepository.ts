@@ -1,8 +1,8 @@
 import crypto from'crypto';
 import{firestoreAdminRest}from'../../repositories/firestoreAdminRest.js';
-import type{AiConversationMessage,AiConversationRecord}from'./conversationTypes.js';
+import type{AiConversationContext,AiConversationMessage,AiConversationRecord}from'./conversationTypes.js';
 
-const CONVERSATIONS='ai_conversations',MESSAGES='ai_conversation_messages';
+const CONVERSATIONS='ai_conversations',MESSAGES='ai_conversation_messages',CONTEXTS='ai_conversation_context';
 const safe=(v:string)=>encodeURIComponent(v),now=()=>new Date().toISOString();
 const conversationId=()=>`conv_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
 const messageId=()=>`msg_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
@@ -41,5 +41,20 @@ export const aiConversationRepository={
   const row:AiConversationMessage={...input,message_id:messageId(),created_at:now()};
   await firestoreAdminRest.set(`${MESSAGES}/${safe(row.message_id)}`,row);
   return row;
+ },
+ async getContext(userId:string,conversationIdValue:string){
+  const doc=await firestoreAdminRest.get(`${CONTEXTS}/${safe(conversationIdValue)}`);
+  if(!doc.exists)return null;
+  const row=doc.data as AiConversationContext;
+  return row.owner_user_id===userId?row:null;
+ },
+ async createContext(input:Omit<AiConversationContext,'revision'|'created_at'|'updated_at'>){
+  const timestamp=now();const row:AiConversationContext={...input,revision:1,created_at:timestamp,updated_at:timestamp};
+  await firestoreAdminRest.set(`${CONTEXTS}/${safe(row.conversation_id)}`,row);return row;
+ },
+ async saveContext(userId:string,row:AiConversationContext){
+  if(row.owner_user_id!==userId)throw Object.assign(new Error('Contexto da conversa inválido.'),{code:'AI_CONVERSATION_CONTEXT_FORBIDDEN'});
+  const next={...row,revision:row.revision+1,updated_at:now()};
+  await firestoreAdminRest.set(`${CONTEXTS}/${safe(row.conversation_id)}`,next);return next;
  },
 };
