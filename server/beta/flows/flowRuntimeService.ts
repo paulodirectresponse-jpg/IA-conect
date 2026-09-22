@@ -9,6 +9,7 @@ import { betaFlowRuntimeRepository } from './flowRuntimeRepository.js';
 import { BetaFlowNodeRun,BetaFlowRun,BetaFlowValue } from './flowRuntimeTypes.js';
 import { buildFlowExecutionPlan } from './flowExecutionPlan.js';
 import { activeExecutionSucceeded,activeTerminalNodeIds } from './flowExecutionCompletion.js';
+import {flowTopologicalOrder} from './flowGraphExecution.js';
 
 const now=()=>new Date().toISOString();
 function fail(code:string,message:string):never{throw Object.assign(new Error(message),{code});}
@@ -24,34 +25,6 @@ async function assertRuntimeEnabled(){
   if(!flows?.is_enabled)fail('FLOWS_DISABLED','Fluxos estão temporariamente indisponíveis.');
   if(!runtime?.is_enabled)fail('FLOW_RUNTIME_DISABLED','O runtime de Fluxos está temporariamente indisponível.');
   if(!execution?.is_enabled)fail('FLOW_RUNTIME_EXECUTION_DISABLED','Novas execuções de Fluxos estão temporariamente pausadas.');
-}
-function activeNodeIds(graph:BetaFlowGraph){
-  const outputs=graph.nodes.filter(node=>node.kind==='OUTPUT');
-  if(!outputs.length)fail('FLOW_OUTPUT_REQUIRED','Adicione pelo menos um nó de saída antes de executar.');
-  const incoming=new Map<string,BetaFlowEdge[]>();
-  for(const edge of graph.edges){const list=incoming.get(edge.to_node_id)||[];list.push(edge);incoming.set(edge.to_node_id,list);}
-  const active=new Set<string>();
-  const visit=(id:string)=>{if(active.has(id))return;active.add(id);for(const edge of incoming.get(id)||[])visit(edge.from_node_id);};
-  for(const output of outputs)visit(output.node_id);
-  return active;
-}
-function topological(graph:BetaFlowGraph,active:Set<string>){
-  const nodes=graph.nodes.filter(node=>active.has(node.node_id));
-  const indegree=new Map(nodes.map(node=>[node.node_id,0]));
-  const outgoing=new Map(nodes.map(node=>[node.node_id,[] as string[]]));
-  for(const edge of graph.edges){
-    if(!active.has(edge.from_node_id)||!active.has(edge.to_node_id))continue;
-    indegree.set(edge.to_node_id,(indegree.get(edge.to_node_id)||0)+1);
-    outgoing.get(edge.from_node_id)?.push(edge.to_node_id);
-  }
-  const queue=nodes.filter(node=>(indegree.get(node.node_id)||0)===0).map(node=>node.node_id);
-  const result:BetaFlowNode[]=[];
-  while(queue.length){
-    const id=queue.shift()!,node=nodes.find(item=>item.node_id===id);if(node)result.push(node);
-    for(const next of outgoing.get(id)||[]){const value=(indegree.get(next)||0)-1;indegree.set(next,value);if(value===0)queue.push(next);}
-  }
-  if(result.length!==nodes.length)fail('FLOW_CYCLE','O fluxo contém um ciclo e não pode ser executado.');
-  return result;
 }
 async function normalizeInput(userId:string,node:BetaFlowNode,raw:any):Promise<BetaFlowValue>{
   const type=node.media_type;if(!type)fail('FLOW_INPUT_INVALID','Entrada sem tipo definido.');
@@ -174,7 +147,7 @@ export const betaFlowRuntimeService={
     const active=new Set(plan.active_node_ids),seeded=new Set(plan.seed_runs.keys()),inputs=await normalizeInputs(userId,flow.graph,active,input?.inputs||{},seeded);
     const timestamp=now(),run:BetaFlowRun={
       run_id:betaFlowRuntimeRepository.makeRunId(),flow_id:flow.flow_id,flow_revision:flow.revision,user_id:userId,status:'RUNNING',
-      graph:flow.graph,active_node_ids:Array.from(active),execution_mode:plan.mode,target_node_id:plan.target_node_id,reused_node_ids:Array.from(seeded),inputs,outputs:{},authorized_credits_total:0,error_code:null,error_message:null,idempotency_fingerprint:'',
+      graph:flow.graph,active_node_ids:Array.from(active),execution_mode:plan.mode,target_node_id:plan.target_node_id,reused_node_ids:Array.from(seeded),execution_order:plan.execution_order,execution_layers:plan.execution_layers,inputs,outputs:{},authorized_credits_total:0,error_code:null,error_message:null,idempotency_fingerprint:'',
       created_at:timestamp,updated_at:timestamp,started_at:timestamp,completed_at:null,failed_at:null,cancelled_at:null,
     };
     const created=await betaFlowRuntimeRepository.createIdempotent({userId,flowId,idempotencyKey,run});
@@ -198,10 +171,11 @@ export const betaFlowRuntimeService={
     let run=await betaFlowRuntimeRepository.getRun(runId,userId);
     if(!run)fail('FLOW_RUN_NOT_FOUND','Execução de fluxo não encontrada.');
     if(terminal(run.status))return publicRun(run);
-    const active=new Set(run.active_node_ids),order=topological(run.graph,active);
+    const active=new Set(run.active_node_ids),order=flowTopologicalOrder(run.graph,active);
     const existing=await betaFlowRuntimeRepository.listNodeRuns(run.run_id,userId);
     const runs=new Map(existing.map(item=>[item.node_id,item]));
 
+    let progressed=false;
     for(const node of order){
       let nodeRun=runs.get(node.node_id);
       if(nodeRun?.status==='SUCCEEDED')continue;
@@ -214,7 +188,7 @@ export const betaFlowRuntimeService={
         if(!nodeRun){
           const value=run.inputs[node.node_id];if(!value)fail('FLOW_INPUT_REQUIRED',`Entrada ausente: ${node.label}.`);
           const timestamp=now();nodeRun={...emptyNodeRun(run,node),status:'SUCCEEDED',outputs:[{...value,source_node_id:node.node_id}],output_asset_ids:value.asset_ids||[],updated_at:timestamp,started_at:timestamp,completed_at:timestamp};
-          await betaFlowRuntimeRepository.saveNodeRun(nodeRun);runs.set(node.node_id,nodeRun);
+          await betaFlowRuntimeRepository.saveNodeRun(nodeRun);runs.set(node.node_id,nodeRun);progressed=true;
         }
         continue;
       }
@@ -225,7 +199,7 @@ export const betaFlowRuntimeService={
           if(!asset||asset.status!=='READY')fail('ASSET_NOT_FOUND',`Asset indisponível no nó "${node.label}".`);
           const value:BetaFlowValue={media_type:asset.type as CapabilityMediaType,asset_ids:[asset.asset_id],source_node_id:node.node_id};
           const timestamp=now();nodeRun={...emptyNodeRun(run,node),status:'SUCCEEDED',outputs:[value],output_asset_ids:[asset.asset_id],updated_at:timestamp,started_at:timestamp,completed_at:timestamp};
-          await betaFlowRuntimeRepository.saveNodeRun(nodeRun);runs.set(node.node_id,nodeRun);
+          await betaFlowRuntimeRepository.saveNodeRun(nodeRun);runs.set(node.node_id,nodeRun);progressed=true;
         }
         continue;
       }
@@ -238,7 +212,7 @@ export const betaFlowRuntimeService={
         const accepted=values.filter(value=>value.media_type===node.media_type);
         if(!accepted.length)fail('FLOW_NODE_OUTPUT_MISSING',`A saída "${node.label}" não recebeu dados.`);
         const timestamp=now();nodeRun={...(nodeRun||emptyNodeRun(run,node)),status:'SUCCEEDED',inputs:values,outputs:accepted,input_asset_ids:inputAssetIds(values),output_asset_ids:inputAssetIds(accepted),updated_at:timestamp,started_at:nodeRun?.started_at||timestamp,completed_at:timestamp,error_code:null,error_message:null};
-        await betaFlowRuntimeRepository.saveNodeRun(nodeRun);runs.set(node.node_id,nodeRun);
+        await betaFlowRuntimeRepository.saveNodeRun(nodeRun);runs.set(node.node_id,nodeRun);progressed=true;
         continue;
       }
 
@@ -256,7 +230,7 @@ export const betaFlowRuntimeService={
             if(job.status==='SUCCEEDED'){
               const output=await valuesFromJob(userId,node,job),timestamp=now();
               const done={...nodeRun,status:'SUCCEEDED' as const,outputs:output,output_asset_ids:inputAssetIds(output),updated_at:timestamp,completed_at:timestamp,error_code:null,error_message:null};
-              await betaFlowRuntimeRepository.saveNodeRun(done);runs.set(node.node_id,done);continue;
+              await betaFlowRuntimeRepository.saveNodeRun(done);runs.set(node.node_id,done);progressed=true;continue;
             }
           }
 
@@ -266,11 +240,11 @@ export const betaFlowRuntimeService={
           const createKey=`flow:${run.run_id}:node:${node.node_id}:attempt:${attemptIndex}:create`;
           const job=await betaJobOrchestrator.create(userId,jobRequest(node,values),createKey);
           nodeRun={...nodeRun,job_id:job.job_id,status:'RUNNING',inputs:values,input_asset_ids:inputAssetIds(values),started_at:nodeRun.started_at||timestamp,updated_at:now(),error_code:null,error_message:null};
-          await betaFlowRuntimeRepository.saveNodeRun(nodeRun);runs.set(node.node_id,nodeRun);
+          await betaFlowRuntimeRepository.saveNodeRun(nodeRun);runs.set(node.node_id,nodeRun);progressed=true;
 
           const quoted=await betaJobOrchestrator.quote(userId,job.job_id,`flow:${run.run_id}:node:${node.node_id}:attempt:${attemptIndex}:quote`);
           nodeRun={...nodeRun,authorized_credit_price:Number(quoted.quote?.credit_price||0),updated_at:now()};
-          await betaFlowRuntimeRepository.saveNodeRun(nodeRun);runs.set(node.node_id,nodeRun);
+          await betaFlowRuntimeRepository.saveNodeRun(nodeRun);runs.set(node.node_id,nodeRun);progressed=true;
 
           const queued=await betaJobOrchestrator.queue(userId,job.job_id,`flow:${run.run_id}:node:${node.node_id}:attempt:${attemptIndex}:queue`,reqHost,idToken);
           if(queued.status==='SUCCEEDED'){
@@ -280,7 +254,7 @@ export const betaFlowRuntimeService={
             const failed=await saveNodeFailure(run,node,nodeRun,{code:queued.error_code||'FLOW_NODE_FAILED',message:queued.error_message||'O job do nó falhou.'});runs.set(node.node_id,failed);
             run=await finishRun(run,runs,'FAILED',{error_code:failed.error_code,error_message:failed.error_message});return publicRun(run);
           }else{
-            const running={...nodeRun,status:'RUNNING' as const,updated_at:now()};await betaFlowRuntimeRepository.saveNodeRun(running);runs.set(node.node_id,running);
+            const running={...nodeRun,status:'RUNNING' as const,updated_at:now()};await betaFlowRuntimeRepository.saveNodeRun(running);runs.set(node.node_id,running);progressed=true;
           }
         }catch(error:any){
           const failed=await saveNodeFailure(run,node,nodeRun,error);runs.set(node.node_id,failed);
@@ -288,6 +262,14 @@ export const betaFlowRuntimeService={
           return publicRun(run);
         }
       }
+    }
+
+    const unresolved=order.filter(node=>runs.get(node.node_id)?.status!=='SUCCEEDED');
+    const hasRunning=unresolved.some(node=>runs.get(node.node_id)?.status==='RUNNING');
+    if(unresolved.length&&!hasRunning&&!progressed){
+      const labels=unresolved.slice(0,4).map(node=>node.label).join(', ');
+      run=await finishRun(run,runs,'FAILED',{error_code:'FLOW_EXECUTION_BLOCKED',error_message:`A execução ficou bloqueada por dependências não resolvidas: ${labels}.`});
+      return publicRun(run);
     }
 
     const terminalNodeIds=activeTerminalNodeIds(run.graph,active);
