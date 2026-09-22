@@ -66,4 +66,15 @@ export const aiConversationRepository={
   const rows=await firestoreAdminRest.runQuery({from:[{collectionId:ACTIONS}],where:{fieldFilter:{field:{fieldPath:'conversation_id'},op:'EQUAL',value:{stringValue:conversationIdValue}}},limit:200});
   return rows.map((row:any)=>row.data as AiConversationActionDraft).filter(row=>row.owner_user_id===userId).sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at));
  },
+ async getAction(userId:string,conversationIdValue:string,actionIdValue:string){
+  const doc=await firestoreAdminRest.get(`${ACTIONS}/${safe(actionIdValue)}`);
+  if(!doc.exists)return null;
+  const row=doc.data as AiConversationActionDraft;
+  return row.owner_user_id===userId&&row.conversation_id===conversationIdValue?row:null;
+ },
+ async saveAction(userId:string,row:AiConversationActionDraft){
+  if(row.owner_user_id!==userId)throw Object.assign(new Error('Action inválida.'),{code:'AI_ACTION_FORBIDDEN'});
+  const next={...row,updated_at:now()};
+  await firestoreAdminRest.set(`${ACTIONS}/${safe(row.action_id)}`,next);return next;
+ },
 };
