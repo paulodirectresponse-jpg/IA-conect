@@ -78,6 +78,11 @@ export function resolveDirectSpaceConnection(
  const outputs=spaceNodeOutputTypes(models,source),inputs=spaceNodeInputTypes(models,target);
  const compatible=outputs.filter(type=>inputs.includes(type));
  if(!compatible.length)return{...base,status:'INCOMPATIBLE',mediaType:null,message:'Esses nodes não possuem mídia compatível.'};
+ for(const media of compatible){
+  if(edges.some(edge=>edge.from_node_id===fromId&&edge.to_node_id===toId&&edge.media_type===media&&!edge.target_port)){
+   return{status:'DUPLICATE',mediaType:media,sourcePort:genericPort(media),targetPort:null,strategy:null,resolverVersion:SPACE_CONNECTION_RESOLVER_VERSION,message:'Esses nodes já estão conectados nessa entrada.'};
+  }
+ }
  let selected:{media:BetaCapabilityMediaType;binding:ReturnType<typeof targetPortFor>}|null=null;
  for(const media of compatible){
   const binding=targetPortFor(target,media,edges);
