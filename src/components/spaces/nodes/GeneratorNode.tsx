@@ -9,13 +9,13 @@ type ControlValue=string|number|boolean|null;
 interface Props{
  node:FlowNode;capability:BetaCapability|null;models:BetaCapabilityModel[];nodeRun?:FlowNodeRunView;
  history:NodeOutputHistoryItem[];historyIndex:number;busy:boolean;selected:boolean;mediaLabel:'imagem'|'vídeo';
- onHistoryIndexChange:(index:number)=>void;onPatch:(patch:Partial<FlowNode>)=>void;onGenerate:()=>void;
+ onHistoryIndexChange:(index:number)=>void;onPatch:(patch:Partial<FlowNode>)=>void;onGenerate:()=>void;onAddAssetNode?:(asset:NodeOutputHistoryItem['asset'])=>void;
 }
 
 const value=(node:FlowNode,key:string,fallback:string|number)=>node.controls?.[key]??fallback;
 const options=(values:(string|number)[])=>Array.from(new Set(values.filter(v=>v!==''&&v!=null)));
 
-export const GeneratorNode:React.FC<Props>=({node,capability,models,nodeRun,history,historyIndex,busy,selected,mediaLabel,onHistoryIndexChange,onPatch,onGenerate})=>{
+export const GeneratorNode:React.FC<Props>=({node,capability,models,nodeRun,history,historyIndex,busy,selected,mediaLabel,onHistoryIndexChange,onPatch,onGenerate,onAddAssetNode})=>{
  const manualModels=models.filter(m=>m.model_id!=='AUTO'&&m.capabilities.some(c=>c.id===node.capability_id));
  const selectedModel=models.find(m=>m.model_id===node.model_id);
  const selectedCapability=selectedModel?.capabilities.find(c=>c.id===node.capability_id)||capability;
@@ -28,7 +28,7 @@ export const GeneratorNode:React.FC<Props>=({node,capability,models,nodeRun,hist
  const price=selectedHistory?.authorized_credit_price||nodeRun?.authorized_credit_price;
  const controlsVisibility=selected?'visible translate-y-0 opacity-100 pointer-events-auto':'invisible translate-y-2 opacity-0 pointer-events-none group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100 group-focus-within:pointer-events-auto';
  return <div className="relative h-full min-h-[170px] overflow-hidden">
-  <NodeResultPreview items={history} index={historyIndex} onIndexChange={onHistoryIndexChange} fullBleed fit={node.ui?.fit||'cover'}/>
+  <NodeResultPreview items={history} index={historyIndex} onIndexChange={onHistoryIndexChange} fullBleed fit={node.ui?.fit||'cover'} onAddAssetNode={onAddAssetNode}/>
   <div className={`pointer-events-none absolute inset-0 bg-gradient-to-b from-black/30 via-transparent via-55% to-[#03070c]/95 transition-opacity duration-150 ${selected?'opacity-100':'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'}`}/>
   <div className={`absolute inset-x-0 bottom-0 z-10 space-y-2 p-2.5 pt-16 transition-all duration-150 ${controlsVisibility}`}>
    <textarea rows={2} value={node.prompt||''} onChange={e=>onPatch({prompt:e.target.value})} placeholder={mediaLabel==='imagem'?'Descreva a imagem que deseja criar…':'Descreva o vídeo, movimento e cena…'} className="max-h-[66px] min-h-[48px] w-full resize-none rounded-xl border border-white/10 bg-black/35 px-2.5 py-2 text-[9px] leading-relaxed text-white outline-none backdrop-blur-md placeholder:text-white/35 focus:border-cyan-300/30"/>

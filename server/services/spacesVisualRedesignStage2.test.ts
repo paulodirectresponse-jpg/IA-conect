@@ -20,7 +20,7 @@ describe('Spaces visual redesign stage 2 interactions',()=>{
 
  it('closes contextual UI with Escape and resets the search state',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
-  expect(workspace).toContain("if(event.key==='Escape'){setQuick(null);setQuickQuery('');setLinking(null);setInspectorOpen(false);return;}");
+  expect(workspace).toContain("if(event.key==='Escape'){setQuick(null);setQuickQuery('');setLinking(null);setInspectorOpen(false);setAssetPicker(null);return;}");
  });
 
  it('keeps only one contextual panel open at a time',()=>{
@@ -34,7 +34,8 @@ describe('Spaces visual redesign stage 2 interactions',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
   expect(workspace).toContain("setQuick(null);setQuickQuery('');focusNodePrompt");
   expect(workspace).toContain("onAddImageAsset={()=>");
-  expect(workspace).toContain("setQuick(null);}} onAddVideoAsset");
+  expect(workspace).toContain("onAddImageAsset={()=>openAssetPicker('IMAGE'");
+  expect(workspace).toContain("onAddVideoAsset={()=>openAssetPicker('VIDEO'");
  });
 
  it('exposes add-menu expanded state on the toolbar',()=>{
