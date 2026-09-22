@@ -7,13 +7,10 @@ import {betaFlowEconomicRuntimeService} from '../beta/flows/flowEconomicRuntimeS
 import {betaFlowRuntimeRepository} from '../beta/flows/flowRuntimeRepository.js';
 import {normalizeBetaPublicError} from '../beta/http/publicError.js';
 import {routingV2CatalogService} from '../routing-v2/catalogService.js';
+import {SPACE_CAPABILITY_IDS} from '../../src/shared/spaceToolRegistry.js';
 
 export const spacesRouter=Router();
-const STABLE_CAPABILITY_IDS=[
- 'text-to-image','image-to-image','image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations',
- 'text-to-video','image-to-video','first-frame','last-frame','video-extend','video-edit',
- 'text-to-speech','music','text-to-3d','image-to-3d','multi-image-to-3d',
-] as const;
+
 function failure(res:Response,error:any,fallback:string){const n=normalizeBetaPublicError(error,fallback);return res.status(n.status).json({success:false,error:n.error});}
 function idem(req:AuthenticatedRequest){return String(req.headers['idempotency-key']||'').trim();}
 function host(req:AuthenticatedRequest){return req.get('host')||process.env.APP_URL;}
@@ -23,7 +20,7 @@ spacesRouter.use('/spaces',requireAuth,requireSpaces);
 
 spacesRouter.get('/spaces/catalog',async(_req:AuthenticatedRequest,res)=>{
  try{
-  return res.json({success:true,data:{models:await routingV2CatalogService.listCapabilityModels([...STABLE_CAPABILITY_IDS])}});
+  return res.json({success:true,data:{models:await routingV2CatalogService.listCapabilityModels([...SPACE_CAPABILITY_IDS])}});
  }catch(error){return failure(res,error,'Não foi possível carregar as ferramentas do Spaces.');}
 });
 
