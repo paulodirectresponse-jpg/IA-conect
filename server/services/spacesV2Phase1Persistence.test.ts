@@ -38,7 +38,7 @@ describe('Spaces V2 phase 1 persistence',()=>{
 
  it('flushes pending changes before navigating back to the Spaces home',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
-  expect(workspace).toContain("onBack={()=>{void (async()=>{if(dirty)await save(true);onBack();})();}}");
+  expect(workspace).toContain("onBack={()=>{void (async()=>{const persisted=dirty?await save(true):flow;if(!persisted)return;onBack();})();}}");
  });
 
  it('keeps optimistic revision conflict protection intact',()=>{
