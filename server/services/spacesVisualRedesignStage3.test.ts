@@ -40,7 +40,7 @@ describe('Spaces visual redesign stage 3 final polish',()=>{
  it('preserves stage 2 click-away and contextual exclusivity behavior',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
   expect(workspace).toContain("document.addEventListener('pointerdown',onPointerDown,true)");
-  expect(workspace).toContain("if(event.key==='Escape'){setQuick(null);setQuickQuery('');setLinking(null);setInspectorOpen(false);return;}");
+  expect(workspace).toContain("if(event.key==='Escape'){setQuick(null);setQuickQuery('');setLinking(null);setInspectorOpen(false);setAssetPicker(null);return;}");
   expect(workspace).toContain('addOpen={Boolean(quick&&!quick.fromId)}');
  });
 
