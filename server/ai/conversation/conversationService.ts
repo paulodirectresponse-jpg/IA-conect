@@ -14,7 +14,8 @@ export const aiConversationService={
   const conversation=await aiConversationRepository.get(userId,conversationId);
   if(!conversation)fail('AI_CONVERSATION_NOT_FOUND','Conversa não encontrada.');
   const messages=(await aiConversationRepository.listMessages(conversationId)).filter(message=>message.owner_user_id===userId);
-  const [context,actions]=await Promise.all([aiConversationContextEngine.get(userId,conversationId),aiConversationRepository.listActions(userId,conversationId)]);
+  const [context,storedActions]=await Promise.all([aiConversationContextEngine.get(userId,conversationId),aiConversationRepository.listActions(userId,conversationId)]);
+  const actions=await Promise.all(storedActions.map(action=>aiConversationActionService.recover(userId,conversationId,action)));
   return{conversation,messages,context,actions};
  },
  async create(userId:string){
