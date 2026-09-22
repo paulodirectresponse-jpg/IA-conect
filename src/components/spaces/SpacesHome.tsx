@@ -1,8 +1,7 @@
 import React,{useMemo}from'react';
 import{ArrowRight,LoaderCircle,Network,Plus,Sparkles,Trash2}from'lucide-react';
 import type{FlowRecord}from'../../beta/flowClient.js';
-import type{SpaceHomeItem}from'../../services/spacesClient.js';
-import type{UniversalAssetView}from'../../beta/universalAssetClient.js';
+import type{SpaceHomeItem,SpaceHomePreviewNode}from'../../services/spacesClient.js';
 
 interface Props{
  flows:FlowRecord[];
@@ -19,32 +18,32 @@ interface Props{
 
 const ago=(iso:string)=>{const ts=new Date(iso).getTime();if(!Number.isFinite(ts))return'';const diff=Math.max(0,Date.now()-ts),min=Math.floor(diff/60000),hour=Math.floor(min/60),day=Math.floor(hour/24);if(day>0)return day===1?'há 1 dia':`há ${day} dias`;if(hour>0)return hour===1?'há 1 hora':`há ${hour} horas`;if(min>0)return min===1?'há 1 min':`há ${min} min`;return'agora';};
 
-const GraphFallback:React.FC<{flow:FlowRecord}>=({flow})=>{
- const nodes=flow.graph?.nodes||[],edges=flow.graph?.edges||[];
+const NodeMedia:React.FC<{node:SpaceHomePreviewNode}>=({node})=>{
+ const asset=node.asset,url=asset?.preview_url||asset?.public_url||null;
+ if(!asset||!url)return <div className="grid h-full w-full place-items-center bg-[#0d1722] px-2 text-center"><span className="line-clamp-2 text-[7px] font-semibold text-zinc-500">{node.label||'Node'}</span></div>;
+ if(asset.type==='IMAGE'||asset.preview_mime_type?.startsWith('image/'))return <img src={url} alt="" loading="lazy" className="h-full w-full bg-black/30 object-contain"/>;
+ if(asset.type==='VIDEO')return <video src={asset.public_url||url} poster={asset.preview_mime_type?.startsWith('image/')?url:undefined} muted preload="metadata" playsInline className="h-full w-full bg-black object-contain"/>;
+ return <div className="grid h-full w-full place-items-center bg-[#0d1722]"><span className="text-[7px] text-zinc-600">{node.label}</span></div>;
+};
+
+const RealWorkspacePreview:React.FC<{flow:FlowRecord;item?:SpaceHomeItem}>=({flow,item})=>{
+ const nodes=item?.preview_nodes||[],edges=flow.graph?.edges||[];
  if(!nodes.length)return <div className="grid h-full place-items-center bg-[radial-gradient(circle_at_50%_45%,rgba(34,211,238,.08),transparent_42%),#0a0f15]"><div className="text-center"><Sparkles className="mx-auto h-6 w-6 text-zinc-700"/><span className="mt-2 block text-[9px] text-zinc-650">Space vazio</span></div></div>;
- const minX=Math.min(...nodes.map(n=>n.x)),maxX=Math.max(...nodes.map(n=>n.x)),minY=Math.min(...nodes.map(n=>n.y)),maxY=Math.max(...nodes.map(n=>n.y));
- const w=Math.max(1,maxX-minX+260),h=Math.max(1,maxY-minY+180),sx=320/w,sy=170/h,s=Math.min(sx,sy,.65),ox=(320-w*s)/2-minX*s+60*s,oy=(170-h*s)/2-minY*s+45*s;
- return <div className="relative h-full overflow-hidden bg-[radial-gradient(rgba(125,211,252,.12)_1px,transparent_1px),#090f15] bg-[size:18px_18px]">
-  <svg className="absolute inset-0 h-full w-full">{edges.map(edge=>{const a=nodes.find(n=>n.node_id===edge.from_node_id),b=nodes.find(n=>n.node_id===edge.to_node_id);if(!a||!b)return null;const x1=ox+(a.x+224)*s,y1=oy+(a.y+71)*s,x2=ox+b.x*s,y2=oy+(b.y+71)*s,c=Math.max(20,Math.abs(x2-x1)*.45);return <path key={edge.edge_id} d={`M ${x1} ${y1} C ${x1+c} ${y1}, ${x2-c} ${y2}, ${x2} ${y2}`} fill="none" stroke="rgba(56,189,248,.45)" strokeWidth="1.4"/>})}</svg>
-  {nodes.slice(0,18).map(node=><div key={node.node_id} className="absolute rounded-md border border-white/[0.08] bg-[#0d1722] shadow-lg" style={{left:ox+node.x*s,top:oy+node.y*s,width:Math.max(32,224*s),height:Math.max(20,104*s)}}><div className="h-1.5 rounded-t-md bg-cyan-400/25"/></div>)}
- </div>;
-};
-
-const MediaCover:React.FC<{asset:UniversalAssetView}>=({asset})=>{
- const preview=asset.preview_url||asset.public_url;
- if(!preview)return <div className="h-full bg-[#0a0f15]"/>;
- if(asset.type==='IMAGE'||asset.preview_mime_type?.startsWith('image/'))return <img src={preview} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"/>;
- return <video src={asset.public_url||preview} poster={asset.preview_mime_type?.startsWith('image/')?preview:undefined} muted preload="metadata" playsInline className="h-full w-full object-cover"/>;
-};
-
-const Preview:React.FC<{flow:FlowRecord;item?:SpaceHomeItem}>=({flow,item})=>{
- const cover=item?.cover_asset||null,recent=(item?.recent_assets||[]).slice(1,3);
- if(!cover)return <GraphFallback flow={flow}/>;
- return <div className="relative h-full overflow-hidden bg-[#080d13]">
-  <MediaCover asset={cover}/>
-  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#070b10]/70 via-transparent to-black/10"/>
-  {recent.length>0&&<div className="absolute right-3 top-3 flex gap-1.5">{recent.map(asset=><div key={asset.asset_id} className="h-10 w-10 overflow-hidden rounded-lg border border-white/15 bg-black/40 shadow-lg backdrop-blur"><MediaCover asset={asset}/></div>)}</div>}
-  <div className="absolute left-3 top-3 rounded-lg border border-white/10 bg-black/45 px-2 py-1 text-[7px] font-semibold uppercase tracking-[.12em] text-white/70 backdrop-blur">{cover.type==='VIDEO'?'Vídeo recente':'Criação recente'}</div>
+ const minX=Math.min(...nodes.map(n=>n.x)),minY=Math.min(...nodes.map(n=>n.y));
+ const maxX=Math.max(...nodes.map(n=>n.x+n.width)),maxY=Math.max(...nodes.map(n=>n.y+n.height));
+ const worldW=Math.max(1,maxX-minX),worldH=Math.max(1,maxY-minY);
+ const viewW=360,viewH=215,pad=18;
+ const scale=Math.min((viewW-pad*2)/worldW,(viewH-pad*2)/worldH,0.72);
+ const ox=(viewW-worldW*scale)/2-minX*scale,oy=(viewH-worldH*scale)/2-minY*scale;
+ const nodeMap=new Map<string,SpaceHomePreviewNode>(nodes.map(node=>[node.node_id,node]));
+ return <div className="relative h-full overflow-hidden bg-[radial-gradient(rgba(125,211,252,.10)_1px,transparent_1px),#080d13] bg-[size:16px_16px]">
+  <svg viewBox={`0 0 ${viewW} ${viewH}`} preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full">{edges.map(edge=>{const a=nodeMap.get(edge.from_node_id),b=nodeMap.get(edge.to_node_id);if(!a||!b)return null;const x1=ox+(a.x+a.width)*scale,y1=oy+(a.y+a.height/2)*scale,x2=ox+b.x*scale,y2=oy+(b.y+b.height/2)*scale,curve=Math.max(18,Math.abs(x2-x1)*.42);return <path key={edge.edge_id} d={`M ${x1} ${y1} C ${x1+curve} ${y1}, ${x2-curve} ${y2}, ${x2} ${y2}`} fill="none" stroke="rgba(103,232,249,.42)" strokeWidth="1.25"/>})}</svg>
+  {nodes.slice(0,24).map(node=>{const visual=Boolean(node.asset);return <div key={node.node_id} className={`absolute overflow-hidden rounded-[5px] border shadow-lg ${visual?'border-white/[0.12] bg-[#071018]':'border-white/[0.07] bg-[#0d1722]'}`} style={{left:ox+node.x*scale,top:oy+node.y*scale,width:Math.max(24,node.width*scale),height:Math.max(18,node.height*scale)}}>
+   <NodeMedia node={node}/>
+   <div className="pointer-events-none absolute inset-x-0 top-0 h-3 bg-gradient-to-b from-black/45 to-transparent"/>
+  </div>})}
+  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#070b10]/45 via-transparent to-black/10"/>
+  <div className="absolute left-3 top-3 rounded-lg border border-white/10 bg-black/45 px-2 py-1 text-[7px] font-semibold uppercase tracking-[.12em] text-white/65 backdrop-blur">{nodes.length} nodes · {edges.length} conexões</div>
  </div>;
 };
 
@@ -59,7 +58,7 @@ export const SpacesHome:React.FC<Props>=({flows,homeItems,loading,creating,delet
    <div className="mb-3 flex items-center justify-between"><h2 className="text-[11px] font-bold text-zinc-300">Seus Spaces</h2><span className="text-[9px] text-zinc-650">{flows.length}</span></div>
    {loading?<div role="status" aria-live="polite" className="grid min-h-[320px] place-items-center rounded-2xl border border-white/[0.05] bg-white/[0.015]"><div className="text-center"><LoaderCircle className="mx-auto h-5 w-5 animate-spin text-cyan-300"/><p className="mt-2 text-[10px] text-zinc-500">Carregando Spaces…</p></div></div>:flows.length?<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{flows.map(flow=>{const item=itemMap.get(flow.flow_id);return <article key={flow.flow_id} className="group relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/[0.065] bg-[#11161d] transition hover:-translate-y-0.5 hover:border-white/[0.14] hover:shadow-2xl">
       <button onClick={()=>onOpen(flow.flow_id)} disabled={openingId===flow.flow_id} aria-label={`Abrir ${flow.name||'Space sem título'}`} className="absolute inset-0 block h-full w-full text-left disabled:cursor-wait">
-       <Preview flow={flow} item={item}/>
+       <RealWorkspacePreview flow={flow} item={item}/>
        <div className="absolute inset-x-0 bottom-0 min-h-[20%] bg-gradient-to-t from-[#090d12] via-[#090d12]/95 to-transparent px-4 pb-3 pt-10">
         <div className="flex items-end gap-3"><div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-cyan-400/10 bg-[#071923]/90 text-cyan-300 backdrop-blur"><Network className="h-4 w-4"/></div><div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-white">{flow.name||'Space sem título'}</strong><p className="mt-0.5 truncate text-[8px] text-zinc-500">{(flow.graph?.nodes||[]).length} nodes · Atualizado {ago(flow.updated_at)}</p></div>{openingId===flow.flow_id?<LoaderCircle className="mb-1 h-3.5 w-3.5 animate-spin text-cyan-300"/>:<ArrowRight className="mb-1 h-3.5 w-3.5 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-cyan-300"/>}</div>
        </div>
