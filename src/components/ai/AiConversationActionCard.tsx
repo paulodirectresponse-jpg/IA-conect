@@ -1,5 +1,5 @@
 import React from'react';
-import{CheckCircle2,LoaderCircle,RefreshCw,Sparkles,TriangleAlert}from'lucide-react';
+import{CheckCircle2,LoaderCircle,RefreshCw,RotateCcw,Square,Sparkles,TriangleAlert}from'lucide-react';
 import type{AiConversationAction}from'../../services/aiConversationClient.js';
 
 export const AiConversationActionCard:React.FC<{
@@ -7,7 +7,9 @@ export const AiConversationActionCard:React.FC<{
  busy:boolean;
  onConfirm:(action:AiConversationAction)=>void;
  onRegenerate:(action:AiConversationAction,assetId:string)=>void;
-}>=({action,busy,onConfirm,onRegenerate})=>{
+ onRetry:(action:AiConversationAction)=>void;
+ onCancel:(action:AiConversationAction)=>void;
+}>=({action,busy,onConfirm,onRegenerate,onRetry,onCancel})=>{
  const renderAsset=(asset:AiConversationAction['result_assets'][number],index:number)=>{
   const src=asset.preview_url||asset.thumbnail_url||asset.public_url;
   return <div key={asset.asset_id} className="overflow-hidden rounded-xl border border-white/[0.07] bg-black/20">
@@ -36,12 +38,12 @@ export const AiConversationActionCard:React.FC<{
     :action.status==='DRAFT'?<div className="mt-2">{action.unresolved_references.length>0?<div className="flex items-center gap-1.5 text-[8px] text-amber-200/80"><TriangleAlert className="h-3 w-3"/>Aguardando as referências necessárias.</div>:action.error_message?<div className="flex items-start gap-1.5 text-[8px] text-rose-300"><TriangleAlert className="mt-0.5 h-3 w-3 shrink-0"/>{action.error_message}</div>:<div className="flex items-center gap-1.5 text-[8px] text-cyan-200"><LoaderCircle className="h-3 w-3 animate-spin"/>Preparando custo e configuração…</div>}</div>
     :action.status==='QUOTING'?<div className="mt-2 flex items-center gap-1.5 text-[8px] text-cyan-200"><LoaderCircle className="h-3 w-3 animate-spin"/>Calculando custo real…</div>
     :action.status==='AWAITING_CONFIRMATION'?<div className="mt-2 rounded-xl border border-cyan-300/10 bg-black/20 p-2.5"><div className="flex items-center justify-between gap-3"><div><div className="text-[8px] uppercase tracking-[.08em] text-zinc-600">Custo confirmado</div><strong className="mt-0.5 block text-[13px] text-white">{action.quote_credit_price?.toLocaleString('pt-BR')} créditos</strong>{action.execution_jobs.length>1&&<span className="block text-[7px] text-zinc-600">{action.execution_jobs.length} jobs preparados</span>}</div><button type="button" onClick={()=>onConfirm(action)} disabled={busy} className="rounded-lg bg-cyan-300 px-3 py-2 text-[8px] font-black text-[#041019] disabled:opacity-40">{busy?'Confirmando…':'Confirmar e gerar'}</button></div><p className="mt-2 text-[7px] leading-4 text-zinc-600">Nenhum crédito é gasto antes desta confirmação.</p></div>
-    :['CONFIRMED','QUEUED','RUNNING'].includes(action.status)?<div className="mt-2 flex items-center gap-1.5 text-[8px] text-cyan-200"><LoaderCircle className="h-3 w-3 animate-spin"/>{action.status==='RUNNING'?'Gerando resultados…':'Preparando geração…'}</div>
-    :action.status==='FAILED'?<div className="mt-2 flex items-start gap-1.5 text-[8px] text-rose-300"><TriangleAlert className="mt-0.5 h-3 w-3 shrink-0"/>{action.error_message||'A geração falhou.'}</div>
+    :['CONFIRMED','QUEUED','RUNNING'].includes(action.status)?<div className="mt-2 flex items-center justify-between gap-2"><div className="flex items-center gap-1.5 text-[8px] text-cyan-200"><LoaderCircle className="h-3 w-3 animate-spin"/>{action.status==='RUNNING'?'Gerando resultados…':'Preparando geração…'}</div><button type="button" onClick={()=>onCancel(action)} disabled={busy} className="flex items-center gap-1 rounded-lg border border-white/[0.07] px-2 py-1 text-[7px] text-zinc-400 hover:bg-white/[0.04] hover:text-white disabled:opacity-40"><Square className="h-2.5 w-2.5"/>Cancelar</button></div>
+    :action.status==='FAILED'?<div className="mt-2"><div className="flex items-start gap-1.5 text-[8px] text-rose-300"><TriangleAlert className="mt-0.5 h-3 w-3 shrink-0"/>{action.error_message||'A geração falhou.'}</div><button type="button" onClick={()=>onRetry(action)} disabled={busy} className="mt-2 flex items-center gap-1 rounded-lg border border-white/[0.07] px-2 py-1 text-[7px] font-semibold text-zinc-300 hover:bg-white/[0.04] disabled:opacity-40"><RotateCcw className="h-2.5 w-2.5"/>Tentar novamente</button></div>
     :action.status==='CANCELLED'?<div className="mt-2 text-[8px] text-zinc-500">Geração cancelada.</div>
     :null}
     {['SUCCEEDED','PARTIAL_SUCCESS'].includes(action.status)&&<div className="mt-3">
-      <div className={`mb-2 flex items-center gap-1.5 text-[8px] ${action.status==='PARTIAL_SUCCESS'?'text-amber-200':'text-emerald-300'}`}>{action.status==='PARTIAL_SUCCESS'?<TriangleAlert className="h-3 w-3"/>:<CheckCircle2 className="h-3 w-3"/>}{action.status==='PARTIAL_SUCCESS'?'Parte da geração foi concluída.':'Geração concluída.'}</div>
+      <div className={`mb-2 flex items-center gap-1.5 text-[8px] ${action.status==='PARTIAL_SUCCESS'?'text-amber-200':'text-emerald-300'}`}>{action.status==='PARTIAL_SUCCESS'?<TriangleAlert className="h-3 w-3"/>:<CheckCircle2 className="h-3 w-3"/>}{action.status==='PARTIAL_SUCCESS'?'Parte da geração foi concluída.':'Geração concluída.'}</div>{action.status==='PARTIAL_SUCCESS'&&<button type="button" onClick={()=>onRetry(action)} disabled={busy} className="mb-2 flex items-center gap-1 rounded-lg border border-white/[0.07] px-2 py-1 text-[7px] font-semibold text-zinc-300 hover:bg-white/[0.04] disabled:opacity-40"><RotateCcw className="h-2.5 w-2.5"/>Refazer apenas as falhas</button>}
       {action.result_assets.length>0?<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{action.result_assets.map(renderAsset)}</div>:<div className="text-[8px] text-zinc-600">Os arquivos foram gerados e estão sendo vinculados à conversa.</div>}
     </div>}
    </div>
