@@ -13,10 +13,11 @@ describe('Spaces V2 phase 1 empty-state onboarding',()=>{
  });
 
  it('keeps exactly the same root actions that already existed in Spaces',()=>{
-  const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
+  const registry=read('src/shared/spaceToolRegistry.ts');
   for(const capability of ['text-to-image','text-to-video','image-edit','video-edit','video-extend']){
-   expect(workspace).toContain(`id:'${capability}'`);
+   expect(registry).toContain(`capability:'${capability}'`);
   }
+  expect((registry.match(/root:true/g)||[]).length).toBe(5);
   const empty=read('src/components/spaces/SpaceEmptyState.tsx');
   expect(empty).toContain('Imagem da Biblioteca');
   expect(empty).toContain('Vídeo da Biblioteca');

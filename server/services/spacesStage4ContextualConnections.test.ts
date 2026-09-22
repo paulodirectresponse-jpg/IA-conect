@@ -4,12 +4,12 @@ import{describe,expect,it}from'vitest';
 const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
 
 describe('Spaces stage 4 smart contextual connections',()=>{
- it('derives contextual actions from the output media type',()=>{
+ it('derives contextual actions from the output media type through the Tool Registry',()=>{
   const contextual=read('src/components/spaces/canvas/contextualCreation.ts');
-  expect(contextual).toContain('contextualActionsFor');
-  expect(contextual).toContain("accepts:['IMAGE']");
-  expect(contextual).toContain("accepts:['VIDEO']");
-  for(const capability of ['image-to-image','image-edit','image-to-video','background-remove-replace','upscale','outpaint','variations','video-edit','video-extend'])expect(contextual).toContain(`capability:'${capability}'`);
+  const registry=read('src/shared/spaceToolRegistry.ts');
+  expect(contextual).toContain('SPACE_TOOL_REGISTRY');
+  expect(contextual).toContain('tool.contextual');
+  for(const capability of ['image-to-image','image-edit','image-to-video','background-remove-replace','upscale','outpaint','variations','video-edit','video-extend'])expect(registry).toContain(`capability:'${capability}'`);
  });
 
  it('groups contextual choices by creative intent instead of exposing a flat technical catalog',()=>{
@@ -55,8 +55,9 @@ describe('Spaces stage 4 smart contextual connections',()=>{
 
  it('does not introduce a parallel backend or expand contextual V1 into audio/3D',()=>{
   const contextual=read('src/components/spaces/canvas/contextualCreation.ts');
+  const registry=read('src/shared/spaceToolRegistry.ts');
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
-  expect(contextual).not.toMatch(/text-to-speech|music|text-to-3d|image-to-3d/);
+  for(const capability of ['text-to-speech','music','text-to-3d','image-to-3d'])expect(registry).toMatch(new RegExp(`capability:'${capability}'[^\\n]*contextual:false`));
   expect(workspace).toContain('spacesClient.start');
   expect(contextual).not.toContain('apiRequest');
  });
