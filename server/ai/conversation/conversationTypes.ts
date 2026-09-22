@@ -96,7 +96,7 @@ export interface AiModelTurn{
 }
 
 
-export type AiConversationActionStatus='DRAFT'|'UNAVAILABLE'|'QUOTING'|'AWAITING_CONFIRMATION'|'CONFIRMED'|'QUEUED'|'RUNNING'|'SUCCEEDED'|'FAILED'|'CANCELLED';
+export type AiConversationActionStatus='DRAFT'|'UNAVAILABLE'|'QUOTING'|'AWAITING_CONFIRMATION'|'CONFIRMED'|'QUEUED'|'RUNNING'|'PARTIAL_SUCCESS'|'SUCCEEDED'|'FAILED'|'CANCELLED';
 
 export interface AiToolRequest{
  capability_id:string;
@@ -132,6 +132,9 @@ export interface AiConversationActionDraft{
  quote_expires_at:string|null;
  confirmed_at:string|null;
  result_asset_ids:string[];
+ result_assets:Array<{asset_id:string;type:'IMAGE'|'VIDEO'|'AUDIO'|'MODEL_3D';name:string;public_url:string;thumbnail_url:string;preview_url:string|null;width:number|null;height:number|null;duration_seconds:number|null}>;
+ execution_jobs:Array<{job_id:string;quantity:number;credit_price:number;status:string;result_asset_ids:string[]}>;
+ parent_action_id:string|null;
  error_code:string|null;
  error_message:string|null;
  created_at:string;
