@@ -31,7 +31,7 @@ describe('IA conversacional phase 2 context and intent',()=>{
   expect(types).toContain("'BATCH_GENERATION'");
   expect(model).toContain('READY_FOR_ACTION');
   expect(model).toContain('NEEDS_CLARIFICATION');
-  expect(model).toContain('Você ainda NÃO executa ferramentas nesta fase');
+  expect(model).toContain('A plataforma calcula o custo automaticamente e exige confirmação do usuário antes de qualquer execução paga.');
  });
 
  it('uses a single structured model turn for answer, intent, summary and state deltas',()=>{
