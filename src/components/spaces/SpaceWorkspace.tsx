@@ -10,7 +10,7 @@ import{spacesClient,SpaceAsset}from'../../services/spacesClient.js';
 import{SpaceConnectionLayer}from'./canvas/SpaceConnectionLayer.js';
 import{SPACE_BASE_NODE_H,SPACE_NODE_W,SPACE_WORLD_H,SPACE_WORLD_W,spaceNodeWidth}from'./canvas/spaceLayout.js';
 import{SpaceQuickMenu,type SpaceQuickAction}from'./canvas/SpaceQuickMenu.js';
-import{contextualActionsFor,smartConnectedNodePosition}from'./canvas/contextualCreation.js';
+import{smartConnectedNodePosition}from'./canvas/contextualCreation.js';
 import{resolveDirectSpaceConnection,type SpaceDirectConnectionStatus}from'./canvas/spaceConnections.js';
 import{SpaceToolbar}from'./canvas/SpaceToolbar.js';
 import{SpaceNodeShell}from'./nodes/SpaceNodeShell.js';
@@ -21,7 +21,7 @@ import{SpaceAdvancedInspector}from'./inspector/SpaceAdvancedInspector.js';
 import{SpaceEmptyState}from'./SpaceEmptyState.js';
 import{applyAdaptiveSpaceNodeVisual,normalizeSpaceNodeV2,resolveSpaceNodeMedia,spaceNodeCapability,spaceNodeInputTypes,spaceNodeOutputTypes}from'./model/spaceNodeModel.js';
 import{libraryAssetToSpaceAsset,spaceAssetToLibraryAsset}from'./model/spaceAssets.js';
-import{spaceRootTools,spaceToolLabel,type SpaceToolDefinition}from'../../shared/spaceToolRegistry.js';
+import{spaceRootTools,spaceToolsForOutputTypes,spaceToolLabel,type SpaceToolDefinition}from'../../shared/spaceToolRegistry.js';
 import{AssetPickerModal}from'../workspace/AssetPickerModal.js';
 
 type QuickAction=SpaceQuickAction;
@@ -30,7 +30,7 @@ const uid=(prefix:string)=>`${prefix}_${Date.now()}_${Math.random().toString(36)
 const iconForSpaceTool=(tool:Pick<SpaceToolDefinition,'icon'>)=>tool.icon==='VIDEO'?Video:tool.icon==='IMAGE'?ImageIcon:WandSparkles;
 const toQuickAction=(tool:Pick<SpaceToolDefinition,'id'|'label'|'capability'|'description'|'group'|'icon'>):QuickAction=>({...tool,icon:iconForSpaceTool(tool)});
 const quickFor=(types:BetaCapabilityMediaType[]):QuickAction[]=>
- contextualActionsFor(types).map(action=>toQuickAction({...action,icon:action.capability.includes('video')?'VIDEO':action.capability.includes('image')||['upscale','outpaint','variations'].includes(action.capability)?'IMAGE':'WAND'} as SpaceToolDefinition));
+ spaceToolsForOutputTypes(types).map(toQuickAction);
 
 interface Props{flow:FlowRecord;onBack:()=>void;onUpdated:(flow:FlowRecord)=>void;}
 
