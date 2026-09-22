@@ -29,6 +29,7 @@ const RULES:Record<string,Rule>={
   AI_LLM_EMPTY_RESPONSE:{status:503,category:'SERVICE',retryable:true,action:'RETRY',preserveMessage:true},
   AI_LLM_INVALID_RESPONSE:{status:503,category:'SERVICE',retryable:true,action:'RETRY',preserveMessage:true},
   AI_CONVERSATION_CONTEXT_FORBIDDEN:{status:403,category:'AUTHORIZATION',retryable:false,action:'NONE',preserveMessage:true},
+  AI_CONTEXT_CONFLICT:{status:409,category:'CONFLICT',retryable:true,action:'RETRY',preserveMessage:true},
   AI_ACTION_FORBIDDEN:{status:403,category:'AUTHORIZATION',retryable:false,action:'NONE',preserveMessage:true},
   AI_ACTION_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'NONE',preserveMessage:true},
   AI_ACTION_UNAVAILABLE:{status:409,category:'CONFLICT',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},

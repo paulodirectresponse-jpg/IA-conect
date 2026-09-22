@@ -53,6 +53,7 @@ export interface AiConversationReference{
  value:string;
  message_id:string|null;
  asset_id:string|null;
+ asset_type:'IMAGE'|'VIDEO'|'AUDIO'|'MODEL_3D'|null;
 }
 
 export interface AiCreativeState{
