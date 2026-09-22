@@ -41,6 +41,8 @@ const RULES:Record<string,Rule>={
   AI_ACTION_EXECUTION_FAILED:{status:503,category:'EXECUTION',retryable:true,action:'RETRY',preserveMessage:true},
   AI_ACTION_TOOL_INVALID:{status:409,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   AI_ACTION_RESULT_NOT_FOUND:{status:404,category:'NOT_FOUND',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
+  AI_ACTION_RETRY_UNAVAILABLE:{status:409,category:'CONFLICT',retryable:false,action:'NONE',preserveMessage:true},
+  AI_ACTION_RECOVERED:{status:409,category:'CONFLICT',retryable:true,action:'RETRY',preserveMessage:true},
   CAPABILITY_UNKNOWN:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   UNKNOWN_CAPABILITY:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   CAPABILITY_UNSUPPORTED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
