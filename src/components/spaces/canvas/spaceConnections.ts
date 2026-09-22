@@ -48,7 +48,11 @@ function targetPortFor(
  if(media==='MODEL_3D')return{port:'source_model_3d',strategy:'MEDIA_SOURCE',multi:false};
  if(media==='IMAGE'){
   if(cap==='last-frame'){
-   const used=new Set(edges.filter(edge=>edge.to_node_id===target.node_id&&edge.media_type==='IMAGE').map(edge=>edge.target_port).filter(Boolean));
+   const targetEdges=edges.filter(edge=>edge.to_node_id===target.node_id&&edge.media_type==='IMAGE');
+   const used=new Set(targetEdges.map(edge=>edge.target_port).filter(Boolean));
+   let legacy=targetEdges.filter(edge=>!edge.target_port).length;
+   if(legacy>0&&!used.has('first_frame')){used.add('first_frame');legacy--;}
+   if(legacy>0&&!used.has('last_frame'))used.add('last_frame');
    if(!used.has('first_frame'))return{port:'first_frame',strategy:'FRAME',multi:false};
    return{port:'last_frame',strategy:'FRAME',multi:false};
   }
@@ -77,7 +81,7 @@ export function resolveDirectSpaceConnection(
  let selected:{media:BetaCapabilityMediaType;binding:ReturnType<typeof targetPortFor>}|null=null;
  for(const media of compatible){
   const binding=targetPortFor(target,media,edges);
-  const occupied=edges.some(edge=>edge.to_node_id===toId&&edge.target_port===binding.port);
+  const occupied=edges.some(edge=>edge.to_node_id===toId&&(edge.target_port===binding.port||(!edge.target_port&&edge.media_type===media)));
   if(binding.multi||!occupied){selected={media,binding};break;}
  }
  if(!selected){
