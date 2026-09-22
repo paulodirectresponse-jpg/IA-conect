@@ -27,6 +27,8 @@ const RULES:Record<string,Rule>={
   AI_LLM_TIMEOUT:{status:504,category:'SERVICE',retryable:true,action:'RETRY',preserveMessage:true},
   AI_LLM_PROVIDER_ERROR:{status:503,category:'SERVICE',retryable:true,action:'RETRY',preserveMessage:true},
   AI_LLM_EMPTY_RESPONSE:{status:503,category:'SERVICE',retryable:true,action:'RETRY',preserveMessage:true},
+  AI_LLM_INVALID_RESPONSE:{status:503,category:'SERVICE',retryable:true,action:'RETRY',preserveMessage:true},
+  AI_CONVERSATION_CONTEXT_FORBIDDEN:{status:403,category:'AUTHORIZATION',retryable:false,action:'NONE',preserveMessage:true},
   CAPABILITY_UNKNOWN:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   UNKNOWN_CAPABILITY:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
   CAPABILITY_UNSUPPORTED:{status:400,category:'VALIDATION',retryable:false,action:'CHANGE_INPUT',preserveMessage:true},
