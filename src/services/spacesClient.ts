@@ -11,7 +11,8 @@ export type SpaceAsset=UniversalAssetView;
 export type SpaceRecord=FlowRecord;
 export type SpaceRun=FlowRunView;
 export type SpaceGraph=FlowGraph;
-export interface SpaceHomeItem{flow:FlowRecord;cover_asset:UniversalAssetView|null;recent_assets:UniversalAssetView[];}
+export interface SpaceHomePreviewNode{node_id:string;kind:FlowRecord['graph']['nodes'][number]['kind'];label:string;x:number;y:number;width:number;height:number;media_type:BetaCapabilityMediaType|null;asset:UniversalAssetView|null;}
+export interface SpaceHomeItem{flow:FlowRecord;cover_asset:UniversalAssetView|null;recent_assets:UniversalAssetView[];preview_nodes:SpaceHomePreviewNode[];}
 export type SpaceExecutionMode='FULL'|'NODE'|'DOWNSTREAM';
 export interface SpaceExecutionSelection{mode:SpaceExecutionMode;target_node_id?:string|null;}
 
