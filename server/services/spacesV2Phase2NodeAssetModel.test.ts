@@ -20,7 +20,7 @@ describe('Spaces V2 phase 2 node + asset model',()=>{
   expect(model).toContain('spaceNodeInputTypes');
   expect(model).toContain('spaceNodeCapability');
   expect(workspace).toContain('spaceNodeOutputTypes(models,');
-  expect(workspace).toContain('spaceNodeInputTypes(models,');
+  expect(workspace).toContain('resolveDirectSpaceConnection');
   expect(workspace).toContain('spaceNodeCapability(models,');
  });
 
