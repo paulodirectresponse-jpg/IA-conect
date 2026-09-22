@@ -1,5 +1,6 @@
 import{aiConversationRepository}from'./conversationRepository.js';
 import{conversationalModel}from'./conversationalModel.js';
+import{aiConversationContextEngine}from'./contextEngine.js';
 
 const clean=(v:any,max:number)=>String(v||'').trim().slice(0,max);
 function fail(code:string,message:string):never{throw Object.assign(new Error(message),{code});}
@@ -11,7 +12,8 @@ export const aiConversationService={
   const conversation=await aiConversationRepository.get(userId,conversationId);
   if(!conversation)fail('AI_CONVERSATION_NOT_FOUND','Conversa não encontrada.');
   const messages=(await aiConversationRepository.listMessages(conversationId)).filter(message=>message.owner_user_id===userId);
-  return{conversation,messages};
+  const context=await aiConversationContextEngine.get(userId,conversationId);
+  return{conversation,messages,context};
  },
  async create(userId:string){
   const cfg=await conversationalModel.getConfig();
@@ -30,11 +32,14 @@ export const aiConversationService={
   const userMessage=await aiConversationRepository.addMessage({conversation_id:conversationId,owner_user_id:userId,role:'USER',content,model_id:null});
   if(conversation.message_count===0)conversation={...conversation,title:titleFrom(content)};
   conversation=await aiConversationRepository.saveConversation({...conversation,message_count:conversation.message_count+1});
-  const history=(await aiConversationRepository.listMessages(conversationId)).filter(message=>message.owner_user_id===userId).slice(-40);
-  const response=await conversationalModel.reply(history);
+  const allMessages=(await aiConversationRepository.listMessages(conversationId)).filter(message=>message.owner_user_id===userId);
+  const built=await aiConversationContextEngine.build(userId,conversationId,allMessages);
+  const response=await conversationalModel.reply(built.recent_messages,built.context);
+  if(!response.content)fail('AI_LLM_EMPTY_RESPONSE','A IA não retornou uma resposta utilizável.');
   const assistantMessage=await aiConversationRepository.addMessage({conversation_id:conversationId,owner_user_id:userId,role:'ASSISTANT',content:response.content,model_id:response.model_id});
+  const context=await aiConversationContextEngine.applyTurn(userId,built.context,response,userMessage);
   conversation=await aiConversationRepository.saveConversation({...conversation,message_count:conversation.message_count+1,logical_model_id:response.logical_model_id});
-  return{conversation,user_message:userMessage,assistant_message:assistantMessage};
+  return{conversation,user_message:userMessage,assistant_message:assistantMessage,context,intent:{type:response.intent,readiness:response.readiness,missing_information:response.missing_information}};
  },
  async model(){
   const cfg=await conversationalModel.getConfig();
