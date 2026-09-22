@@ -1,6 +1,7 @@
 import{betaJobOrchestrator}from'../../beta/jobs/jobOrchestrator.js';
 import{routingV2AutoModelSelectionService}from'../../routing-v2/autoModelSelectionService.js';
 import{assetRepository}from'../../repositories/assetRepository.js';
+import{creditWalletService}from'../../services/creditWalletService.js';
 import{aiConversationRepository}from'./conversationRepository.js';
 import{aiConversationContextEngine}from'./contextEngine.js';
 import{aiConversationToolRegistry}from'./toolRegistry.js';
@@ -102,6 +103,8 @@ export const aiConversationActionService={
     expiries.push(quoted.quote.expires_at);
    }
    const total=executionJobs.reduce((sum,item)=>sum+item.credit_price,0);
+   const funds=await creditWalletService.simulateReserve(userId,total);
+   if(!funds.has_sufficient_credits)throw Object.assign(new Error(`Créditos insuficientes. Faltam ${funds.missing_credits} créditos para este batch.`),{code:'CREDIT_INSUFFICIENT_FUNDS',missing_credits:funds.missing_credits});
    const expiresAt=expiries.sort((a,b)=>Date.parse(a)-Date.parse(b))[0]||null;
    return aiConversationRepository.saveAction(userId,{...action,status:'AWAITING_CONFIRMATION',job_id:executionJobs[0]?.job_id||null,selected_model_id:modelId,quote_credit_price:total,quote_expires_at:expiresAt,execution_jobs:executionJobs,error_code:null,error_message:null});
   }catch(error:any){
@@ -114,14 +117,16 @@ export const aiConversationActionService={
   if(!action.quote_expires_at||Date.parse(action.quote_expires_at)<=Date.now())fail('AI_ACTION_QUOTE_EXPIRED','A cotação expirou. Calcule o preço novamente.');
   action=await aiConversationRepository.saveAction(userId,{...action,status:'CONFIRMED',confirmed_at:new Date().toISOString()});
   try{
-   const jobs=await Promise.all(action.execution_jobs.map(async(item,index)=>{
+   const queued=await Promise.allSettled(action.execution_jobs.map(async(item,index)=>{
     const job=await betaJobOrchestrator.queue(userId,item.job_id,`ai-action-queue:${action.action_id}:${index}:${item.job_id}`,reqHost,idToken);
     return{...item,status:job.status,result_asset_ids:job.result_asset_ids||[]};
    }));
+   const jobs=queued.map((entry,index)=>entry.status==='fulfilled'?entry.value:{...action.execution_jobs[index],status:'FAILED',result_asset_ids:[]});
    const ids=jobs.flatMap(job=>job.result_asset_ids);
    const resultAssets=await hydrateAssets(userId,ids);
    if(resultAssets.length)await aiConversationContextEngine.registerAssets(userId,conversationId,action.action_id,resultAssets).catch(()=>{});
-   return aiConversationRepository.saveAction(userId,{...action,status:actionStatus(jobs.map(job=>job.status)),execution_jobs:jobs,result_asset_ids:ids,result_assets:resultAssets,error_code:null,error_message:null});
+   const status=actionStatus(jobs.map(job=>job.status));
+   return aiConversationRepository.saveAction(userId,{...action,status,execution_jobs:jobs,result_asset_ids:ids,result_assets:resultAssets,error_code:status==='FAILED'?'AI_ACTION_EXECUTION_FAILED':status==='PARTIAL_SUCCESS'?'BATCH_PARTIAL_FAILURE':null,error_message:status==='PARTIAL_SUCCESS'?'Parte da geração não iniciou. Os jobs aceitos continuaram normalmente.':null});
   }catch(error:any){
    await aiConversationRepository.saveAction(userId,{...action,status:'FAILED',error_code:String(error?.code||'AI_ACTION_EXECUTION_FAILED'),error_message:String(error?.message||'Não foi possível iniciar a geração.')}).catch(()=>{});throw error;
   }
