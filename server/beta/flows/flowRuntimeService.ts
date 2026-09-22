@@ -96,7 +96,7 @@ function valuesForEdges(edges:BetaFlowEdge[],runs:Map<string,BetaFlowNodeRun>){
     const source=runs.get(edge.from_node_id);
     if(!source)continue;
     for(const value of source.outputs){
-      if(value.media_type===edge.media_type)values.push({...value,source_node_id:edge.from_node_id});
+      if(value.media_type===edge.media_type)values.push({...value,source_node_id:edge.from_node_id,source_port:edge.source_port||null,target_port:edge.target_port||null});
     }
   }
   return values;
@@ -112,8 +112,16 @@ function jobControls(node:BetaFlowNode){
   return out;
 }
 function referencesFor(node:BetaFlowNode,values:BetaFlowValue[]){
-  const media=values.flatMap(value=>(value.asset_ids||[]).map(asset_id=>({asset_id,media_type:value.media_type})));
+  const media=values.flatMap(value=>(value.asset_ids||[]).map(asset_id=>({asset_id,media_type:value.media_type,target_port:value.target_port||null})));
   const cap=String(node.capability_id||'');
+  if(media.some(item=>item.target_port)){
+    return media.map((item,index)=>{
+      if(item.target_port==='mask'||item.media_type==='MASK')return{asset_id:item.asset_id,slot_type:'GENERAL',role:'MASK'};
+      if(item.target_port==='first_frame')return{asset_id:item.asset_id,slot_type:'INITIAL',role:'SOURCE'};
+      if(item.target_port==='last_frame')return{asset_id:item.asset_id,slot_type:'END',role:'REFERENCE'};
+      return{asset_id:item.asset_id,slot_type:'GENERAL',role:index===0?'SOURCE':'REFERENCE'};
+    });
+  }
   if(cap==='last-frame'){
     const images=media.filter(item=>item.media_type==='IMAGE');
     return images.slice(0,2).map((item,index)=>({asset_id:item.asset_id,slot_type:index===0?'INITIAL':'END',role:index===0?'SOURCE':'REFERENCE'}));
