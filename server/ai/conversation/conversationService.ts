@@ -2,6 +2,7 @@ import{aiConversationRepository}from'./conversationRepository.js';
 import{conversationalModel}from'./conversationalModel.js';
 import{aiConversationContextEngine}from'./contextEngine.js';
 import{aiConversationToolPlanner}from'./toolPlanner.js';
+import{aiConversationActionService}from'./actionService.js';
 
 const clean=(v:any,max:number)=>String(v||'').trim().slice(0,max);
 function fail(code:string,message:string):never{throw Object.assign(new Error(message),{code});}
@@ -40,8 +41,15 @@ export const aiConversationService={
   const assistantMessage=await aiConversationRepository.addMessage({conversation_id:conversationId,owner_user_id:userId,role:'ASSISTANT',content:response.content,model_id:response.model_id});
   const context=await aiConversationContextEngine.applyTurn(userId,built.context,response,userMessage);
   const toolPlan=await aiConversationToolPlanner.plan(userId,conversationId,assistantMessage,response);
+  let action=toolPlan.action;
+  if(action&&action.status==='DRAFT'&&!action.unresolved_references.length){
+   try{action=await aiConversationActionService.quote(userId,conversationId,action.action_id);}
+   catch{
+    action=await aiConversationRepository.getAction(userId,conversationId,action.action_id)||action;
+   }
+  }
   conversation=await aiConversationRepository.saveConversation({...conversation,message_count:conversation.message_count+1,logical_model_id:response.logical_model_id});
-  return{conversation,user_message:userMessage,assistant_message:assistantMessage,context,intent:{type:response.intent,readiness:response.readiness,missing_information:response.missing_information},action:toolPlan.action};
+  return{conversation,user_message:userMessage,assistant_message:assistantMessage,context,intent:{type:response.intent,readiness:response.readiness,missing_information:response.missing_information},action};
  },
  async model(){
   const cfg=await conversationalModel.getConfig();

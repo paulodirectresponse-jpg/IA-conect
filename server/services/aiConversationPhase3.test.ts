@@ -59,7 +59,7 @@ describe('IA conversacional phase 3 tool calling',()=>{
   expect(service).toContain('listActions(userId,conversationId)');
   expect(service).toContain('aiConversationToolPlanner.plan');
   expect(client).toContain('AiConversationAction');
-  expect(view).toContain('Ferramenta reconhecida e preparada');
+  expect(view).toContain('Preparando custo e configuração');
   expect(view).toContain('action.generation_prompt');
  });
 
