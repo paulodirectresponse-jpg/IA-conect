@@ -15,7 +15,7 @@ describe('Spaces V2 phase 4 contextual controls',()=>{
 
  it('keeps connection ports visually secondary until the node is actionable',()=>{
   const shell=read('src/components/spaces/nodes/SpaceNodeShell.tsx');
-  expect(shell).toContain("const portVisibility=selected?'visible opacity-100'");
+  expect(shell).toContain("const portVisibility=selected||connectionHint!=='NONE'?'visible opacity-100'");
   expect(shell).toContain('invisible opacity-0');
   expect(shell).toContain('aria-label="Entrada do node"');
   expect(shell).toContain('aria-label="Saída do node; arraste para conectar"');
