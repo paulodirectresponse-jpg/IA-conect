@@ -9,6 +9,8 @@ export interface FlowRuntimeValue{
   asset_ids?:string[];
   structured?:Record<string,any>|null;
   source_node_id?:string|null;
+  source_port?:string|null;
+  target_port?:string|null;
 }
 declare global{
   interface ObjectConstructor{
