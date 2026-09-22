@@ -122,6 +122,7 @@ export interface AiConversationActionDraft{
  quantity:number;
  controls:Record<string,string|number|boolean|null>;
  reference_terms:string[];
+ resolved_references:Array<{asset_id:string;slot_type:'INITIAL'|'END'|'GENERAL';role:'SOURCE'|'MASK'|'REFERENCE';alias:string}>;
  unresolved_references:string[];
  compatible_model_ids:string[];
  status:AiConversationActionStatus;
