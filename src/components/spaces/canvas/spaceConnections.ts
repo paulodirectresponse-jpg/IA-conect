@@ -48,7 +48,11 @@ function targetPortFor(
  if(media==='MODEL_3D')return{port:'source_model_3d',strategy:'MEDIA_SOURCE',multi:false};
  if(media==='IMAGE'){
   if(cap==='last-frame'){
-   const used=new Set(edges.filter(edge=>edge.to_node_id===target.node_id&&edge.media_type==='IMAGE').map(edge=>edge.target_port).filter(Boolean));
+   const targetEdges=edges.filter(edge=>edge.to_node_id===target.node_id&&edge.media_type==='IMAGE');
+   const used=new Set(targetEdges.map(edge=>edge.target_port).filter(Boolean));
+   let legacy=targetEdges.filter(edge=>!edge.target_port).length;
+   if(legacy>0&&!used.has('first_frame')){used.add('first_frame');legacy--;}
+   if(legacy>0&&!used.has('last_frame'))used.add('last_frame');
    if(!used.has('first_frame'))return{port:'first_frame',strategy:'FRAME',multi:false};
    return{port:'last_frame',strategy:'FRAME',multi:false};
   }
@@ -74,10 +78,19 @@ export function resolveDirectSpaceConnection(
  const outputs=spaceNodeOutputTypes(models,source),inputs=spaceNodeInputTypes(models,target);
  const compatible=outputs.filter(type=>inputs.includes(type));
  if(!compatible.length)return{...base,status:'INCOMPATIBLE',mediaType:null,message:'Esses nodes não possuem mídia compatível.'};
+ for(const media of compatible){
+  if(edges.some(edge=>edge.from_node_id===fromId&&edge.to_node_id===toId&&edge.media_type===media&&!edge.target_port)){
+   return{status:'DUPLICATE',mediaType:media,sourcePort:genericPort(media),targetPort:null,strategy:null,resolverVersion:SPACE_CONNECTION_RESOLVER_VERSION,message:'Esses nodes já estão conectados nessa entrada.'};
+  }
+ }
+ if(createsCycle(nodes,edges,fromId,toId)){
+  const media=compatible[0];
+  return{status:'CYCLE',mediaType:media,sourcePort:genericPort(media),targetPort:null,strategy:null,resolverVersion:SPACE_CONNECTION_RESOLVER_VERSION,message:'Essa conexão criaria um ciclo no fluxo.'};
+ }
  let selected:{media:BetaCapabilityMediaType;binding:ReturnType<typeof targetPortFor>}|null=null;
  for(const media of compatible){
   const binding=targetPortFor(target,media,edges);
-  const occupied=edges.some(edge=>edge.to_node_id===toId&&edge.target_port===binding.port);
+  const occupied=edges.some(edge=>edge.to_node_id===toId&&(edge.target_port===binding.port||(!edge.target_port&&edge.media_type===media)));
   if(binding.multi||!occupied){selected={media,binding};break;}
  }
  if(!selected){
@@ -88,9 +101,7 @@ export function resolveDirectSpaceConnection(
  if(edges.some(edge=>edge.from_node_id===fromId&&edge.to_node_id===toId&&edge.media_type===media&&(!edge.target_port||edge.target_port===binding.port))){
   return{status:'DUPLICATE',mediaType:media,sourcePort,targetPort:binding.port,strategy:binding.strategy,resolverVersion:SPACE_CONNECTION_RESOLVER_VERSION,message:'Esses nodes já estão conectados nessa entrada.'};
  }
- if(createsCycle(nodes,edges,fromId,toId)){
-  return{status:'CYCLE',mediaType:media,sourcePort,targetPort:binding.port,strategy:binding.strategy,resolverVersion:SPACE_CONNECTION_RESOLVER_VERSION,message:'Essa conexão criaria um ciclo no fluxo.'};
- }
+
  const label=binding.port.replaceAll('_',' ');
  return{status:'COMPATIBLE',mediaType:media,sourcePort,targetPort:binding.port,strategy:binding.strategy,resolverVersion:SPACE_CONNECTION_RESOLVER_VERSION,message:`${media} → ${label}`};
 }
