@@ -44,18 +44,19 @@ describe('Stable Spaces visual workspace',()=>{
   expect(workspace).not.toContain('h-[92px] w-full rounded-xl object-cover');
  });
  it('lets users add generator/editor nodes even when catalog routing is temporarily degraded',()=>{
-  const workspace=read('src/components/spaces/SpaceWorkspace.tsx'),flowService=read('server/beta/flows/flowService.ts');
+  const workspace=read('src/components/spaces/SpaceWorkspace.tsx'),registry=read('src/shared/spaceToolRegistry.ts'),flowService=read('server/beta/flows/flowService.ts');
   expect(workspace).toContain("model?.model_id||'AUTO'");
   expect(workspace).not.toContain('disabled={!enabled}');
-  expect(workspace).toContain("label:'Gerar imagem'");
-  expect(workspace).toContain("label:'Gerar vídeo'");
+  expect(registry).toContain("label:'Gerar imagem'");
+  expect(registry).toContain("label:'Gerar vídeo'");
   expect(flowService).not.toContain("fail('AUTO_NO_ELIGIBLE_MODEL'");
  });
 
- it('keeps the V1 focused on image/video generation and editing',()=>{
-  const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
-  for(const capability of ['text-to-image','image-to-image','image-edit','text-to-video','image-to-video','video-edit','video-extend'])expect(workspace).toContain(capability);
-  for(const future of ['text-to-speech','music','text-to-3d','webhook','if/else','loop'])expect(workspace).not.toContain(future);
+ it('keeps the visible V1 focused on image/video generation and editing',()=>{
+  const registry=read('src/shared/spaceToolRegistry.ts');
+  for(const capability of ['text-to-image','image-to-image','image-edit','text-to-video','image-to-video','video-edit','video-extend'])expect(registry).toMatch(new RegExp(`capability:'${capability}'[^\\n]*(root:true|contextual:true)`));
+  for(const future of ['text-to-speech','music','text-to-3d'])expect(registry).toMatch(new RegExp(`capability:'${future}'[^\\n]*root:false,contextual:false`));
+  for(const future of ['webhook','if/else','loop'])expect(registry).not.toContain(future);
  });
  it('uses existing flow runtime, universal assets and capability catalog',()=>{
   const routes=read('server/routes/spacesRoutes.ts');
@@ -66,9 +67,10 @@ describe('Stable Spaces visual workspace',()=>{
   expect(routes).not.toContain('betaCatalogPolicyService');
  });
  it('publishes only capabilities already promoted to Stable',()=>{
-  const routes=read('server/routes/spacesRoutes.ts');
-  for(const capability of ['text-to-image','image-edit','text-to-video','video-extend','video-edit','text-to-speech','music','text-to-3d','image-to-3d','multi-image-to-3d'])expect(routes).toContain(`'${capability}'`);
-  for(const futureCapability of ['sound-effects','transcription','subtitles','authorized-voice-clone','dubbing','texture-3d'])expect(routes).not.toContain(`'${futureCapability}'`);
+  const routes=read('server/routes/spacesRoutes.ts'),registry=read('src/shared/spaceToolRegistry.ts');
+  expect(routes).toContain('SPACE_CAPABILITY_IDS');
+  for(const capability of ['text-to-image','image-edit','text-to-video','video-extend','video-edit','text-to-speech','music','text-to-3d','image-to-3d','multi-image-to-3d'])expect(registry).toContain(`capability:'${capability}'`);
+  for(const futureCapability of ['sound-effects','transcription','subtitles','authorized-voice-clone','dubbing','texture-3d'])expect(registry).not.toContain(`capability:'${futureCapability}'`);
  });
  it('only exposes capabilities backed by Routing V2 READY routes',()=>{
   const routes=read('server/routes/spacesRoutes.ts');
