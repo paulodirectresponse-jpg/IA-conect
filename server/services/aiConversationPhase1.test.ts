@@ -33,7 +33,8 @@ describe('IA conversacional phase 1',()=>{
   const service=read('server/ai/conversation/conversationService.ts');
   expect(service).toContain("role:'USER'");
   expect(service).toContain("role:'ASSISTANT'");
-  expect(service).toContain('.slice(-40)');
+  const context=read('server/ai/conversation/contextEngine.ts');
+  expect(context).toContain('messages.slice(-40)');
   expect(service).toContain('message_count');
  });
 
@@ -69,6 +70,6 @@ describe('IA conversacional phase 1',()=>{
   const model=read('server/ai/conversation/conversationalModel.ts');
   expect(service).not.toContain('betaJobOrchestrator');
   expect(service).not.toContain('creditWallet');
-  expect(model).toContain('Não finja que executou gerações ou ferramentas');
+  expect(model).toContain('nunca deve fingir que gerou imagem, vídeo, áudio ou qualquer outra mídia');
  });
 });
