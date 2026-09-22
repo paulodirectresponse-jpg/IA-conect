@@ -54,7 +54,7 @@ function targetPortFor(
   }
   if(cap==='first-frame')return{port:'first_frame',strategy:'FRAME',multi:false};
   if(cap==='image-to-video')return{port:'first_frame',strategy:'FRAME',multi:false};
-  if(['image-to-image','image-edit','variations'].includes(cap))return{port:'reference_image',strategy:'REFERENCE',multi:cap==='multi-image-to-3d'};
+  if(['image-to-image','image-edit','variations','multi-image-to-3d'].includes(cap))return{port:'reference_image',strategy:'REFERENCE',multi:cap==='multi-image-to-3d'};
   return{port:'source_image',strategy:'MEDIA_SOURCE',multi:false};
  }
  return{port:genericPort(media),strategy:'DIRECT',multi:false};
