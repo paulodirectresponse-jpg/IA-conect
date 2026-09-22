@@ -40,7 +40,7 @@ export const aiConversationService={
   if(!response.content)fail('AI_LLM_EMPTY_RESPONSE','A IA não retornou uma resposta utilizável.');
   const assistantMessage=await aiConversationRepository.addMessage({conversation_id:conversationId,owner_user_id:userId,role:'ASSISTANT',content:response.content,model_id:response.model_id});
   const context=await aiConversationContextEngine.applyTurn(userId,built.context,response,userMessage);
-  const toolPlan=await aiConversationToolPlanner.plan(userId,conversationId,assistantMessage,response);
+  const toolPlan=await aiConversationToolPlanner.plan(userId,conversationId,assistantMessage,response,context);
   let action=toolPlan.action;
   if(action&&action.status==='DRAFT'&&!action.unresolved_references.length){
    try{action=await aiConversationActionService.quote(userId,conversationId,action.action_id);}
