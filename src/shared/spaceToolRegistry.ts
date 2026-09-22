@@ -39,7 +39,7 @@ export const SPACE_TOOL_REGISTRY=[
 export const SPACE_CAPABILITY_IDS=SPACE_TOOL_REGISTRY.map(tool=>tool.capability);
 
 export function spaceRootTools(){
- return SPACE_TOOL_REGISTRY.filter(tool=>tool.root).slice().sort((a,b)=>(a.rootOrder||99)-(b.rootOrder||99));
+ return SPACE_TOOL_REGISTRY.filter(tool=>tool.root).slice().sort((a,b)=>(('rootOrder'in a?a.rootOrder:99))-(('rootOrder'in b?b.rootOrder:99)));
 }
 
 export function spaceToolsForOutputTypes(types:readonly string[]){
