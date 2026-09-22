@@ -63,12 +63,13 @@ describe('IA conversacional phase 4 quote confirmation credits',()=>{
  it('quotes automatically and only requires the final Confirmar e gerar click',()=>{
   const conversation=read('server/ai/conversation/conversationService.ts');
   const view=read('src/components/views/AiConversationView.tsx');
+  const card=read('src/components/ai/AiConversationActionCard.tsx');
   expect(conversation).toContain("action.status==='DRAFT'&&!action.unresolved_references.length");
   expect(conversation).toContain('aiConversationActionService.quote');
   expect(view).not.toContain('Calcular créditos');
-  expect(view).toContain('Custo confirmado');
-  expect(view).toContain('Confirmar e gerar');
-  expect(view).toContain('Nenhum crédito é gasto antes desta confirmação.');
+  expect(card).toContain('Custo confirmado');
+  expect(card).toContain('Confirmar e gerar');
+  expect(card).toContain('Nenhum crédito é gasto antes desta confirmação.');
  });
 
  it('polls queued and running actions and exposes terminal results',()=>{
