@@ -38,8 +38,7 @@ describe('Spaces V2 phase 11 UX polish',()=>{
   expect(shortcuts).toContain('Ctrl/⌘ + D');
   expect(workspace).toContain("event.key==='?'");
   expect(workspace).toContain("event.key.toLowerCase()==='f'");
-  expect(workspace).toContain("event.key==='/ '").toBe(false);
-  expect(workspace).toContain("event.key==='/ '").toBe(false);
+  expect(workspace).not.toContain("event.key==='/ '");
   expect(workspace).toContain("event.key==='/'");
   expect(toolbar).toContain('Ver atalhos do Space');
  });
