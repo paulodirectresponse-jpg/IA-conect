@@ -81,7 +81,11 @@ async function hydrateAssets(userId:string,ids:string[]){
 
 export const aiConversationActionService={
  async get(userId:string,conversationId:string,actionId:string){
-  const action=await aiConversationRepository.getAction(userId,conversationId,actionId);if(!action)fail('AI_ACTION_NOT_FOUND','Ação não encontrada.');return action;
+  const conversation=await aiConversationRepository.get(userId,conversationId);
+  if(!conversation)fail('AI_CONVERSATION_NOT_FOUND','Conversa não encontrada.');
+  const action=await aiConversationRepository.getAction(userId,conversationId,actionId);
+  if(!action)fail('AI_ACTION_NOT_FOUND','Ação não encontrada.');
+  return action;
  },
  async quote(userId:string,conversationId:string,actionId:string){
   let action=await this.get(userId,conversationId,actionId);
@@ -113,7 +117,7 @@ export const aiConversationActionService={
  },
  async confirm(userId:string,conversationId:string,actionId:string,reqHost?:string,idToken?:string){
   let action=await this.get(userId,conversationId,actionId);
-  if(action.status!=='AWAITING_CONFIRMATION'||!action.execution_jobs.length||!action.quote_credit_price)fail('AI_ACTION_CONFIRMATION_REQUIRED','Calcule o preço antes de confirmar esta ação.');
+  if(action.status!=='AWAITING_CONFIRMATION'||!action.execution_jobs.length||action.quote_credit_price===null)fail('AI_ACTION_CONFIRMATION_REQUIRED','Calcule o preço antes de confirmar esta ação.');
   if(!action.quote_expires_at||Date.parse(action.quote_expires_at)<=Date.now())return this.quote(userId,conversationId,actionId);
   action=await aiConversationRepository.saveAction(userId,{...action,status:'CONFIRMED',confirmed_at:new Date().toISOString()});
   try{
@@ -198,7 +202,7 @@ export const aiConversationActionService={
   if(existing)return existing;
   const created=await aiConversationRepository.createAction({
    conversation_id:conversationId,owner_user_id:userId,message_id:source.message_id,capability_id:source.capability_id,tool_label:source.tool_label,
-   generation_prompt:source.generation_prompt,negative_prompt:source.negative_prompt,model_id:source.model_id,quantity:1,controls:source.controls,
+   generation_prompt:source.generation_prompt,negative_prompt:source.negative_prompt,model_id:source.model_id,quantity:1,controls:{...source.controls,seed:null},
    reference_terms:[`regeneração de ${assetId}`],resolved_references:source.resolved_references,unresolved_references:[],compatible_model_ids:source.compatible_model_ids,status:'DRAFT',unavailable_reason:null,
    job_id:null,selected_model_id:null,quote_credit_price:null,quote_expires_at:null,confirmed_at:null,result_asset_ids:[],result_assets:[],execution_jobs:[],parent_action_id:source.action_id,error_code:null,error_message:null,
   });
