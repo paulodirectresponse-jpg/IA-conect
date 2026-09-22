@@ -50,6 +50,16 @@ describe('Routing Core V2 Admin',()=>{
     expect(admin).not.toContain('AdminPricing');
   });
 
+  it('allows the idempotent core provider bootstrap in production while keeping admin auth',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    expect(routes).toContain("post('/admin/routing-v2/providers/bootstrap-core',...guard");
+    const start=routes.indexOf("post('/admin/routing-v2/providers/bootstrap-core'");
+    const end=routes.indexOf("post('/admin/routing-v2/providers',",start);
+    const providerBootstrap=routes.slice(start,end);
+    expect(providerBootstrap).not.toContain('ROUTING_V2_BOOTSTRAP_PREVIEW_ONLY');
+    expect(providerBootstrap).toContain('routingV2ProviderService.bootstrapCore()');
+  });
+
   it('never accepts API keys through the V2 admin provider form',()=>{
     const view=read('src/components/admin/AdminRoutingV2.tsx');
     const routes=read('server/routes/adminRoutingV2Routes.ts');
