@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Globe2, Home, Image as ImageIcon, Images, Layers3, Mic2, Music2, Network, ShieldCheck, Video, WandSparkles, X } from 'lucide-react';
+import { BookOpen, Bot, Globe2, Home, Image as ImageIcon, Images, Layers3, Mic2, Music2, Network, ShieldCheck, Video, WandSparkles, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { BrandMark } from '../common/BrandMark.js';
 
@@ -25,6 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isOpe
 
   const primary: NavItem[] = [
     { id: 'dashboard', label: 'Início', icon: Home },
+    { id: 'ai', label: 'IA', icon: Bot },
     { id: 'community', label: 'Comunidade', icon: Globe2 },
     { id: 'library', label: 'Biblioteca', icon: BookOpen },
   ];
