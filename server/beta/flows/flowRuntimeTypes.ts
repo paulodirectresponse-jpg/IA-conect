@@ -25,6 +25,8 @@ export interface BetaFlowRun{
   execution_mode?:'FULL'|'NODE'|'DOWNSTREAM';
   target_node_id?:string|null;
   reused_node_ids?:string[];
+  execution_order?:string[];
+  execution_layers?:string[][];
   inputs:Record<string,BetaFlowValue>;
   outputs:Record<string,BetaFlowValue[]>;
   flow_quote_id?:string;
