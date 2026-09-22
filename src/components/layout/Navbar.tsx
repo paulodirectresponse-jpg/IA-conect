@@ -31,6 +31,7 @@ interface NavbarProps {
 
 const viewMeta: Record<string, { title: string; eyebrow: string }> = {
   dashboard: { title: 'Início', eyebrow: 'Estúdio' },
+  ai: { title: 'IA Connect', eyebrow: 'Conversacional' },
   'create-image': { title: 'Gerar imagem', eyebrow: 'Criação' },
   'create-video': { title: 'Gerar vídeo', eyebrow: 'Criação' },
   'create-voice': { title: 'Gerar voz', eyebrow: 'Criação' },
