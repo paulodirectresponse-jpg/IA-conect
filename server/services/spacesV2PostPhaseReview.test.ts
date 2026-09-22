@@ -40,6 +40,18 @@ describe('Spaces V2 post-phase review',()=>{
   }
  });
 
+ it('treats legacy unbound edges as occupied semantic inputs',()=>{
+  const resolver=read('src/components/spaces/canvas/spaceConnections.ts');
+  expect(resolver).toContain("!edge.target_port&&edge.media_type===media");
+  expect(resolver).toContain("targetEdges.filter(edge=>!edge.target_port).length");
+ });
+
+ it('keeps first/last frame semantics correct for mixed legacy and resolved edges',()=>{
+  const runtime=read('server/beta/flows/flowRuntimeService.ts');
+  expect(runtime).toContain("explicit.get('first_frame')||legacy.shift()");
+  expect(runtime).toContain("explicit.get('last_frame')||legacy.shift()");
+ });
+
  it('does not alter generation billing providers or graph execution',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
   const runtime=read('server/beta/flows/flowRuntimeService.ts');
