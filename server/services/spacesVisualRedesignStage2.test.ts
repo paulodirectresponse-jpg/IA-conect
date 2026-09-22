@@ -49,7 +49,7 @@ describe('Spaces visual redesign stage 2 interactions',()=>{
 
  it('opens connection-created contextual menus without leaving the Inspector on top',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
-  expect(workspace).toContain("if(r){setInspectorOpen(false);setQuick({x:e.clientX-r.left");
+  expect(workspace).toContain("!connected&&linking.anchor==='OUTPUT'&&!hoverId&&r&&linking.fromId");
  });
 
  it('does not change generation, execution or persistence contracts',()=>{

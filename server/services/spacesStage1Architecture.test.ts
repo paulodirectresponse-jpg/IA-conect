@@ -28,7 +28,7 @@ describe('Spaces stage 1 visual foundation',()=>{
   const shell=read('src/components/spaces/nodes/SpaceNodeShell.tsx');
   expect(shell).toContain('data-space-node');
   expect(shell).toContain('Arraste para conectar');
-  expect(shell).toContain('onInputPointerUp');
+  expect(shell).toContain('onInputPointerDown');
   expect(shell).toContain('onOutputPointerDown');
   expect(shell).toContain('onDuplicate');
   expect(shell).toContain('onDelete');
