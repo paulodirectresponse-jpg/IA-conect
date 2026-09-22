@@ -1,11 +1,12 @@
 import crypto from'crypto';
 import{firestoreAdminRest}from'../../repositories/firestoreAdminRest.js';
-import type{AiConversationContext,AiConversationMessage,AiConversationRecord}from'./conversationTypes.js';
+import type{AiConversationActionDraft,AiConversationContext,AiConversationMessage,AiConversationRecord}from'./conversationTypes.js';
 
-const CONVERSATIONS='ai_conversations',MESSAGES='ai_conversation_messages',CONTEXTS='ai_conversation_context';
+const CONVERSATIONS='ai_conversations',MESSAGES='ai_conversation_messages',CONTEXTS='ai_conversation_context',ACTIONS='ai_conversation_actions';
 const safe=(v:string)=>encodeURIComponent(v),now=()=>new Date().toISOString();
 const conversationId=()=>`conv_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
 const messageId=()=>`msg_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
+const actionId=()=>`act_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
 
 export const aiConversationRepository={
  async list(userId:string){
@@ -56,5 +57,13 @@ export const aiConversationRepository={
   if(row.owner_user_id!==userId)throw Object.assign(new Error('Contexto da conversa inválido.'),{code:'AI_CONVERSATION_CONTEXT_FORBIDDEN'});
   const next={...row,revision:row.revision+1,updated_at:now()};
   await firestoreAdminRest.set(`${CONTEXTS}/${safe(row.conversation_id)}`,next);return next;
+ },
+ async createAction(input:Omit<AiConversationActionDraft,'action_id'|'created_at'|'updated_at'>){
+  const timestamp=now();const row:AiConversationActionDraft={...input,action_id:actionId(),created_at:timestamp,updated_at:timestamp};
+  await firestoreAdminRest.set(`${ACTIONS}/${safe(row.action_id)}`,row);return row;
+ },
+ async listActions(userId:string,conversationIdValue:string){
+  const rows=await firestoreAdminRest.runQuery({from:[{collectionId:ACTIONS}],where:{fieldFilter:{field:{fieldPath:'conversation_id'},op:'EQUAL',value:{stringValue:conversationIdValue}}},limit:200});
+  return rows.map((row:any)=>row.data as AiConversationActionDraft).filter(row=>row.owner_user_id===userId).sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at));
  },
 };

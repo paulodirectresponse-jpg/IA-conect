@@ -92,4 +92,45 @@ export interface AiModelTurn{
  conversation_summary:string;
  creative_state_delta:Partial<AiCreativeState>;
  reference_terms:string[];
+ tool_request:AiToolRequest|null;
+}
+
+
+export type AiConversationActionStatus='DRAFT'|'UNAVAILABLE'|'AWAITING_QUOTE';
+
+export interface AiToolRequest{
+ capability_id:string;
+ generation_prompt:string;
+ negative_prompt:string|null;
+ model_preference:string|null;
+ quantity:number;
+ controls:Record<string,string|number|boolean|null>;
+ reference_terms:string[];
+ reason:string;
+}
+
+export interface AiConversationActionDraft{
+ action_id:string;
+ conversation_id:string;
+ owner_user_id:string;
+ message_id:string;
+ capability_id:string;
+ tool_label:string;
+ generation_prompt:string;
+ negative_prompt:string|null;
+ model_id:string;
+ quantity:number;
+ controls:Record<string,string|number|boolean|null>;
+ reference_terms:string[];
+ unresolved_references:string[];
+ compatible_model_ids:string[];
+ status:AiConversationActionStatus;
+ unavailable_reason:string|null;
+ created_at:string;
+ updated_at:string;
+}
+
+export interface AiToolPlan{
+ action:AiConversationActionDraft|null;
+ tool_request:AiToolRequest|null;
 }
