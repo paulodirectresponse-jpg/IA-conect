@@ -9,7 +9,7 @@ export interface ContextualActionDefinition{
 }
 
 export const CONTEXTUAL_ACTIONS:ContextualActionDefinition[]=SPACE_TOOL_REGISTRY
- .filter(tool=>!tool.root&&tool.accepts.length>0)
+ .filter(tool=>tool.contextual&&tool.accepts.length>0)
  .map(tool=>({id:tool.id,label:tool.label,capability:tool.capability,description:tool.description,group:tool.group,accepts:[...tool.accepts] as BetaCapabilityMediaType[]}));
 
 export function contextualActionsFor(types:BetaCapabilityMediaType[]){
