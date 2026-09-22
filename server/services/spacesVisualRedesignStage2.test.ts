@@ -20,7 +20,7 @@ describe('Spaces visual redesign stage 2 interactions',()=>{
 
  it('closes contextual UI with Escape and resets the search state',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
-  expect(workspace).toContain("if(event.key==='Escape'){setQuick(null);setQuickQuery('');setLinking(null);setInspectorOpen(false);setAssetPicker(null);return;}");
+  expect(workspace).toContain("if(event.key==='Escape'){setQuick(null);setQuickQuery('');setLinking(null);setInspectorOpen(false);setAssetPicker(null);setShortcutsOpen(false);return;}");
  });
 
  it('keeps only one contextual panel open at a time',()=>{
