@@ -12,6 +12,8 @@ const DEFAULT_CONFIG:ConversationalModelConfig={
  enabled:true,
 };
 
+interface ConversationalModelAdapter{provider:'GOOGLE';generate:(model:string,cfg:ConversationalModelConfig,messages:AiConversationMessage[])=>Promise<string>}
+
 const SYSTEM_PROMPT=`Você é a IA Connect, a assistente conversacional central do IA Connect.
 Converse em português natural, claro e profissional, acompanhando o idioma do usuário quando ele mudar.
 Sua função nesta fase é compreender objetivos, amadurecer ideias, fazer perguntas úteis quando o pedido estiver incompleto e ajudar o usuário a chegar a uma especificação clara.
@@ -52,15 +54,17 @@ async function callGoogle(model:string,cfg:ConversationalModelConfig,messages:Ai
  }finally{clearTimeout(timer);}
 }
 
+const googleConversationalAdapter:ConversationalModelAdapter={provider:'GOOGLE',generate:callGoogle};
+
 export const conversationalModel={
  async getConfig(){return config();},
  async reply(messages:AiConversationMessage[]){
   const cfg=await config();
   if(!cfg.enabled)throw Object.assign(new Error('A IA conversacional está temporariamente indisponível.'),{code:'AI_LLM_DISABLED'});
-  try{return{content:await callGoogle(cfg.primary_model,cfg,messages),model_id:cfg.primary_model,logical_model_id:cfg.logical_model_id};}
+  try{return{content:await googleConversationalAdapter.generate(cfg.primary_model,cfg,messages),model_id:cfg.primary_model,logical_model_id:cfg.logical_model_id};}
   catch(primaryError){
    if(!cfg.fallback_model||cfg.fallback_model===cfg.primary_model)throw primaryError;
-   return{content:await callGoogle(cfg.fallback_model,cfg,messages),model_id:cfg.fallback_model,logical_model_id:cfg.logical_model_id};
+   return{content:await googleConversationalAdapter.generate(cfg.fallback_model,cfg,messages),model_id:cfg.fallback_model,logical_model_id:cfg.logical_model_id};
   }
  },
 };
