@@ -26,7 +26,7 @@ export const GeneratorNode:React.FC<Props>=({node,capability,models,nodeRun,hist
  const patchControl=(key:string,next:ControlValue)=>onPatch({controls:{...(node.controls||{}),[key]:next}});
  const selectedHistory=history[Math.max(0,Math.min(historyIndex,Math.max(0,history.length-1)))];
  const price=selectedHistory?.authorized_credit_price||nodeRun?.authorized_credit_price;
- const controlsVisibility=selected?'translate-y-0 opacity-100':'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100';
+ const controlsVisibility=selected?'visible translate-y-0 opacity-100 pointer-events-auto':'invisible translate-y-2 opacity-0 pointer-events-none group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100 group-focus-within:pointer-events-auto';
  return <div className="relative h-full min-h-[170px] overflow-hidden">
   <NodeResultPreview items={history} index={historyIndex} onIndexChange={onHistoryIndexChange} fullBleed fit={node.ui?.fit||'cover'}/>
   <div className={`pointer-events-none absolute inset-0 bg-gradient-to-b from-black/30 via-transparent via-55% to-[#03070c]/95 transition-opacity duration-150 ${selected?'opacity-100':'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'}`}/>
