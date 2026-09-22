@@ -25,7 +25,7 @@ function outputChunks(action:AiConversationActionDraft){
 function requestFor(action:AiConversationActionDraft,modelId:string,quantity:number){
  const controls=action.controls||{};
  return{
-  capability_id:action.capability_id,model_id:modelId,prompt:action.generation_prompt,negative_prompt:action.negative_prompt||undefined,references:[],
+  capability_id:action.capability_id,model_id:modelId,prompt:action.generation_prompt,negative_prompt:action.negative_prompt||undefined,references:action.resolved_references,
   controls:{
    ...controls,number_of_outputs:quantity,duration_seconds:number(controls.duration_seconds),resolution:controls.resolution?String(controls.resolution):undefined,
    aspect_ratio:controls.aspect_ratio?String(controls.aspect_ratio):undefined,seed:controls.seed===null?null:number(controls.seed),
@@ -37,18 +37,21 @@ function requestFor(action:AiConversationActionDraft,modelId:string,quantity:num
  };
 }
 
-async function resolveModel(action:AiConversationActionDraft){
+async function resolveModel(userId:string,action:AiConversationActionDraft){
  if(action.model_id!=='AUTO')return action.model_id;
  const controls=action.controls||{};
  const tool=aiConversationToolRegistry.get(action.capability_id);
  if(!tool)fail('AI_ACTION_TOOL_INVALID','A ferramenta desta ação não está mais disponível.');
  const imageOutput=tool.outputs.includes('IMAGE');
+ const refAssets=await Promise.all(action.resolved_references.map(ref=>assetRepository.getAsset(ref.asset_id,userId)));
+ const referenceTypes=refAssets.filter(Boolean).map((asset:any)=>String(asset.type));
+ const referenceRoles=action.resolved_references.map(ref=>String(ref.role||'REFERENCE'));
  const selected=await routingV2AutoModelSelectionService.select({
   capability_id:tool.id,duration_seconds:number(controls.duration_seconds),number_of_outputs:imageOutput?Math.max(1,Math.min(4,Math.round(action.quantity||1))):1,
   character_count:action.generation_prompt.length,negative_prompt_present:Boolean(action.negative_prompt),
   dimensions:{resolution:controls.resolution?String(controls.resolution):undefined,aspect_ratio:controls.aspect_ratio?String(controls.aspect_ratio):undefined},
   parameters:{language:controls.language,voice:controls.voice,output_format:controls.output_format,style:controls.style,instrumental:controls.instrumental,seed:controls.seed,motion_strength:controls.motion_strength,audio_enabled:controls.audio_enabled,background_mode:controls.background_mode,variation_strength:controls.variation_strength},
-  reference_types:[],reference_roles:[],
+  reference_types:referenceTypes,reference_roles:referenceRoles,
  });
  return selected.model.model_id;
 }
@@ -87,7 +90,7 @@ export const aiConversationActionService={
   if(action.status==='AWAITING_CONFIRMATION'&&action.quote_expires_at&&Date.parse(action.quote_expires_at)>Date.now())return action;
   action=await aiConversationRepository.saveAction(userId,{...action,status:'QUOTING',error_code:null,error_message:null});
   try{
-   const modelId=await resolveModel(action),chunks=outputChunks(action);
+   const modelId=await resolveModel(userId,action),chunks=outputChunks(action);
    const executionJobs=[] as AiConversationActionDraft['execution_jobs'];
    const expiries:string[]=[];
    for(let index=0;index<chunks.length;index++){
@@ -146,7 +149,7 @@ export const aiConversationActionService={
   const created=await aiConversationRepository.createAction({
    conversation_id:conversationId,owner_user_id:userId,message_id:source.message_id,capability_id:source.capability_id,tool_label:source.tool_label,
    generation_prompt:source.generation_prompt,negative_prompt:source.negative_prompt,model_id:source.model_id,quantity:1,controls:source.controls,
-   reference_terms:[`regeneração de ${assetId}`],unresolved_references:[],compatible_model_ids:source.compatible_model_ids,status:'DRAFT',unavailable_reason:null,
+   reference_terms:[`regeneração de ${assetId}`],resolved_references:source.resolved_references,unresolved_references:[],compatible_model_ids:source.compatible_model_ids,status:'DRAFT',unavailable_reason:null,
    job_id:null,selected_model_id:null,quote_credit_price:null,quote_expires_at:null,confirmed_at:null,result_asset_ids:[],result_assets:[],execution_jobs:[],parent_action_id:source.action_id,error_code:null,error_message:null,
   });
   return this.quote(userId,conversationId,created.action_id);
