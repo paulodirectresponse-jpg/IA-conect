@@ -18,8 +18,9 @@ describe('Spaces visual redesign stage 3 final polish',()=>{
   expect(shell).toContain('ring-cyan-300/45');
   expect(shell).toContain('ring-white/[0.04]');
   expect(shell).toContain('hover:ring-white/[0.10]');
-  expect(connections).toContain('rgba(103,232,249,.34)');
-  expect(connections).toContain('strokeWidth={1.4}');
+  expect(connections).toContain("target?.status==='RUNNING'");
+  expect(connections).toContain("done?'rgba(110,231,183,.46)'");
+  expect(connections).toContain('width=active?2.2:done?1.7:1.35');
  });
 
  it('keeps connection ports compact and visually secondary',()=>{
@@ -40,7 +41,7 @@ describe('Spaces visual redesign stage 3 final polish',()=>{
  it('preserves stage 2 click-away and contextual exclusivity behavior',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
   expect(workspace).toContain("document.addEventListener('pointerdown',onPointerDown,true)");
-  expect(workspace).toContain("if(event.key==='Escape'){setQuick(null);setQuickQuery('');setLinking(null);setInspectorOpen(false);setAssetPicker(null);return;}");
+  expect(workspace).toContain("if(event.key==='Escape'){setQuick(null);setQuickQuery('');setLinking(null);setInspectorOpen(false);setAssetPicker(null);setShortcutsOpen(false);return;}");
   expect(workspace).toContain('addOpen={Boolean(quick&&!quick.fromId)}');
  });
 
