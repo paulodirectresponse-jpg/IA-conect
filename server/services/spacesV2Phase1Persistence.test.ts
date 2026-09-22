@@ -23,7 +23,7 @@ describe('Spaces V2 phase 1 persistence',()=>{
  it('autosaves the current viewport with the graph',()=>{
   const workspace=read('src/components/spaces/SpaceWorkspace.tsx');
   expect(workspace).toContain('viewport:{x:pan.x,y:pan.y,zoom}');
-  expect(workspace).toContain('metadata:flow.graph?.metadata||{}');
+  expect(workspace).toContain('metadata:{...(flow.graph?.metadata||{}),space_preview_assets:previewAssetIds}');
   expect(workspace).toContain('window.setTimeout(()=>void save(),650)');
  });
 
