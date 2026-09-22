@@ -87,6 +87,13 @@ function jobControls(node:BetaFlowNode){
 function referencesFor(node:BetaFlowNode,values:BetaFlowValue[]){
   const media=values.flatMap(value=>(value.asset_ids||[]).map(asset_id=>({asset_id,media_type:value.media_type,target_port:value.target_port||null})));
   const cap=String(node.capability_id||'');
+  if(cap==='last-frame'){
+    const images=media.filter(item=>item.media_type==='IMAGE'),explicit=new Map<string,typeof images[number]>();
+    for(const item of images)if(item.target_port)explicit.set(item.target_port,item);
+    const legacy=images.filter(item=>!item.target_port);
+    const first=explicit.get('first_frame')||legacy.shift(),last=explicit.get('last_frame')||legacy.shift();
+    return [first&&{asset_id:first.asset_id,slot_type:'INITIAL',role:'SOURCE'},last&&{asset_id:last.asset_id,slot_type:'END',role:'REFERENCE'}].filter(Boolean) as any;
+  }
   if(media.some(item=>item.target_port)){
     return media.map((item,index)=>{
       if(item.target_port==='mask'||item.media_type==='MASK')return{asset_id:item.asset_id,slot_type:'GENERAL',role:'MASK'};
@@ -94,10 +101,6 @@ function referencesFor(node:BetaFlowNode,values:BetaFlowValue[]){
       if(item.target_port==='last_frame')return{asset_id:item.asset_id,slot_type:'END',role:'REFERENCE'};
       return{asset_id:item.asset_id,slot_type:'GENERAL',role:index===0?'SOURCE':'REFERENCE'};
     });
-  }
-  if(cap==='last-frame'){
-    const images=media.filter(item=>item.media_type==='IMAGE');
-    return images.slice(0,2).map((item,index)=>({asset_id:item.asset_id,slot_type:index===0?'INITIAL':'END',role:index===0?'SOURCE':'REFERENCE'}));
   }
   return media.map((item,index)=>{
     if(item.media_type==='MASK')return{asset_id:item.asset_id,slot_type:'GENERAL',role:'MASK'};
