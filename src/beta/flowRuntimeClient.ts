@@ -27,7 +27,7 @@ export interface FlowEconomicSummaryView{
   budget_credit_limit:number;authorized_credits_total:number;captured_credits_total:number;released_credits_total:number;in_flight_credits_total:number;remaining_budget_credits:number;status:'WITHIN_BUDGET'|'AT_LIMIT'|'EXCEEDED';
 }
 export interface FlowRunView{
-  run_id:string;flow_id:string;flow_revision:number;user_id:string;status:FlowRunStatus;graph:FlowGraph;active_node_ids:string[];execution_mode?:'FULL'|'NODE'|'DOWNSTREAM';target_node_id?:string|null;reused_node_ids?:string[];
+  run_id:string;flow_id:string;flow_revision:number;user_id:string;status:FlowRunStatus;graph:FlowGraph;active_node_ids:string[];execution_mode?:'FULL'|'NODE'|'DOWNSTREAM';target_node_id?:string|null;reused_node_ids?:string[];execution_order?:string[];execution_layers?:string[][];
   inputs:Record<string,FlowRuntimeValue>;outputs:Record<string,FlowRuntimeValue[]>;authorized_credits_total:number;
   flow_quote_id?:string;budget_credit_limit?:number;economics?:FlowEconomicSummaryView|null;
   error_code?:string|null;error_message?:string|null;created_at:string;updated_at:string;started_at:string;completed_at?:string|null;failed_at?:string|null;cancelled_at?:string|null;
