@@ -5,8 +5,11 @@ import type{AiConversationContext,AiConversationMessage,AiModelTurn,AiToolPlan}f
 const mediaInputs=new Set(['IMAGE','VIDEO','AUDIO','MASK','MODEL_3D']);
 const cleanControls=(input:Record<string,any>,allowed:string[])=>{const out:Record<string,string|number|boolean|null>={};for(const[key,value]of Object.entries(input||{})){if(!allowed.includes(key))continue;if(value===null||['string','number','boolean'].includes(typeof value))out[key]=value as any;}return out;};
 const normalize=(value:string)=>String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-function resolveAssetReferences(terms:string[],context:AiConversationContext,capabilityId:string){
- const assets=(context.references||[]).filter(ref=>ref.kind==='ASSET'&&ref.asset_id);
+function resolveAssetReferences(terms:string[],context:AiConversationContext,capabilityId:string,allowedTypes:string[]){
+ const allAssets=(context.references||[]).filter(ref=>ref.kind==='ASSET'&&ref.asset_id);
+ const typed=allAssets.filter(ref=>ref.asset_type&&allowedTypes.includes(ref.asset_type));
+ const legacy=allAssets.filter(ref=>!ref.asset_type);
+ const assets=typed.length?typed:legacy;
  const newest=[...assets].reverse();
  const chosen:any[]=[];const unresolved:string[]=[];
  for(const termRaw of terms){
@@ -44,14 +47,15 @@ export const aiConversationToolPlanner={
   const modelId=explicit?.model_id||'AUTO';
   const refs=Array.from(new Set((request.reference_terms||[]).map(String).map(value=>value.trim()).filter(Boolean))).slice(0,16);
   const requiresMedia=tool.inputs.some(input=>mediaInputs.has(input));
-  const resolvedInfo=requiresMedia?resolveAssetReferences(refs,context,tool.id):{resolved:[],unresolved:[]};
+  const allowedTypes=tool.inputs.filter(input=>mediaInputs.has(input)).map(input=>input==='MASK'?'IMAGE':input);
+  const resolvedInfo=requiresMedia?resolveAssetReferences(refs,context,tool.id,allowedTypes):{resolved:[],unresolved:[]};
   const unresolved=requiresMedia?(refs.length?resolvedInfo.unresolved:['referência de '+tool.inputs.filter(input=>mediaInputs.has(input)).join('/')]):[];
   const unavailableReason=!availability.available?availability.reason:null;
   const action=await aiConversationRepository.createAction({
    conversation_id:conversationId,owner_user_id:userId,message_id:message.message_id,
    capability_id:tool.id,tool_label:tool.label,generation_prompt:String(request.generation_prompt||'').trim().slice(0,12000),
    negative_prompt:request.negative_prompt?String(request.negative_prompt).trim().slice(0,4000):null,model_id:modelId,
-   quantity:Math.max(1,Math.min(16,Math.round(Number(request.quantity||1)))),
+   quantity:Number.isFinite(Number(request.quantity))?Math.max(1,Math.min(16,Math.round(Number(request.quantity)))):1,
    controls:cleanControls(request.controls||{},tool.controls),reference_terms:refs,resolved_references:resolvedInfo.resolved,unresolved_references:unresolved,
    compatible_model_ids:compatibleModelIds,status:availability.available?'DRAFT':'UNAVAILABLE',unavailable_reason:unavailableReason,
    job_id:null,selected_model_id:null,quote_credit_price:null,quote_expires_at:null,confirmed_at:null,result_asset_ids:[],result_assets:[],execution_jobs:[],parent_action_id:null,error_code:null,error_message:null,
