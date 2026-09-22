@@ -60,6 +60,25 @@ describe('Routing Core V2 Admin',()=>{
     expect(providerBootstrap).toContain('routingV2ProviderService.bootstrapCore()');
   });
 
+  it('keeps Atlas and Runware live catalog discovery wired through wrapper adapters',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const wrapper=read('server/routing-v2/legacyWrapperAdapter.ts');
+    const catalog=read('server/routing-v2/providerCatalogService.ts');
+    const providers=read('server/routing-v2/providerService.ts');
+
+    expect(routes).toContain("startsWith('wrapper:')");
+    expect(routes).toContain('adapter.listModels(provider,rawQuery)');
+    expect(wrapper).toContain("providerId === 'provider-atlas'");
+    expect(wrapper).toContain("providerId === 'provider-runware'");
+    expect(wrapper).toContain('listAtlasCatalogModels');
+    expect(wrapper).toContain('listRunwareCatalogModels');
+    expect(catalog).toContain('/api/v1/models');
+    expect(catalog).toContain("taskType:'modelSearch'");
+    expect(catalog).toContain("source:'featured'");
+    expect(catalog).toContain("visibility:'public'");
+    expect(providers).toContain("await this.update(input.provider_id,{adapter_id:input.adapter_id,priority:input.priority})");
+  });
+
   it('never accepts API keys through the V2 admin provider form',()=>{
     const view=read('src/components/admin/AdminRoutingV2.tsx');
     const routes=read('server/routes/adminRoutingV2Routes.ts');

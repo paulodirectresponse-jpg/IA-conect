@@ -73,7 +73,7 @@ export const routingV2ProviderService={
       try{
         const existing=await routingV2Repository.getProvider(input.provider_id);
         if(existing){
-          if(existing.adapter_id!==input.adapter_id)await this.update(input.provider_id,{adapter_id:input.adapter_id});
+          await this.update(input.provider_id,{adapter_id:input.adapter_id,priority:input.priority});
           result.existing.push(input.provider_id);continue;
         }
         await this.create(input);

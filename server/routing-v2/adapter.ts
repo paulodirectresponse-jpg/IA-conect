@@ -69,7 +69,7 @@ export interface RoutingV2ProviderAdapter{
   isConfigured(provider:RoutingV2Provider):boolean;
   health(provider:RoutingV2Provider):Promise<RoutingV2ProviderHealth>;
   balance?(provider:RoutingV2Provider):Promise<RoutingV2ProviderBalance>;
-  listModels?(provider:RoutingV2Provider):Promise<RoutingV2CatalogModel[]>;
+  listModels?(provider:RoutingV2Provider,query?:string):Promise<RoutingV2CatalogModel[]>;
   getPrice?(provider:RoutingV2Provider,providerModelIdentifier:string,capabilityId:CapabilityId):Promise<RoutingV2ProviderPrice>;
   submitGeneration?(provider:RoutingV2Provider,input:RoutingV2GenerationInput):Promise<RoutingV2GenerationSubmission>;
   checkGeneration?(provider:RoutingV2Provider,providerJobId:string):Promise<RoutingV2GenerationStatus>;

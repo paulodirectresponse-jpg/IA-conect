@@ -1,6 +1,7 @@
 import { RoutingV2ProviderAdapter } from './adapter.js';
 import { CapabilityId } from '../beta/capabilityRegistry.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
+import { listAtlasCatalogModels, listRunwareCatalogModels } from './providerCatalogService.js';
 
 // Compatibility wrapper used only for execution delegation while HYBRID is active.
 //
@@ -8,8 +9,8 @@ import { providerRegistry } from '../adapters/providerRegistry.js';
 // - It MUST NOT fabricate provider health.
 // - It MUST NOT fabricate pricing.
 // - It MUST NOT fabricate catalog evidence.
-// Operational truth for health/pricing/catalog belongs to verified V2 services/adapters.
-// Therefore this wrapper intentionally exposes execution methods only, plus UNKNOWN health.
+// Catalog discovery is exposed only where the provider has a verified live catalog source.
+// Health and pricing remain factual and are not inferred by this wrapper.
 
 export function createRoutingV2LegacyWrapperAdapter(providerId: string): RoutingV2ProviderAdapter | null {
   const legacy = providerRegistry.getAdapter(providerId);
@@ -20,6 +21,12 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
     provider_id: providerId,
 
     isConfigured: () => legacy.isConfigured(),
+
+    listModels: providerId === 'provider-atlas'
+      ? async () => listAtlasCatalogModels()
+      : providerId === 'provider-runware'
+        ? async (_provider, query) => listRunwareCatalogModels(query)
+        : undefined,
 
     async health() {
       if (!legacy.isConfigured()) {
