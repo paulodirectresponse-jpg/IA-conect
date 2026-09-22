@@ -22,6 +22,9 @@ export interface BetaFlowEdge{
   from_node_id:string;
   to_node_id:string;
   media_type:CapabilityMediaType;
+  source_port?:string|null;
+  target_port?:string|null;
+  resolver_version?:number;
 }
 export interface BetaFlowViewport{x:number;y:number;zoom:number;}
 export interface BetaFlowGraph{
