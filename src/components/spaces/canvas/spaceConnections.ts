@@ -83,6 +83,10 @@ export function resolveDirectSpaceConnection(
    return{status:'DUPLICATE',mediaType:media,sourcePort:genericPort(media),targetPort:null,strategy:null,resolverVersion:SPACE_CONNECTION_RESOLVER_VERSION,message:'Esses nodes já estão conectados nessa entrada.'};
   }
  }
+ if(createsCycle(nodes,edges,fromId,toId)){
+  const media=compatible[0];
+  return{status:'CYCLE',mediaType:media,sourcePort:genericPort(media),targetPort:null,strategy:null,resolverVersion:SPACE_CONNECTION_RESOLVER_VERSION,message:'Essa conexão criaria um ciclo no fluxo.'};
+ }
  let selected:{media:BetaCapabilityMediaType;binding:ReturnType<typeof targetPortFor>}|null=null;
  for(const media of compatible){
   const binding=targetPortFor(target,media,edges);
@@ -97,9 +101,7 @@ export function resolveDirectSpaceConnection(
  if(edges.some(edge=>edge.from_node_id===fromId&&edge.to_node_id===toId&&edge.media_type===media&&(!edge.target_port||edge.target_port===binding.port))){
   return{status:'DUPLICATE',mediaType:media,sourcePort,targetPort:binding.port,strategy:binding.strategy,resolverVersion:SPACE_CONNECTION_RESOLVER_VERSION,message:'Esses nodes já estão conectados nessa entrada.'};
  }
- if(createsCycle(nodes,edges,fromId,toId)){
-  return{status:'CYCLE',mediaType:media,sourcePort,targetPort:binding.port,strategy:binding.strategy,resolverVersion:SPACE_CONNECTION_RESOLVER_VERSION,message:'Essa conexão criaria um ciclo no fluxo.'};
- }
+
  const label=binding.port.replaceAll('_',' ');
  return{status:'COMPATIBLE',mediaType:media,sourcePort,targetPort:binding.port,strategy:binding.strategy,resolverVersion:SPACE_CONNECTION_RESOLVER_VERSION,message:`${media} → ${label}`};
 }
