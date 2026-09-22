@@ -17,6 +17,7 @@ export const AiConversationView:React.FC=()=>{
  const[opening,setOpening]=useState(false);
  const[sending,setSending]=useState(false);
  const[creating,setCreating]=useState(false);
+ const[actionBusy,setActionBusy]=useState<string|null>(null);
  const[error,setError]=useState('');
  const[sidebarOpen,setSidebarOpen]=useState(true);
  const endRef=useRef<HTMLDivElement|null>(null);
@@ -25,9 +26,21 @@ export const AiConversationView:React.FC=()=>{
  const open=async(id:string)=>{setOpening(true);setError('');try{const detail=await aiConversationClient.get(id);setCurrent(detail.conversation);setMessages(detail.messages);setActions(detail.actions||[]);setContext(detail.context);}catch(e){setError(errText(e));}finally{setOpening(false);}};
  useEffect(()=>{let active=true;(async()=>{try{const rows=await aiConversationClient.list();if(!active)return;setConversations(rows);if(rows[0])await open(rows[0].conversation_id);}catch(e){if(active)setError(errText(e));}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
  useEffect(()=>{endRef.current?.scrollIntoView({behavior:'smooth',block:'end'});},[messages,sending]);
+ useEffect(()=>{
+  if(!current)return;
+  const running=actions.filter(action=>['QUEUED','RUNNING','CONFIRMED'].includes(action.status));
+  if(!running.length)return;
+  const timer=window.setInterval(()=>{
+   running.forEach(action=>{void aiConversationClient.refreshAction(current.conversation_id,action.action_id).then(next=>setActions(rows=>rows.map(row=>row.action_id===next.action_id?next:row))).catch(()=>{});});
+  },3000);
+  return()=>window.clearInterval(timer);
+ },[current,actions]);
 
  const create=async()=>{if(creating)return;setCreating(true);setError('');try{const conversation=await aiConversationClient.create();setConversations(rows=>[conversation,...rows]);setCurrent(conversation);setMessages([]);setActions([]);setContext(null);setInput('');if(window.innerWidth<900)setSidebarOpen(false);}catch(e){setError(errText(e));}finally{setCreating(false);}};
  const remove=async(conversation:AiConversation)=>{if(!window.confirm(`Excluir "${conversation.title}"?`))return;setError('');try{await aiConversationClient.remove(conversation.conversation_id);const rows=await refresh();if(current?.conversation_id===conversation.conversation_id){setCurrent(null);setMessages([]);setActions([]);setContext(null);if(rows[0])await open(rows[0].conversation_id);}}catch(e){setError(errText(e));}};
+ const replaceAction=(next:AiConversationAction)=>setActions(rows=>rows.map(row=>row.action_id===next.action_id?next:row));
+ const quoteAction=async(action:AiConversationAction)=>{if(!current||actionBusy)return;setActionBusy(action.action_id);setError('');try{replaceAction(await aiConversationClient.quoteAction(current.conversation_id,action.action_id));}catch(e){setError(errText(e));}finally{setActionBusy(null);}};
+ const confirmAction=async(action:AiConversationAction)=>{if(!current||actionBusy)return;setActionBusy(action.action_id);setError('');try{replaceAction(await aiConversationClient.confirmAction(current.conversation_id,action.action_id));}catch(e){setError(errText(e));try{replaceAction(await aiConversationClient.refreshAction(current.conversation_id,action.action_id));}catch{}}finally{setActionBusy(null);}};
  const send=async()=>{const content=input.trim();if(!content||sending)return;let conversation=current;setError('');setInput('');setSending(true);try{
    if(!conversation){conversation=await aiConversationClient.create();setCurrent(conversation);setConversations(rows=>[conversation!,...rows]);}
    const optimistic:AiConversationMessage={message_id:`temp_${Date.now()}`,conversation_id:conversation.conversation_id,owner_user_id:'',role:'USER',content,model_id:null,created_at:new Date().toISOString()};
@@ -70,7 +83,7 @@ export const AiConversationView:React.FC=()=>{
       <textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send();}}} rows={1} placeholder="Converse com a IA Connect…" className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-[11px] leading-5 text-white outline-none placeholder:text-zinc-700"/>
       <button type="button" onClick={()=>void send()} disabled={!input.trim()||sending} aria-label="Enviar mensagem" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-300 text-[#041019] disabled:opacity-30">{sending?<LoaderCircle className="h-4 w-4 animate-spin"/>:<Send className="h-4 w-4"/>}</button>
      </div>
-     <p className="mt-2 text-center text-[7px] text-zinc-700">A IA preserva o contexto desta conversa e identifica quando seu pedido já está pronto para uma futura ação.</p>
+     <p className="mt-2 text-center text-[7px] text-zinc-700">A IA entende o pedido, calcula o custo real e só executa uma geração depois da sua confirmação.</p>
     </div>
    </div>
   </section>
