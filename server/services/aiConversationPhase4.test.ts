@@ -11,7 +11,7 @@ describe('IA conversacional phase 4 quote confirmation credits',()=>{
   expect(service).toContain('betaJobOrchestrator.create');
   expect(service).toContain('betaJobOrchestrator.quote');
   expect(service).toContain('betaJobOrchestrator.queue');
-  expect(service).not.toContain('creditWalletService');
+  expect(service).toContain('creditWalletService.simulateReserve');
  });
 
  it('resolves AUTO to a real compatible model before creating the job',()=>{
@@ -50,7 +50,7 @@ describe('IA conversacional phase 4 quote confirmation credits',()=>{
   const service=read('server/ai/conversation/actionService.ts');
   expect(service).toContain('AI_ACTION_QUOTE_EXPIRED');
   expect(service).toContain('action.job_id');
-  expect(service).toContain('ai-action-queue:${action.action_id}:${action.job_id}');
+  expect(service).toContain('ai-action-queue:${action.action_id}:${index}:${item.job_id}');
  });
 
  it('exposes quote confirmation and refresh endpoints to the stable client',()=>{
@@ -63,12 +63,13 @@ describe('IA conversacional phase 4 quote confirmation credits',()=>{
  it('quotes automatically and only requires the final Confirmar e gerar click',()=>{
   const conversation=read('server/ai/conversation/conversationService.ts');
   const view=read('src/components/views/AiConversationView.tsx');
+  const card=read('src/components/ai/AiConversationActionCard.tsx');
   expect(conversation).toContain("action.status==='DRAFT'&&!action.unresolved_references.length");
   expect(conversation).toContain('aiConversationActionService.quote');
   expect(view).not.toContain('Calcular créditos');
-  expect(view).toContain('Custo confirmado');
-  expect(view).toContain('Confirmar e gerar');
-  expect(view).toContain('Nenhum crédito é gasto antes desta confirmação.');
+  expect(card).toContain('Custo confirmado');
+  expect(card).toContain('Confirmar e gerar');
+  expect(card).toContain('Nenhum crédito é gasto antes desta confirmação.');
  });
 
  it('polls queued and running actions and exposes terminal results',()=>{
@@ -76,7 +77,7 @@ describe('IA conversacional phase 4 quote confirmation credits',()=>{
   const service=read('server/ai/conversation/actionService.ts');
   expect(view).toContain("['QUEUED','RUNNING','CONFIRMED']");
   expect(view).toContain('refreshAction');
-  expect(service).toContain("if(status==='SUCCEEDED')return'SUCCEEDED'");
+  expect(service).toContain("statuses.every(status=>status==='SUCCEEDED')");
   expect(service).toContain('result_asset_ids:job.result_asset_ids||[]');
  });
 });

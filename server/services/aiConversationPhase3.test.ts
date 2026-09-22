@@ -56,11 +56,12 @@ describe('IA conversacional phase 3 tool calling',()=>{
   const service=read('server/ai/conversation/conversationService.ts');
   const client=read('src/services/aiConversationClient.ts');
   const view=read('src/components/views/AiConversationView.tsx');
+  const card=read('src/components/ai/AiConversationActionCard.tsx');
   expect(service).toContain('listActions(userId,conversationId)');
   expect(service).toContain('aiConversationToolPlanner.plan');
   expect(client).toContain('AiConversationAction');
-  expect(view).toContain('Preparando custo e configuração');
-  expect(view).toContain('action.generation_prompt');
+  expect(card).toContain('Preparando custo e configuração');
+  expect(card).toContain('action.generation_prompt');
  });
 
  it('keeps quote, credits and execution out of phase 3',()=>{

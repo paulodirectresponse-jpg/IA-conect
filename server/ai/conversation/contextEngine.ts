@@ -33,6 +33,12 @@ export const aiConversationContextEngine={
   const context=await this.get(userId,conversationId);
   return{context,recent_messages:messages.slice(-40)};
  },
+ async registerAssets(userId:string,conversationId:string,actionId:string,assets:Array<{asset_id:string;name:string}>){
+  const context=await this.get(userId,conversationId);
+  const kept=(context.references||[]).filter(ref=>!(ref.kind==='ASSET'&&assets.some(asset=>asset.asset_id===ref.asset_id)));
+  const added=assets.map((asset,index)=>({label:asset.name||`resultado ${index+1}`,kind:'ASSET' as const,value:`action:${actionId}:result:${index+1}`,message_id:null,asset_id:asset.asset_id}));
+  return aiConversationRepository.saveContext(userId,{...context,references:[...kept,...added].slice(-80)});
+ },
  async applyTurn(userId:string,context:AiConversationContext,turn:AiModelTurn,userMessage:AiConversationMessage){
   const refs=[...(context.references||[])];
   for(const term of turn.reference_terms||[]){

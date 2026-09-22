@@ -30,3 +30,8 @@ aiConversationRouter.get('/ai/conversations/:conversationId/actions/:actionId',a
  try{return res.json({success:true,data:await aiConversationActionService.refresh(req.user!.uid,req.params.conversationId,req.params.actionId)});}
  catch(error){return failure(res,error,'Não foi possível atualizar esta ação.');}
 });
+
+aiConversationRouter.post('/ai/conversations/:conversationId/actions/:actionId/regenerate',async(req:AuthenticatedRequest,res)=>{
+ try{return res.status(201).json({success:true,data:await aiConversationActionService.regenerate(req.user!.uid,req.params.conversationId,req.params.actionId,String(req.body?.asset_id||''))});}
+ catch(error){return failure(res,error,'Não foi possível preparar a regeneração deste resultado.');}
+});
