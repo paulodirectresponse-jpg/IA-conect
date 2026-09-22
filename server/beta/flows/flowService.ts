@@ -95,7 +95,7 @@ async function validateGraph(userId:string,input:any):Promise<BetaFlowGraph>{
     if(!nodeOutputs(source).includes(media)||!nodeInputs(target).includes(media))fail('FLOW_EDGE_TYPE_MISMATCH','Os tipos de mídia dos nós conectados são incompatíveis.');
     const sourcePort=raw?.source_port?clean(raw.source_port,40):null,targetPort=raw?.target_port?clean(raw.target_port,40):null,resolverVersion=Number(raw?.resolver_version);
     if(targetPort&&!allowedTargetPorts(target,media).has(targetPort))fail('FLOW_EDGE_PORT_MISMATCH','A porta de destino não corresponde à capability deste node.');
-    if(targetPort&&!targetPortAllowsMultiple(target,targetPort)&&edges.some(edge=>edge.to_node_id===to&&edge.target_port===targetPort))fail('FLOW_EDGE_PORT_OCCUPIED','A entrada selecionada deste node já está ocupada.');
+    if(targetPort&&!targetPortAllowsMultiple(target,targetPort)&&edges.some(edge=>edge.to_node_id===to&&(edge.target_port===targetPort||(!edge.target_port&&edge.media_type===media))))fail('FLOW_EDGE_PORT_OCCUPIED','A entrada selecionada deste node já está ocupada.');
     edges.push({edge_id:edgeId,from_node_id:from,to_node_id:to,media_type:media,source_port:sourcePort,target_port:targetPort,resolver_version:Number.isInteger(resolverVersion)&&resolverVersion>0&&resolverVersion<=100?resolverVersion:undefined});
   }
   assertAcyclic(nodes,edges);
