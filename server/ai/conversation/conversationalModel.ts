@@ -66,7 +66,7 @@ async function callGoogle(model:string,cfg:ConversationalModelConfig,messages:Ai
   const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,{
    method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,
    body:JSON.stringify({
-    systemInstruction:{parts:[{text:SYSTEM_PROMPT+'\\n\\n'+contextPrompt(context)}]},
+    systemInstruction:{parts:[{text:SYSTEM_PROMPT+'\n\n'+contextPrompt(context)}]},
     contents,
     generationConfig:{temperature:cfg.temperature,maxOutputTokens:cfg.max_output_tokens,responseMimeType:'application/json'},
    }),
@@ -101,10 +101,10 @@ export const conversationalModel={
  async reply(messages:AiConversationMessage[],context:AiConversationContext){
   const cfg=await config();
   if(!cfg.enabled)throw Object.assign(new Error('A IA conversacional está temporariamente indisponível.'),{code:'AI_LLM_DISABLED'});
-  try{return{content:await googleConversationalAdapter.generate(cfg.primary_model,cfg,messages,context),model_id:cfg.primary_model,logical_model_id:cfg.logical_model_id};}
+  try{return await googleConversationalAdapter.generate(cfg.primary_model,cfg,messages,context);}
   catch(primaryError){
    if(!cfg.fallback_model||cfg.fallback_model===cfg.primary_model)throw primaryError;
-   return{content:await googleConversationalAdapter.generate(cfg.fallback_model,cfg,messages,context),model_id:cfg.fallback_model,logical_model_id:cfg.logical_model_id};
+   return googleConversationalAdapter.generate(cfg.fallback_model,cfg,messages,context);
   }
  },
 };
