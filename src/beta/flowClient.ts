@@ -8,7 +8,7 @@ export interface FlowNode{
  media_type?:BetaCapabilityMediaType|null;asset_id?:string|null;capability_id?:string|null;model_id?:string|null;
  prompt?:string;controls?:Record<string,string|number|boolean|null>;ui?:FlowNodeUi;
 }
-export interface FlowEdge{edge_id:string;from_node_id:string;to_node_id:string;media_type:BetaCapabilityMediaType}
+export interface FlowEdge{edge_id:string;from_node_id:string;to_node_id:string;media_type:BetaCapabilityMediaType;source_port?:string|null;target_port?:string|null;resolver_version?:number}
 export interface FlowViewport{x:number;y:number;zoom:number}
 export interface FlowGraph{nodes:FlowNode[];edges:FlowEdge[];viewport?:FlowViewport;metadata?:Record<string,unknown>}
 export interface FlowRecord{
