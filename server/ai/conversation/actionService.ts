@@ -2,6 +2,7 @@ import{betaJobOrchestrator}from'../../beta/jobs/jobOrchestrator.js';
 import{routingV2AutoModelSelectionService}from'../../routing-v2/autoModelSelectionService.js';
 import{assetRepository}from'../../repositories/assetRepository.js';
 import{aiConversationRepository}from'./conversationRepository.js';
+import{aiConversationContextEngine}from'./contextEngine.js';
 import{aiConversationToolRegistry}from'./toolRegistry.js';
 import type{AiConversationActionDraft}from'./conversationTypes.js';
 
@@ -115,7 +116,9 @@ export const aiConversationActionService={
     return{...item,status:job.status,result_asset_ids:job.result_asset_ids||[]};
    }));
    const ids=jobs.flatMap(job=>job.result_asset_ids);
-   return aiConversationRepository.saveAction(userId,{...action,status:actionStatus(jobs.map(job=>job.status)),execution_jobs:jobs,result_asset_ids:ids,result_assets:await hydrateAssets(userId,ids),error_code:null,error_message:null});
+   const resultAssets=await hydrateAssets(userId,ids);
+   if(resultAssets.length)await aiConversationContextEngine.registerAssets(userId,conversationId,action.action_id,resultAssets).catch(()=>{});
+   return aiConversationRepository.saveAction(userId,{...action,status:actionStatus(jobs.map(job=>job.status)),execution_jobs:jobs,result_asset_ids:ids,result_assets:resultAssets,error_code:null,error_message:null});
   }catch(error:any){
    await aiConversationRepository.saveAction(userId,{...action,status:'FAILED',error_code:String(error?.code||'AI_ACTION_EXECUTION_FAILED'),error_message:String(error?.message||'Não foi possível iniciar a geração.')}).catch(()=>{});throw error;
   }
@@ -133,6 +136,7 @@ export const aiConversationActionService={
   const ids=Array.from(new Set(jobs.flatMap(job=>job.result_asset_ids)));
   const nextStatus=action.status==='AWAITING_CONFIRMATION'?'AWAITING_CONFIRMATION':actionStatus(jobs.map(job=>job.status));
   const assets=ids.length?await hydrateAssets(userId,ids):action.result_assets;
+  if(assets.length&&ids.join('|')!==action.result_asset_ids.join('|'))await aiConversationContextEngine.registerAssets(userId,conversationId,action.action_id,assets).catch(()=>{});
   if(nextStatus===action.status&&ids.join('|')===action.result_asset_ids.join('|')&&JSON.stringify(jobs)===JSON.stringify(action.execution_jobs))return action;
   action=await aiConversationRepository.saveAction(userId,{...action,status:nextStatus,execution_jobs:jobs,result_asset_ids:ids,result_assets:assets,error_code:jobs.some(job=>job.status==='FAILED')?'BATCH_PARTIAL_FAILURE':null,error_message:nextStatus==='PARTIAL_SUCCESS'?'Parte da geração falhou. Os resultados concluídos foram preservados.':null});return action;
  },
