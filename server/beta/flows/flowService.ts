@@ -18,6 +18,24 @@ function nodeInputs(node:BetaFlowNode):CapabilityMediaType[]{
   if(node.kind==='TOOL'&&node.capability_id)return getCapabilityDefinition(node.capability_id)?.inputs||[];
   return[];
 }
+function allowedTargetPorts(node:BetaFlowNode,media:CapabilityMediaType){
+  if(node.kind==='OUTPUT')return new Set(['input']);
+  if(node.kind!=='TOOL')return new Set([media.toLowerCase()]);
+  const cap=String(node.capability_id||'');
+  if(media==='TEXT')return new Set(['prompt']);
+  if(media==='MASK')return new Set(['mask']);
+  if(media==='VIDEO')return new Set(['source_video']);
+  if(media==='AUDIO')return new Set(['source_audio']);
+  if(media==='MODEL_3D')return new Set(['source_model_3d']);
+  if(media==='IMAGE'){
+    if(cap==='last-frame')return new Set(['first_frame','last_frame']);
+    if(cap==='first-frame'||cap==='image-to-video')return new Set(['first_frame']);
+    if(['image-to-image','image-edit','variations'].includes(cap))return new Set(['reference_image']);
+    return new Set(['source_image']);
+  }
+  return new Set(['data']);
+}
+
 function assertAcyclic(nodes:BetaFlowNode[],edges:BetaFlowEdge[]){
   const adjacency=new Map(nodes.map(node=>[node.node_id,[] as string[]]));
   for(const edge of edges)adjacency.get(edge.from_node_id)?.push(edge.to_node_id);
@@ -72,7 +90,9 @@ async function validateGraph(userId:string,input:any):Promise<BetaFlowGraph>{
     if(!edgeId||edgeIds.has(edgeId)||!ids.has(from)||!ids.has(to)||from===to||!MEDIA.has(media))fail('FLOW_GRAPH_INVALID','Conexão inválida.');edgeIds.add(edgeId);
     const source=nodes.find(node=>node.node_id===from)!,target=nodes.find(node=>node.node_id===to)!;
     if(!nodeOutputs(source).includes(media)||!nodeInputs(target).includes(media))fail('FLOW_EDGE_TYPE_MISMATCH','Os tipos de mídia dos nós conectados são incompatíveis.');
-    edges.push({edge_id:edgeId,from_node_id:from,to_node_id:to,media_type:media});
+    const sourcePort=raw?.source_port?clean(raw.source_port,40):null,targetPort=raw?.target_port?clean(raw.target_port,40):null,resolverVersion=Number(raw?.resolver_version);
+    if(targetPort&&!allowedTargetPorts(target,media).has(targetPort))fail('FLOW_EDGE_PORT_MISMATCH','A porta de destino não corresponde à capability deste node.');
+    edges.push({edge_id:edgeId,from_node_id:from,to_node_id:to,media_type:media,source_port:sourcePort,target_port:targetPort,resolver_version:Number.isInteger(resolverVersion)&&resolverVersion>0&&resolverVersion<=100?resolverVersion:undefined});
   }
   assertAcyclic(nodes,edges);
   const rawViewport=input?.viewport&&typeof input.viewport==='object'?input.viewport:{x:160,y:100,zoom:.9};
