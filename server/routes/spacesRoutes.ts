@@ -53,10 +53,11 @@ spacesRouter.get('/spaces/home',async(req:AuthenticatedRequest,res)=>{try{
   }
  }
  return res.json({success:true,data:flows.map(flow=>{
+  const previewIds=((flow.graph?.metadata as any)?.space_preview_assets&&typeof (flow.graph?.metadata as any).space_preview_assets==='object')?(flow.graph?.metadata as any).space_preview_assets as Record<string,string>:{};
   const preview_nodes=(flow.graph?.nodes||[]).map(node=>{
    const width=Number(node.ui?.width)||((node.kind==='TOOL'&&['text-to-image','image-to-image','text-to-video','image-to-video'].includes(String(node.capability_id||'')))?286:260);
    const height=Number(node.ui?.height)||((node.kind==='TOOL'&&['text-to-image','image-to-image','text-to-video','image-to-video'].includes(String(node.capability_id||'')))?390:156);
-   let asset=node.asset_id?assetMap.get(node.asset_id)||null:null;
+   let asset=(previewIds[node.node_id]?assetMap.get(previewIds[node.node_id]):null)|| (node.asset_id?assetMap.get(node.asset_id)||null:null);
    if(!asset&&node.kind==='TOOL'){
     const latest=latestByFlowNode.get(`${flow.flow_id}:${node.node_id}`);
     const outputId=latest?.output_asset_ids?.find(id=>assetMap.has(id));
