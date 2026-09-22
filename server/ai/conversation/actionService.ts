@@ -114,7 +114,7 @@ export const aiConversationActionService={
  async confirm(userId:string,conversationId:string,actionId:string,reqHost?:string,idToken?:string){
   let action=await this.get(userId,conversationId,actionId);
   if(action.status!=='AWAITING_CONFIRMATION'||!action.execution_jobs.length||!action.quote_credit_price)fail('AI_ACTION_CONFIRMATION_REQUIRED','Calcule o preço antes de confirmar esta ação.');
-  if(!action.quote_expires_at||Date.parse(action.quote_expires_at)<=Date.now())fail('AI_ACTION_QUOTE_EXPIRED','A cotação expirou. Calcule o preço novamente.');
+  if(!action.quote_expires_at||Date.parse(action.quote_expires_at)<=Date.now())return this.quote(userId,conversationId,actionId);
   action=await aiConversationRepository.saveAction(userId,{...action,status:'CONFIRMED',confirmed_at:new Date().toISOString()});
   try{
    const queued=await Promise.allSettled(action.execution_jobs.map(async(item,index)=>{
@@ -148,9 +148,54 @@ export const aiConversationActionService={
   if(nextStatus===action.status&&ids.join('|')===action.result_asset_ids.join('|')&&JSON.stringify(jobs)===JSON.stringify(action.execution_jobs))return action;
   action=await aiConversationRepository.saveAction(userId,{...action,status:nextStatus,execution_jobs:jobs,result_asset_ids:ids,result_assets:assets,error_code:jobs.some(job=>job.status==='FAILED')?'BATCH_PARTIAL_FAILURE':null,error_message:nextStatus==='PARTIAL_SUCCESS'?'Parte da geração falhou. Os resultados concluídos foram preservados.':null});return action;
  },
+ async cancel(userId:string,conversationId:string,actionId:string){
+  let action=await this.get(userId,conversationId,actionId);
+  if(['SUCCEEDED','FAILED','CANCELLED','PARTIAL_SUCCESS'].includes(action.status))return action;
+  if(!action.execution_jobs.length)return aiConversationRepository.saveAction(userId,{...action,status:'CANCELLED'});
+  const jobs=await Promise.all(action.execution_jobs.map(async item=>{
+   try{
+    const job=await betaJobOrchestrator.cancel(userId,item.job_id,`ai-action-cancel:${action.action_id}:${item.job_id}`);
+    return{...item,status:job.status,result_asset_ids:job.result_asset_ids||item.result_asset_ids||[]};
+   }catch{return item;}
+  }));
+  const ids=Array.from(new Set(jobs.flatMap(job=>job.result_asset_ids||[])));
+  const assets=ids.length?await hydrateAssets(userId,ids):action.result_assets;
+  action=await aiConversationRepository.saveAction(userId,{...action,status:actionStatus(jobs.map(job=>job.status)),execution_jobs:jobs,result_asset_ids:ids,result_assets:assets,error_code:null,error_message:null});
+  return action;
+ },
+ async retryFailed(userId:string,conversationId:string,actionId:string){
+  const source=await this.get(userId,conversationId,actionId);
+  if(!['FAILED','PARTIAL_SUCCESS','CANCELLED'].includes(source.status))fail('AI_ACTION_RETRY_UNAVAILABLE','Só é possível tentar novamente uma ação falha, parcial ou cancelada.');
+  const failedJobs=source.execution_jobs.filter(job=>['FAILED','CANCELLED'].includes(job.status));
+  const retryQuantity=failedJobs.reduce((sum,job)=>sum+Math.max(1,Number(job.quantity||1)),0)||Math.max(1,source.quantity-source.result_asset_ids.length);
+  const existing=(await aiConversationRepository.listActions(userId,conversationId)).find(action=>action.parent_action_id===source.action_id&&action.reference_terms.includes('retry-failed')&&!['FAILED','CANCELLED','SUCCEEDED'].includes(action.status)&&Date.now()-Date.parse(action.created_at)<10*60_000);
+  if(existing)return existing;
+  const created=await aiConversationRepository.createAction({
+   conversation_id:conversationId,owner_user_id:userId,message_id:source.message_id,capability_id:source.capability_id,tool_label:source.tool_label,
+   generation_prompt:source.generation_prompt,negative_prompt:source.negative_prompt,model_id:source.model_id,quantity:Math.max(1,Math.min(16,retryQuantity)),controls:source.controls,
+   reference_terms:['retry-failed'],resolved_references:source.resolved_references,unresolved_references:[],compatible_model_ids:source.compatible_model_ids,status:'DRAFT',unavailable_reason:null,
+   job_id:null,selected_model_id:null,quote_credit_price:null,quote_expires_at:null,confirmed_at:null,result_asset_ids:[],result_assets:[],execution_jobs:[],parent_action_id:source.action_id,error_code:null,error_message:null,
+  });
+  return this.quote(userId,conversationId,created.action_id);
+ },
+ async recover(userId:string,conversationId:string,action:AiConversationActionDraft){
+  const age=Date.now()-Date.parse(action.updated_at||action.created_at);
+  if(action.status==='QUOTING'&&age>90_000){
+   const reset=await aiConversationRepository.saveAction(userId,{...action,status:'DRAFT',error_code:'AI_ACTION_RECOVERED',error_message:'A preparação anterior foi interrompida e será refeita.'});
+   if(!reset.unresolved_references.length)return this.quote(userId,conversationId,reset.action_id).catch(()=>reset);
+   return reset;
+  }
+  if(action.status==='AWAITING_CONFIRMATION'&&action.quote_expires_at&&Date.parse(action.quote_expires_at)<=Date.now()){
+   return this.quote(userId,conversationId,action.action_id).catch(()=>action);
+  }
+  if(['CONFIRMED','QUEUED','RUNNING'].includes(action.status))return this.refresh(userId,conversationId,action.action_id).catch(()=>action);
+  return action;
+ },
  async regenerate(userId:string,conversationId:string,actionId:string,assetId:string){
   const source=await this.get(userId,conversationId,actionId);
   if(!source.result_asset_ids.includes(assetId))fail('AI_ACTION_RESULT_NOT_FOUND','Este resultado não pertence à ação selecionada.');
+  const existing=(await aiConversationRepository.listActions(userId,conversationId)).find(action=>action.parent_action_id===source.action_id&&action.reference_terms.includes(`regeneração de ${assetId}`)&&!['FAILED','CANCELLED','SUCCEEDED'].includes(action.status)&&Date.now()-Date.parse(action.created_at)<10*60_000);
+  if(existing)return existing;
   const created=await aiConversationRepository.createAction({
    conversation_id:conversationId,owner_user_id:userId,message_id:source.message_id,capability_id:source.capability_id,tool_label:source.tool_label,
    generation_prompt:source.generation_prompt,negative_prompt:source.negative_prompt,model_id:source.model_id,quantity:1,controls:source.controls,

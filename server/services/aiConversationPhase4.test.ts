@@ -46,9 +46,9 @@ describe('IA conversacional phase 4 quote confirmation credits',()=>{
   expect(service).toContain('betaJobOrchestrator.queue');
  });
 
- it('rejects expired quotes and keeps confirmation tied to the quoted job',()=>{
+ it('requotes expired confirmations and keeps execution tied to quoted jobs',()=>{
   const service=read('server/ai/conversation/actionService.ts');
-  expect(service).toContain('AI_ACTION_QUOTE_EXPIRED');
+  expect(service).toContain('return this.quote(userId,conversationId,actionId)');
   expect(service).toContain('action.job_id');
   expect(service).toContain('ai-action-queue:${action.action_id}:${index}:${item.job_id}');
  });

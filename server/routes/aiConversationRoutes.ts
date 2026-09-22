@@ -35,3 +35,12 @@ aiConversationRouter.post('/ai/conversations/:conversationId/actions/:actionId/r
  try{return res.status(201).json({success:true,data:await aiConversationActionService.regenerate(req.user!.uid,req.params.conversationId,req.params.actionId,String(req.body?.asset_id||''))});}
  catch(error){return failure(res,error,'Não foi possível preparar a regeneração deste resultado.');}
 });
+
+aiConversationRouter.post('/ai/conversations/:conversationId/actions/:actionId/retry',async(req:AuthenticatedRequest,res)=>{
+ try{return res.status(201).json({success:true,data:await aiConversationActionService.retryFailed(req.user!.uid,req.params.conversationId,req.params.actionId)});}
+ catch(error){return failure(res,error,'Não foi possível preparar uma nova tentativa.');}
+});
+aiConversationRouter.post('/ai/conversations/:conversationId/actions/:actionId/cancel',async(req:AuthenticatedRequest,res)=>{
+ try{return res.json({success:true,data:await aiConversationActionService.cancel(req.user!.uid,req.params.conversationId,req.params.actionId)});}
+ catch(error){return failure(res,error,'Não foi possível cancelar esta geração.');}
+});

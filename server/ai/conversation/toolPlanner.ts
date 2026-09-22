@@ -7,13 +7,17 @@ const cleanControls=(input:Record<string,any>,allowed:string[])=>{const out:Reco
 const normalize=(value:string)=>String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
 function resolveAssetReferences(terms:string[],context:AiConversationContext,capabilityId:string){
  const assets=(context.references||[]).filter(ref=>ref.kind==='ASSET'&&ref.asset_id);
+ const newest=[...assets].reverse();
  const chosen:any[]=[];const unresolved:string[]=[];
  for(const termRaw of terms){
-  const term=normalize(termRaw);let match=assets.find(ref=>normalize(ref.label)===term||normalize(ref.value)===term||normalize(ref.label).includes(term));
+  const term=normalize(termRaw);
+  const pronoun=/^(essa|esse|isto|isso|essa imagem|esse video|esse vídeo|a imagem|o video|o vídeo|ultima|última|ultimo|último|a ultima|a última|o ultimo|o último|anterior|a anterior|o anterior)$/i.test(term);
+  let match=pronoun?newest[0]:assets.find(ref=>normalize(ref.label)===term||normalize(ref.value)===term||normalize(ref.label).includes(term));
   if(!match){
    const n=Number(term.match(/\b(\d{1,2})\b/)?.[1]||0);
-   if(n>0)match=[...assets].reverse().find(ref=>String(ref.value||'').endsWith(`:result:${n}`));
+   if(n>0)match=newest.find(ref=>String(ref.value||'').endsWith(`:result:${n}`));
   }
+  if(!match&&/(imagem|frame|resultado|video|vídeo|asset)/.test(term)&&newest.length===1)match=newest[0];
   if(match&&!chosen.some(item=>item.asset_id===match.asset_id))chosen.push(match);else if(!match)unresolved.push(termRaw);
  }
  const mapped=chosen.map((ref,index)=>{

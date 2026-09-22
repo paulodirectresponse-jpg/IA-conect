@@ -27,4 +27,6 @@ export const aiConversationClient={
  confirmAction:(conversationId:string,actionId:string)=>apiRequest<AiConversationAction>(`/api/ai/conversations/${encodeURIComponent(conversationId)}/actions/${encodeURIComponent(actionId)}/confirm`,{method:'POST',body:'{}'}),
  refreshAction:(conversationId:string,actionId:string)=>apiRequest<AiConversationAction>(`/api/ai/conversations/${encodeURIComponent(conversationId)}/actions/${encodeURIComponent(actionId)}`),
  regenerateResult:(conversationId:string,actionId:string,assetId:string)=>apiRequest<AiConversationAction>(`/api/ai/conversations/${encodeURIComponent(conversationId)}/actions/${encodeURIComponent(actionId)}/regenerate`,{method:'POST',body:JSON.stringify({asset_id:assetId})}),
+ retryAction:(conversationId:string,actionId:string)=>apiRequest<AiConversationAction>(`/api/ai/conversations/${encodeURIComponent(conversationId)}/actions/${encodeURIComponent(actionId)}/retry`,{method:'POST',body:'{}'}),
+ cancelAction:(conversationId:string,actionId:string)=>apiRequest<AiConversationAction>(`/api/ai/conversations/${encodeURIComponent(conversationId)}/actions/${encodeURIComponent(actionId)}/cancel`,{method:'POST',body:'{}'}),
 };
