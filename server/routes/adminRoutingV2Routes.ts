@@ -9,6 +9,7 @@ import { routingV2PricingSettingsService } from '../routing-v2/pricingSettingsSe
 import { routingV2PriceSyncService } from '../routing-v2/priceSyncService.js';
 import { routingV2AdapterRegistry } from '../routing-v2/adapterRegistry.js';
 import { ensureRoutingV2LegacyAdapter } from '../routing-v2/legacyAdapterBridge.js';
+import { createRoutingV2LegacyWrapperAdapter } from '../routing-v2/legacyWrapperAdapter.js';
 import { routingV2ReadinessService } from '../routing-v2/readinessService.js';
 import { routingV2CutoverService } from '../routing-v2/cutoverService.js';
 import { routingV2ModelBootstrapService } from '../routing-v2/modelBootstrapService.js';
@@ -32,6 +33,7 @@ function adapterFor(provider:any){
   const registered=routingV2AdapterRegistry.get(provider.adapter_id);
   if(registered)return registered;
   if(String(provider.adapter_id||'').startsWith('legacy:'))return ensureRoutingV2LegacyAdapter(provider.provider_id);
+  if(String(provider.adapter_id||'').startsWith('wrapper:'))return createRoutingV2LegacyWrapperAdapter(provider.provider_id);
   return null;
 }
 function error(res:any,err:any,code='ROUTING_V2_ADMIN_ERROR'){
@@ -61,10 +63,11 @@ adminRoutingV2Router.get('/admin/routing-v2/providers/:providerId/catalog-models
     if(!provider)return res.status(404).json({success:false,error:{code:'ROUTING_V2_PROVIDER_NOT_FOUND',message:'Provider V2 não encontrado.'}});
     const adapter=adapterFor(provider);
     if(!adapter?.listModels)return res.status(409).json({success:false,error:{code:'ROUTING_V2_CATALOG_UNAVAILABLE',message:'Este provider não oferece catálogo de modelos pelo adapter V2.'}});
-    if(!adapter.isConfigured(provider))return res.status(409).json({success:false,error:{code:'ROUTING_V2_PROVIDER_NOT_CONFIGURED',message:'Provider V2 não está configurado.'}});
-    const q=String(req.query.q||'').trim().toLowerCase();
+    const rawQuery=String(req.query.q||'').trim();
+    if(provider.provider_id!=='provider-atlas'&&!adapter.isConfigured(provider))return res.status(409).json({success:false,error:{code:'ROUTING_V2_PROVIDER_NOT_CONFIGURED',message:'Provider V2 não está configurado.'}});
+    const q=rawQuery.toLowerCase();
     const limit=Math.min(100,Math.max(1,Number(req.query.limit)||50));
-    const rows=(await adapter.listModels(provider)).filter(row=>!q||row.name.toLowerCase().includes(q)||row.provider_model_identifier.toLowerCase().includes(q)).slice(0,limit);
+    const rows=(await adapter.listModels(provider,rawQuery)).filter(row=>!q||row.name.toLowerCase().includes(q)||row.provider_model_identifier.toLowerCase().includes(q)).slice(0,limit);
     return res.json({success:true,data:rows});
   }catch(err){return error(res,err,'ROUTING_V2_PROVIDER_CATALOG_FAILED');}
 });
