@@ -92,6 +92,7 @@ export interface AiModelTurn{
  conversation_summary:string;
  creative_state_delta:Partial<AiCreativeState>;
  reference_terms:string[];
+ tool_request:AiToolRequest|null;
 }
 
 
