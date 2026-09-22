@@ -1,7 +1,7 @@
 import React,{useEffect,useRef,useState}from'react';
 import{Bot,LoaderCircle,MessageSquarePlus,PanelLeftClose,PanelLeftOpen,Send,Trash2}from'lucide-react';
 import{ApiError}from'../../services/apiClient.js';
-import{aiConversationClient,type AiConversation,type AiConversationMessage}from'../../services/aiConversationClient.js';
+import{aiConversationClient,type AiConversation,type AiConversationContext,type AiConversationMessage}from'../../services/aiConversationClient.js';
 
 const errText=(error:any)=>error instanceof ApiError?error.message:error?.message||'Não foi possível concluir a operação.';
 const time=(iso:string)=>{const d=new Date(iso);return Number.isNaN(d.getTime())?'':d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});};
@@ -10,6 +10,7 @@ export const AiConversationView:React.FC=()=>{
  const[conversations,setConversations]=useState<AiConversation[]>([]);
  const[current,setCurrent]=useState<AiConversation|null>(null);
  const[messages,setMessages]=useState<AiConversationMessage[]>([]);
+ const[context,setContext]=useState<AiConversationContext|null>(null);
  const[input,setInput]=useState('');
  const[loading,setLoading]=useState(true);
  const[opening,setOpening]=useState(false);
@@ -20,18 +21,18 @@ export const AiConversationView:React.FC=()=>{
  const endRef=useRef<HTMLDivElement|null>(null);
 
  const refresh=async()=>{const rows=await aiConversationClient.list();setConversations(rows);return rows;};
- const open=async(id:string)=>{setOpening(true);setError('');try{const detail=await aiConversationClient.get(id);setCurrent(detail.conversation);setMessages(detail.messages);}catch(e){setError(errText(e));}finally{setOpening(false);}};
+ const open=async(id:string)=>{setOpening(true);setError('');try{const detail=await aiConversationClient.get(id);setCurrent(detail.conversation);setMessages(detail.messages);setContext(detail.context);}catch(e){setError(errText(e));}finally{setOpening(false);}};
  useEffect(()=>{let active=true;(async()=>{try{const rows=await aiConversationClient.list();if(!active)return;setConversations(rows);if(rows[0])await open(rows[0].conversation_id);}catch(e){if(active)setError(errText(e));}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
  useEffect(()=>{endRef.current?.scrollIntoView({behavior:'smooth',block:'end'});},[messages,sending]);
 
- const create=async()=>{if(creating)return;setCreating(true);setError('');try{const conversation=await aiConversationClient.create();setConversations(rows=>[conversation,...rows]);setCurrent(conversation);setMessages([]);setInput('');if(window.innerWidth<900)setSidebarOpen(false);}catch(e){setError(errText(e));}finally{setCreating(false);}};
- const remove=async(conversation:AiConversation)=>{if(!window.confirm(`Excluir "${conversation.title}"?`))return;setError('');try{await aiConversationClient.remove(conversation.conversation_id);const rows=await refresh();if(current?.conversation_id===conversation.conversation_id){setCurrent(null);setMessages([]);if(rows[0])await open(rows[0].conversation_id);}}catch(e){setError(errText(e));}};
+ const create=async()=>{if(creating)return;setCreating(true);setError('');try{const conversation=await aiConversationClient.create();setConversations(rows=>[conversation,...rows]);setCurrent(conversation);setMessages([]);setContext(null);setInput('');if(window.innerWidth<900)setSidebarOpen(false);}catch(e){setError(errText(e));}finally{setCreating(false);}};
+ const remove=async(conversation:AiConversation)=>{if(!window.confirm(`Excluir "${conversation.title}"?`))return;setError('');try{await aiConversationClient.remove(conversation.conversation_id);const rows=await refresh();if(current?.conversation_id===conversation.conversation_id){setCurrent(null);setMessages([]);setContext(null);if(rows[0])await open(rows[0].conversation_id);}}catch(e){setError(errText(e));}};
  const send=async()=>{const content=input.trim();if(!content||sending)return;let conversation=current;setError('');setInput('');setSending(true);try{
    if(!conversation){conversation=await aiConversationClient.create();setCurrent(conversation);setConversations(rows=>[conversation!,...rows]);}
    const optimistic:AiConversationMessage={message_id:`temp_${Date.now()}`,conversation_id:conversation.conversation_id,owner_user_id:'',role:'USER',content,model_id:null,created_at:new Date().toISOString()};
    setMessages(rows=>[...rows,optimistic]);
    const result=await aiConversationClient.send(conversation.conversation_id,content);
-   setCurrent(result.conversation);
+   setCurrent(result.conversation);setContext(result.context);
    setMessages(rows=>[...rows.filter(row=>row.message_id!==optimistic.message_id),result.user_message,result.assistant_message]);
    setConversations(rows=>[result.conversation,...rows.filter(row=>row.conversation_id!==result.conversation.conversation_id)]);
   }catch(e){setMessages(rows=>rows.filter(row=>!row.message_id.startsWith('temp_')));setInput(content);setError(errText(e));}finally{setSending(false);}
@@ -48,7 +49,8 @@ export const AiConversationView:React.FC=()=>{
   <section className="relative flex min-w-0 flex-1 flex-col">
    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-[#071019]/92 px-3 backdrop-blur-xl">
     <button type="button" onClick={()=>setSidebarOpen(open=>!open)} className="grid h-8 w-8 place-items-center rounded-xl border border-white/[0.07] text-zinc-500 hover:text-white lg:hidden" aria-label="Alternar conversas">{sidebarOpen?<PanelLeftClose className="h-4 w-4"/>:<PanelLeftOpen className="h-4 w-4"/>}</button>
-    <div className="min-w-0"><strong className="block truncate text-[11px] text-white">{current?.title||'IA Connect'}</strong><span className="block text-[8px] font-semibold uppercase tracking-[.12em] text-cyan-300/70">IA Connect · modelo conversacional</span></div>
+    <div className="min-w-0 flex-1"><strong className="block truncate text-[11px] text-white">{current?.title||'IA Connect'}</strong><span className="block text-[8px] font-semibold uppercase tracking-[.12em] text-cyan-300/70">IA Connect · modelo conversacional</span></div>
+    {context&&<span title={context.missing_information?.join(' · ')||''} className={`hidden rounded-full border px-2 py-1 text-[7px] font-bold uppercase tracking-[.08em] sm:inline-flex ${context.readiness==='READY_FOR_ACTION'?'border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-300':context.readiness==='NEEDS_CLARIFICATION'?'border-amber-300/15 bg-amber-300/[0.06] text-amber-300':'border-white/[0.07] bg-white/[0.03] text-zinc-500'}`}>{context.readiness==='READY_FOR_ACTION'?'Pedido entendido':context.readiness==='NEEDS_CLARIFICATION'?'Faltam detalhes':'Conversando'}</span>}
    </header>
 
    {error&&<div role="alert" className="mx-3 mt-3 rounded-xl border border-rose-400/15 bg-rose-500/[0.06] px-3 py-2 text-[9px] text-rose-300">{error}</div>}
@@ -67,7 +69,7 @@ export const AiConversationView:React.FC=()=>{
       <textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send();}}} rows={1} placeholder="Converse com a IA Connect…" className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-[11px] leading-5 text-white outline-none placeholder:text-zinc-700"/>
       <button type="button" onClick={()=>void send()} disabled={!input.trim()||sending} aria-label="Enviar mensagem" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-300 text-[#041019] disabled:opacity-30">{sending?<LoaderCircle className="h-4 w-4 animate-spin"/>:<Send className="h-4 w-4"/>}</button>
      </div>
-     <p className="mt-2 text-center text-[7px] text-zinc-700">Nesta primeira versão, a IA conversa e organiza o que você quer criar. A execução das ferramentas será conectada nas próximas fases.</p>
+     <p className="mt-2 text-center text-[7px] text-zinc-700">A IA preserva o contexto desta conversa e identifica quando seu pedido já está pronto para uma futura ação.</p>
     </div>
    </div>
   </section>
