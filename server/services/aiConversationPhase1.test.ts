@@ -33,7 +33,8 @@ describe('IA conversacional phase 1',()=>{
   const service=read('server/ai/conversation/conversationService.ts');
   expect(service).toContain("role:'USER'");
   expect(service).toContain("role:'ASSISTANT'");
-  expect(service).toContain('.slice(-40)');
+  const context=read('server/ai/conversation/contextEngine.ts');
+  expect(context).toContain('messages.slice(-40)');
   expect(service).toContain('message_count');
  });
 
