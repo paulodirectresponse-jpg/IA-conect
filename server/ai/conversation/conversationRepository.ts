@@ -36,7 +36,7 @@ export const aiConversationRepository={
   return next;
  },
  async listMessages(conversationIdValue:string){
-  const rows=await firestoreAdminRest.runQuery({from:[{collectionId:MESSAGES}],where:{fieldFilter:{field:{fieldPath:'conversation_id'},op:'EQUAL',value:{stringValue:conversationIdValue}}},limit:500});
+  const rows=await firestoreAdminRest.runQuery({from:[{collectionId:MESSAGES}],where:{fieldFilter:{field:{fieldPath:'conversation_id'},op:'EQUAL',value:{stringValue:conversationIdValue}}}});
   return rows.map((row:any)=>row.data as AiConversationMessage).sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at));
  },
  async addMessage(input:Omit<AiConversationMessage,'message_id'|'created_at'>){
@@ -50,6 +50,13 @@ export const aiConversationRepository={
   const row=doc.data as AiConversationContext;
   return row.owner_user_id===userId?row:null;
  },
+ async getContextVersioned(userId:string,conversationIdValue:string){
+  const doc=await firestoreAdminRest.get(`${CONTEXTS}/${safe(conversationIdValue)}`);
+  if(!doc.exists)return null;
+  const row=doc.data as AiConversationContext;
+  if(row.owner_user_id!==userId)return null;
+  return{context:row,updateTime:String(doc.updateTime||'')};
+ },
  async createContext(input:Omit<AiConversationContext,'revision'|'created_at'|'updated_at'>){
   const timestamp=now();const row:AiConversationContext={...input,revision:1,created_at:timestamp,updated_at:timestamp};
   await firestoreAdminRest.set(`${CONTEXTS}/${safe(row.conversation_id)}`,row);return row;
@@ -59,12 +66,21 @@ export const aiConversationRepository={
   const next={...row,revision:row.revision+1,updated_at:now()};
   await firestoreAdminRest.set(`${CONTEXTS}/${safe(row.conversation_id)}`,next);return next;
  },
+ async saveContextConditional(userId:string,row:AiConversationContext,updateTime:string){
+  if(row.owner_user_id!==userId)throw Object.assign(new Error('Contexto da conversa inválido.'),{code:'AI_CONVERSATION_CONTEXT_FORBIDDEN'});
+  const next={...row,revision:row.revision+1,updated_at:now()};
+  await firestoreAdminRest.commit([{
+   update:{name:firestoreAdminRest.docName(`${CONTEXTS}/${safe(row.conversation_id)}`),fields:firestoreAdminRest.fields(next)},
+   currentDocument:{updateTime},
+  }]);
+  return next;
+ },
  async createAction(input:Omit<AiConversationActionDraft,'action_id'|'created_at'|'updated_at'>){
   const timestamp=now();const row:AiConversationActionDraft={...input,action_id:actionId(),created_at:timestamp,updated_at:timestamp};
   await firestoreAdminRest.set(`${ACTIONS}/${safe(row.action_id)}`,row);return row;
  },
  async listActions(userId:string,conversationIdValue:string){
-  const rows=await firestoreAdminRest.runQuery({from:[{collectionId:ACTIONS}],where:{fieldFilter:{field:{fieldPath:'conversation_id'},op:'EQUAL',value:{stringValue:conversationIdValue}}},limit:200});
+  const rows=await firestoreAdminRest.runQuery({from:[{collectionId:ACTIONS}],where:{fieldFilter:{field:{fieldPath:'conversation_id'},op:'EQUAL',value:{stringValue:conversationIdValue}}}});
   return rows.map((row:any)=>actionDefaults(row.data as AiConversationActionDraft)).filter(row=>row.owner_user_id===userId).sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at));
  },
  async getAction(userId:string,conversationIdValue:string,actionIdValue:string){
