@@ -34,7 +34,7 @@ export const AdminView:React.FC=()=>{
  const[activeTab,setActiveTab]=useState<AdminTab>('overview');
 
  const tabs=useMemo(()=>[
-  {id:'overview' as const,label:'Visão geral',short:'Resumo operacional',icon:LayoutDashboard},
+  {id:'overview' as const,label:'Visão geral',short:'Saúde operacional e resumo executivo',icon:LayoutDashboard},
   {id:'ai-routing' as const,label:'IA & Roteamento',short:'Modelos, providers e rotas',icon:BrainCircuit},
   {id:'finance' as const,label:'Financeiro',short:'Receita, custos e margem',icon:Coins},
   {id:'users' as const,label:'Usuários',short:'Contas, créditos e benefícios',icon:Users},
