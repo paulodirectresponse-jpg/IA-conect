@@ -11,6 +11,8 @@ export interface BetaFlowValue{
   asset_ids?:string[];
   structured?:Record<string,any>|null;
   source_node_id?:string|null;
+  source_port?:string|null;
+  target_port?:string|null;
 }
 export interface BetaFlowRun{
   run_id:string;
