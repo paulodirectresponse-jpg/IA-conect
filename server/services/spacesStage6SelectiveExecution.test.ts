@@ -9,7 +9,7 @@ describe('Spaces stage 6 selective execution',()=>{
   const types=read('server/beta/flows/flowRuntimeTypes.ts');
   expect(planner).toContain("FlowExecutionMode='FULL'|'NODE'|'DOWNSTREAM'");
   expect(planner).toContain("if(mode==='FULL')");
-  expect(planner).toContain("mode==='NODE'?new Set([target]):descendants");
+  expect(planner).toContain("mode==='NODE'?new Set([target]):flowDescendants");
   expect(types).toContain("execution_mode?:'FULL'|'NODE'|'DOWNSTREAM'");
   expect(types).toContain('target_node_id?:string|null');
  });
