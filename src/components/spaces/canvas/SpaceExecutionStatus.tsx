@@ -1,13 +1,13 @@
 import React from'react';
 import{Check,GitBranch,LoaderCircle,RotateCcw,X}from'lucide-react';
-import type{FlowRunView}from'../../../beta/flowRuntimeClient.js';
+import type{FlowNodeRunView,FlowRunView}from'../../../beta/flowRuntimeClient.js';
 
 interface Props{run:FlowRunView|null;onRetry?:()=>void;onDismiss?:()=>void;}
 
 export const SpaceExecutionStatus:React.FC<Props>=({run,onRetry,onDismiss})=>{
  if(!run)return null;
  const order=run.execution_order?.length?run.execution_order:run.active_node_ids||[];
- const runs=new Map((run.node_runs||[]).map(item=>[item.node_id,item]));
+ const runs=new Map<string,FlowNodeRunView>((run.node_runs||[]).map(item=>[item.node_id,item]));
  const done=order.filter(id=>runs.get(id)?.status==='SUCCEEDED').length;
  const failed=order.filter(id=>runs.get(id)?.status==='FAILED').length;
  const running=order.filter(id=>runs.get(id)?.status==='RUNNING').length;
