@@ -27,7 +27,7 @@ export const aiConversationToolPlanner={
    quantity:Math.max(1,Math.min(16,Math.round(Number(request.quantity||1)))),
    controls:cleanControls(request.controls||{},tool.controls),reference_terms:refs,unresolved_references:unresolved,
    compatible_model_ids:compatibleModelIds,status:availability.available?'DRAFT':'UNAVAILABLE',unavailable_reason:unavailableReason,
-   job_id:null,selected_model_id:null,quote_credit_price:null,quote_expires_at:null,confirmed_at:null,result_asset_ids:[],error_code:null,error_message:null,
+   job_id:null,selected_model_id:null,quote_credit_price:null,quote_expires_at:null,confirmed_at:null,result_asset_ids:[],result_assets:[],execution_jobs:[],parent_action_id:null,error_code:null,error_message:null,
   });
   return{action,tool_request:request};
  },
