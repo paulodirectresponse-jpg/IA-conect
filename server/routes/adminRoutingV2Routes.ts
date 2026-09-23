@@ -83,12 +83,43 @@ function catalogVendor(value:any){
   }
   return'';
 }
-function catalogKey(name:string,vendor=''){
+const IMAGE_CAPABILITIES=new Set(['text-to-image','image-to-image','image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations']);
+const NON_IMAGE_HINT=/(?:^|[\/_-])(video|3d|audio|tts|speech|music|voice|lip-?sync)(?:$|[\/_-])/i;
+const IMAGE_SUFFIXES:Array<[RegExp,string]>=[
+  [/(?:\/|-)(text-to-image)$/i,'text-to-image'],
+  [/(?:\/|-)(image-to-image)$/i,'image-to-image'],
+  [/(?:\/|-)(edit|image-edit)$/i,'image-edit'],
+  [/(?:\/|-)(inpaint|inpainting)$/i,'inpaint-mask'],
+  [/(?:\/|-)(outpaint|outpainting)$/i,'outpaint'],
+  [/(?:\/|-)(upscale|upscaler)$/i,'upscale'],
+  [/(?:\/|-)(variation|variations)$/i,'variations'],
+  [/(?:\/|-)(background-remove|remove-background|background-replace|replace-background)$/i,'background-remove-replace'],
+];
+function inferImageCapabilities(row:any){
+  const explicit=(Array.isArray(row?.capabilities)?row.capabilities:[]).map(String).filter((cap:string)=>IMAGE_CAPABILITIES.has(cap));
+  if(explicit.length)return Array.from(new Set(explicit));
+  const raw=`${String(row?.name||'')} ${String(row?.provider_model_identifier||'')} ${String(row?.metadata?.type||'')} ${String(row?.metadata?.category||'')}`;
+  if(NON_IMAGE_HINT.test(raw))return[];
+  for(const[suffix,capability]of IMAGE_SUFFIXES)if(suffix.test(raw))return[capability];
+  if(/image/i.test(raw))return['text-to-image'];
+  return[];
+}
+function catalogBase(value:string){
+  let base=String(value||'').trim();
+  for(const[suffix]of IMAGE_SUFFIXES)base=base.replace(suffix,'');
+  return base.replace(/\/+$/,'').trim();
+}
+function catalogDisplayName(name:string,identifier:string){
+  const base=catalogBase(name)||catalogBase(identifier);
+  const withoutNamespace=base.includes('/')?base.split('/').slice(-1)[0]:base;
+  return withoutNamespace.replace(/[-_]+/g,' ').replace(/\b\w/g,m=>m.toUpperCase()).trim();
+}
+function catalogKey(name:string,identifier:string,vendor=''){
+  const base=catalogBase(identifier)||catalogBase(name);
   const strip=(value:string)=>String(value||'').toLowerCase()
-    .replace(/\b(openai|google|bytedance|black forest labs|bfl|alibaba|ideogram|recraft|krea|meta|luma|xai)\b/g,' ')
-    .replace(/\b(pro|dev|fast|turbo|lite|max|standard)\b/g,m=>m)
-    .replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,'-');
-  return strip(name)||strip(vendor);
+    .replace(/^(openai|google|bytedance|black-forest-labs|bfl|alibaba|ideogram|recraft|krea|meta|luma|xai)\//,'')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  return strip(base)||strip(name)||strip(vendor);
 }
 adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,res)=>{
   try{
@@ -106,21 +137,23 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
       const provider=providers[index];
       if(result.status==='rejected'){failures.push({provider_id:provider.provider_id,message:String((result.reason as any)?.message||result.reason)});return;}
       for(const row of result.value.rows){
-        const name=String(row?.name||row?.provider_model_identifier||'').trim();
-        if(!name)continue;
+        const rawName=String(row?.name||row?.provider_model_identifier||'').trim();
+        const identifier=String(row?.provider_model_identifier||'').trim();
+        if(!rawName||!identifier)continue;
+        const imageCapabilities=inferImageCapabilities(row);
+        if(!imageCapabilities.length)continue;
         const vendor=catalogVendor(row?.vendor)||catalogVendor(row?.metadata?.provider)||catalogVendor(row?.metadata?.creator);
-        const key=catalogKey(name,vendor);
+        const key=catalogKey(rawName,identifier,vendor);
         if(!key)continue;
-        const current=grouped.get(key)||{catalog_key:key,name,vendor,capabilities:[],providers:[]};
-        const score=(v:string)=>v.length;
-        if(score(name)<score(current.name)||current.name===current.catalog_key)current.name=name;
+        const displayName=catalogDisplayName(rawName,identifier)||rawName;
+        const current=grouped.get(key)||{catalog_key:key,name:displayName,vendor,capabilities:[],providers:[]};
         if(!current.vendor&&vendor)current.vendor=vendor;
-        current.capabilities=Array.from(new Set([...(current.capabilities||[]),...(row?.capabilities||[])]));
+        current.capabilities=Array.from(new Set([...(current.capabilities||[]),...imageCapabilities]));
         current.providers.push({
           provider_id:provider.provider_id,
           provider_name:provider.name,
-          provider_model_identifier:String(row.provider_model_identifier||''),
-          capabilities:row?.capabilities||[],
+          provider_model_identifier:identifier,
+          capabilities:imageCapabilities,
           metadata:row?.metadata||{},
         });
         grouped.set(key,current);
@@ -161,7 +194,8 @@ adminRoutingV2Router.post('/admin/routing-v2/models/bulk-import',...guard,async(
           const providerId=String(binding?.provider_id||'').trim();
           const identifier=String(binding?.provider_model_identifier||'').trim();
           if(!providerId||!identifier)continue;
-          for(const capability of capabilities){
+          const bindingCapabilities=(Array.isArray(binding?.capabilities)?binding.capabilities:capabilities).map(String).filter((capability:string)=>capabilities.includes(capability)&&isCapabilityId(capability));
+          for(const capability of bindingCapabilities){
             try{
               const route=await routingV2RouteService.create({
                 model_id:modelId,
