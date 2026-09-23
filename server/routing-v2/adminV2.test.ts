@@ -85,6 +85,20 @@ describe('Routing Core V2 Admin',()=>{
   });
 
 
+
+  it('groups image endpoint variants into one logical model with capability-specific bindings',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+    expect(routes).toContain('IMAGE_SUFFIXES');
+    expect(routes).toContain("'text-to-image'");
+    expect(routes).toContain("'image-edit'");
+    expect(routes).toContain('NON_IMAGE_HINT');
+    expect(routes).toContain('catalogBase(identifier)');
+    expect(routes).toContain('bindingCapabilities');
+    expect(view).toContain('capabilities:p.capabilities');
+    expect(view).toContain('new Map(row.providers.map(p=>[p.provider_id,p]))');
+  });
+
   it('supports unified provider catalog and bulk model import',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     const view=read('src/components/admin/AdminRoutingV2.tsx');
