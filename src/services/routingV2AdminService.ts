@@ -26,7 +26,8 @@ export interface RoutingV2RouteAdmin{
 export interface RoutingV2CatalogModelAdmin{provider_model_identifier:string;name:string;vendor?:string|null;capabilities?:string[];metadata?:Record<string,unknown>;}
 export interface RoutingV2UnifiedCatalogProviderAdmin{provider_id:string;provider_name:string;provider_model_identifier:string;capabilities:string[];metadata?:Record<string,unknown>;}
 export interface RoutingV2UnifiedCatalogModelAdmin{catalog_key:string;name:string;vendor:string;capabilities:string[];providers:RoutingV2UnifiedCatalogProviderAdmin[];}
-export interface RoutingV2UnifiedCatalogResponseAdmin{rows:RoutingV2UnifiedCatalogModelAdmin[];failures:Array<{provider_id:string;message:string}>;}
+export interface RoutingV2UnifiedCatalogDiagnosticAdmin{provider_id:string;provider_name:string;status:'OK'|'ERROR';count:number;attempts?:number;message?:string;}
+export interface RoutingV2UnifiedCatalogResponseAdmin{rows:RoutingV2UnifiedCatalogModelAdmin[];failures:Array<{provider_id:string;message:string}>;provider_diagnostics:RoutingV2UnifiedCatalogDiagnosticAdmin[];}
 export interface RoutingV2BulkImportResultAdmin{created_models:string[];existing_models:string[];created_routes:string[];skipped_routes:string[];failed:Array<{model_id:string;error:string}>;}
 export interface RoutingV2PricingSettingsAdmin{target_margin_percent:number;safety_buffer_percent:number;reference_credit_value_brl:number;price_sync_interval_minutes:number;price_freshness_ttl_minutes:number;stale_grace_minutes:number;updated_at:string;}
 export interface RoutingV2ReadinessAdmin{
