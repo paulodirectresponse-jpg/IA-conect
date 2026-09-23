@@ -62,7 +62,9 @@ export async function listRunwareCatalogModels(query=''):Promise<RoutingV2Catalo
 
   const url=String(process.env.RUNWARE_BASE_URL||'https://api.runware.ai/v1').replace(/\/+$/,'');
   const taskUUID=crypto.randomUUID();
-  const search=clean(query)||'a';
+  const rawSearch=clean(query);
+  const search=(rawSearch||'ai').slice(0,48);
+  if(search.length<2)throw Object.assign(new Error('Busca Runware deve ter entre 2 e 48 caracteres.'),{code:'ROUTING_V2_RUNWARE_SEARCH_INVALID'});
   const body=await readJson(url,{
     method:'POST',
     headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},
