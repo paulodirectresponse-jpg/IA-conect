@@ -88,6 +88,21 @@ describe('Routing Core V2 Admin',()=>{
 
 
 
+
+  it('fetches Atlas and Runware directly in unified catalog and exposes diagnostics',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+    const client=read('src/services/routingV2AdminService.ts');
+    expect(routes).toContain("provider.provider_id==='provider-atlas'");
+    expect(routes).toContain('listAtlasCatalogModels()');
+    expect(routes).toContain("provider.provider_id==='provider-runware'");
+    expect(routes).toContain('listRunwareCatalogModels(term)');
+    expect(routes).toContain('provider_diagnostics');
+    expect(view).toContain('catalogDiagnostics');
+    expect(view).toContain('resultado(s)');
+    expect(client).toContain('RoutingV2UnifiedCatalogDiagnosticAdmin');
+  });
+
   it('resolves provider-specific image slugs and AIR ids to the same canonical model',()=>{
     expect(resolveCanonicalImageModel('GPT Image 2','openai:gpt-image@2','OpenAI')?.canonical_id).toBe('gpt-image-2');
     expect(resolveCanonicalImageModel('openai/gpt-image-2/text-to-image','openai/gpt-image-2/text-to-image','OpenAI')?.canonical_id).toBe('gpt-image-2');
