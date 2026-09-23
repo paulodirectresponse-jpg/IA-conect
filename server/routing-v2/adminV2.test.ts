@@ -74,7 +74,9 @@ describe('Routing Core V2 Admin',()=>{
     expect(wrapper).toContain('listRunwareCatalogModels');
     expect(catalog).toContain('/api/v1/models');
     expect(catalog).toContain("taskType:'modelSearch'");
-    expect(catalog).toContain("const search=clean(query)||'a'");
+    expect(catalog).toContain("const rawSearch=clean(query)");
+    expect(catalog).toContain("const search=(rawSearch||'ai').slice(0,48)");
+    expect(catalog).toContain("if(search.length<2)");
     expect(catalog).not.toContain("source:'featured'");
     expect(catalog).toContain("visibility:'public'");
     expect(catalog).toContain("sort:'popularity'");
