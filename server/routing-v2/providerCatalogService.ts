@@ -30,7 +30,18 @@ async function readJson(url:string,init?:RequestInit){
   }
 }
 
-function clean(value:any){return String(value??'').trim();}
+function clean(value:any){
+  if(value==null)return'';
+  if(typeof value==='string'||typeof value==='number'||typeof value==='boolean')return String(value).trim();
+  if(typeof value==='object'){
+    for(const key of ['name','displayName','display_name','provider','vendor','creator','slug','id']){
+      const nested=(value as any)?.[key];
+      if(typeof nested==='string'||typeof nested==='number')return String(nested).trim();
+    }
+    return'';
+  }
+  return String(value).trim();
+}
 
 export async function listAtlasCatalogModels():Promise<RoutingV2CatalogModel[]>{
   const base=trimBase(process.env.ATLAS_BASE_URL,'https://api.atlascloud.ai');
