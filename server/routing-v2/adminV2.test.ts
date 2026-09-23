@@ -74,8 +74,11 @@ describe('Routing Core V2 Admin',()=>{
     expect(wrapper).toContain('listRunwareCatalogModels');
     expect(catalog).toContain('/api/v1/models');
     expect(catalog).toContain("taskType:'modelSearch'");
-    expect(catalog).toContain("source:'featured'");
+    expect(catalog).toContain("const search=clean(query)||'a'");
+    expect(catalog).not.toContain("source:'featured'");
     expect(catalog).toContain("visibility:'public'");
+    expect(catalog).toContain("sort:'popularity'");
+    expect(catalog).toContain("body?.errors");
     expect(providers).toContain("await this.update(input.provider_id,{adapter_id:input.adapter_id,priority:input.priority})");
   });
 
