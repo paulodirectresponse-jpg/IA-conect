@@ -115,7 +115,7 @@ function catalogDisplayName(name:string,identifier:string){
   return withoutNamespace.replace(/[-_]+/g,' ').replace(/\b\w/g,m=>m.toUpperCase()).trim();
 }
 function catalogKey(name:string,identifier:string,vendor=''){
-  const base=catalogBase(identifier)||catalogBase(name);
+  const base=catalogBase(name)||catalogBase(identifier);
   const strip=(value:string)=>String(value||'').toLowerCase()
     .replace(/^(openai|google|bytedance|black-forest-labs|bfl|alibaba|ideogram|recraft|krea|meta|luma|xai)\//,'')
     .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
