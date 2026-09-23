@@ -158,22 +158,23 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         const rawName=String(row?.name||row?.provider_model_identifier||'').trim();
         const identifier=String(row?.provider_model_identifier||'').trim();
         if(!rawName||!identifier)continue;
-        const imageCapabilities=inferImageCapabilities(row);
-        if(!imageCapabilities.length)continue;
         const detectedVendor=catalogVendor(row?.vendor)||catalogVendor(row?.metadata?.provider)||catalogVendor(row?.metadata?.creator);
         const canonical=resolveCanonicalImageModel(rawName,identifier,detectedVendor);
+        const imageCapabilities=inferImageCapabilities(row);
+        const resolvedCapabilities=imageCapabilities.length?imageCapabilities:(canonical?.default_capabilities||[]);
+        if(!resolvedCapabilities.length)continue;
         const vendor=canonical?.vendor||detectedVendor;
         const key=canonical?.canonical_id||catalogKey(rawName,identifier,vendor);
         if(!key)continue;
         const displayName=canonical?.display_name||catalogDisplayName(rawName,identifier)||rawName;
         const current=grouped.get(key)||{catalog_key:key,name:displayName,vendor,capabilities:[],providers:[]};
         if(!current.vendor&&vendor)current.vendor=vendor;
-        current.capabilities=Array.from(new Set([...(current.capabilities||[]),...imageCapabilities]));
+        current.capabilities=Array.from(new Set([...(current.capabilities||[]),...resolvedCapabilities]));
         current.providers.push({
           provider_id:provider.provider_id,
           provider_name:provider.name,
           provider_model_identifier:identifier,
-          capabilities:imageCapabilities,
+          capabilities:resolvedCapabilities,
           metadata:row?.metadata||{},
         });
         grouped.set(key,current);
