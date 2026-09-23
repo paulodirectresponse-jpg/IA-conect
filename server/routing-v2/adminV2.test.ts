@@ -84,6 +84,28 @@ describe('Routing Core V2 Admin',()=>{
     expect(providers).toContain("await this.update(input.provider_id,{adapter_id:input.adapter_id,priority:input.priority})");
   });
 
+
+  it('supports unified provider catalog and bulk model import',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+    const client=read('src/services/routingV2AdminService.ts');
+    expect(routes).toContain('/admin/routing-v2/catalog-unified');
+    expect(routes).toContain('/admin/routing-v2/models/bulk-import');
+    expect(routes).toContain("mapping_source:'PROVIDER_CATALOG_API'");
+    expect(routes).toContain('Promise.allSettled');
+    expect(view).toContain('Catálogo unificado de modelos');
+    expect(view).toContain('Configurar selecionados');
+    expect(view).toContain('Bindings encontrados');
+    expect(client).toContain('searchUnifiedCatalog');
+    expect(client).toContain('bulkImportModels');
+  });
+
+  it('normalizes catalog vendor objects instead of rendering object Object',()=>{
+    const catalog=read('server/routing-v2/providerCatalogService.ts');
+    expect(catalog).toContain("for(const key of ['name','displayName','display_name','provider','vendor','creator','slug','id'])");
+    expect(catalog).toContain("if(typeof value==='object')");
+  });
+
   it('never accepts API keys through the V2 admin provider form',()=>{
     const view=read('src/components/admin/AdminRoutingV2.tsx');
     const routes=read('server/routes/adminRoutingV2Routes.ts');
