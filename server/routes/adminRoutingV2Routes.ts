@@ -18,6 +18,7 @@ import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapServ
 import { routingV2SmartRouter } from '../routing-v2/smartRouter.js';
 import { factoryResetService } from '../services/factoryResetService.js';
 import { catalogSearchTerms, resolveCanonicalImageModel } from '../routing-v2/imageCatalogCanonical.js';
+import { listAtlasCatalogModels, listRunwareCatalogModels } from '../routing-v2/providerCatalogService.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -125,35 +126,47 @@ function catalogKey(name:string,identifier:string,vendor=''){
 adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,res)=>{
   try{
     const query=String(req.query.q||'').trim();
-    const providers=(await routingV2ProviderService.list()).filter(p=>p.status!=='DISABLED'&&Boolean(adapterFor(p)?.listModels));
+    const allProviders=await routingV2ProviderService.list();
+    const providerMap=new Map(allProviders.map(p=>[p.provider_id,p]));
+    const providers=['provider-wavespeed','provider-atlas','provider-runware']
+      .map(id=>providerMap.get(id))
+      .filter((p):p is NonNullable<typeof p>=>Boolean(p&&p.status!=='DISABLED'));
     const terms=catalogSearchTerms(query);
     const settled=await Promise.allSettled(providers.map(async provider=>{
-      const adapter=adapterFor(provider);
-      if(!adapter?.listModels)return{provider,rows:[] as any[]};
-      if(provider.provider_id!=='provider-atlas'&&!adapter.isConfigured(provider))return{provider,rows:[] as any[]};
-      const searchTerms=provider.provider_id==='provider-runware'?terms:[query];
-      const attempts=await Promise.allSettled(searchTerms.map(term=>adapter.listModels!(provider,term)));
       const rows:any[]=[];
       const seen=new Set<string>();
-      for(const attempt of attempts){
-        if(attempt.status!=='fulfilled')continue;
-        for(const row of attempt.value){
+      const pushRows=(items:any[])=>{
+        for(const row of items){
           const key=String(row?.provider_model_identifier||'').trim();
           if(!key||seen.has(key))continue;
           seen.add(key);rows.push(row);
         }
+      };
+      if(provider.provider_id==='provider-atlas'){
+        pushRows(await listAtlasCatalogModels());
+        return{provider,rows,attempts:1};
       }
-      if(!rows.length&&attempts.some(attempt=>attempt.status==='rejected')){
-        const failure=attempts.find(attempt=>attempt.status==='rejected') as PromiseRejectedResult|undefined;
-        if(failure)throw failure.reason;
+      if(provider.provider_id==='provider-runware'){
+        const attempts=await Promise.allSettled(terms.map(term=>listRunwareCatalogModels(term)));
+        for(const attempt of attempts)if(attempt.status==='fulfilled')pushRows(attempt.value);
+        if(!rows.length){
+          const failure=attempts.find(attempt=>attempt.status==='rejected') as PromiseRejectedResult|undefined;
+          if(failure)throw failure.reason;
+        }
+        return{provider,rows,attempts:attempts.length};
       }
-      return{provider,rows};
+      const adapter=adapterFor(provider);
+      if(!adapter?.listModels)throw new Error('Adapter WaveSpeed sem catálogo.');
+      pushRows(await adapter.listModels(provider,query));
+      return{provider,rows,attempts:1};
     }));
     const grouped=new Map<string,any>();
     const failures:any[]=[];
+    const providerDiagnostics:any[]=[];
     settled.forEach((result,index)=>{
       const provider=providers[index];
-      if(result.status==='rejected'){failures.push({provider_id:provider.provider_id,message:String((result.reason as any)?.message||result.reason)});return;}
+      if(result.status==='rejected'){const message=String((result.reason as any)?.message||result.reason);failures.push({provider_id:provider.provider_id,message});providerDiagnostics.push({provider_id:provider.provider_id,provider_name:provider.name,status:'ERROR',count:0,message});return;}
+      providerDiagnostics.push({provider_id:provider.provider_id,provider_name:provider.name,status:'OK',count:result.value.rows.length,attempts:result.value.attempts});
       for(const row of result.value.rows){
         const rawName=String(row?.name||row?.provider_model_identifier||'').trim();
         const identifier=String(row?.provider_model_identifier||'').trim();
@@ -184,7 +197,7 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
       .filter((row:any)=>!query||row.name.toLowerCase().includes(query.toLowerCase())||row.providers.some((p:any)=>p.provider_model_identifier.toLowerCase().includes(query.toLowerCase())))
       .sort((a:any,b:any)=>b.providers.length-a.providers.length||a.name.localeCompare(b.name))
       .slice(0,200);
-    return res.json({success:true,data:{rows,failures}});
+    return res.json({success:true,data:{rows,failures,provider_diagnostics:providerDiagnostics}});
   }catch(err){return error(res,err,'ROUTING_V2_UNIFIED_CATALOG_FAILED');}
 });
 
