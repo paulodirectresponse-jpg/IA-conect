@@ -72,6 +72,121 @@ adminRoutingV2Router.get('/admin/routing-v2/providers/:providerId/catalog-models
   }catch(err){return error(res,err,'ROUTING_V2_PROVIDER_CATALOG_FAILED');}
 });
 
+
+function catalogVendor(value:any){
+  if(value==null)return'';
+  if(typeof value==='string'||typeof value==='number')return String(value).trim();
+  if(typeof value==='object'){
+    for(const key of ['name','displayName','display_name','provider','vendor','creator','slug','id']){
+      const nested=value?.[key];if(typeof nested==='string'||typeof nested==='number')return String(nested).trim();
+    }
+  }
+  return'';
+}
+function catalogKey(name:string,vendor=''){
+  const strip=(value:string)=>String(value||'').toLowerCase()
+    .replace(/\b(openai|google|bytedance|black forest labs|bfl|alibaba|ideogram|recraft|krea|meta|luma|xai)\b/g,' ')
+    .replace(/\b(pro|dev|fast|turbo|lite|max|standard)\b/g,m=>m)
+    .replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,'-');
+  return strip(name)||strip(vendor);
+}
+adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,res)=>{
+  try{
+    const query=String(req.query.q||'').trim();
+    const providers=(await routingV2ProviderService.list()).filter(p=>p.status!=='DISABLED'&&p.supports_catalog_sync);
+    const settled=await Promise.allSettled(providers.map(async provider=>{
+      const adapter=adapterFor(provider);
+      if(!adapter?.listModels)return{provider,rows:[] as any[]};
+      if(provider.provider_id!=='provider-atlas'&&!adapter.isConfigured(provider))return{provider,rows:[] as any[]};
+      return{provider,rows:await adapter.listModels(provider,query)};
+    }));
+    const grouped=new Map<string,any>();
+    const failures:any[]=[];
+    settled.forEach((result,index)=>{
+      const provider=providers[index];
+      if(result.status==='rejected'){failures.push({provider_id:provider.provider_id,message:String((result.reason as any)?.message||result.reason)});return;}
+      for(const row of result.value.rows){
+        const name=String(row?.name||row?.provider_model_identifier||'').trim();
+        if(!name)continue;
+        const vendor=catalogVendor(row?.vendor)||catalogVendor(row?.metadata?.provider)||catalogVendor(row?.metadata?.creator);
+        const key=catalogKey(name,vendor);
+        if(!key)continue;
+        const current=grouped.get(key)||{catalog_key:key,name,vendor,capabilities:[],providers:[]};
+        const score=(v:string)=>v.length;
+        if(score(name)<score(current.name)||current.name===current.catalog_key)current.name=name;
+        if(!current.vendor&&vendor)current.vendor=vendor;
+        current.capabilities=Array.from(new Set([...(current.capabilities||[]),...(row?.capabilities||[])]));
+        current.providers.push({
+          provider_id:provider.provider_id,
+          provider_name:provider.name,
+          provider_model_identifier:String(row.provider_model_identifier||''),
+          capabilities:row?.capabilities||[],
+          metadata:row?.metadata||{},
+        });
+        grouped.set(key,current);
+      }
+    });
+    const rows=Array.from(grouped.values())
+      .filter((row:any)=>!query||row.name.toLowerCase().includes(query.toLowerCase())||row.providers.some((p:any)=>p.provider_model_identifier.toLowerCase().includes(query.toLowerCase())))
+      .sort((a:any,b:any)=>b.providers.length-a.providers.length||a.name.localeCompare(b.name))
+      .slice(0,200);
+    return res.json({success:true,data:{rows,failures}});
+  }catch(err){return error(res,err,'ROUTING_V2_UNIFIED_CATALOG_FAILED');}
+});
+
+adminRoutingV2Router.post('/admin/routing-v2/models/bulk-import',...guard,async(req,res)=>{
+  try{
+    const items=Array.isArray(req.body?.items)?req.body.items:[];
+    if(!items.length)throw new Error('Selecione pelo menos um modelo para importar.');
+    if(items.length>50)throw new Error('Importação em massa limitada a 50 modelos por operação.');
+    const result={created_models:[] as string[],existing_models:[] as string[],created_routes:[] as string[],skipped_routes:[] as string[],failed:[] as Array<{model_id:string;error:string}>};
+    for(const raw of items){
+      const modelId=String(raw?.model_id||'').trim();
+      try{
+        let model=await routingV2ModelService.get(modelId);
+        if(!model){
+          model=await routingV2ModelService.create({
+            model_id:modelId,
+            name:String(raw?.name||'').trim(),
+            vendor:String(raw?.vendor||'').trim(),
+            category:raw?.category||'IMAGE',
+            description:String(raw?.description||'').trim(),
+            capabilities:Array.isArray(raw?.capabilities)?raw.capabilities.filter(isCapabilityId):[],
+          } as any);
+          result.created_models.push(modelId);
+        }else result.existing_models.push(modelId);
+        const capabilities=(Array.isArray(raw?.capabilities)?raw.capabilities:[]).filter(isCapabilityId);
+        const bindings=Array.isArray(raw?.providers)?raw.providers:[];
+        for(const binding of bindings){
+          const providerId=String(binding?.provider_id||'').trim();
+          const identifier=String(binding?.provider_model_identifier||'').trim();
+          if(!providerId||!identifier)continue;
+          for(const capability of capabilities){
+            try{
+              const route=await routingV2RouteService.create({
+                model_id:modelId,
+                capability_id:capability,
+                provider_id:providerId,
+                provider_model_identifier:identifier,
+                mapping_source:'PROVIDER_CATALOG_API',
+                mapping_source_reference:`catalog:${providerId}:${identifier}`,
+                mapping_verified_at:new Date().toISOString(),
+                billing_config:{type:'PER_GENERATION',currency:'USD',price_per_generation:0},
+                priority:Number(binding?.priority)||100,
+              } as any);
+              result.created_routes.push(route.route_id);
+            }catch(routeError:any){
+              if(String(routeError?.message||'').includes('já existe'))result.skipped_routes.push(`${modelId}:${capability}:${providerId}`);
+              else throw routeError;
+            }
+          }
+        }
+      }catch(itemError:any){result.failed.push({model_id:modelId||'unknown',error:String(itemError?.message||itemError)});}
+    }
+    return res.json({success:true,data:result});
+  }catch(err){return error(res,err,'ROUTING_V2_MODEL_BULK_IMPORT_FAILED');}
+});
+
 adminRoutingV2Router.get('/admin/routing-v2/models',...guard,async(_req,res)=>{
   try{return res.json({success:true,data:await routingV2ModelService.list()});}catch(err){return error(res,err);}
 });
