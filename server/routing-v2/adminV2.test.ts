@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import {describe,expect,it} from 'vitest';
+import {catalogSearchTerms,resolveCanonicalImageModel} from './imageCatalogCanonical.js';
 
 const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
 
@@ -85,6 +86,25 @@ describe('Routing Core V2 Admin',()=>{
   });
 
 
+
+
+  it('resolves provider-specific image slugs and AIR ids to the same canonical model',()=>{
+    expect(resolveCanonicalImageModel('GPT Image 2','openai:gpt-image@2','OpenAI')?.canonical_id).toBe('gpt-image-2');
+    expect(resolveCanonicalImageModel('openai/gpt-image-2/text-to-image','openai/gpt-image-2/text-to-image','OpenAI')?.canonical_id).toBe('gpt-image-2');
+    expect(resolveCanonicalImageModel('GPT-Image-2.5 Flare','openai:gpt-image@2.5-flare','OpenAI')?.canonical_id).toBe('gpt-image-2-5-flare');
+    expect(resolveCanonicalImageModel('Nano Banana 2','google:4@3','Google')?.canonical_id).toBe('nano-banana-2');
+    expect(resolveCanonicalImageModel('Seedream 5.0 Pro','bytedance:seedream@5.0-pro','ByteDance')?.canonical_id).toBe('seedream-5-0-pro');
+    expect(resolveCanonicalImageModel('FLUX.2 [pro]','bfl:5@1','Black Forest Labs')?.canonical_id).toBe('flux-2-pro');
+    expect(catalogSearchTerms('gpt')).toContain('GPT Image 2');
+  });
+
+  it('does not rely on stale supports_catalog_sync for unified discovery',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    expect(routes).toContain("Boolean(adapterFor(p)?.listModels)");
+    expect(routes).toContain("provider.provider_id==='provider-runware'?terms:[query]");
+    expect(routes).toContain('canonical?.default_capabilities');
+    expect(routes).not.toContain("p.status!=='DISABLED'&&p.supports_catalog_sync");
+  });
 
   it('groups image endpoint variants into one logical model with capability-specific bindings',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
