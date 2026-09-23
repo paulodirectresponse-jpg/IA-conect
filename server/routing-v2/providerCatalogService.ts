@@ -20,7 +20,8 @@ async function readJson(url:string,init?:RequestInit){
     let body:any={};
     try{body=JSON.parse(text);}catch{}
     if(!response.ok){
-      const message=String(body?.message||body?.error||`Catalog HTTP ${response.status}`);
+      const providerError=Array.isArray(body?.errors)?body.errors[0]:null;
+      const message=String(providerError?.message||providerError?.code||body?.message||body?.error||`Catalog HTTP ${response.status}`);
       throw Object.assign(new Error(message),{code:`ROUTING_V2_CATALOG_HTTP_${response.status}`});
     }
     return body;
@@ -61,15 +62,16 @@ export async function listRunwareCatalogModels(query=''):Promise<RoutingV2Catalo
 
   const url=String(process.env.RUNWARE_BASE_URL||'https://api.runware.ai/v1').replace(/\/+$/,'');
   const taskUUID=crypto.randomUUID();
+  const search=clean(query)||'a';
   const body=await readJson(url,{
     method:'POST',
     headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},
     body:JSON.stringify([{
       taskType:'modelSearch',
       taskUUID,
-      search:String(query||''),
-      source:'featured',
+      search,
       visibility:'public',
+      sort:'popularity',
       offset:0,
       limit:100,
     }]),
