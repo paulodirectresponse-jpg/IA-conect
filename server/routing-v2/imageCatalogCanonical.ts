@@ -3,46 +3,47 @@ export interface CanonicalImageModelDefinition{
   display_name:string;
   vendor:string;
   aliases:string[];
+  default_capabilities:string[];
 }
 
 export const CANONICAL_IMAGE_MODELS:CanonicalImageModelDefinition[]=[
-  {canonical_id:'gpt-image-2-5-sunburst',display_name:'GPT Image 2.5 Sunburst',vendor:'OpenAI',aliases:[
+  {canonical_id:'gpt-image-2-5-sunburst',display_name:'GPT Image 2.5 Sunburst',vendor:'OpenAI',default_capabilities:['text-to-image','image-to-image','image-edit'],aliases:[
     'gpt image 2.5 sunburst','gpt-image-2.5-sunburst','openai:gpt-image@2.5-sunburst',
     'openai/gpt-image-2.5-sunburst','openai/gpt-image-2.5-sunburst/text-to-image','openai/gpt-image-2.5-sunburst/edit',
   ]},
-  {canonical_id:'gpt-image-2-5-flare',display_name:'GPT Image 2.5 Flare',vendor:'OpenAI',aliases:[
+  {canonical_id:'gpt-image-2-5-flare',display_name:'GPT Image 2.5 Flare',vendor:'OpenAI',default_capabilities:['text-to-image','image-to-image','image-edit'],aliases:[
     'gpt image 2.5 flare','gpt-image-2.5-flare','openai:gpt-image@2.5-flare',
     'openai/gpt-image-2.5-flare','openai/gpt-image-2.5-flare/text-to-image','openai/gpt-image-2.5-flare/edit',
   ]},
-  {canonical_id:'gpt-image-2',display_name:'GPT Image 2',vendor:'OpenAI',aliases:[
+  {canonical_id:'gpt-image-2',display_name:'GPT Image 2',vendor:'OpenAI',default_capabilities:['text-to-image','image-to-image','image-edit'],aliases:[
     'gpt image 2','gpt-image-2','openai:gpt-image@2','openai/gpt-image-2',
     'openai/gpt-image-2/text-to-image','openai/gpt-image-2/edit',
   ]},
-  {canonical_id:'nano-banana-2',display_name:'Nano Banana 2',vendor:'Google',aliases:[
+  {canonical_id:'nano-banana-2',display_name:'Nano Banana 2',vendor:'Google',default_capabilities:['text-to-image','image-to-image','image-edit'],aliases:[
     'nano banana 2','nano-banana-2','nanobanana 2','google:4@3','gemini nano banana 2',
   ]},
-  {canonical_id:'nano-banana-pro',display_name:'Nano Banana Pro',vendor:'Google',aliases:[
+  {canonical_id:'nano-banana-pro',display_name:'Nano Banana Pro',vendor:'Google',default_capabilities:['text-to-image','image-to-image','image-edit'],aliases:[
     'nano banana pro','nano-banana-pro','nanobanana pro','google:4@2','gemini nano banana pro',
   ]},
-  {canonical_id:'seedream-5-0-pro',display_name:'Seedream 5.0 Pro',vendor:'ByteDance',aliases:[
+  {canonical_id:'seedream-5-0-pro',display_name:'Seedream 5.0 Pro',vendor:'ByteDance',default_capabilities:['text-to-image','image-to-image','image-edit'],aliases:[
     'seedream 5.0 pro','seedream-5.0-pro','seedream 5 pro','bytedance:seedream@5.0-pro',
   ]},
-  {canonical_id:'qwen-image-3-0-pro',display_name:'Qwen Image 3.0 Pro',vendor:'Alibaba',aliases:[
+  {canonical_id:'qwen-image-3-0-pro',display_name:'Qwen Image 3.0 Pro',vendor:'Alibaba',default_capabilities:['text-to-image','image-to-image','image-edit'],aliases:[
     'qwen image 3.0 pro','qwen-image-3.0-pro','qwen image 3 pro','alibaba:qwen-image@3.0-pro',
   ]},
-  {canonical_id:'flux-2-pro',display_name:'FLUX.2 Pro',vendor:'Black Forest Labs',aliases:[
+  {canonical_id:'flux-2-pro',display_name:'FLUX.2 Pro',vendor:'Black Forest Labs',default_capabilities:['text-to-image','image-to-image','image-edit'],aliases:[
     'flux.2 pro','flux 2 pro','flux.2 [pro]','flux-2-pro','bfl:5@1','black forest labs flux 2 pro',
   ]},
-  {canonical_id:'ideogram-4-0',display_name:'Ideogram 4.0',vendor:'Ideogram',aliases:[
+  {canonical_id:'ideogram-4-0',display_name:'Ideogram 4.0',vendor:'Ideogram',default_capabilities:['text-to-image'],aliases:[
     'ideogram 4.0','ideogram 4','ideogram-4.0','ideogram:4@0',
   ]},
-  {canonical_id:'recraft-v4-1-pro',display_name:'Recraft V4.1 Pro',vendor:'Recraft',aliases:[
+  {canonical_id:'recraft-v4-1-pro',display_name:'Recraft V4.1 Pro',vendor:'Recraft',default_capabilities:['text-to-image'],aliases:[
     'recraft v4.1 pro','recraft 4.1 pro','recraft-v4.1-pro','recraft:v4.1-pro@0',
   ]},
-  {canonical_id:'krea-2-large',display_name:'Krea 2 Large',vendor:'Krea',aliases:[
+  {canonical_id:'krea-2-large',display_name:'Krea 2 Large',vendor:'Krea',default_capabilities:['text-to-image','image-to-image'],aliases:[
     'krea 2 large','krea-2-large','krea:krea@2-large',
   ]},
-  {canonical_id:'z-image-turbo',display_name:'Z-Image Turbo',vendor:'Alibaba',aliases:[
+  {canonical_id:'z-image-turbo',display_name:'Z-Image Turbo',vendor:'Alibaba',default_capabilities:['text-to-image','image-to-image'],aliases:[
     'z image turbo','z-image-turbo','zimage turbo','runware:z-image@turbo','wavespeed-ai/z-image/turbo',
   ]},
 ];
