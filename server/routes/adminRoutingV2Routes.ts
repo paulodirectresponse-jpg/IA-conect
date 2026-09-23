@@ -17,6 +17,7 @@ import { routingV2HealthAdminRoutes } from '../routing-v2/adminHealthRoutes.js';
 import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapService.js';
 import { routingV2SmartRouter } from '../routing-v2/smartRouter.js';
 import { factoryResetService } from '../services/factoryResetService.js';
+import { catalogSearchTerms, resolveCanonicalImageModel } from '../routing-v2/imageCatalogCanonical.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -124,12 +125,29 @@ function catalogKey(name:string,identifier:string,vendor=''){
 adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,res)=>{
   try{
     const query=String(req.query.q||'').trim();
-    const providers=(await routingV2ProviderService.list()).filter(p=>p.status!=='DISABLED'&&p.supports_catalog_sync);
+    const providers=(await routingV2ProviderService.list()).filter(p=>p.status!=='DISABLED'&&Boolean(adapterFor(p)?.listModels));
+    const terms=catalogSearchTerms(query);
     const settled=await Promise.allSettled(providers.map(async provider=>{
       const adapter=adapterFor(provider);
       if(!adapter?.listModels)return{provider,rows:[] as any[]};
       if(provider.provider_id!=='provider-atlas'&&!adapter.isConfigured(provider))return{provider,rows:[] as any[]};
-      return{provider,rows:await adapter.listModels(provider,query)};
+      const searchTerms=provider.provider_id==='provider-runware'?terms:[query];
+      const attempts=await Promise.allSettled(searchTerms.map(term=>adapter.listModels!(provider,term)));
+      const rows:any[]=[];
+      const seen=new Set<string>();
+      for(const attempt of attempts){
+        if(attempt.status!=='fulfilled')continue;
+        for(const row of attempt.value){
+          const key=String(row?.provider_model_identifier||'').trim();
+          if(!key||seen.has(key))continue;
+          seen.add(key);rows.push(row);
+        }
+      }
+      if(!rows.length&&attempts.some(attempt=>attempt.status==='rejected')){
+        const failure=attempts.find(attempt=>attempt.status==='rejected') as PromiseRejectedResult|undefined;
+        if(failure)throw failure.reason;
+      }
+      return{provider,rows};
     }));
     const grouped=new Map<string,any>();
     const failures:any[]=[];
@@ -142,10 +160,12 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         if(!rawName||!identifier)continue;
         const imageCapabilities=inferImageCapabilities(row);
         if(!imageCapabilities.length)continue;
-        const vendor=catalogVendor(row?.vendor)||catalogVendor(row?.metadata?.provider)||catalogVendor(row?.metadata?.creator);
-        const key=catalogKey(rawName,identifier,vendor);
+        const detectedVendor=catalogVendor(row?.vendor)||catalogVendor(row?.metadata?.provider)||catalogVendor(row?.metadata?.creator);
+        const canonical=resolveCanonicalImageModel(rawName,identifier,detectedVendor);
+        const vendor=canonical?.vendor||detectedVendor;
+        const key=canonical?.canonical_id||catalogKey(rawName,identifier,vendor);
         if(!key)continue;
-        const displayName=catalogDisplayName(rawName,identifier)||rawName;
+        const displayName=canonical?.display_name||catalogDisplayName(rawName,identifier)||rawName;
         const current=grouped.get(key)||{catalog_key:key,name:displayName,vendor,capabilities:[],providers:[]};
         if(!current.vendor&&vendor)current.vendor=vendor;
         current.capabilities=Array.from(new Set([...(current.capabilities||[]),...imageCapabilities]));
