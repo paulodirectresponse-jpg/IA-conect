@@ -50,6 +50,25 @@ export const routingV2ModelService={
     return routingV2Repository.saveModel(model);
   },
 
+  async updateIdentity(modelId:string,input:{name?:string;vendor?:string;category?:ModelCategory;capabilities?:CapabilityId[]}){
+    const current=await routingV2Repository.getModel(modelId);
+    if(!current)throw new Error('Model V2 não encontrado.');
+    const name=String(input.name??current.name).trim()||current.name;
+    const vendor=String(input.vendor??current.vendor).trim()||current.vendor;
+    const capabilities=input.capabilities
+      ? Array.from(new Set(input.capabilities.map(String))).filter(isCapabilityId) as CapabilityId[]
+      : current.capabilities;
+    return routingV2Repository.saveModel({
+      ...current,
+      name,
+      slug:slugify(name)||current.slug,
+      vendor,
+      category:input.category??current.category,
+      capabilities:capabilities.length?capabilities:current.capabilities,
+      updated_at:now(),
+    });
+  },
+
   async setCapabilities(modelId:string,capabilities:CapabilityId[]){
     const current=await routingV2Repository.getModel(modelId);
     if(!current)throw new Error('Model V2 não encontrado.');
