@@ -1,3 +1,4 @@
+import { parseCatalogModelIdentity, shouldGroupCatalogModels } from './imageCatalogIdentity.js';
 export interface CanonicalImageModelDefinition{
   canonical_id:string;
   display_name:string;
@@ -93,6 +94,15 @@ export function resolveCanonicalImageModel(name:string,identifier:string,vendor=
     const exact=aliasIndex.get(normalizeImageModelText(candidate));
     if(exact)return exact;
   }
+
+  const parsed=parseCatalogModelIdentity(name,identifier,vendor);
+  if(parsed.canonical_key){
+    for(const definition of CANONICAL_IMAGE_MODELS){
+      const definitionIdentity=parseCatalogModelIdentity(definition.display_name,definition.canonical_id,definition.vendor);
+      if(shouldGroupCatalogModels(parsed,definitionIdentity))return definition;
+    }
+  }
+
   let best:{definition:CanonicalImageModelDefinition;score:number}|null=null;
   for(const candidate of candidates){
     for(const definition of CANONICAL_IMAGE_MODELS){
