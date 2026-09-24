@@ -18,6 +18,7 @@ import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapServ
 import { routingV2SmartRouter } from '../routing-v2/smartRouter.js';
 import { factoryResetService } from '../services/factoryResetService.js';
 import { CANONICAL_IMAGE_MODELS, catalogSearchTerms, normalizeImageModelText, resolveCanonicalImageModel } from '../routing-v2/imageCatalogCanonical.js';
+import { isCatalogIdentityUsable, parseCatalogModelIdentity } from '../routing-v2/imageCatalogIdentity.js';
 import { listAtlasCatalogModels, listRunwareCatalogModels } from '../routing-v2/providerCatalogService.js';
 
 export const adminRoutingV2Router=Router();
@@ -132,16 +133,19 @@ function matchesUnifiedCatalogQuery(row:any,query:string,terms:string[]){
 const CANONICAL_IMAGE_IDS=new Set(CANONICAL_IMAGE_MODELS.map(model=>model.canonical_id));
 function isGenericGroupedCatalogNoise(row:any,canonicalRows:any[]){
   const name=String(row?.name||'').trim();
-  const normalized=normalizeImageModelText(name);
-  if(!normalized)return true;
-  if(/^text to image(?: fast| multi| ultra| pro| standard)?$/i.test(normalized))return true;
-  if(/\breference to image\b/i.test(normalized)){
+  const identifier=String(row?.providers?.[0]?.provider_model_identifier||'').trim();
+  const vendor=String(row?.vendor||'').trim();
+  const identity=parseCatalogModelIdentity(name,identifier,vendor);
+  if(identity.generic_endpoint||identity.technical_variant)return true;
+  if(!identity.family)return true;
+  if(/\breference to image\b/i.test(normalizeImageModelText(name))){
     return canonicalRows.some(canonical=>{
-      const canonicalName=normalizeImageModelText(String(canonical?.name||''));
-      return canonicalName&&normalized.startsWith(canonicalName);
+      const canonicalIdentity=parseCatalogModelIdentity(String(canonical?.name||''),'',String(canonical?.vendor||''));
+      return canonicalIdentity.family===identity.family&&
+        canonicalIdentity.version===identity.version&&
+        canonicalIdentity.tier===identity.tier;
     });
   }
-  if(/\b(developer|endpoint|api)\b/i.test(normalized))return true;
   return false;
 }
 function isTechnicalImageCatalogNoise(name:string,identifier:string,canonical:any){
@@ -209,15 +213,21 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         const identifier=String(row?.provider_model_identifier||'').trim();
         if(!rawName||!identifier)continue;
         const detectedVendor=catalogVendor(row?.vendor)||catalogVendor(row?.metadata?.provider)||catalogVendor(row?.metadata?.creator);
+        const identity=parseCatalogModelIdentity(rawName,identifier,detectedVendor);
         const canonical=resolveCanonicalImageModel(rawName,identifier,detectedVendor);
         if(isTechnicalImageCatalogNoise(rawName,identifier,canonical))continue;
+        if(!canonical&&!isCatalogIdentityUsable(identity))continue;
         const imageCapabilities=inferImageCapabilities(row);
-        const resolvedCapabilities=imageCapabilities.length?imageCapabilities:(canonical?.default_capabilities||[]);
+        const resolvedCapabilities=imageCapabilities.length
+          ? imageCapabilities
+          : identity.capabilities.length
+            ? identity.capabilities
+            : (canonical?.default_capabilities||[]);
         if(!resolvedCapabilities.length)continue;
         const vendor=canonical?.vendor||detectedVendor;
-        const key=canonical?.canonical_id||catalogKey(rawName,identifier,vendor);
+        const key=canonical?.canonical_id||identity.canonical_key||catalogKey(rawName,identifier,vendor);
         if(!key)continue;
-        const displayName=canonical?.display_name||catalogDisplayName(rawName,identifier)||rawName;
+        const displayName=canonical?.display_name||identity.display_name||catalogDisplayName(rawName,identifier)||rawName;
         const current=grouped.get(key)||{catalog_key:key,name:displayName,vendor,capabilities:[],providers:[]};
         if(!current.vendor&&vendor)current.vendor=vendor;
         current.capabilities=Array.from(new Set([...(current.capabilities||[]),...resolvedCapabilities]));
