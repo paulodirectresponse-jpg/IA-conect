@@ -19,7 +19,7 @@ import { routingV2SmartRouter } from '../routing-v2/smartRouter.js';
 import { factoryResetService } from '../services/factoryResetService.js';
 import { CANONICAL_IMAGE_MODELS, catalogSearchTerms, normalizeImageModelText, resolveCanonicalImageModel } from '../routing-v2/imageCatalogCanonical.js';
 import { isCatalogIdentityUsable, parseCatalogModelIdentity } from '../routing-v2/imageCatalogIdentity.js';
-import { listAtlasCatalogModels, listRunwareCatalogModels } from '../routing-v2/providerCatalogService.js';
+import { listAtlasCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from '../routing-v2/providerCatalogService.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -196,10 +196,11 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         pushRows(await withTimeout(listRunwareCatalogModels(runwareTerm),'Runware'));
         return{provider,rows,attempts:1};
       }
-      const adapter=adapterFor(provider);
-      if(!adapter?.listModels)throw new Error('Adapter WaveSpeed sem catálogo.');
-      pushRows(await withTimeout(adapter.listModels(provider,query),'WaveSpeed'));
-      return{provider,rows,attempts:1};
+      if(provider.provider_id==='provider-wavespeed'){
+        pushRows(await withTimeout(listWaveSpeedCatalogModels(query),'WaveSpeed'));
+        return{provider,rows,attempts:1};
+      }
+      throw new Error('Provider de catálogo não suportado.');
     }));
     const grouped=new Map<string,any>();
     const failures:any[]=[];

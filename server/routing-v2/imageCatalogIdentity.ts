@@ -15,46 +15,69 @@ export interface ParsedCatalogModelIdentity{
   canonical_key:string;
 }
 
-const PROVIDER_WORDS=new Set([
-  'openai','google','bytedance','black','forest','labs','bfl','alibaba','ideogram','recraft','krea',
-  'meta','luma','xai','wavespeed','runware','atlas','cloud','ai'
-]);
+const PROVIDER_PHRASES=[
+  'black forest labs','wavespeed ai','atlas cloud',
+  'openai','google','bytedance','bfl','alibaba','meta','luma','xai','wavespeed','runware',
+];
 const TIER_WORDS=new Set(['pro','lite','turbo','max','dev','large','medium','mini','fast','ultra','standard']);
-const STRUCTURAL_VARIANTS=[
-  'layer decomposition','sequential','sunburst','flare','preview','experimental'
-];
+const STRUCTURAL_VARIANTS=['layer decomposition','sequential','sunburst','flare','preview','experimental'];
+
 const CAPABILITY_PATTERNS:Array<[RegExp,ImageCapability]>=[
-  [/text[s/_-]*to[s/_-]*image/i,'text-to-image'],
-  [/image[s/_-]*to[s/_-]*image/i,'image-to-image'],
-  [/(reference[s/_-]*to[s/_-]*image|reference[s/_-]*image)/i,'image-to-image'],
-  [/(image[s/_-]*edit|edit)/i,'image-edit'],
-  [/(inpaint|inpainting)/i,'inpaint-mask'],
-  [/(outpaint|outpainting)/i,'outpaint'],
-  [/(upscale|upscaler)/i,'upscale'],
-  [/(variation|variations)/i,'variations'],
-  [/(background[s/_-]*remove|remove[s/_-]*background|background[s/_-]*replace|replace[s/_-]*background)/i,'background-remove-replace'],
+  [/\btext[\s/_-]*to[\s/_-]*image\b/i,'text-to-image'],
+  [/\bimage[\s/_-]*to[\s/_-]*image\b/i,'image-to-image'],
+  [/\b(reference[\s/_-]*to[\s/_-]*image|reference[\s/_-]*image)\b/i,'image-to-image'],
+  [/\b(image[\s/_-]*edit|edit)\b/i,'image-edit'],
+  [/\b(inpaint|inpainting)\b/i,'inpaint-mask'],
+  [/\b(outpaint|outpainting)\b/i,'outpaint'],
+  [/\b(upscale|upscaler)\b/i,'upscale'],
+  [/\b(variation|variations)\b/i,'variations'],
+  [/\b(background[\s/_-]*remove|remove[\s/_-]*background|background[\s/_-]*replace|replace[\s/_-]*background)\b/i,'background-remove-replace'],
 ];
-const NON_IMAGE_PATTERN=/(?:^|[s/_-])(video|3d|audio|tts|speech|music|voice|lip[s_-]*sync)(?:$|[s/_-])/i;
+
+const NON_IMAGE_PATTERN=/(?:^|[\s/_-])(video|3d|audio|tts|speech|music|voice|lip[\s_-]*sync)(?:$|[\s/_-])/i;
 const GENERIC_ENDPOINT_PATTERN=/^(text to image|image to image|image edit|edit|reference to image|inpaint|outpaint|upscale)(?: (fast|multi|ultra|pro|standard|turbo))?$/i;
 
-function cleanWords(value:string){
-  return String(value||'')
-    .replace(/([a-z])([A-Z])/g,'$1 $2')
-    .replace(/[@:./_\\-]+/g,' ')
-    .replace(/[[^]]+]/g,m=>` ${m.slice(1,-1)} `)
-    .replace(/v(?=d)/gi,'')
-    .replace(/s+/g,' ')
-    .trim();
-}
+function uniq<T>(items:T[]){return Array.from(new Set(items));}
+function slug(value:string){return value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
 function title(value:string){
   return value.split(' ').filter(Boolean).map(part=>{
     if(/^(gpt|qwen|flux)$/i.test(part))return part.toUpperCase();
-    if(/^d+(?:.d+)*$/.test(part))return part;
+    if(/^\d+(?:\.\d+)*$/.test(part))return part;
     return part.charAt(0).toUpperCase()+part.slice(1);
   }).join(' ');
 }
-function slug(value:string){return value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
-function uniq<T>(items:T[]){return Array.from(new Set(items));}
+function spaced(value:string){
+  return String(value||'')
+    .replace(/([a-z])([A-Z])/g,'$1 $2')
+    .replace(/[\[\](){}]/g,' ')
+    .replace(/[@:/_\\-]+/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function extractVersion(name:string,identifier:string){
+  const semanticName=String(name||'').trim();
+  const nameMatch=semanticName.match(/(?:^|[^a-z0-9])v?(\d+(?:\.\d+){0,2})(?=$|[^a-z0-9])/i);
+  if(nameMatch?.[1])return nameMatch[1];
+  // AIR/internal IDs can contain opaque numbers unrelated to the public model version
+  // (for example google:4@2). Prefer the semantic display name whenever it exists.
+  if(/[a-z]{2,}/i.test(semanticName))return'';
+  const identifierMatch=String(identifier||'').match(/(?:^|[^a-z0-9])v?(\d+(?:\.\d+){0,2})(?=$|[^a-z0-9])/i);
+  return identifierMatch?.[1]||'';
+}
+function removeLiteralPhrase(value:string,phrase:string){
+  const escaped=phrase.replace(/[.*+?^$()|[\]\\{}]/g,'\\$&').replace(/\s+/g,'\\s+');
+  return value.replace(new RegExp('\\b'+escaped+'\\b','ig'),' ');
+}
+function stripProviderWords(value:string,vendor:string){
+  let out=value;
+  const phrases=[...PROVIDER_PHRASES,String(vendor||'').trim().toLowerCase()].filter(Boolean).sort((a,b)=>b.length-a.length);
+  for(const phrase of phrases){
+    const candidate=removeLiteralPhrase(out,phrase).replace(/\s+/g,' ').trim();
+    // Keep a brand word when it is also the model family itself (Ideogram, Recraft, Krea, etc.).
+    if(/[a-z]{2,}/i.test(candidate))out=candidate;
+  }
+  return out;
+}
 
 export function inferCatalogImageCapabilities(...values:string[]):ImageCapability[]{
   const raw=values.filter(Boolean).join(' ');
@@ -69,57 +92,48 @@ export function isNonImageCatalogEntry(...values:string[]){
 }
 
 export function parseCatalogModelIdentity(name:string,identifier:string,vendor=''):ParsedCatalogModelIdentity{
-  const sourceName=cleanWords(name);
-  const sourceIdentifier=cleanWords(identifier);
-  const joined=`${sourceName} ${sourceIdentifier}`.trim();
+  const originalName=String(name||'').trim();
+  const originalIdentifier=String(identifier||'').trim();
+  const joined=originalName+' '+originalIdentifier;
   const capabilities=inferCatalogImageCapabilities(joined);
-  const generic_endpoint=GENERIC_ENDPOINT_PATTERN.test(sourceName.toLowerCase());
-  const technical_variant=/(developer|endpoint|api)/i.test(joined);
+  const genericCandidate=spaced(originalName).toLowerCase().replace(/\./g,' ');
+  const generic_endpoint=GENERIC_ENDPOINT_PATTERN.test(genericCandidate);
+  const technical_variant=/\b(developer|endpoint|api)\b/i.test(joined);
+  const version=extractVersion(originalName,originalIdentifier);
 
-  let normalized=cleanWords(sourceName||sourceIdentifier).toLowerCase();
+  let normalized=spaced(originalName||originalIdentifier).toLowerCase();
   for(const[pattern]of CAPABILITY_PATTERNS)normalized=normalized.replace(pattern,' ');
-  normalized=normalized.replace(/(developer|endpoint|api)/g,' ');
-  normalized=normalized.replace(/s+/g,' ').trim();
-
-  const words=normalized.split(' ').filter(Boolean);
-  const versionIndex=words.findIndex(word=>/^d+(?:.d+){0,2}$/.test(word));
-  const version=versionIndex>=0?words[versionIndex]:'';
-
-  let tier='';
-  for(const word of words){
-    if(TIER_WORDS.has(word)){tier=word;break;}
-  }
+  normalized=normalized.replace(/\b(developer|endpoint|api)\b/g,' ');
 
   const variantText=STRUCTURAL_VARIANTS.filter(variant=>normalized.includes(variant));
-  const consumed=new Set<string>();
-  if(version)consumed.add(version);
-  if(tier)consumed.add(tier);
-  for(const variant of variantText)for(const word of variant.split(' '))consumed.add(word);
+  for(const variant of variantText)normalized=removeLiteralPhrase(normalized,variant);
 
-  const vendorTokens=new Set(cleanWords(vendor).toLowerCase().split(' ').filter(Boolean));
-  const familyTokens=words.filter(word=>
-    !consumed.has(word)&&
-    !PROVIDER_WORDS.has(word)&&
-    !vendorTokens.has(word)&&
-    !/^d+(?:.d+){0,2}$/.test(word)
-  );
-
-  let family=slug(familyTokens.join(' '));
-  if(!family&&versionIndex>0){
-    family=slug(words.slice(0,versionIndex).filter(word=>!PROVIDER_WORDS.has(word)).join(' '));
+  let tier='';
+  const wordsBeforeTier=normalized.replace(/\./g,' ').split(/\s+/).filter(Boolean);
+  for(const word of wordsBeforeTier){
+    if(TIER_WORDS.has(word)){tier=word;break;}
   }
-  if(!family&&!generic_endpoint)family=slug(normalized);
+  if(tier)normalized=removeLiteralPhrase(normalized,tier);
 
+  if(version){
+    const escaped=version.replace(/\./g,'\\.');
+    normalized=normalized.replace(new RegExp('(?:^|\\s)v?'+escaped+'(?=\\s|$)','ig'),' ');
+  }
+
+  normalized=stripProviderWords(normalized,vendor)
+    .replace(/[.@]+/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+
+  const family=generic_endpoint?'':slug(normalized);
   const family_display=title(family.replace(/-/g,' '));
   const variants=uniq(variantText.map(slug));
-  const pieces=[family,version,tier,...variants].filter(Boolean);
-  const canonical_key=pieces.join(':');
+  const canonical_key=[family,version,tier,...variants].filter(Boolean).join(':');
 
   const displayParts=[family_display];
   if(version)displayParts.push(version);
   if(tier)displayParts.push(title(tier));
   for(const variant of variantText)displayParts.push(title(variant));
-  const display_name=displayParts.filter(Boolean).join(' ').trim()||title(normalized);
 
   return{
     family,
@@ -130,7 +144,7 @@ export function parseCatalogModelIdentity(name:string,identifier:string,vendor='
     capabilities,
     generic_endpoint,
     technical_variant,
-    display_name,
+    display_name:displayParts.filter(Boolean).join(' ').trim()||title(normalized),
     canonical_key,
   };
 }
