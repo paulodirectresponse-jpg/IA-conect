@@ -90,6 +90,17 @@ describe('Routing Core V2 Admin',()=>{
 
 
 
+
+  it('cleans technical image catalog noise without changing provider discovery',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    expect(routes).toContain("isTechnicalImageCatalogNoise");
+    expect(routes).toContain("\\bdeveloper\\b");
+    expect(routes).toContain("[\\s\\/_-])(video|3d|audio");
+    expect(routes).toContain("if(isTechnicalImageCatalogNoise(rawName,identifier,canonical))continue");
+    expect(routes).toContain("listAtlasCatalogModels()");
+    expect(routes).toContain("listRunwareCatalogModels(runwareTerm)");
+  });
+
   it('keeps unified catalog within runtime budget and returns partial provider results',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     const catalog=read('server/routing-v2/providerCatalogService.ts');
