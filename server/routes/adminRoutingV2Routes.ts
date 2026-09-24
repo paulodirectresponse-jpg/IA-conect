@@ -86,7 +86,7 @@ function catalogVendor(value:any){
   return'';
 }
 const IMAGE_CAPABILITIES=new Set(['text-to-image','image-to-image','image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations']);
-const NON_IMAGE_HINT=/(?:^|[\/_-])(video|3d|audio|tts|speech|music|voice|lip-?sync)(?:$|[\/_-])/i;
+const NON_IMAGE_HINT=/(?:^|[\s\/_-])(video|3d|audio|tts|speech|music|voice|lip-?sync)(?:$|[\s\/_-])/i;
 const IMAGE_SUFFIXES:Array<[RegExp,string]>=[
   [/(?:\/|-)(text-to-image)$/i,'text-to-image'],
   [/(?:\/|-)(image-to-image)$/i,'image-to-image'],
@@ -122,6 +122,15 @@ function catalogKey(name:string,identifier:string,vendor=''){
     .replace(/^(openai|google|bytedance|black-forest-labs|bfl|alibaba|ideogram|recraft|krea|meta|luma|xai)\//,'')
     .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
   return strip(base)||strip(name)||strip(vendor);
+}
+function isTechnicalImageCatalogNoise(name:string,identifier:string,canonical:any){
+  if(canonical)return false;
+  const raw=`${name} ${identifier}`.toLowerCase();
+  if(NON_IMAGE_HINT.test(raw))return true;
+  if(/\bdeveloper\b/.test(raw))return true;
+  if(/\b(openai\s+)?gpt\s+image\s+1(?:\b|[._-])/.test(raw))return true;
+  if(/\b(text[\s/_-]*to[\s/_-]*image|image[\s/_-]*to[\s/_-]*image|edit)\b/.test(raw)&&/\b(gpt\s*image|nano\s*banana|seedream|flux|ideogram|recraft|krea|qwen)\b/.test(raw))return true;
+  return false;
 }
 adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,res)=>{
   try{
@@ -178,6 +187,7 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         if(!rawName||!identifier)continue;
         const detectedVendor=catalogVendor(row?.vendor)||catalogVendor(row?.metadata?.provider)||catalogVendor(row?.metadata?.creator);
         const canonical=resolveCanonicalImageModel(rawName,identifier,detectedVendor);
+        if(isTechnicalImageCatalogNoise(rawName,identifier,canonical))continue;
         const imageCapabilities=inferImageCapabilities(row);
         const resolvedCapabilities=imageCapabilities.length?imageCapabilities:(canonical?.default_capabilities||[]);
         if(!resolvedCapabilities.length)continue;
