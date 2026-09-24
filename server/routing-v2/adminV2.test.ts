@@ -92,6 +92,18 @@ describe('Routing Core V2 Admin',()=>{
 
 
 
+
+  it('prioritizes canonical image models and hides generic endpoint noise only at presentation layer',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    expect(routes).toContain('CANONICAL_IMAGE_IDS');
+    expect(routes).toContain('isGenericGroupedCatalogNoise');
+    expect(routes).toContain('Text To Image');
+    expect(routes).toContain('reference to image');
+    expect(routes).toContain('bCanonical-aCanonical');
+    expect(routes).toContain("listAtlasCatalogModels()");
+    expect(routes).toContain("listRunwareCatalogModels(runwareTerm)");
+  });
+
   it('filters unified catalog rows before canonical grouping and repairs existing model identity',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     const models=read('server/routing-v2/modelService.ts');

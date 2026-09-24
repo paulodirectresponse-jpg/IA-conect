@@ -17,7 +17,7 @@ import { routingV2HealthAdminRoutes } from '../routing-v2/adminHealthRoutes.js';
 import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapService.js';
 import { routingV2SmartRouter } from '../routing-v2/smartRouter.js';
 import { factoryResetService } from '../services/factoryResetService.js';
-import { catalogSearchTerms, resolveCanonicalImageModel } from '../routing-v2/imageCatalogCanonical.js';
+import { CANONICAL_IMAGE_MODELS, catalogSearchTerms, normalizeImageModelText, resolveCanonicalImageModel } from '../routing-v2/imageCatalogCanonical.js';
 import { listAtlasCatalogModels, listRunwareCatalogModels } from '../routing-v2/providerCatalogService.js';
 
 export const adminRoutingV2Router=Router();
@@ -129,6 +129,21 @@ function matchesUnifiedCatalogQuery(row:any,query:string,terms:string[]){
   const normalizedTerms=terms.map(term=>term.toLowerCase().trim()).filter(Boolean);
   return normalizedTerms.some(term=>raw.includes(term));
 }
+const CANONICAL_IMAGE_IDS=new Set(CANONICAL_IMAGE_MODELS.map(model=>model.canonical_id));
+function isGenericGroupedCatalogNoise(row:any,canonicalRows:any[]){
+  const name=String(row?.name||'').trim();
+  const normalized=normalizeImageModelText(name);
+  if(!normalized)return true;
+  if(/^text to image(?: fast| multi| ultra| pro| standard)?$/i.test(normalized))return true;
+  if(/\breference to image\b/i.test(normalized)){
+    return canonicalRows.some(canonical=>{
+      const canonicalName=normalizeImageModelText(String(canonical?.name||''));
+      return canonicalName&&normalized.startsWith(canonicalName);
+    });
+  }
+  if(/\b(developer|endpoint|api)\b/i.test(normalized))return true;
+  return false;
+}
 function isTechnicalImageCatalogNoise(name:string,identifier:string,canonical:any){
   if(canonical)return false;
   const raw=`${name} ${identifier}`.toLowerCase();
@@ -216,9 +231,16 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         grouped.set(key,current);
       }
     });
-    const rows=Array.from(grouped.values())
-      .filter((row:any)=>!query||row.name.toLowerCase().includes(query.toLowerCase())||row.providers.some((p:any)=>p.provider_model_identifier.toLowerCase().includes(query.toLowerCase())))
-      .sort((a:any,b:any)=>b.providers.length-a.providers.length||a.name.localeCompare(b.name))
+    const filteredRows=Array.from(grouped.values())
+      .filter((row:any)=>!query||row.name.toLowerCase().includes(query.toLowerCase())||row.providers.some((p:any)=>p.provider_model_identifier.toLowerCase().includes(query.toLowerCase())));
+    const canonicalRows=filteredRows.filter((row:any)=>CANONICAL_IMAGE_IDS.has(row.catalog_key));
+    const rows=filteredRows
+      .filter((row:any)=>CANONICAL_IMAGE_IDS.has(row.catalog_key)||!isGenericGroupedCatalogNoise(row,canonicalRows))
+      .sort((a:any,b:any)=>{
+        const aCanonical=CANONICAL_IMAGE_IDS.has(a.catalog_key)?1:0;
+        const bCanonical=CANONICAL_IMAGE_IDS.has(b.catalog_key)?1:0;
+        return bCanonical-aCanonical||b.providers.length-a.providers.length||a.name.localeCompare(b.name);
+      })
       .slice(0,200);
     return res.json({success:true,data:{rows,failures,provider_diagnostics:providerDiagnostics}});
   }catch(err){return error(res,err,'ROUTING_V2_UNIFIED_CATALOG_FAILED');}
