@@ -1,3 +1,4 @@
+import { CapabilityId } from '../beta/capabilityRegistry.js';
 import { RoutingV2CatalogModel } from './adapter.js';
 
 function trimBase(value:string|undefined,fallback:string){
@@ -30,6 +31,26 @@ async function readJson(url:string,init?:RequestInit){
   }
 }
 
+
+function catalogCapability(...values:any[]):CapabilityId[]{
+  const raw=values.map(clean).filter(Boolean).join(' ').toLowerCase().replace(/_/g,'-');
+  const found:CapabilityId[]=[];
+  const add=(value:CapabilityId)=>{if(!found.includes(value))found.push(value);};
+  if(/text[-\s]*to[-\s]*image/.test(raw))add('text-to-image');
+  if(/image[-\s]*to[-\s]*image|reference[-\s]*to[-\s]*image|reference[-\s]*image/.test(raw))add('image-to-image');
+  if(/\bedit\b|image[-\s]*edit/.test(raw))add('image-edit');
+  if(/inpaint/.test(raw))add('inpaint-mask');
+  if(/outpaint/.test(raw))add('outpaint');
+  if(/upscal/.test(raw))add('upscale');
+  if(/variation/.test(raw))add('variations');
+  if(/background.*(remove|replace)|(remove|replace).*background/.test(raw))add('background-remove-replace');
+  return found;
+}
+
+function trimWaveSpeedBase(value:string|undefined){
+  return String(value||'https://api.wavespeed.ai').replace(/\/+$/,'').replace(/\/api\/v3$/,'');
+}
+
 function clean(value:any){
   if(value==null)return'';
   if(typeof value==='string'||typeof value==='number'||typeof value==='boolean')return String(value).trim();
@@ -56,7 +77,7 @@ export async function listAtlasCatalogModels():Promise<RoutingV2CatalogModel[]>{
       provider_model_identifier:identifier,
       name,
       vendor,
-      capabilities:[],
+      capabilities:catalogCapability(row?.type,row?.name,row?.model),
       metadata:{
         type:row?.type??null,
         tags:Array.isArray(row?.tags)?row.tags:[],
@@ -101,7 +122,7 @@ export async function listRunwareCatalogModels(query=''):Promise<RoutingV2Catalo
       provider_model_identifier:identifier,
       name,
       vendor,
-      capabilities:[],
+      capabilities:catalogCapability(row?.type,row?.category,row?.name,row?.model),
       metadata:{
         category:row?.category??null,
         architecture:row?.architecture??null,
@@ -112,4 +133,39 @@ export async function listRunwareCatalogModels(query=''):Promise<RoutingV2Catalo
       },
     };
   }).filter((row:RoutingV2CatalogModel)=>Boolean(row.provider_model_identifier));
+}
+
+
+export async function listWaveSpeedCatalogModels(query=''):Promise<RoutingV2CatalogModel[]>{
+  const apiKey=process.env.WAVESPEED_API_KEY?.trim();
+  if(!apiKey)throw Object.assign(new Error('WaveSpeed não configurada.'),{code:'ROUTING_V2_PROVIDER_NOT_CONFIGURED'});
+  const base=trimWaveSpeedBase(process.env.WAVESPEED_BASE_URL);
+  const body=await readJson(`${base}/api/v3/models`,{
+    headers:{Authorization:`Bearer ${apiKey}`},
+  });
+  const q=clean(query).toLowerCase();
+  const rows=asArray(body);
+  return rows.map((row:any)=>{
+    const identifier=clean(row?.model_id||row?.model||row?.id||row?.name);
+    const name=clean(row?.name||row?.display_name||row?.displayName||identifier);
+    const vendor=clean(row?.provider||row?.vendor||identifier.split('/')[0])||null;
+    const capabilities=catalogCapability(row?.type,name,identifier);
+    return{
+      provider_model_identifier:identifier,
+      name,
+      vendor,
+      capabilities,
+      metadata:{
+        type:row?.type??null,
+        base_price:row?.base_price??null,
+        description:row?.description??null,
+        api_schema:row?.api_schema??null,
+      },
+    } as RoutingV2CatalogModel;
+  }).filter((row:RoutingV2CatalogModel)=>{
+    if(!row.provider_model_identifier)return false;
+    if(!q)return true;
+    const haystack=`${row.name} ${row.provider_model_identifier} ${row.vendor||''}`.toLowerCase();
+    return haystack.includes(q);
+  });
 }
