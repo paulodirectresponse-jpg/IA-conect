@@ -127,11 +127,12 @@ describe('Routing Core V2 Admin',()=>{
 
   it('prioritizes canonical image models and hides generic endpoint noise only at presentation layer',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const identity=read('server/routing-v2/imageCatalogIdentity.ts');
     expect(routes).toContain('CANONICAL_IMAGE_IDS');
     expect(routes).toContain('isGenericGroupedCatalogNoise');
-    expect(routes).toContain('Text To Image');
-    expect(routes).toContain('reference to image');
     expect(routes).toContain('bCanonical-aCanonical');
+    expect(identity).toContain('GENERIC_ENDPOINT_PATTERN');
+    expect(identity).toContain('reference[\\s/_-]*to[\\s/_-]*image');
     expect(routes).toContain("listAtlasCatalogModels()");
     expect(routes).toContain("listRunwareCatalogModels(runwareTerm)");
   });
