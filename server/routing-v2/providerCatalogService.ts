@@ -13,7 +13,7 @@ function asArray(value:any):any[]{
 
 async function readJson(url:string,init?:RequestInit){
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),12000);
+  const timer=setTimeout(()=>controller.abort(),5500);
   try{
     const response=await fetch(url,{...init,signal:controller.signal});
     const text=await response.text();

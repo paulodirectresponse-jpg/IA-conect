@@ -89,6 +89,18 @@ describe('Routing Core V2 Admin',()=>{
 
 
 
+
+  it('keeps unified catalog within runtime budget and returns partial provider results',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const catalog=read('server/routing-v2/providerCatalogService.ts');
+    expect(routes).toContain("const runwareTerm=terms.find");
+    expect(routes).toContain("withTimeout");
+    expect(routes).toContain("ms=6500");
+    expect(routes).toContain("listRunwareCatalogModels(runwareTerm)");
+    expect(routes).not.toContain("Promise.allSettled(terms.map(term=>listRunwareCatalogModels(term)))");
+    expect(catalog).toContain("controller.abort(),5500");
+  });
+
   it('fetches Atlas and Runware directly in unified catalog and exposes diagnostics',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     const view=read('src/components/admin/AdminRoutingV2.tsx');
