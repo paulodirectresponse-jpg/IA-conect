@@ -55,11 +55,14 @@ function spaced(value:string){
     .trim();
 }
 function extractVersion(name:string,identifier:string){
-  for(const value of [name,identifier]){
-    const match=String(value||'').match(/(?:^|[^a-z0-9])v?(\d+(?:\.\d+){0,2})(?=$|[^a-z0-9])/i);
-    if(match?.[1])return match[1];
-  }
-  return'';
+  const semanticName=String(name||'').trim();
+  const nameMatch=semanticName.match(/(?:^|[^a-z0-9])v?(\d+(?:\.\d+){0,2})(?=$|[^a-z0-9])/i);
+  if(nameMatch?.[1])return nameMatch[1];
+  // AIR/internal IDs can contain opaque numbers unrelated to the public model version
+  // (for example google:4@2). Prefer the semantic display name whenever it exists.
+  if(/[a-z]{2,}/i.test(semanticName))return'';
+  const identifierMatch=String(identifier||'').match(/(?:^|[^a-z0-9])v?(\d+(?:\.\d+){0,2})(?=$|[^a-z0-9])/i);
+  return identifierMatch?.[1]||'';
 }
 function removeLiteralPhrase(value:string,phrase:string){
   const escaped=phrase.replace(/[.*+?^$()|[\]\\{}]/g,'\\$&').replace(/\s+/g,'\\s+');
@@ -68,7 +71,11 @@ function removeLiteralPhrase(value:string,phrase:string){
 function stripProviderWords(value:string,vendor:string){
   let out=value;
   const phrases=[...PROVIDER_PHRASES,String(vendor||'').trim().toLowerCase()].filter(Boolean).sort((a,b)=>b.length-a.length);
-  for(const phrase of phrases)out=removeLiteralPhrase(out,phrase);
+  for(const phrase of phrases){
+    const candidate=removeLiteralPhrase(out,phrase).replace(/\s+/g,' ').trim();
+    // Keep a brand word when it is also the model family itself (Ideogram, Recraft, Krea, etc.).
+    if(/[a-z]{2,}/i.test(candidate))out=candidate;
+  }
   return out;
 }
 
