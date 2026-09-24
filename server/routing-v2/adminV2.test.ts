@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import {describe,expect,it} from 'vitest';
 import {catalogSearchTerms,resolveCanonicalImageModel} from './imageCatalogCanonical.js';
+import {parseCatalogModelIdentity,shouldGroupCatalogModels} from './imageCatalogIdentity.js';
 
 const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
 
@@ -92,6 +93,34 @@ describe('Routing Core V2 Admin',()=>{
 
 
 
+
+
+  it('parses image model identity universally by family version tier variant and capability',()=>{
+    const seedreamA=parseCatalogModelIdentity('Seedream 5.0 Pro','bytedance:seedream@5.0-pro','ByteDance');
+    const seedreamB=parseCatalogModelIdentity('Seedream V5.0 Pro','seedream-v5.0-pro/text-to-image','ByteDance');
+    const seedreamLite=parseCatalogModelIdentity('Seedream V5.0 Lite','seedream-v5.0-lite','ByteDance');
+    const seedreamSequential=parseCatalogModelIdentity('Seedream V5.0 Pro Sequential','seedream-v5.0-pro-sequential','ByteDance');
+    const nano=parseCatalogModelIdentity('Nano Banana 2 Reference To Image','google/nano-banana-2/reference-to-image','Google');
+    const generic=parseCatalogModelIdentity('Text To Image Ultra','text-to-image-ultra','WaveSpeed');
+
+    expect(shouldGroupCatalogModels(seedreamA,seedreamB)).toBe(true);
+    expect(shouldGroupCatalogModels(seedreamA,seedreamLite)).toBe(false);
+    expect(shouldGroupCatalogModels(seedreamA,seedreamSequential)).toBe(false);
+    expect(nano.family).toBe('nano-banana');
+    expect(nano.version).toBe('2');
+    expect(nano.capabilities).toContain('image-to-image');
+    expect(generic.generic_endpoint).toBe(true);
+  });
+
+  it('uses structured identity as universal fallback while preserving provider discovery',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    expect(routes).toContain('parseCatalogModelIdentity(rawName,identifier,detectedVendor)');
+    expect(routes).toContain('identity.canonical_key');
+    expect(routes).toContain('identity.display_name');
+    expect(routes).toContain('isCatalogIdentityUsable(identity)');
+    expect(routes).toContain("listAtlasCatalogModels()");
+    expect(routes).toContain("listRunwareCatalogModels(runwareTerm)");
+  });
 
   it('prioritizes canonical image models and hides generic endpoint noise only at presentation layer',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
