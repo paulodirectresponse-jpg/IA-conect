@@ -132,6 +132,7 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
       .map(id=>providerMap.get(id))
       .filter((p):p is NonNullable<typeof p>=>Boolean(p&&p.status!=='DISABLED'));
     const terms=catalogSearchTerms(query);
+    const runwareTerm=terms.find(term=>term.toLowerCase()!==query.toLowerCase())||query||'image';
     const settled=await Promise.allSettled(providers.map(async provider=>{
       const rows:any[]=[];
       const seen=new Set<string>();
@@ -142,22 +143,26 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
           seen.add(key);rows.push(row);
         }
       };
+      const withTimeout=async<T>(promise:Promise<T>,label:string,ms=6500):Promise<T>=>{
+        let timer:ReturnType<typeof setTimeout>|undefined;
+        try{
+          return await Promise.race([
+            promise,
+            new Promise<T>((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${label} excedeu ${ms}ms.`)),ms);}),
+          ]);
+        }finally{if(timer)clearTimeout(timer);}
+      };
       if(provider.provider_id==='provider-atlas'){
-        pushRows(await listAtlasCatalogModels());
+        pushRows(await withTimeout(listAtlasCatalogModels(),'Atlas Cloud'));
         return{provider,rows,attempts:1};
       }
       if(provider.provider_id==='provider-runware'){
-        const attempts=await Promise.allSettled(terms.map(term=>listRunwareCatalogModels(term)));
-        for(const attempt of attempts)if(attempt.status==='fulfilled')pushRows(attempt.value);
-        if(!rows.length){
-          const failure=attempts.find(attempt=>attempt.status==='rejected') as PromiseRejectedResult|undefined;
-          if(failure)throw failure.reason;
-        }
-        return{provider,rows,attempts:attempts.length};
+        pushRows(await withTimeout(listRunwareCatalogModels(runwareTerm),'Runware'));
+        return{provider,rows,attempts:1};
       }
       const adapter=adapterFor(provider);
       if(!adapter?.listModels)throw new Error('Adapter WaveSpeed sem catálogo.');
-      pushRows(await adapter.listModels(provider,query));
+      pushRows(await withTimeout(adapter.listModels(provider,query),'WaveSpeed'));
       return{provider,rows,attempts:1};
     }));
     const grouped=new Map<string,any>();
