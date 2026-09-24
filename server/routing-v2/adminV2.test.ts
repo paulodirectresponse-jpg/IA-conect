@@ -91,6 +91,17 @@ describe('Routing Core V2 Admin',()=>{
 
 
 
+
+  it('filters unified catalog rows before canonical grouping and repairs existing model identity',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const models=read('server/routing-v2/modelService.ts');
+    expect(routes).toContain('matchesUnifiedCatalogQuery');
+    expect(routes).toContain('if(!matchesUnifiedCatalogQuery(row,query,terms))continue');
+    expect(routes).toContain('if(rows.length>=250)break');
+    expect(routes).toContain('routingV2ModelService.updateIdentity');
+    expect(models).toContain('async updateIdentity');
+  });
+
   it('cleans technical image catalog noise without changing provider discovery',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     expect(routes).toContain("isTechnicalImageCatalogNoise");

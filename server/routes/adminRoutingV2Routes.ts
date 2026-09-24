@@ -123,6 +123,12 @@ function catalogKey(name:string,identifier:string,vendor=''){
     .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
   return strip(base)||strip(name)||strip(vendor);
 }
+function matchesUnifiedCatalogQuery(row:any,query:string,terms:string[]){
+  if(!query)return true;
+  const raw=`${String(row?.name||'')} ${String(row?.provider_model_identifier||'')} ${catalogVendor(row?.vendor)} ${catalogVendor(row?.metadata?.provider)} ${catalogVendor(row?.metadata?.creator)}`.toLowerCase();
+  const normalizedTerms=terms.map(term=>term.toLowerCase().trim()).filter(Boolean);
+  return normalizedTerms.some(term=>raw.includes(term));
+}
 function isTechnicalImageCatalogNoise(name:string,identifier:string,canonical:any){
   if(canonical)return false;
   const raw=`${name} ${identifier}`.toLowerCase();
@@ -147,9 +153,11 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
       const seen=new Set<string>();
       const pushRows=(items:any[])=>{
         for(const row of items){
+          if(!matchesUnifiedCatalogQuery(row,query,terms))continue;
           const key=String(row?.provider_model_identifier||'').trim();
           if(!key||seen.has(key))continue;
           seen.add(key);rows.push(row);
+          if(rows.length>=250)break;
         }
       };
       const withTimeout=async<T>(promise:Promise<T>,label:string,ms=6500):Promise<T>=>{
@@ -236,7 +244,16 @@ adminRoutingV2Router.post('/admin/routing-v2/models/bulk-import',...guard,async(
             capabilities:Array.isArray(raw?.capabilities)?raw.capabilities.filter(isCapabilityId):[],
           } as any);
           result.created_models.push(modelId);
-        }else result.existing_models.push(modelId);
+        }else{
+          const capabilities=(Array.isArray(raw?.capabilities)?raw.capabilities:[]).filter(isCapabilityId);
+          model=await routingV2ModelService.updateIdentity(modelId,{
+            name:String(raw?.name||model.name).trim(),
+            vendor:String(raw?.vendor||model.vendor).trim(),
+            category:raw?.category||model.category,
+            capabilities,
+          } as any);
+          result.existing_models.push(modelId);
+        }
         const capabilities=(Array.isArray(raw?.capabilities)?raw.capabilities:[]).filter(isCapabilityId);
         const bindings=Array.isArray(raw?.providers)?raw.providers:[];
         for(const binding of bindings){
