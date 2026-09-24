@@ -103,6 +103,8 @@ describe('Routing Core V2 Admin',()=>{
     const nano=parseCatalogModelIdentity('Nano Banana 2 Reference To Image','google/nano-banana-2/reference-to-image','Google');
     const generic=parseCatalogModelIdentity('Text To Image Ultra','text-to-image-ultra','WaveSpeed');
 
+    expect(seedreamA.version).toBe('5.0');
+    expect(seedreamB.version).toBe('5.0');
     expect(shouldGroupCatalogModels(seedreamA,seedreamB)).toBe(true);
     expect(shouldGroupCatalogModels(seedreamA,seedreamLite)).toBe(false);
     expect(shouldGroupCatalogModels(seedreamA,seedreamSequential)).toBe(false);
@@ -110,6 +112,7 @@ describe('Routing Core V2 Admin',()=>{
     expect(nano.version).toBe('2');
     expect(nano.capabilities).toContain('image-to-image');
     expect(generic.generic_endpoint).toBe(true);
+    expect(parseCatalogModelIdentity('Nano Banana Pro','google:4@2','Google').version).toBe('');
   });
 
   it('uses structured identity as universal fallback while preserving provider discovery',()=>{
@@ -164,14 +167,16 @@ describe('Routing Core V2 Admin',()=>{
     expect(catalog).toContain("controller.abort(),5500");
   });
 
-  it('fetches Atlas and Runware directly in unified catalog and exposes diagnostics',()=>{
+  it('fetches WaveSpeed Atlas and Runware directly in unified catalog and exposes diagnostics',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     const view=read('src/components/admin/AdminRoutingV2.tsx');
     const client=read('src/services/routingV2AdminService.ts');
+    expect(routes).toContain("provider.provider_id==='provider-wavespeed'");
+    expect(routes).toContain('listWaveSpeedCatalogModels(query)');
     expect(routes).toContain("provider.provider_id==='provider-atlas'");
     expect(routes).toContain('listAtlasCatalogModels()');
     expect(routes).toContain("provider.provider_id==='provider-runware'");
-    expect(routes).toContain('listRunwareCatalogModels(term)');
+    expect(routes).toContain('listRunwareCatalogModels(runwareTerm)');
     expect(routes).toContain('provider_diagnostics');
     expect(view).toContain('catalogDiagnostics');
     expect(view).toContain('resultado(s)');
@@ -184,14 +189,17 @@ describe('Routing Core V2 Admin',()=>{
     expect(resolveCanonicalImageModel('GPT-Image-2.5 Flare','openai:gpt-image@2.5-flare','OpenAI')?.canonical_id).toBe('gpt-image-2-5-flare');
     expect(resolveCanonicalImageModel('Nano Banana 2','google:4@3','Google')?.canonical_id).toBe('nano-banana-2');
     expect(resolveCanonicalImageModel('Seedream 5.0 Pro','bytedance:seedream@5.0-pro','ByteDance')?.canonical_id).toBe('seedream-5-0-pro');
+    expect(resolveCanonicalImageModel('Seedream V5.0 Pro','bytedance/seedream-v5.0-pro','ByteDance')?.canonical_id).toBe('seedream-5-0-pro');
+    expect(resolveCanonicalImageModel('Seedream V5.0 Pro Text to Image','seedream-v5.0-pro/text-to-image','ByteDance')?.canonical_id).toBe('seedream-5-0-pro');
     expect(resolveCanonicalImageModel('FLUX.2 [pro]','bfl:5@1','Black Forest Labs')?.canonical_id).toBe('flux-2-pro');
     expect(catalogSearchTerms('gpt')).toContain('GPT Image 2');
   });
 
-  it('does not rely on stale supports_catalog_sync for unified discovery',()=>{
+  it('does not rely on stale supports_catalog_sync or intermediary adapters for unified discovery',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
-    expect(routes).toContain("Boolean(adapterFor(p)?.listModels)");
-    expect(routes).toContain("provider.provider_id==='provider-runware'?terms:[query]");
+    expect(routes).toContain("['provider-wavespeed','provider-atlas','provider-runware']");
+    expect(routes).toContain("provider.provider_id==='provider-wavespeed'");
+    expect(routes).toContain('listWaveSpeedCatalogModels(query)');
     expect(routes).toContain('canonical?.default_capabilities');
     expect(routes).not.toContain("p.status!=='DISABLED'&&p.supports_catalog_sync");
   });
@@ -206,7 +214,7 @@ describe('Routing Core V2 Admin',()=>{
     expect(routes).toContain('catalogBase(identifier)');
     expect(routes).toContain('bindingCapabilities');
     expect(view).toContain('capabilities:p.capabilities');
-    expect(view).toContain('new Map(row.providers.map(p=>[p.provider_id,p]))');
+    expect(view).toContain('uniqueCatalogProviders(row.providers)');
   });
 
   it('supports unified provider catalog and bulk model import',()=>{
@@ -222,6 +230,15 @@ describe('Routing Core V2 Admin',()=>{
     expect(view).toContain('Bindings encontrados');
     expect(client).toContain('searchUnifiedCatalog');
     expect(client).toContain('bulkImportModels');
+  });
+
+  it('uses official WaveSpeed model-list catalog contract and provider types as capabilities',()=>{
+    const catalog=read('server/routing-v2/providerCatalogService.ts');
+    expect(catalog).toContain('/api/v3/models');
+    expect(catalog).toContain('model_id');
+    expect(catalog).toContain('base_price');
+    expect(catalog).toContain('catalogCapability(row?.type');
+    expect(catalog).toContain('WAVESPEED_API_KEY');
   });
 
   it('normalizes catalog vendor objects instead of rendering object Object',()=>{
