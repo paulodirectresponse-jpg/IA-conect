@@ -1,97 +1,154 @@
-import React,{useEffect,useRef,useState}from'react';
-import{Wallet,RotateCcw,FileText,Plus,Copy,Check,CheckCircle2,X,Loader2,QrCode,Gift,Tag,ShieldCheck,Clock3,ArrowRight,ExternalLink}from'lucide-react';
-import{useAuth}from'../../context/AuthContext.js';import{creditService}from'../../services/creditService.js';import{paymentClient,CouponQuote}from'../../services/paymentClient.js';import{PaymentRecord}from'../../types/index.js';import{CreditTransaction,PackVersion}from'../../types/credits.js';import{formatCentsToBRL}from'../../config/constants.js';import{CreditAmount}from'../common/CreditAmount.js';
-const terminal=(s:string)=>['CONFIRMED','FAILED','EXPIRED'].includes(s);const bonusPct=(p:PackVersion)=>p.base_credits>0?Math.round((p.bonus_credits/p.base_credits)*100):0;
+import React,{useEffect,useState}from'react';
+import{Wallet,RotateCcw,FileText,Plus,Check,CheckCircle2,X,Loader2,Tag,ShieldCheck,ArrowRight,CalendarClock,CreditCard}from'lucide-react';
+import{useAuth}from'../../context/AuthContext.js';
+import{creditService}from'../../services/creditService.js';
+import{subscriptionClient}from'../../services/subscriptionClient.js';
+import{CreditTransaction,PackVersion,UserSubscription}from'../../types/credits.js';
+import{formatCentsToBRL}from'../../config/constants.js';
+import{CreditAmount}from'../common/CreditAmount.js';
+
 const unitPerThousand=(p:PackVersion)=>Math.round((p.price_brl_cents/Math.max(1,p.total_credits))*1000);
-export const WalletView:React.FC=()=>{const{wallet,refreshWallet}=useAuth(),[transactions,setTransactions]=useState<CreditTransaction[]>([]),[packs,setPacks]=useState<PackVersion[]>([]),[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[rechargeOpen,setRechargeOpen]=useState(false),[redeemOpen,setRedeemOpen]=useState(false),[redeemCode,setRedeemCode]=useState(''),[redeemLoading,setRedeemLoading]=useState(false),[redeemMessage,setRedeemMessage]=useState(''),[selectedPack,setSelectedPack]=useState<PackVersion|null>(null),[creating,setCreating]=useState(false),[payment,setPayment]=useState<PaymentRecord|null>(null),[error,setError]=useState(''),[copied,setCopied]=useState(false),[nowMs,setNowMs]=useState(Date.now()),[couponCode,setCouponCode]=useState(''),[couponQuote,setCouponQuote]=useState<CouponQuote|null>(null),[couponLoading,setCouponLoading]=useState(false),[couponNotice,setCouponNotice]=useState(''),pollRef=useRef<any>(null);
- const load=async()=>{setLoading(true);try{const[t,p]=await Promise.all([creditService.listTransactions(50),creditService.listPacks()]);setTransactions(t.transactions);setPacks(p);if(!selectedPack&&p.length)setSelectedPack(p.find(x=>x.recommended)||p.find(x=>x.badge)||p[0]);}finally{setLoading(false)}};useEffect(()=>{load().catch(console.error);return()=>{if(pollRef.current)clearTimeout(pollRef.current)}},[]);useEffect(()=>{if(!payment||terminal(payment.status))return;setNowMs(Date.now());const timer=window.setInterval(()=>setNowMs(Date.now()),1000);return()=>window.clearInterval(timer)},[payment?.payment_id,payment?.status]);const refresh=async()=>{setRefreshing(true);await Promise.all([refreshWallet(),load()]);setRefreshing(false)};const close=()=>{if(pollRef.current)clearTimeout(pollRef.current);setRechargeOpen(false);setPayment(null);setError('');setCopied(false);setCouponCode('');setCouponQuote(null);setCouponNotice('')};const poll=(id:string)=>{pollRef.current=setTimeout(async()=>{try{const p=await paymentClient.get(id);setPayment(p);if(p.status==='CONFIRMED'){await refresh();return}if(!terminal(p.status))poll(id)}catch{}},2500)};
- const choosePack=(pack:PackVersion)=>{setSelectedPack(pack);setCouponQuote(null);setCouponNotice('');setError('')};const applyCoupon=async()=>{if(!selectedPack||!couponCode.trim())return;setCouponLoading(true);setError('');setCouponNotice('');try{const inspected=await creditService.inspectCoupon(couponCode.trim(),selectedPack);if(inspected.redemption_mode==='DIRECT_CREDIT'){const result=await creditService.redeemCoupon(couponCode.trim());await refresh();setCouponCode('');setCouponQuote(null);setCouponNotice(`${Number(result.credits||0).toLocaleString('pt-BR')} créditos de presente foram adicionados à sua conta.`);return}setCouponQuote(inspected as CouponQuote)}catch(e:any){setCouponQuote(null);setError(e?.message||'Cupom inválido.')}finally{setCouponLoading(false)}};const removeCoupon=()=>{setCouponCode('');setCouponQuote(null);setCouponNotice('');setError('')};
- const smartRedeem=async()=>{if(!redeemCode.trim())return;setRedeemLoading(true);setRedeemMessage('');setError('');try{const inspected=await creditService.inspectCoupon(redeemCode.trim());if(inspected.redemption_mode==='CHECKOUT'){setRedeemOpen(false);setRechargeOpen(true);setCouponCode(redeemCode.trim().toUpperCase());setCouponQuote(null);setCouponNotice('Este código é aplicado durante uma compra. Escolha o pacote e clique em Aplicar.');setRedeemCode('');return}const result=await creditService.redeemCoupon(redeemCode.trim());await refresh();setRedeemMessage(`${Number(result.credits||0).toLocaleString('pt-BR')} créditos adicionados com sucesso.`);setRedeemCode('')}catch(e:any){setRedeemMessage(e?.message||'Não foi possível resgatar este código.')}finally{setRedeemLoading(false)}};
- const createPix=async()=>{if(!selectedPack)return;setCreating(true);setError('');try{const p=await paymentClient.purchasePack(selectedPack.pack_id,selectedPack.version,couponQuote?.coupon?.code);setPayment(p);if(!terminal(p.status))poll(p.payment_id);else if(p.status==='CONFIRMED')await refresh()}catch(e:any){setError(e?.message||'Não foi possível criar o Pix.')}finally{setCreating(false)}};const copyPix=async()=>{if(!payment?.pix_code)return;await navigator.clipboard.writeText(payment.pix_code);setCopied(true);setTimeout(()=>setCopied(false),1800)};const positive=(t:string)=>['PURCHASE_ISSUE','PROMO_ISSUE','ADMIN_CREDIT','CREATOR_REWARD','MIGRATION_ISSUE','GENERATION_RELEASE'].includes(t);
- const checkoutCredits=selectedPack?selectedPack.total_credits+(couponQuote?.bonus_credits||0):0,checkoutAmount=selectedPack?(couponQuote?.final_amount_cents??selectedPack.price_brl_cents):0;
+const statusLabel=(s?:string)=>s==='ACTIVE'?'Ativa':s==='PENDING'?'Aguardando ativação':s==='PAUSED'?'Pausada':s==='CANCELED'?'Cancelada':'Indisponível';
+const positive=(t:string)=>['PURCHASE_ISSUE','PROMO_ISSUE','ADMIN_CREDIT','CREATOR_REWARD','MIGRATION_ISSUE','GENERATION_RELEASE'].includes(t);
+
+export const WalletView:React.FC=()=>{
+ const{wallet,refreshWallet}=useAuth();
+ const[transactions,setTransactions]=useState<CreditTransaction[]>([]);
+ const[packs,setPacks]=useState<PackVersion[]>([]);
+ const[subscription,setSubscription]=useState<UserSubscription|null>(null);
+ const[selectedPack,setSelectedPack]=useState<PackVersion|null>(null);
+ const[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[plansOpen,setPlansOpen]=useState(false),[redeemOpen,setRedeemOpen]=useState(false),[redeemCode,setRedeemCode]=useState(''),[redeemLoading,setRedeemLoading]=useState(false),[redeemMessage,setRedeemMessage]=useState(''),[actionLoading,setActionLoading]=useState(false),[message,setMessage]=useState('');
+
+ const load=async()=>{
+  setLoading(true);
+  try{
+   const[t,p,s]=await Promise.all([creditService.listTransactions(50),creditService.listPacks(),subscriptionClient.getCurrent()]);
+   setTransactions(t.transactions);setPacks(p);setSubscription(s);
+   if(!selectedPack&&p.length){
+    const current=p.find(x=>x.pack_id===s?.pack_id);
+    setSelectedPack(current||p.find(x=>x.recommended)||p[0]);
+   }
+  }finally{setLoading(false);}
+ };
+ useEffect(()=>{load().catch(console.error);},[]);
+ const refresh=async()=>{setRefreshing(true);try{await Promise.all([refreshWallet(),load()]);}finally{setRefreshing(false);}};
+ const choosePack=(pack:PackVersion)=>{setSelectedPack(pack);setMessage('');};
+ const smartRedeem=async()=>{
+  if(!redeemCode.trim())return;setRedeemLoading(true);setRedeemMessage('');
+  try{
+   const inspected=await creditService.inspectCoupon(redeemCode.trim());
+   if(inspected.redemption_mode==='CHECKOUT'){setRedeemMessage('Este código exige checkout e não é aplicado à assinatura recorrente nesta etapa.');return;}
+   const result=await creditService.redeemCoupon(redeemCode.trim());await refreshWallet();
+   setRedeemMessage(`${Number(result.credits||0).toLocaleString('pt-BR')} créditos adicionados com sucesso.`);setRedeemCode('');
+  }catch(e:any){setRedeemMessage(e?.message||'Não foi possível resgatar este código.');}
+  finally{setRedeemLoading(false);}
+ };
+ const subscribe=async()=>{
+  if(!selectedPack)return;setActionLoading(true);setMessage('');
+  try{
+   const sub=await subscriptionClient.createCheckout(selectedPack.pack_id,selectedPack.version);setSubscription(sub);
+   if(sub.checkout_url){window.location.assign(sub.checkout_url);return;}
+   setMessage('Assinatura criada, mas o checkout do Mercado Pago não foi retornado.');
+  }catch(e:any){setMessage(e?.message||'Não foi possível iniciar a assinatura.');}
+  finally{setActionLoading(false);}
+ };
+ const changePlan=async()=>{
+  if(!selectedPack)return;setActionLoading(true);setMessage('');
+  try{const sub=await subscriptionClient.changePlan(selectedPack.pack_id,selectedPack.version);setSubscription(sub);setMessage(`Mudança para ${selectedPack.name} programada para a próxima cobrança.`);}
+  catch(e:any){setMessage(e?.message||'Não foi possível alterar o plano.');}
+  finally{setActionLoading(false);}
+ };
+ const cancelSubscription=async()=>{
+  if(!subscription||!window.confirm('Cancelar a renovação da assinatura? Seu saldo atual continuará disponível.'))return;
+  setActionLoading(true);setMessage('');
+  try{const sub=await subscriptionClient.cancel();setSubscription(sub);setMessage('Assinatura cancelada. Não haverá novas cobranças recorrentes.');}
+  catch(e:any){setMessage(e?.message||'Não foi possível cancelar a assinatura.');}
+  finally{setActionLoading(false);}
+ };
  const baselineUnit=packs.length?unitPerThousand(packs[0]):0,bestUnit=packs.length?Math.min(...packs.map(unitPerThousand)):0;
- const remainingSeconds=payment?.expires_at?Math.max(0,Math.floor((Date.parse(payment.expires_at)-nowMs)/1000)):0,remainingText=`${String(Math.floor(remainingSeconds/60)).padStart(2,'0')}:${String(remainingSeconds%60).padStart(2,'0')}`;
- return <div className="ia-wallet space-y-7 text-zinc-100"><div className="ia-wallet-header flex flex-col sm:flex-row sm:items-end justify-between gap-4"><div className="ia-view-header"><h1 className="ia-view-title">Créditos</h1><p className="ia-view-description">Uma carteira para usar qualquer modelo disponível no IA Connect.</p></div><div className="flex flex-wrap gap-2"><button onClick={refresh} disabled={refreshing} className="ia-wallet-secondary-action h-10 px-3.5 text-[11px] flex items-center gap-2"><RotateCcw className={`w-3.5 h-3.5 ${refreshing?'animate-spin':''}`}/>Atualizar</button><button onClick={()=>{setRedeemMessage('');setRedeemOpen(true)}} className="ia-wallet-secondary-action h-10 px-3.5 text-[11px] flex items-center gap-2"><Tag className="w-3.5 h-3.5"/>Resgatar código</button><button onClick={()=>setRechargeOpen(true)} className="ia-primary h-10 px-4 rounded-[10px] text-[11px] font-bold flex items-center gap-2"><Plus className="w-3.5 h-3.5"/>Ver planos</button></div></div>
- <div className="grid sm:grid-cols-3 gap-3"><div className="sm:col-span-2 p-5 rounded-2xl border border-sky-400/15 bg-gradient-to-br from-sky-400/[0.10] to-blue-500/[0.025]"><div className="flex items-center gap-2 text-zinc-400 text-[11px] font-medium"><Wallet className="w-4 h-4 text-sky-300"/>Disponível</div><div className="mt-3"><CreditAmount value={wallet?.available_credits??0} size="lg" className="text-3xl font-black text-white" valueClassName="text-3xl"/></div><p className="text-[10px] text-zinc-500 mt-2">O preço de cada geração é exibido em créditos antes da confirmação.</p></div><div className="p-5 rounded-2xl border border-white/[0.07] bg-[#08131e]"><p className="text-[11px] font-medium text-zinc-500">Reservado</p><div className="mt-3"><CreditAmount value={wallet?.reserved_credits??0} size="md" className="text-xl font-bold text-white" valueClassName="text-xl"/></div><p className="text-[10px] text-zinc-600 mt-2">Gerações em processamento.</p></div></div>
- <div className="rounded-2xl border border-white/[0.07] bg-[#08131e] overflow-hidden"><div className="px-5 py-4 border-b border-white/[0.06]"><h2 className="text-sm font-semibold">Movimentações</h2><p className="text-[10px] text-zinc-600 mt-0.5">Histórico de créditos</p></div>{loading?<div className="py-12 text-center text-xs text-zinc-600">Carregando...</div>:transactions.length===0?<div className="py-12 flex flex-col items-center text-zinc-600"><FileText className="w-5 h-5 mb-2"/><span className="text-xs">Nenhuma movimentação ainda.</span></div>:<div className="overflow-x-auto"><table className="w-full text-[11px]"><thead className="text-zinc-600 border-b border-white/[0.05]"><tr><th className="text-left font-medium px-5 py-3">Data</th><th className="text-left font-medium px-3 py-3">Tipo</th><th className="text-right font-medium px-5 py-3">Créditos</th></tr></thead><tbody className="divide-y divide-white/[0.045]">{transactions.map(tx=><tr key={tx.transaction_id}><td className="px-5 py-3 text-zinc-500 whitespace-nowrap">{new Date(tx.created_at).toLocaleString('pt-BR')}</td><td className="px-3 py-3 text-zinc-300">{tx.type.replaceAll('_',' ')}</td><td className={`px-5 py-3 text-right font-semibold tabular-nums ${positive(tx.type)?'text-sky-300':'text-zinc-200'}`}><CreditAmount value={Math.abs(tx.amount_credits)} size="xs" prefix={positive(tx.type)?'+':'-'}/></td></tr>)}</tbody></table></div>}</div>
- {redeemOpen&&<div className="fixed inset-0 z-[125] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#08131e] p-5"><div className="flex items-center justify-between"><div><h2 className="text-sm font-bold text-white">Resgatar código</h2><p className="text-[10px] text-zinc-500 mt-1">O IA Connect identifica automaticamente se o código concede créditos ou pertence a uma compra.</p></div><button onClick={()=>setRedeemOpen(false)} className="p-2 text-zinc-600 hover:text-white"><X className="w-4 h-4"/></button></div><div className="mt-4 flex gap-2"><input autoFocus value={redeemCode} onChange={e=>setRedeemCode(e.target.value.toUpperCase())} placeholder="Digite seu código" className="flex-1 h-10 px-3 rounded-xl bg-white/[0.035] border border-white/[0.08] text-xs text-white uppercase outline-none focus:border-sky-300/40"/><button onClick={smartRedeem} disabled={redeemLoading||!redeemCode.trim()} className="ia-primary h-10 px-4 rounded-xl text-[10px] font-black disabled:opacity-40">{redeemLoading?<Loader2 className="w-4 h-4 animate-spin"/>:'Resgatar'}</button></div>{redeemMessage&&<div className="mt-3 p-3 rounded-xl border border-white/[0.07] bg-white/[0.03] text-[10px] text-zinc-300">{redeemMessage}</div>}</div></div>}
- {rechargeOpen&&<div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
-  <div className="w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-[24px] border border-white/[0.09] bg-[#07111b] shadow-[0_32px_100px_rgba(0,0,0,.65)]">
-   <div className="sticky top-0 z-10 px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-[#07111b]/95 backdrop-blur-xl flex items-start justify-between gap-4">
-    <div>
-     <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-xl bg-sky-300/10 border border-sky-300/15 grid place-items-center"><Wallet className="w-4 h-4 text-sky-300"/></div><div><h2 className="text-[15px] font-black text-white">Planos IA Connect</h2><p className="text-[10px] text-zinc-500 mt-0.5">Creator, Pro ou Studio · pagamento seguro via Pix</p></div></div>
-     <div className="mt-3 flex items-center gap-2 text-[8px] font-bold uppercase tracking-[0.13em]">
-      <span className={`px-2.5 py-1 rounded-full border ${!payment?'border-sky-300/25 bg-sky-300/10 text-sky-200':'border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-300'}`}>1 · Plano</span>
-      <span className="h-px w-5 bg-white/10"/>
-      <span className={`px-2.5 py-1 rounded-full border ${payment&&payment.status!=='CONFIRMED'?'border-sky-300/25 bg-sky-300/10 text-sky-200':payment?.status==='CONFIRMED'?'border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-300':'border-white/[0.06] text-zinc-700'}`}>2 · Pix</span>
-      <span className="h-px w-5 bg-white/10"/>
-      <span className={`px-2.5 py-1 rounded-full border ${payment?.status==='CONFIRMED'?'border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-300':'border-white/[0.06] text-zinc-700'}`}>3 · Confirmação</span>
-     </div>
-    </div>
-    <button onClick={close} aria-label="Fechar checkout" className="w-9 h-9 rounded-xl border border-white/[0.07] bg-white/[0.025] grid place-items-center text-zinc-500 hover:text-white hover:bg-white/[0.05]"><X className="w-4 h-4"/></button>
-   </div>
+ const active=subscription?.status==='ACTIVE',pending=subscription?.status==='PENDING';
+ const samePlan=Boolean(selectedPack&&subscription?.pack_id===selectedPack.pack_id&&!subscription?.pending_plan_change);
 
-   <div className="p-4 sm:p-6">
-    {!payment?<div className="grid lg:grid-cols-[1.45fr_.8fr] gap-5">
-     <div>
-      <div className="mb-4"><div className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/15 bg-sky-300/[0.06] px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.12em] text-sky-200">3 planos simples</div><h3 className="mt-3 text-[18px] font-black text-white">Escolha o plano ideal para o seu ritmo</h3><p className="mt-1 text-[10px] leading-relaxed text-zinc-500">Os três planos usam a mesma carteira e funcionam em qualquer IA disponível. O que muda é o volume e o custo efetivo por crédito.</p></div>
-      <div className="grid md:grid-cols-3 gap-3">
-       {packs.map(pack=>{const selected=selectedPack?.pack_id===pack.pack_id&&selectedPack?.version===pack.version,pct=bonusPct(pack),unit=unitPerThousand(pack),saving=baselineUnit>0?Math.max(0,Math.round((1-unit/baselineUnit)*100)):0,best=unit===bestUnit&&packs.length>1;return <button key={`${pack.pack_id}-${pack.version}`} onClick={()=>choosePack(pack)} className={`ia-wallet-pack group relative min-h-[168px] p-4 rounded-2xl border text-left transition-[border-color,background-color,box-shadow] ${selected?'border-sky-300/55 bg-gradient-to-br from-sky-300/[0.12] to-blue-500/[0.035] shadow-[0_0_0_1px_rgba(125,211,252,.08),0_16px_40px_rgba(0,0,0,.22)]':'border-white/[0.07] bg-white/[0.022] hover:border-white/[0.14] hover:bg-white/[0.035]'}`}>
-        <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.08em] text-zinc-400">{pack.name}</p><div className="mt-1.5"><CreditAmount value={pack.total_credits} size="md" className="font-black text-white" valueClassName="text-[20px] leading-none"/></div></div>{selected?<CheckCircle2 className="w-5 h-5 text-sky-300"/>:(pack.badge||best)?<span className={`px-2 py-1 rounded-full text-[7px] font-black uppercase tracking-wider ${pack.badge?'bg-sky-300 text-[#03121c]':'border border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-300'}`}>{pack.badge||'Melhor custo'}</span>:null}</div>
-        <p className="mt-3 min-h-[34px] text-[9px] leading-relaxed text-zinc-500">{pack.description}</p><div className="mt-3 space-y-1.5">{pack.features.slice(0,3).map(feature=><div key={feature} className="flex items-start gap-1.5 text-[8px] leading-relaxed text-zinc-400"><Check className="mt-0.5 h-3 w-3 shrink-0 text-sky-300"/><span>{feature}</span></div>)}</div>
-        <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-end justify-between gap-3"><div><p className="text-[10px] text-zinc-600">Valor do plano</p><p className="mt-0.5 text-[13px] font-black text-white">{formatCentsToBRL(pack.price_brl_cents)}</p></div><div className="text-right"><div className="flex items-center justify-end gap-1 text-[10px] text-zinc-600">por <CreditAmount value={1000} size="xs"/></div><p className="mt-0.5 text-[9px] font-bold text-zinc-400">{formatCentsToBRL(unit)}</p></div></div>
-        {(pack.bonus_credits>0||saving>0)&&<div className="mt-2 flex flex-wrap gap-1.5">{pack.bonus_credits>0&&<span className="inline-flex items-center gap-1 rounded-md border border-emerald-300/15 bg-emerald-300/[0.05] px-2 py-1 text-[8px] font-bold text-emerald-300"><Gift className="w-3 h-3"/>+{pack.bonus_credits.toLocaleString('pt-BR')} bônus · +{pct}%</span>}{saving>0&&<span className="rounded-md border border-white/[0.06] bg-white/[0.025] px-2 py-1 text-[8px] font-semibold text-zinc-500">economia efetiva ~{saving}%</span>}</div>}
-       </button>})}
-      </div>
-     </div>
-
-     <aside className="lg:sticky lg:top-[108px] h-fit rounded-2xl border border-white/[0.08] bg-[#0a1622] overflow-hidden">
-      <div className="p-4 border-b border-white/[0.06]"><p className="text-[9px] font-bold uppercase tracking-[0.13em] text-zinc-600">Resumo da compra</p>{selectedPack?<><div className="mt-3 flex items-start justify-between gap-3"><div><p className="text-[11px] font-bold text-white">{selectedPack.name}</p><p className="mt-0.5 text-[9px] text-zinc-600">{selectedPack.total_credits.toLocaleString('pt-BR')} créditos incluídos</p></div><p className="text-[12px] font-black text-white">{formatCentsToBRL(selectedPack.price_brl_cents)}</p></div></>:<p className="mt-3 text-[10px] text-zinc-600">Selecione um plano para continuar.</p>}</div>
-      {selectedPack&&<div className="p-4 space-y-4">
-       <div>
-        <p className="text-[9px] font-semibold text-zinc-400 mb-2 flex items-center gap-1.5"><Tag className="w-3 h-3"/>Cupom</p>
-        <div className="flex gap-2"><input value={couponCode} onChange={e=>{setCouponCode(e.target.value.toUpperCase());if(couponQuote)setCouponQuote(null);setCouponNotice('')}} disabled={Boolean(couponQuote)} placeholder="CÓDIGO" className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-white/[0.08] bg-black/20 text-[10px] text-white uppercase outline-none focus:border-sky-300/35"/><button onClick={couponQuote?removeCoupon:applyCoupon} disabled={couponLoading||(!couponQuote&&!couponCode.trim())} className="h-10 px-3 rounded-xl border border-white/[0.08] bg-white/[0.04] text-[9px] font-bold text-zinc-200 disabled:opacity-40">{couponLoading?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:couponQuote?'Remover':'Aplicar'}</button></div>
-        {couponQuote&&<div className="mt-2 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.055] px-3 py-2"><p className="text-[9px] font-bold text-emerald-200">Cupom {couponQuote.coupon.code} aplicado</p>{couponQuote.bonus_credits>0&&<p className="text-[8px] text-emerald-300 mt-1">+{couponQuote.bonus_credits.toLocaleString('pt-BR')} créditos extras</p>}{couponQuote.discount_cents>0&&<p className="text-[8px] text-emerald-300 mt-0.5">− {formatCentsToBRL(couponQuote.discount_cents)} no pagamento</p>}</div>}
-        {couponNotice&&<div className="mt-2 rounded-xl border border-sky-300/15 bg-sky-300/[0.05] px-3 py-2 text-[8px] text-sky-200">{couponNotice}</div>}
-       </div>
-       <div className="space-y-2 text-[10px]"><div className="flex justify-between text-zinc-500"><span>Créditos do plano</span><CreditAmount value={selectedPack.total_credits} size="xs" className="text-zinc-300"/></div>{couponQuote?.bonus_credits?<div className="flex justify-between text-emerald-300"><span>Bônus do cupom</span><span>+{couponQuote.bonus_credits.toLocaleString('pt-BR')}</span></div>:null}{couponQuote?.discount_cents?<div className="flex justify-between text-emerald-300"><span>Desconto</span><span>− {formatCentsToBRL(couponQuote.discount_cents)}</span></div>:null}<div className="pt-3 mt-1 border-t border-white/[0.07] flex items-end justify-between"><div><p className="text-[8px] text-zinc-600">Você recebe</p><div className="mt-0.5"><CreditAmount value={checkoutCredits} size="md" className="font-black text-white" valueClassName="text-[15px]"/></div></div><div className="text-right"><p className="text-[8px] text-zinc-600">Total no Pix</p><p className="mt-0.5 text-[18px] font-black text-white">{formatCentsToBRL(checkoutAmount)}</p></div></div></div>
-       <button onClick={createPix} disabled={creating||!selectedPack} className="ia-primary w-full h-12 rounded-xl font-black text-[11px] flex items-center justify-center gap-2 disabled:opacity-40">{creating?<Loader2 className="w-4 h-4 animate-spin"/>:<><QrCode className="w-4 h-4"/>Continuar para o Pix<ArrowRight className="w-3.5 h-3.5"/></>}</button>
-       <div className="rounded-xl border border-white/[0.06] bg-black/15 p-3 flex items-start gap-2.5"><ShieldCheck className="w-4 h-4 shrink-0 text-emerald-300"/><div><p className="text-[9px] font-bold text-zinc-300">Pagamento seguro</p><p className="mt-0.5 text-[8px] leading-relaxed text-zinc-600">O pagamento é processado pelo Mercado Pago. Os créditos são liberados automaticamente após a confirmação.</p></div></div>
-      </div>}
-     </aside>
-    </div>:payment.status==='CONFIRMED'?<div className="max-w-lg mx-auto py-10 text-center">
-     <div className="w-16 h-16 mx-auto rounded-2xl border border-emerald-300/20 bg-emerald-300/[0.08] grid place-items-center"><CheckCircle2 className="w-8 h-8 text-emerald-300"/></div>
-     <h3 className="mt-5 text-[20px] font-black text-white">Pagamento confirmado</h3>
-     <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">Os créditos já foram emitidos para sua conta e estão disponíveis para novas gerações.</p>
-     <div className="mt-5 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4 flex items-center justify-between"><div className="text-left"><p className="text-[10px] font-medium text-zinc-600">Valor pago</p><p className="mt-1 text-[14px] font-black text-white">{formatCentsToBRL(payment.amount_cents)}</p></div><div className="text-right"><p className="text-[10px] font-medium text-zinc-600">Status</p><p className="mt-1 text-[10px] font-bold text-emerald-300">Créditos liberados</p></div></div>
-     <button onClick={close} className="mt-5 ia-primary h-11 px-7 rounded-xl text-[11px] font-black">Voltar ao estúdio</button>
-    </div>:payment.status==='FAILED'||payment.status==='EXPIRED'?<div className="max-w-lg mx-auto py-10 text-center">
-     <div className="w-14 h-14 mx-auto rounded-2xl border border-rose-300/15 bg-rose-400/[0.06] grid place-items-center"><Clock3 className="w-6 h-6 text-rose-300"/></div>
-     <h3 className="mt-4 text-[17px] font-black text-white">{payment.status==='EXPIRED'?'Pix expirado':'Pagamento não concluído'}</h3>
-     <p className="mt-2 text-[10px] text-zinc-500">{payment.status==='EXPIRED'?'Esse código Pix não pode mais ser usado. Gere um novo para continuar.':'O processador de pagamento não confirmou esta transação. Você pode tentar novamente sem alterar seu saldo.'}</p>
-     <button onClick={()=>{setPayment(null);setError('');setCopied(false)}} className="mt-5 h-11 px-5 rounded-xl border border-white/[0.09] bg-white/[0.04] text-[10px] font-bold text-white">Gerar novo Pix</button>
-    </div>:<div className="grid lg:grid-cols-[.85fr_1.15fr] gap-5 items-start">
-     <section className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-center">
-      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-300/15 bg-amber-300/[0.06] text-[8px] font-bold text-amber-200"><span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse"/>Aguardando pagamento</div>
-      <h3 className="mt-3 text-[18px] font-black text-white">{formatCentsToBRL(payment.amount_cents)}</h3>
-      <p className="mt-1 text-[9px] text-zinc-600">Escaneie o QR Code com o app do seu banco.</p>
-      {payment.pix_qr_code_base64?<div className="mt-4 w-fit mx-auto p-3 rounded-2xl bg-white shadow-[0_18px_50px_rgba(0,0,0,.28)]"><img src={`data:image/png;base64,${payment.pix_qr_code_base64}`} className="w-52 h-52" alt="QR Code Pix"/></div>:<div className="mt-4 w-52 h-52 mx-auto rounded-2xl border border-dashed border-white/[0.08] grid place-items-center text-[9px] text-zinc-600">QR Code indisponível</div>}
-      <div className="mt-4 inline-flex items-center gap-2 text-[9px] text-zinc-500"><Clock3 className="w-3.5 h-3.5"/><span>Expira em</span><strong className={`font-mono tabular-nums ${remainingSeconds<300?'text-amber-300':'text-zinc-300'}`}>{remainingText}</strong></div>
-     </section>
-
-     <section className="rounded-2xl border border-white/[0.08] bg-[#0a1622] overflow-hidden">
-      <div className="p-5 border-b border-white/[0.06]"><p className="text-[9px] uppercase tracking-[0.13em] font-bold text-zinc-600">Pix copia e cola</p><p className="mt-1 text-[10px] text-zinc-500">Prefere pagar pelo computador? Copie o código e cole na área Pix do seu banco.</p></div>
-      <div className="p-5 space-y-4">
-       <div className="rounded-xl border border-white/[0.07] bg-black/20 p-3"><p className="max-h-20 overflow-y-auto break-all font-mono text-[9px] leading-relaxed text-zinc-400">{payment.pix_code||'Código Pix indisponível.'}</p></div>
-       <button onClick={copyPix} disabled={!payment.pix_code} className={`w-full h-11 rounded-xl border text-[10px] font-black flex items-center justify-center gap-2 transition-[border-color,background-color,color] duration-200 disabled:opacity-35 ${copied?'border-emerald-300/25 bg-emerald-300/[0.08] text-emerald-200':'border-sky-300/20 bg-sky-300/[0.08] text-sky-100 hover:bg-sky-300/[0.12]'}`}><Copy className="w-3.5 h-3.5"/>{copied?'Código copiado':'Copiar código Pix'}</button>
-       {payment.checkout_url&&<a href={payment.checkout_url} target="_blank" rel="noreferrer" className="w-full h-10 rounded-xl border border-white/[0.07] bg-white/[0.025] text-[9px] font-semibold text-zinc-300 flex items-center justify-center gap-2 hover:bg-white/[0.05]">Abrir página de pagamento <ExternalLink className="w-3.5 h-3.5"/></a>}
-       <div className="grid sm:grid-cols-2 gap-2"><div className="rounded-xl border border-white/[0.06] bg-black/15 p-3"><p className="text-[8px] text-zinc-600">Forma de pagamento</p><p className="mt-1 text-[10px] font-bold text-white">Pix</p></div><div className="rounded-xl border border-white/[0.06] bg-black/15 p-3"><p className="text-[8px] text-zinc-600">Processamento</p><p className="mt-1 text-[10px] font-bold text-white">Mercado Pago</p></div></div>
-       <div className="rounded-xl border border-emerald-300/10 bg-emerald-300/[0.04] p-3 flex gap-2.5"><ShieldCheck className="w-4 h-4 shrink-0 text-emerald-300"/><div><p className="text-[9px] font-bold text-zinc-300">Confirmação automática</p><p className="mt-0.5 text-[8px] leading-relaxed text-zinc-600">Assim que o pagamento for confirmado, os créditos serão adicionados automaticamente. Não é necessário enviar comprovante.</p></div></div>
-      </div>
-     </section>
-    </div>}
-    {error&&<div className="mt-4 p-3 rounded-xl bg-rose-500/[0.08] border border-rose-400/10 text-[10px] text-rose-300">{error}</div>}
+ return <div className="ia-wallet space-y-7 text-zinc-100">
+  <div className="ia-wallet-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+   <div className="ia-view-header"><h1 className="ia-view-title">Créditos</h1><p className="ia-view-description">Sua assinatura, saldo e movimentações em um só lugar.</p></div>
+   <div className="flex flex-wrap gap-2">
+    <button onClick={refresh} disabled={refreshing} className="ia-wallet-secondary-action h-10 px-3.5 text-[11px] flex items-center gap-2"><RotateCcw className={`w-3.5 h-3.5 ${refreshing?'animate-spin':''}`}/>Atualizar</button>
+    <button onClick={()=>{setRedeemMessage('');setRedeemOpen(true)}} className="ia-wallet-secondary-action h-10 px-3.5 text-[11px] flex items-center gap-2"><Tag className="w-3.5 h-3.5"/>Resgatar código</button>
+    <button onClick={()=>setPlansOpen(true)} className="ia-primary h-10 px-4 rounded-[10px] text-[11px] font-bold flex items-center gap-2"><Plus className="w-3.5 h-3.5"/>{active?'Gerenciar plano':'Ver planos'}</button>
    </div>
   </div>
- </div>}</div>;
+
+  <div className="grid gap-3 lg:grid-cols-[1.3fr_.9fr]">
+   <div className="grid sm:grid-cols-3 gap-3">
+    <div className="sm:col-span-2 p-5 rounded-2xl border border-sky-400/15 bg-gradient-to-br from-sky-400/[0.10] to-blue-500/[0.025]">
+     <div className="flex items-center gap-2 text-zinc-400 text-[11px] font-medium"><Wallet className="w-4 h-4 text-sky-300"/>Disponível</div>
+     <div className="mt-3"><CreditAmount value={wallet?.available_credits??0} size="lg" className="text-3xl font-black text-white" valueClassName="text-3xl"/></div>
+     <p className="text-[10px] text-zinc-500 mt-2">O preço de cada geração é exibido antes da confirmação.</p>
+    </div>
+    <div className="p-5 rounded-2xl border border-white/[0.07] bg-[#08131e]">
+     <p className="text-[11px] font-medium text-zinc-500">Reservado</p>
+     <div className="mt-3"><CreditAmount value={wallet?.reserved_credits??0} size="md" className="text-xl font-bold text-white" valueClassName="text-xl"/></div>
+     <p className="text-[10px] text-zinc-600 mt-2">Gerações em processamento.</p>
+    </div>
+   </div>
+
+   <div className="rounded-2xl border border-white/[0.07] bg-[#08131e] p-5">
+    <div className="flex items-start justify-between gap-3">
+     <div><p className="text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">Assinatura</p><h2 className="mt-1 text-[16px] font-black text-white">{active||pending?subscription?.plan_name:'Sem plano ativo'}</h2></div>
+     <span className={`rounded-full border px-2.5 py-1 text-[8px] font-bold ${active?'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-300':pending?'border-amber-300/20 bg-amber-300/[0.06] text-amber-200':'border-white/[0.06] text-zinc-500'}`}>{statusLabel(subscription?.status)}</span>
+    </div>
+    {subscription&&subscription.status!=='CANCELED'?<div className="mt-4 space-y-2 text-[9px]">
+     <div className="flex items-center justify-between text-zinc-500"><span>Mensalidade</span><strong className="text-zinc-200">{formatCentsToBRL(subscription.price_brl_cents)}</strong></div>
+     <div className="flex items-center justify-between text-zinc-500"><span>Créditos por ciclo</span><CreditAmount value={subscription.monthly_credits} size="xs" className="font-bold text-zinc-200"/></div>
+     <div className="flex items-center justify-between text-zinc-500"><span>Próxima cobrança</span><strong className="text-zinc-300">{subscription.next_payment_date?new Date(subscription.next_payment_date).toLocaleDateString('pt-BR'):'—'}</strong></div>
+     {subscription.pending_plan_change&&<div className="mt-3 rounded-xl border border-sky-300/15 bg-sky-300/[0.05] p-2.5 text-sky-200">Próximo ciclo: {subscription.pending_plan_change.plan_name} · {formatCentsToBRL(subscription.pending_plan_change.price_brl_cents)}</div>}
+    </div>:<p className="mt-3 text-[10px] leading-relaxed text-zinc-500">Escolha Creator, Pro ou Studio. A cobrança é mensal e os créditos entram somente após uma cobrança confirmada.</p>}
+    <button onClick={()=>setPlansOpen(true)} className="mt-4 h-9 w-full rounded-xl border border-white/[0.08] bg-white/[0.03] text-[9px] font-bold text-zinc-200 hover:bg-white/[0.05]">{active?'Ver ou trocar plano':'Escolher plano'}</button>
+   </div>
+  </div>
+
+  <div className="rounded-2xl border border-white/[0.07] bg-[#08131e] overflow-hidden">
+   <div className="px-5 py-4 border-b border-white/[0.06]"><h2 className="text-sm font-semibold">Movimentações</h2><p className="text-[10px] text-zinc-600 mt-0.5">Histórico de créditos</p></div>
+   {loading?<div className="py-12 text-center text-xs text-zinc-600">Carregando...</div>:transactions.length===0?<div className="py-12 flex flex-col items-center text-zinc-600"><FileText className="w-5 h-5 mb-2"/><span className="text-xs">Nenhuma movimentação ainda.</span></div>:<div className="overflow-x-auto"><table className="w-full text-[11px]"><thead className="text-zinc-600 border-b border-white/[0.05]"><tr><th className="text-left font-medium px-5 py-3">Data</th><th className="text-left font-medium px-3 py-3">Tipo</th><th className="text-right font-medium px-5 py-3">Créditos</th></tr></thead><tbody className="divide-y divide-white/[0.045]">{transactions.map(tx=><tr key={tx.transaction_id}><td className="px-5 py-3 text-zinc-500 whitespace-nowrap">{new Date(tx.created_at).toLocaleString('pt-BR')}</td><td className="px-3 py-3 text-zinc-300">{tx.type.replaceAll('_',' ')}</td><td className={`px-5 py-3 text-right font-semibold tabular-nums ${positive(tx.type)?'text-sky-300':'text-zinc-200'}`}><CreditAmount value={Math.abs(tx.amount_credits)} size="xs" prefix={positive(tx.type)?'+':'-'}/></td></tr>)}</tbody></table></div>}
+  </div>
+
+  {redeemOpen&&<div className="fixed inset-0 z-[125] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#08131e] p-5"><div className="flex items-center justify-between"><div><h2 className="text-sm font-bold text-white">Resgatar código</h2><p className="text-[10px] text-zinc-500 mt-1">Códigos de crédito são aplicados diretamente à carteira.</p></div><button onClick={()=>setRedeemOpen(false)} className="p-2 text-zinc-600 hover:text-white"><X className="w-4 h-4"/></button></div><div className="mt-4 flex gap-2"><input autoFocus value={redeemCode} onChange={e=>setRedeemCode(e.target.value.toUpperCase())} placeholder="Digite seu código" className="flex-1 h-10 px-3 rounded-xl bg-white/[0.035] border border-white/[0.08] text-xs text-white uppercase outline-none focus:border-sky-300/40"/><button onClick={smartRedeem} disabled={redeemLoading||!redeemCode.trim()} className="ia-primary h-10 px-4 rounded-xl text-[10px] font-black disabled:opacity-40">{redeemLoading?<Loader2 className="w-4 h-4 animate-spin"/>:'Resgatar'}</button></div>{redeemMessage&&<div className="mt-3 p-3 rounded-xl border border-white/[0.07] bg-white/[0.03] text-[10px] text-zinc-300">{redeemMessage}</div>}</div></div>}
+
+  {plansOpen&&<div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
+   <div className="w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-[24px] border border-white/[0.09] bg-[#07111b] shadow-[0_32px_100px_rgba(0,0,0,.65)]">
+    <div className="sticky top-0 z-10 px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-[#07111b]/95 backdrop-blur-xl flex items-start justify-between gap-4">
+     <div><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-xl bg-sky-300/10 border border-sky-300/15 grid place-items-center"><CreditCard className="w-4 h-4 text-sky-300"/></div><div><h2 className="text-[15px] font-black text-white">Planos IA Connect</h2><p className="text-[10px] text-zinc-500 mt-0.5">Assinatura mensal · cobrança recorrente pelo Mercado Pago</p></div></div></div>
+     <button onClick={()=>{setPlansOpen(false);setMessage('')}} aria-label="Fechar planos" className="w-9 h-9 rounded-xl border border-white/[0.07] bg-white/[0.025] grid place-items-center text-zinc-500 hover:text-white"><X className="w-4 h-4"/></button>
+    </div>
+
+    <div className="p-4 sm:p-6">
+     {active&&<div className="mb-4 flex flex-col gap-3 rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.045] p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[9px] font-bold uppercase tracking-wider text-emerald-300">Plano atual</p><p className="mt-1 text-[15px] font-black text-white">{subscription?.plan_name}</p><p className="mt-1 text-[9px] text-zinc-500">A troca de plano passa a valer na próxima cobrança. Seu saldo atual não é removido.</p></div><button onClick={cancelSubscription} disabled={actionLoading} className="h-9 rounded-xl border border-rose-300/15 bg-rose-400/[0.04] px-3 text-[9px] font-bold text-rose-200 disabled:opacity-40">Cancelar renovação</button></div>}
+     {pending&&<div className="mb-4 rounded-2xl border border-amber-300/15 bg-amber-300/[0.045] p-4"><p className="text-[10px] font-bold text-amber-200">Assinatura aguardando conclusão no Mercado Pago.</p>{subscription?.checkout_url&&<button onClick={()=>window.location.assign(subscription.checkout_url!)} className="mt-3 h-9 rounded-xl border border-amber-300/20 bg-amber-300/[0.08] px-3 text-[9px] font-bold text-amber-100">Continuar checkout</button>}</div>}
+
+     <div className="grid md:grid-cols-3 gap-3">
+      {packs.map(pack=>{const selected=selectedPack?.pack_id===pack.pack_id&&selectedPack?.version===pack.version,unit=unitPerThousand(pack),saving=baselineUnit>0?Math.max(0,Math.round((1-unit/baselineUnit)*100)):0,best=unit===bestUnit&&packs.length>1,current=subscription?.pack_id===pack.pack_id&&active;return <button key={`${pack.pack_id}-${pack.version}`} onClick={()=>choosePack(pack)} className={`ia-wallet-pack group relative min-h-[238px] p-4 rounded-2xl border text-left transition-[border-color,background-color,box-shadow] ${selected?'border-sky-300/55 bg-gradient-to-br from-sky-300/[0.12] to-blue-500/[0.035] shadow-[0_0_0_1px_rgba(125,211,252,.08),0_16px_40px_rgba(0,0,0,.22)]':'border-white/[0.07] bg-white/[0.022] hover:border-white/[0.14] hover:bg-white/[0.035]'}`}>
+       <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.08em] text-zinc-400">{pack.name}</p><p className="mt-2 text-[22px] font-black text-white">{formatCentsToBRL(pack.price_brl_cents)}<span className="ml-1 text-[9px] font-medium text-zinc-600">/mês</span></p><div className="mt-2"><CreditAmount value={pack.total_credits} size="sm" className="font-black text-sky-100"/></div></div>{current?<span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.06] px-2 py-1 text-[7px] font-black uppercase text-emerald-300">Atual</span>:(pack.badge||best)?<span className="rounded-full bg-sky-300 px-2 py-1 text-[7px] font-black uppercase text-[#03121c]">{pack.badge||'Melhor custo'}</span>:null}</div>
+       <p className="mt-3 min-h-[34px] text-[9px] leading-relaxed text-zinc-500">{pack.description}</p>
+       <div className="mt-3 space-y-1.5">{pack.features.slice(0,3).map(feature=><div key={feature} className="flex items-start gap-1.5 text-[8px] leading-relaxed text-zinc-400"><Check className="mt-0.5 h-3 w-3 shrink-0 text-sky-300"/><span>{feature}</span></div>)}</div>
+       <div className="mt-4 border-t border-white/[0.06] pt-3 flex items-center justify-between text-[8px] text-zinc-600"><span>{saving>0?`~${saving}% melhor custo`:'Preço base'}</span><span>{formatCentsToBRL(unit)} / 1.000</span></div>
+      </button>})}
+     </div>
+
+     {selectedPack&&<div className="mt-4 rounded-2xl border border-white/[0.08] bg-[#0a1622] p-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+       <div><p className="text-[8px] uppercase tracking-wider text-zinc-600">Plano escolhido</p><p className="mt-1 text-[12px] font-black text-white">{selectedPack.name}</p></div>
+       <div><p className="text-[8px] uppercase tracking-wider text-zinc-600">Mensalidade</p><p className="mt-1 text-[12px] font-black text-white">{formatCentsToBRL(selectedPack.price_brl_cents)}</p></div>
+       <div><p className="text-[8px] uppercase tracking-wider text-zinc-600">Todo ciclo</p><div className="mt-1"><CreditAmount value={selectedPack.total_credits} size="sm" className="font-black text-white"/></div></div>
+      </div>
+      {message&&<div className="mt-3 rounded-xl border border-sky-300/15 bg-sky-300/[0.05] px-3 py-2 text-[9px] text-sky-100">{message}</div>}
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+       <div className="flex items-start gap-2 text-[8px] leading-relaxed text-zinc-600"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300"/><span>O Mercado Pago gerencia o meio de pagamento e as cobranças recorrentes. Os créditos entram somente quando cada cobrança for confirmada.</span></div>
+       {active?<button onClick={changePlan} disabled={actionLoading||samePlan} className="ia-primary h-11 shrink-0 rounded-xl px-5 text-[10px] font-black disabled:opacity-35">{actionLoading?<Loader2 className="w-4 h-4 animate-spin"/>:samePlan?'Plano atual':<>Trocar no próximo ciclo<CalendarClock className="ml-2 inline w-3.5 h-3.5"/></>}</button>:<button onClick={subscribe} disabled={actionLoading} className="ia-primary h-11 shrink-0 rounded-xl px-5 text-[10px] font-black flex items-center justify-center gap-2 disabled:opacity-40">{actionLoading?<Loader2 className="w-4 h-4 animate-spin"/>:<>Assinar {selectedPack.name}<ArrowRight className="w-3.5 h-3.5"/></>}</button>}
+      </div>
+     </div>}
+    </div>
+   </div>
+  </div>}
+ </div>;
 };
