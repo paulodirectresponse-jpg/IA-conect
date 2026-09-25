@@ -1,7 +1,8 @@
 import { RoutingV2ProviderAdapter } from './adapter.js';
 import { CapabilityId } from '../beta/capabilityRegistry.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
-import { listAtlasCatalogModels, listRunwareCatalogModels } from './providerCatalogService.js';
+import { listAtlasCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from './providerCatalogService.js';
+import { checkProviderHealth } from './healthAdapter.js';
 
 // Compatibility wrapper used only for execution delegation while HYBRID is active.
 //
@@ -11,6 +12,17 @@ import { listAtlasCatalogModels, listRunwareCatalogModels } from './providerCata
 // - It MUST NOT fabricate catalog evidence.
 // Catalog discovery is exposed only where the provider has a verified live catalog source.
 // Health and pricing remain factual and are not inferred by this wrapper.
+
+
+function assertIdentifierMatchesCapability(identifier:string,capabilityId:CapabilityId){
+  const value=String(identifier||'').toLowerCase();
+  if(capabilityId==='text-to-image'&&/(?:\/|\b)(edit|image-to-image|reference-to-image)(?:\/|$)/.test(value)){
+    throw Object.assign(new Error('Identifier de edição não pode ser usado como text-to-image.'),{code:'ROUTING_V2_MAPPING_CAPABILITY_MISMATCH'});
+  }
+  if(['image-edit','image-to-image'].includes(capabilityId)&&/(?:\/|\b)text-to-image(?:\/|$)/.test(value)){
+    throw Object.assign(new Error('Identifier text-to-image não pode ser usado como edição.'),{code:'ROUTING_V2_MAPPING_CAPABILITY_MISMATCH'});
+  }
+}
 
 export function createRoutingV2LegacyWrapperAdapter(providerId: string): RoutingV2ProviderAdapter | null {
   const legacy = providerRegistry.getAdapter(providerId);
@@ -26,24 +38,65 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
       ? async () => listAtlasCatalogModels()
       : providerId === 'provider-runware'
         ? async (_provider, query) => listRunwareCatalogModels(query)
-        : undefined,
+        : providerId === 'provider-wavespeed'
+          ? async (_provider, query) => listWaveSpeedCatalogModels(query)
+          : undefined,
 
-    async health() {
-      if (!legacy.isConfigured()) {
-        return {
-          status: 'UNAVAILABLE',
-          checked_at: new Date().toISOString(),
-          message: 'Legacy execution adapter is not configured',
-        };
-      }
-      return {
-        status: 'UNKNOWN',
-        checked_at: new Date().toISOString(),
-        message: 'Legacy execution wrapper cannot prove provider health',
-      };
+    async health(provider) {
+      return checkProviderHealth(provider);
     },
 
+    getPrice: legacy.quoteCostUsd ? async (_provider, providerModelIdentifier, capabilityId) => {
+      assertIdentifierMatchesCapability(providerModelIdentifier,capabilityId);
+      if(providerId==='provider-wavespeed'){
+        const rows=await listWaveSpeedCatalogModels(providerModelIdentifier);
+        const exact=rows.find(row=>row.provider_model_identifier===providerModelIdentifier);
+        const basePrice=Number((exact?.metadata as any)?.base_price);
+        if(Number.isFinite(basePrice)&&basePrice>0){
+          return{
+            billing_config:{type:'PER_GENERATION',currency:'USD',price_per_generation:basePrice},
+            source:'PROVIDER_CATALOG_API',
+            source_reference:'https://api.wavespeed.ai/api/v3/models',
+            fetched_at:new Date().toISOString(),
+          };
+        }
+      }
+      const mode=capabilityToGenerationMode(capabilityId);
+      if(!mode)throw Object.assign(new Error('Capability sem modo de pricing compatível.'),{code:'ROUTING_V2_PRICE_MODE_UNAVAILABLE'});
+      const quote=await legacy.quoteCostUsd!({
+        generation_id:'routing-v2-price-probe',
+        user_id:'routing-v2-system',
+        model_id:providerModelIdentifier,
+        mode:mode as any,
+        capability_id:capabilityId,
+        provider_model_identifier:providerModelIdentifier,
+        provider_runtime_options:{},
+        prompt:'pricing estimate',
+        duration_seconds:1,
+        resolution:'1K',
+        aspect_ratio:'1:1',
+        number_of_outputs:1,
+        pricing_options:{},
+        references:[],
+      } as any);
+      const amount=Number(quote.effective_price_usd);
+      if(!Number.isFinite(amount)||amount<=0)throw Object.assign(new Error('Provider não retornou preço positivo verificável.'),{code:'ROUTING_V2_PROVIDER_PRICE_INVALID'});
+      const source=quote.source==='LIVE_API'?'PROVIDER_QUOTE_API':quote.source==='CATALOG'?'PROVIDER_CATALOG_API':'MANUAL_VERIFIED';
+      const sourceReference=providerId==='provider-wavespeed'
+        ?'https://api.wavespeed.ai/api/v3/model/price'
+        :providerId==='provider-atlas'
+          ?'https://api.atlascloud.ai/api/v1/model/calculate'
+          :`provider-pricing-catalog:${providerId}:${providerModelIdentifier}:${capabilityId}`;
+      return{
+        billing_config:{type:'PER_GENERATION',currency:'USD',price_per_generation:amount},
+        source,
+        source_reference:sourceReference,
+        fetched_at:new Date().toISOString(),
+      };
+    } : undefined,
+
     async submitGeneration(provider, input) {
+      assertIdentifierMatchesCapability(input.provider_model_identifier,input.capability_id);
       const legacy2 = providerRegistry.getAdapter(provider.provider_id);
       if (!legacy2) throw new Error('Legacy adapter not found');
 

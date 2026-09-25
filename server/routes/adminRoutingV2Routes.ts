@@ -20,6 +20,7 @@ import { factoryResetService } from '../services/factoryResetService.js';
 import { CANONICAL_IMAGE_MODELS, catalogSearchTerms, normalizeImageModelText, resolveCanonicalImageModel } from '../routing-v2/imageCatalogCanonical.js';
 import { isCatalogIdentityUsable, parseCatalogModelIdentity } from '../routing-v2/imageCatalogIdentity.js';
 import { listAtlasCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from '../routing-v2/providerCatalogService.js';
+import { providerHealthService } from '../routing-v2/providerHealthService.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -385,6 +386,22 @@ adminRoutingV2Router.post('/admin/routing-v2/pricing/settings',...guard,async(re
     return res.json({success:true,data:await routingV2PricingSettingsService.save(input)});
   }catch(err){return error(res,err,'ROUTING_V2_PRICING_SETTINGS_FAILED');}
 });
+adminRoutingV2Router.post('/admin/routing-v2/operationalize',...guard,async(_req,res)=>{
+  try{
+    const health=await providerHealthService.checkAllCore();
+    let cursor=0,updated=0,failed=0,processed=0;
+    const rows:any[]=[];
+    for(let index=0;index<100;index++){
+      const result=await routingV2PriceSyncService.runBatch({cursor,limit:10});
+      updated+=result.updated;failed+=result.failed;processed+=result.processed;rows.push(...result.rows);
+      if(result.done||result.next_cursor==null)break;
+      cursor=result.next_cursor;
+    }
+    const readiness=await routingV2ReadinessService.audit();
+    return res.json({success:true,data:{health,processed,updated,failed,rows,readiness}});
+  }catch(err){return error(res,err,'ROUTING_V2_OPERATIONALIZE_FAILED');}
+});
+
 adminRoutingV2Router.post('/admin/routing-v2/pricing/sync',...guard,async(req,res)=>{
   try{return res.json({success:true,data:await routingV2PriceSyncService.runBatch({cursor:req.body?.cursor,limit:req.body?.limit,fx_rate_usd_brl:req.body?.fx_rate_usd_brl})});}catch(err){return error(res,err,'ROUTING_V2_PRICE_SYNC_FAILED');}
 });

@@ -233,6 +233,41 @@ describe('Routing Core V2 Admin',()=>{
     expect(client).toContain('bulkImportModels');
   });
 
+
+  it('operationalizes imported routes through factual health pricing FX and READY reconciliation',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const priceSync=read('server/routing-v2/priceSyncService.ts');
+    const resolver=read('server/routing-v2/adapterResolver.ts');
+    const health=read('server/routing-v2/healthAdapter.ts');
+    const fx=read('server/routing-v2/fxRateService.ts');
+    const wrapper=read('server/routing-v2/legacyWrapperAdapter.ts');
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+    const client=read('src/services/routingV2AdminService.ts');
+
+    expect(routes).toContain('/admin/routing-v2/operationalize');
+    expect(routes).toContain('providerHealthService.checkAllCore()');
+    expect(priceSync).toContain('resolveRoutingV2ProviderAdapter(provider)');
+    expect(priceSync).toContain('await getUsdBrlRate()');
+    expect(resolver).toContain("['provider-wavespeed','provider-atlas','provider-runware']");
+    expect(health).toContain("provider.provider_id==='provider-wavespeed'");
+    expect(health).toContain("provider.provider_id==='provider-atlas'");
+    expect(health).toContain("provider.provider_id==='provider-runware'");
+    expect(fx).toContain('olinda.bcb.gov.br');
+    expect(wrapper).toContain('PROVIDER_CATALOG_API');
+    expect(wrapper).toContain('ROUTING_V2_MAPPING_CAPABILITY_MISMATCH');
+    expect(view).toContain('Ativar rotas agora');
+    expect(view).toContain('Sincronizar e ativar rotas');
+    expect(client).toContain("operationalize:()=>post<any>('/api/admin/routing-v2/operationalize')");
+  });
+
+  it('supports Atlas image execution and live price estimation',()=>{
+    const atlas=read('server/adapters/atlasProviderAdapter.ts');
+    expect(atlas).toContain("mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE'");
+    expect(atlas).toContain("'generateImage':'generateVideo'");
+    expect(atlas).toContain('/api/v1/model/calculate');
+    expect(atlas).toContain('Imagem de origem obrigatória para edição na Atlas.');
+  });
+
   it('uses official WaveSpeed model-list catalog contract and provider types as capabilities',()=>{
     const catalog=read('server/routing-v2/providerCatalogService.ts');
     expect(catalog).toContain('/api/v3/models');

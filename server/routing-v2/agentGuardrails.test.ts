@@ -59,8 +59,11 @@ describe('Routing V2 agent guardrails', () => {
   it('never lets the legacy execution wrapper fabricate health or pricing', () => {
     const source = fs.readFileSync(path.join(root, 'server/routing-v2/legacyWrapperAdapter.ts'), 'utf8');
     expect(source).not.toMatch(/status:\s*['"]HEALTHY['"]/);
-    expect(source).not.toMatch(/async\s+getPrice\s*\(/);
-    expect(source).toContain("status: 'UNKNOWN'");
+    expect(source).toContain('checkProviderHealth(provider)');
+    expect(source).toContain('legacy.quoteCostUsd');
+    expect(source).toContain('PROVIDER_CATALOG_API');
+    expect(source).toContain('PROVIDER_QUOTE_API');
+    expect(source).toContain('source_reference');
   });
 
   it('keeps pricing fixtures out of production Routing V2 code', () => {

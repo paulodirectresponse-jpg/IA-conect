@@ -1,4 +1,4 @@
-import { routingV2AdapterRegistry } from './adapterRegistry.js';
+import { resolveRoutingV2ProviderAdapter } from './adapterResolver.js';
 import { calculateRoutingV2ProviderCost } from './billingEngine.js';
 import { calculateRoutingV2Economics } from './economicsEngine.js';
 import { RoutingV2BillingConfig, RoutingV2Provider, RoutingV2ProviderRoute } from './domain.js';
@@ -6,6 +6,7 @@ import { routingV2PricingSettingsService } from './pricingSettingsService.js';
 import { reconcileRoutingV2Route } from './routeReconciler.js';
 import { routingV2Repository } from './repository.js';
 import { providerHealthService } from './providerHealthService.js';
+import { getUsdBrlRate } from './fxRateService.js';
 
 export interface RoutingV2PriceSyncRow{
   route_id:string;
@@ -40,7 +41,7 @@ function referenceInput(config:RoutingV2BillingConfig){
 }
 
 async function providerRuntime(provider:RoutingV2Provider){
-  const adapter=routingV2AdapterRegistry.get(provider.adapter_id);
+  const adapter=resolveRoutingV2ProviderAdapter(provider);
   if(!adapter||!adapter.isConfigured(provider))return{adapter:null,runtime_status:'UNAVAILABLE' as const};
   try{
     // Use new health service with persistence, fallback to adapter health if needed
@@ -62,6 +63,7 @@ export const routingV2PriceSyncService={
       routingV2Repository.listModels(),
       routingV2PricingSettingsService.get(),
     ]);
+    const fxRate=Number.isFinite(Number(input.fx_rate_usd_brl))&&Number(input.fx_rate_usd_brl)>0?Number(input.fx_rate_usd_brl):await getUsdBrlRate();
     const activeModels=new Set(models.filter(model=>model.status==='ACTIVE').map(model=>model.model_id));
     const eligible=routes.filter(route=>route.status!=='DISABLED'&&activeModels.has(route.model_id));
     const batch=eligible.slice(cursor,cursor+limit);
@@ -123,7 +125,7 @@ export const routingV2PriceSyncService={
         const economics=calculateRoutingV2Economics({
           provider_cost:reference.amount,
           provider_currency:reference.currency,
-          fx_rate_usd_brl:input.fx_rate_usd_brl,
+          fx_rate_usd_brl:fxRate,
           settings,
         });
         const fetchedAt=price.fetched_at||checkedAt;
@@ -142,7 +144,7 @@ export const routingV2PriceSyncService={
             safe_cogs_brl:economics.safe_cogs_brl,
             retail_price_credits:economics.retail_credits,
             expected_margin_percent:economics.expected_margin_percent,
-            fx_rate_usd_brl:reference.currency==='USD'?Number(input.fx_rate_usd_brl):null,
+            fx_rate_usd_brl:reference.currency==='USD'?fxRate:null,
             fetched_at:fetchedAt,
             valid_until:validUntil,
           },
