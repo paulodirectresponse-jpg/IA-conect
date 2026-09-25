@@ -4,6 +4,10 @@ import { ensureRoutingV2LegacyAdapter } from './legacyAdapterBridge.js';
 import { createRoutingV2LegacyWrapperAdapter } from './legacyWrapperAdapter.js';
 
 export function resolveRoutingV2ProviderAdapter(provider:RoutingV2Provider){
+  if(['provider-wavespeed','provider-atlas','provider-runware'].includes(provider.provider_id)){
+    const core=createRoutingV2LegacyWrapperAdapter(provider.provider_id);
+    if(core)return core;
+  }
   const direct=routingV2AdapterRegistry.get(provider.adapter_id);
   if(direct)return direct;
   const adapterId=String(provider.adapter_id||'');
