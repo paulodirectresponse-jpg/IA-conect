@@ -13,6 +13,17 @@ import { checkProviderHealth } from './healthAdapter.js';
 // Catalog discovery is exposed only where the provider has a verified live catalog source.
 // Health and pricing remain factual and are not inferred by this wrapper.
 
+
+function assertIdentifierMatchesCapability(identifier:string,capabilityId:CapabilityId){
+  const value=String(identifier||'').toLowerCase();
+  if(capabilityId==='text-to-image'&&/(?:\/|\b)(edit|image-to-image|reference-to-image)(?:\/|$)/.test(value)){
+    throw Object.assign(new Error('Identifier de edição não pode ser usado como text-to-image.'),{code:'ROUTING_V2_MAPPING_CAPABILITY_MISMATCH'});
+  }
+  if(['image-edit','image-to-image'].includes(capabilityId)&&/(?:\/|\b)text-to-image(?:\/|$)/.test(value)){
+    throw Object.assign(new Error('Identifier text-to-image não pode ser usado como edição.'),{code:'ROUTING_V2_MAPPING_CAPABILITY_MISMATCH'});
+  }
+}
+
 export function createRoutingV2LegacyWrapperAdapter(providerId: string): RoutingV2ProviderAdapter | null {
   const legacy = providerRegistry.getAdapter(providerId);
   if (!legacy) return null;
@@ -36,6 +47,20 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
     },
 
     getPrice: legacy.quoteCostUsd ? async (_provider, providerModelIdentifier, capabilityId) => {
+      assertIdentifierMatchesCapability(providerModelIdentifier,capabilityId);
+      if(providerId==='provider-wavespeed'){
+        const rows=await listWaveSpeedCatalogModels(providerModelIdentifier);
+        const exact=rows.find(row=>row.provider_model_identifier===providerModelIdentifier);
+        const basePrice=Number((exact?.metadata as any)?.base_price);
+        if(Number.isFinite(basePrice)&&basePrice>0){
+          return{
+            billing_config:{type:'PER_GENERATION',currency:'USD',price_per_generation:basePrice},
+            source:'PROVIDER_CATALOG_API',
+            source_reference:'https://api.wavespeed.ai/api/v3/models',
+            fetched_at:new Date().toISOString(),
+          };
+        }
+      }
       const mode=capabilityToGenerationMode(capabilityId);
       if(!mode)throw Object.assign(new Error('Capability sem modo de pricing compatível.'),{code:'ROUTING_V2_PRICE_MODE_UNAVAILABLE'});
       const quote=await legacy.quoteCostUsd!({
@@ -71,6 +96,7 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
     } : undefined,
 
     async submitGeneration(provider, input) {
+      assertIdentifierMatchesCapability(input.provider_model_identifier,input.capability_id);
       const legacy2 = providerRegistry.getAdapter(provider.provider_id);
       if (!legacy2) throw new Error('Legacy adapter not found');
 
