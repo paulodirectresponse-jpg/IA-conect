@@ -29,7 +29,7 @@ describe('premium subscription design',()=>{
     expect(wallet).toContain("model.category==='IMAGE'");
     expect(wallet).toContain("model.readiness==='READY'");
     expect(wallet).toContain('model.minimum_credit_price');
-    expect(wallet).toContain('Estimativa com imagens');
+    expect(wallet).toContain('Imagens estimadas');
     expect(wallet).toContain('Estimativas usam os preços mínimos atuais');
     expect(wallet).toContain('workspaceService.listModels().catch(()=>[])');
   });
@@ -43,6 +43,26 @@ describe('premium subscription design',()=>{
     expect(css).toContain('.ia-plan-card-cta');
     expect(css).toContain('var(--ia-brand)');
     expect(wallet).not.toContain('Assinatura aguardando conclusão no Mercado Pago.');
+  });
+
+  it('makes Pro the dominant middle plan and selected plans visibly stronger',()=>{
+    const wallet=read('src/components/views/WalletView.tsx');
+    const css=read('src/index.css');
+    expect(wallet).toContain("pack.pack_id==='pro'?'is-primary-plan':''");
+    expect(wallet).toContain('Mais popular');
+    expect(css).toContain('.ia-plan-card.is-primary-plan');
+    expect(css).toContain('.ia-plan-card.is-primary-plan.is-selected');
+    expect(css).toContain('transform:scale(1.055)');
+  });
+
+  it('shows image and video production estimates without inventing video numbers before READY models exist',()=>{
+    const wallet=read('src/components/views/WalletView.tsx');
+    expect(wallet).toContain("model.category==='VIDEO'");
+    expect(wallet).toContain("model.readiness==='READY'");
+    expect(wallet).toContain('videoEstimate');
+    expect(wallet).toContain('vídeos de 5s');
+    expect(wallet).toContain('Disponível quando os modelos de vídeo forem ativados');
+    expect(wallet).toContain('Aguardando modelos de vídeo');
   });
 
   it('does not invent model-access tiers between Creator Pro and Studio',()=>{

@@ -1,5 +1,5 @@
 import React,{useEffect,useRef,useState}from'react';
-import{Wallet,RotateCcw,FileText,Plus,Check,X,Loader2,Tag,ArrowRight,CalendarClock,Sparkles,Images}from'lucide-react';
+import{Wallet,RotateCcw,FileText,Plus,Check,X,Loader2,Tag,ArrowRight,CalendarClock,Sparkles,Images,Video}from'lucide-react';
 import{useAuth}from'../../context/AuthContext.js';
 import{creditService}from'../../services/creditService.js';
 import{subscriptionClient}from'../../services/subscriptionClient.js';
@@ -33,6 +33,7 @@ export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate
  const[subscription,setSubscription]=useState<UserSubscription|null>(null);
  const[summary,setSummary]=useState<CreditWalletSummary|null>(null);
  const[imagePrices,setImagePrices]=useState<number[]>([]);
+ const[videoPrices,setVideoPrices]=useState<number[]>([]);
  const[selectedPack,setSelectedPack]=useState<PackVersion|null>(null);
  const[returnState,setReturnState]=useState<SubscriptionReturnState|null>(null);
  const returnHandled=useRef(false);
@@ -44,6 +45,7 @@ export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate
    const[t,p,s,w,m]=await Promise.all([creditService.listTransactions(50),creditService.listPacks(),subscriptionClient.getCurrent(),creditService.getSummary(),workspaceService.listModels().catch(()=>[])]);
    setTransactions(t.transactions);setPacks(p);setSubscription(s);setSummary(w);
    setImagePrices(m.filter(model=>model.category==='IMAGE'&&model.readiness==='READY'&&model.pricing_available&&Number(model.minimum_credit_price)>0).map(model=>Math.max(1,Math.ceil(Number(model.minimum_credit_price)))));
+   setVideoPrices(m.filter(model=>model.category==='VIDEO'&&model.readiness==='READY'&&model.pricing_available&&Number(model.minimum_credit_price)>0).map(model=>Math.max(1,Math.ceil(Number(model.minimum_credit_price)))));
    if(!selectedPack&&p.length){
     const current=p.find(x=>x.pack_id===s?.pack_id);
     setSelectedPack(current||p.find(x=>x.recommended)||p[0]);
@@ -150,6 +152,13 @@ export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate
   const lower=Math.max(1,Math.floor(pack.total_credits/max)),upper=Math.max(lower,Math.floor(pack.total_credits/min));
   return lower===upper?`≈ ${upper.toLocaleString('pt-BR')} imagens`:`≈ ${lower.toLocaleString('pt-BR')}–${upper.toLocaleString('pt-BR')} imagens`;
  };
+ const videoEstimate=(pack:PackVersion)=>{
+  if(!videoPrices.length)return null;
+  const seconds=5;
+  const min=Math.min(...videoPrices)*seconds,max=Math.max(...videoPrices)*seconds;
+  const lower=Math.max(1,Math.floor(pack.total_credits/max)),upper=Math.max(lower,Math.floor(pack.total_credits/min));
+  return lower===upper?`≈ ${upper.toLocaleString('pt-BR')} vídeos de 5s`:`≈ ${lower.toLocaleString('pt-BR')}–${upper.toLocaleString('pt-BR')} vídeos de 5s`;
+ };
  const planAudience=(id:string)=>id==='creator'?'Para começar':id==='pro'?'Para criar toda semana':'Para alto volume';
  const planTone=(id:string)=>id==='pro'?'is-recommended':'';
 
@@ -228,18 +237,21 @@ export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate
     <div className="p-4 sm:p-6">
      {active&&<div className="ia-plan-current-banner mb-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[9px] font-bold uppercase tracking-wider">Plano atual</p><p className="mt-1 text-[15px] font-black text-white">{subscription?.plan_name}</p><p className="mt-1 text-[9px] text-zinc-500">A troca de plano passa a valer na próxima cobrança. Seu saldo atual continua disponível; na renovação, o saldo recorrente respeita o limite de 2× a franquia mensal.</p></div><button onClick={cancelSubscription} disabled={actionLoading} className="h-9 rounded-xl border border-rose-300/15 bg-rose-400/[0.04] px-3 text-[9px] font-bold text-rose-200 disabled:opacity-40">Cancelar renovação</button></div>}
      <div className="ia-plan-grid">
-      {packs.map(pack=>{const selected=selectedPack?.pack_id===pack.pack_id&&selectedPack?.version===pack.version,unit=unitPerThousand(pack),saving=baselineUnit>0?Math.max(0,Math.round((1-unit/baselineUnit)*100)):0,current=subscription?.pack_id===pack.pack_id&&subscription?.pack_version===pack.version&&active,pendingThis=subscription?.pack_id===pack.pack_id&&subscription?.pack_version===pack.version&&pending,changingToThis=subscription?.pending_plan_change?.pack_id===pack.pack_id&&subscription?.pending_plan_change?.pack_version===pack.version,estimate=imageEstimate(pack),busy=actionPackId===pack.pack_id;return <article key={`${pack.pack_id}-${pack.version}`} onClick={()=>choosePack(pack)} className={`ia-plan-card ${selected?'is-selected':''} ${planTone(pack.pack_id)} ${pendingThis?'is-pending':''}`}>
+      {packs.map(pack=>{const selected=selectedPack?.pack_id===pack.pack_id&&selectedPack?.version===pack.version,unit=unitPerThousand(pack),saving=baselineUnit>0?Math.max(0,Math.round((1-unit/baselineUnit)*100)):0,current=subscription?.pack_id===pack.pack_id&&subscription?.pack_version===pack.version&&active,pendingThis=subscription?.pack_id===pack.pack_id&&subscription?.pack_version===pack.version&&pending,changingToThis=subscription?.pending_plan_change?.pack_id===pack.pack_id&&subscription?.pending_plan_change?.pack_version===pack.version,estimate=imageEstimate(pack),video=videoEstimate(pack),busy=actionPackId===pack.pack_id;return <article key={`${pack.pack_id}-${pack.version}`} onClick={()=>choosePack(pack)} className={`ia-plan-card ${selected?'is-selected':''} ${planTone(pack.pack_id)} ${pendingThis?'is-pending':''} ${pack.pack_id==='pro'?'is-primary-plan':''}`}>
        <div className="ia-plan-card-top">
         <div>
          <div className="ia-plan-audience">{planAudience(pack.pack_id)}</div>
          <h3>{pack.name}</h3>
         </div>
-        {current?<span className="ia-plan-badge is-current">Plano atual</span>:pendingThis?<span className="ia-plan-badge">Pagamento iniciado</span>:changingToThis?<span className="ia-plan-badge">Próximo plano</span>:pack.recommended?<span className="ia-plan-badge">Mais escolhido</span>:pack.pack_id==='studio'?<span className="ia-plan-badge is-subtle">Maior volume</span>:null}
+        {current?<span className="ia-plan-badge is-current">Plano atual</span>:pendingThis?<span className="ia-plan-badge">Pagamento iniciado</span>:changingToThis?<span className="ia-plan-badge">Próximo plano</span>:pack.recommended?<span className="ia-plan-badge is-popular">Mais popular</span>:pack.pack_id==='studio'?<span className="ia-plan-badge is-subtle">Maior volume</span>:null}
        </div>
        <div className="ia-plan-price"><strong>{formatCentsToBRL(pack.price_brl_cents)}</strong><span>/mês</span></div>
        <div className="ia-plan-credits"><CreditAmount value={pack.total_credits} size="md" className="font-black"/></div>
        <p className="ia-plan-description">{pack.description}</p>
-       <div className="ia-plan-estimate"><Images className="w-4 h-4"/><div><span>Estimativa com imagens</span><strong>{estimate||'calculando preços atuais...'}</strong></div></div>
+       <div className="ia-plan-usage-grid">
+        <div className="ia-plan-estimate"><Images className="w-4 h-4"/><div><span>Imagens estimadas</span><strong>{estimate||'calculando preços atuais...'}</strong></div></div>
+        <div className="ia-plan-estimate"><Video className="w-4 h-4"/><div><span>Vídeos estimados</span><strong>{video||'Disponível quando os modelos de vídeo forem ativados'}</strong></div></div>
+       </div>
        <div className="ia-plan-features">{pack.features.slice(0,3).map(feature=><div key={feature}><Check className="w-3.5 h-3.5"/><span>{feature}</span></div>)}</div>
        {pendingThis&&<div className="ia-plan-inline-state"><span>Checkout iniciado</span><strong>Finalize o pagamento para ativar seu plano.</strong></div>}
        {changingToThis&&<div className="ia-plan-inline-state"><span>Mudança programada</span><strong>Este plano entra no próximo ciclo.</strong></div>}
@@ -267,9 +279,10 @@ export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate
        <div className="ia-plan-comparison-row"><div>Saldo único entre categorias</div>{packs.map(pack=><div key={pack.pack_id}><Check className="ia-compare-check"/> Sim</div>)}</div>
        <div className="ia-plan-comparison-row"><div>Rollover máximo</div>{packs.map(pack=><div key={pack.pack_id}><CreditAmount value={pack.total_credits*2} size="xs" className="font-bold"/></div>)}</div>
        <div className="ia-plan-comparison-row"><div>Estimativa de imagens/mês</div>{packs.map(pack=><div key={pack.pack_id}>{imageEstimate(pack)||'—'}</div>)}</div>
+       <div className="ia-plan-comparison-row"><div>Estimativa de vídeos de 5s/mês</div>{packs.map(pack=><div key={pack.pack_id}>{videoEstimate(pack)||'Aguardando modelos de vídeo'}</div>)}</div>
        <div className="ia-plan-comparison-row"><div>Custo efetivo por 1.000 créditos</div>{packs.map(pack=><div key={pack.pack_id}>{formatCentsToBRL(unitPerThousand(pack))}</div>)}</div>
       </div>
-      <p className="ia-plan-estimate-note">Estimativas usam os preços mínimos atuais dos modelos de imagem READY. O mesmo saldo pode ser usado nas categorias disponíveis no catálogo; o consumo varia por modelo, resolução, quantidade e parâmetros.</p>
+      <p className="ia-plan-estimate-note">Estimativas usam os preços mínimos atuais dos modelos READY. Imagens variam por modelo e parâmetros; vídeos usam uma referência de 5 segundos e serão calculados automaticamente quando os modelos de vídeo forem ativados. O mesmo saldo vale nas categorias disponíveis.</p>
      </section>
 
     </div>

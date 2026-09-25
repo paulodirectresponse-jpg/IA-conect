@@ -4348,3 +4348,76 @@ html[data-theme="light"] .ia-subscription-return{
 @media(prefers-reduced-motion:reduce){
   .ia-subscription-return .animate-spin{animation-duration:1ms!important}
 }
+
+
+/* Plans hierarchy and media estimates — refinement */
+.ia-plan-grid{
+  align-items:center;
+  gap:1rem;
+}
+.ia-plan-card{
+  cursor:pointer;
+}
+.ia-plan-card.is-primary-plan{
+  transform:scale(1.035);
+  z-index:2;
+  min-height:352px;
+  border-color:color-mix(in srgb,var(--ia-brand) 48%,var(--ia-line));
+  background:
+    radial-gradient(circle at 78% 0%,color-mix(in srgb,var(--ia-brand) 13%,transparent),transparent 34%),
+    color-mix(in srgb,var(--ia-brand) 4%,var(--ia-surface-2));
+  box-shadow:0 28px 60px -42px color-mix(in srgb,var(--ia-brand) 75%,transparent);
+}
+.ia-plan-card.is-primary-plan:hover{
+  transform:scale(1.045) translateY(-2px);
+}
+.ia-plan-card.is-selected{
+  border-color:var(--ia-brand);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb,var(--ia-brand) 26%,transparent),
+    0 24px 50px -36px color-mix(in srgb,var(--ia-brand) 82%,transparent);
+}
+.ia-plan-card.is-primary-plan.is-selected{
+  transform:scale(1.055);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb,var(--ia-brand) 32%,transparent),
+    0 30px 64px -38px color-mix(in srgb,var(--ia-brand) 90%,transparent);
+}
+.ia-plan-badge.is-popular{
+  border-color:color-mix(in srgb,var(--ia-brand) 55%,transparent);
+  background:linear-gradient(90deg,var(--ia-brand),var(--ia-brand-strong));
+  color:#fff;
+  box-shadow:0 10px 22px -15px color-mix(in srgb,var(--ia-brand) 75%,transparent);
+}
+.ia-plan-usage-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:.5rem;
+  margin-top:.85rem;
+}
+.ia-plan-usage-grid .ia-plan-estimate{
+  margin-top:0;
+}
+.ia-plan-usage-grid .ia-plan-estimate strong{
+  line-height:1.35;
+}
+@media(min-width:1100px){
+  .ia-plan-grid{
+    grid-template-columns:minmax(0,.96fr) minmax(0,1.08fr) minmax(0,.96fr);
+  }
+}
+@media(max-width:1099px){
+  .ia-plan-card.is-primary-plan,
+  .ia-plan-card.is-primary-plan:hover,
+  .ia-plan-card.is-primary-plan.is-selected{
+    transform:none;
+    min-height:0;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .ia-plan-card.is-primary-plan,
+  .ia-plan-card.is-primary-plan:hover,
+  .ia-plan-card.is-primary-plan.is-selected{
+    transform:none!important;
+  }
+}
