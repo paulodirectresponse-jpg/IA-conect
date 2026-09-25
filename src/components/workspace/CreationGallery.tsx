@@ -28,6 +28,7 @@ import {
   upsertGeneration,
 } from "../../utils/generationCollection.js";
 import { StableModel3DPreview } from "./StableModel3DPreview.js";
+import { ResilientImage } from "../common/ResilientImage.js";
 
 export type CreationGalleryFilter =
   "VIDEO" | "IMAGE" | "VOICE" | "MUSIC" | "THREE_D" | "ALL";
@@ -657,8 +658,8 @@ export const CreationGallery: React.FC<Props> = ({
                                 </div>
                               )
                             ) : (
-                              <img
-                                src={asset.public_url}
+                              <ResilientImage
+                                sources={[asset.thumbnail_url,asset.preview_url,asset.public_url]}
                                 alt={asset.name}
                                 className="w-full h-full object-cover"
                               />
