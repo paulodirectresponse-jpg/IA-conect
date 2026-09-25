@@ -1,4 +1,4 @@
-import React,{useEffect,useState}from'react';
+import React,{useEffect,useRef,useState}from'react';
 import{Wallet,RotateCcw,FileText,Plus,Check,X,Loader2,Tag,ArrowRight,CalendarClock,Sparkles,Images}from'lucide-react';
 import{useAuth}from'../../context/AuthContext.js';
 import{creditService}from'../../services/creditService.js';
@@ -7,6 +7,7 @@ import{workspaceService}from'../../services/workspaceService.js';
 import{CreditTransaction,PackVersion,UserSubscription,CreditWalletSummary}from'../../types/credits.js';
 import{formatCentsToBRL}from'../../config/constants.js';
 import{CreditAmount}from'../common/CreditAmount.js';
+import{SubscriptionReturnNotice,type SubscriptionReturnState}from'./SubscriptionReturnNotice.js';
 
 const unitPerThousand=(p:PackVersion)=>Math.round((p.price_brl_cents/Math.max(1,p.total_credits))*1000);
 const statusLabel=(s?:string)=>s==='ACTIVE'?'Ativa':s==='PENDING'?'Aguardando ativação':s==='PAUSED'?'Pausada':s==='CANCELED'?'Cancelada':'Indisponível';
@@ -25,7 +26,7 @@ const txLabel=(tx:CreditTransaction)=>{
  return tx.type.replaceAll('_',' ');
 };
 
-export const WalletView:React.FC=()=>{
+export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate})=>{
  const{wallet,refreshWallet}=useAuth();
  const[transactions,setTransactions]=useState<CreditTransaction[]>([]);
  const[packs,setPacks]=useState<PackVersion[]>([]);
@@ -33,6 +34,8 @@ export const WalletView:React.FC=()=>{
  const[summary,setSummary]=useState<CreditWalletSummary|null>(null);
  const[imagePrices,setImagePrices]=useState<number[]>([]);
  const[selectedPack,setSelectedPack]=useState<PackVersion|null>(null);
+ const[returnState,setReturnState]=useState<SubscriptionReturnState|null>(null);
+ const returnHandled=useRef(false);
  const[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[plansOpen,setPlansOpen]=useState(false),[redeemOpen,setRedeemOpen]=useState(false),[redeemCode,setRedeemCode]=useState(''),[redeemLoading,setRedeemLoading]=useState(false),[redeemMessage,setRedeemMessage]=useState(''),[actionLoading,setActionLoading]=useState(false),[actionPackId,setActionPackId]=useState<string|null>(null),[message,setMessage]=useState(''),[messagePackId,setMessagePackId]=useState<string|null>(null);
 
  const load=async()=>{
@@ -48,7 +51,62 @@ export const WalletView:React.FC=()=>{
   }finally{setLoading(false);}
  };
  useEffect(()=>{load().catch(console.error);},[]);
+ useEffect(()=>{
+  if(returnHandled.current||typeof window==='undefined')return;
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('subscription')!=='return')return;
+  returnHandled.current=true;
+  let cancelled=false;
+  const run=async()=>{
+   setReturnState({status:'SYNCING'});
+   let sub:UserSubscription|null=null;
+   try{
+    for(let attempt=0;attempt<8;attempt++){
+     sub=await subscriptionClient.getCurrent();
+     if(cancelled)return;
+     if(sub&&sub.status!=='PENDING')break;
+     if(attempt<7)await new Promise(resolve=>setTimeout(resolve,1500));
+    }
+    if(cancelled)return;
+    if(sub)setSubscription(sub);
+    await Promise.all([
+     refreshWallet(),
+     creditService.getSummary().then(setSummary).catch(()=>{}),
+     creditService.listTransactions(50).then(result=>setTransactions(result.transactions)).catch(()=>{}),
+    ]);
+    if(!sub)setReturnState({status:'FAILED'});
+    else if(sub.status==='ACTIVE')setReturnState({status:'ACTIVE',planName:sub.plan_name,monthlyCredits:sub.monthly_credits});
+    else if(sub.status==='PENDING')setReturnState({status:'PENDING',planName:sub.plan_name,monthlyCredits:sub.monthly_credits,checkoutUrl:sub.checkout_url});
+    else setReturnState({status:'FAILED',planName:sub.plan_name});
+   }catch{
+    if(!cancelled)setReturnState({status:'FAILED'});
+   }finally{
+    if(!cancelled){
+     const next=new URL(window.location.href);
+     next.searchParams.delete('subscription');
+     window.history.replaceState({},'',next.pathname+next.search+next.hash);
+    }
+   }
+  };
+  void run();
+  return()=>{cancelled=true};
+ },[refreshWallet]);
  const refresh=async()=>{setRefreshing(true);try{await Promise.all([refreshWallet(),load()]);}finally{setRefreshing(false);}};
+ const refreshReturnStatus=async()=>{
+  setReturnState(prev=>prev?{...prev,status:'SYNCING'}:{status:'SYNCING'});
+  try{
+   const sub=await subscriptionClient.getCurrent();setSubscription(sub);
+   await Promise.all([
+    refreshWallet(),
+    creditService.getSummary().then(setSummary),
+    creditService.listTransactions(50).then(result=>setTransactions(result.transactions)),
+   ]);
+   if(!sub)setReturnState({status:'FAILED'});
+   else if(sub.status==='ACTIVE')setReturnState({status:'ACTIVE',planName:sub.plan_name,monthlyCredits:sub.monthly_credits});
+   else if(sub.status==='PENDING')setReturnState({status:'PENDING',planName:sub.plan_name,monthlyCredits:sub.monthly_credits,checkoutUrl:sub.checkout_url});
+   else setReturnState({status:'FAILED',planName:sub.plan_name});
+  }catch{setReturnState({status:'FAILED'});}
+ };
  const choosePack=(pack:PackVersion)=>{setSelectedPack(pack);if(messagePackId!==pack.pack_id){setMessage('');setMessagePackId(null)}};
  const smartRedeem=async()=>{
   if(!redeemCode.trim())return;setRedeemLoading(true);setRedeemMessage('');
@@ -97,6 +155,13 @@ export const WalletView:React.FC=()=>{
 
 
  return <div className="ia-wallet space-y-7 text-zinc-100">
+  {returnState&&<SubscriptionReturnNotice
+   state={returnState}
+   onDismiss={()=>setReturnState(null)}
+   onRefresh={()=>void refreshReturnStatus()}
+   onOpenPlans={()=>{setPlansOpen(true);setReturnState(null)}}
+   onCreate={()=>onNavigate?.('create-image')}
+  />}
   <div className="ia-wallet-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
    <div className="ia-view-header"><h1 className="ia-view-title">Créditos</h1><p className="ia-view-description">Sua assinatura, saldo e movimentações em um só lugar.</p></div>
    <div className="flex flex-wrap gap-2">
