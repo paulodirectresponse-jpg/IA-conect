@@ -118,7 +118,7 @@ export const subscriptionService={
     const pack=packCatalogService.get(packId,packVersion);if(!pack)throw Object.assign(new Error('Plano inválido.'),{code:'PLAN_VERSION_STALE'});
     const current=await this.getCurrent(userId,{sync:true});
     if(!current||current.status!=='ACTIVE')throw Object.assign(new Error('Assinatura ativa não encontrada.'),{code:'SUBSCRIPTION_NOT_ACTIVE'});
-    if(current.pack_id===pack.pack_id)return current;
+    if(current.pack_id===pack.pack_id&&current.pack_version===pack.version)return current;
     await mp(`/preapproval/${encodeURIComponent(current.gateway_subscription_id)}`,{method:'PUT',body:JSON.stringify({
       reason:`IA Connect ${pack.name}`,
       auto_recurring:{transaction_amount:Number((pack.price_brl_cents/100).toFixed(2)),currency_id:'BRL'},
