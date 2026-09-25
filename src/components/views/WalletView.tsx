@@ -38,7 +38,7 @@ export const WalletView:React.FC=()=>{
  const load=async()=>{
   setLoading(true);
   try{
-   const[t,p,s,w,m]=await Promise.all([creditService.listTransactions(50),creditService.listPacks(),subscriptionClient.getCurrent(),creditService.getSummary(),workspaceService.listModels()]);
+   const[t,p,s,w,m]=await Promise.all([creditService.listTransactions(50),creditService.listPacks(),subscriptionClient.getCurrent(),creditService.getSummary(),workspaceService.listModels().catch(()=>[])]);
    setTransactions(t.transactions);setPacks(p);setSubscription(s);setSummary(w);
    setImagePrices(m.filter(model=>model.category==='IMAGE'&&model.readiness==='READY'&&model.pricing_available&&Number(model.minimum_credit_price)>0).map(model=>Math.max(1,Math.ceil(Number(model.minimum_credit_price)))));
    if(!selectedPack&&p.length){
@@ -162,7 +162,7 @@ export const WalletView:React.FC=()=>{
     </div>
 
     <div className="p-4 sm:p-6">
-     {active&&<div className="mb-4 flex flex-col gap-3 rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.045] p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[9px] font-bold uppercase tracking-wider text-emerald-300">Plano atual</p><p className="mt-1 text-[15px] font-black text-white">{subscription?.plan_name}</p><p className="mt-1 text-[9px] text-zinc-500">A troca de plano passa a valer na próxima cobrança. Seu saldo atual continua disponível; na renovação, o saldo recorrente respeita o limite de 2× a franquia mensal.</p></div><button onClick={cancelSubscription} disabled={actionLoading} className="h-9 rounded-xl border border-rose-300/15 bg-rose-400/[0.04] px-3 text-[9px] font-bold text-rose-200 disabled:opacity-40">Cancelar renovação</button></div>}
+     {active&&<div className="ia-plan-current-banner mb-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[9px] font-bold uppercase tracking-wider">Plano atual</p><p className="mt-1 text-[15px] font-black text-white">{subscription?.plan_name}</p><p className="mt-1 text-[9px] text-zinc-500">A troca de plano passa a valer na próxima cobrança. Seu saldo atual continua disponível; na renovação, o saldo recorrente respeita o limite de 2× a franquia mensal.</p></div><button onClick={cancelSubscription} disabled={actionLoading} className="h-9 rounded-xl border border-rose-300/15 bg-rose-400/[0.04] px-3 text-[9px] font-bold text-rose-200 disabled:opacity-40">Cancelar renovação</button></div>}
      {pending&&<div className="mb-4 rounded-2xl border border-amber-300/15 bg-amber-300/[0.045] p-4"><p className="text-[10px] font-bold text-amber-200">Assinatura aguardando conclusão no Mercado Pago.</p>{subscription?.checkout_url&&<button onClick={()=>window.location.assign(subscription.checkout_url!)} className="mt-3 h-9 rounded-xl border border-amber-300/20 bg-amber-300/[0.08] px-3 text-[9px] font-bold text-amber-100">Continuar checkout</button>}</div>}
 
      <div className="ia-plan-grid">
@@ -192,12 +192,12 @@ export const WalletView:React.FC=()=>{
        <div className="ia-plan-comparison-row is-head"><div>Benefício</div>{packs.map(pack=><div key={pack.pack_id}>{pack.name}</div>)}</div>
        <div className="ia-plan-comparison-row"><div>Créditos por mês</div>{packs.map(pack=><div key={pack.pack_id}><CreditAmount value={pack.total_credits} size="xs" className="font-bold"/></div>)}</div>
        <div className="ia-plan-comparison-row"><div>Modelos disponíveis</div>{packs.map(pack=><div key={pack.pack_id}><Check className="ia-compare-check"/> Todos</div>)}</div>
-       <div className="ia-plan-comparison-row"><div>Imagem, vídeo, voz, música e 3D</div>{packs.map(pack=><div key={pack.pack_id}><Check className="ia-compare-check"/> Incluído</div>)}</div>
+       <div className="ia-plan-comparison-row"><div>Saldo único entre categorias</div>{packs.map(pack=><div key={pack.pack_id}><Check className="ia-compare-check"/> Sim</div>)}</div>
        <div className="ia-plan-comparison-row"><div>Rollover máximo</div>{packs.map(pack=><div key={pack.pack_id}><CreditAmount value={pack.total_credits*2} size="xs" className="font-bold"/></div>)}</div>
        <div className="ia-plan-comparison-row"><div>Estimativa de imagens/mês</div>{packs.map(pack=><div key={pack.pack_id}>{imageEstimate(pack)||'—'}</div>)}</div>
        <div className="ia-plan-comparison-row"><div>Custo efetivo por 1.000 créditos</div>{packs.map(pack=><div key={pack.pack_id}>{formatCentsToBRL(unitPerThousand(pack))}</div>)}</div>
       </div>
-      <p className="ia-plan-estimate-note">Estimativas de imagens usam os preços mínimos atuais dos modelos de imagem READY e variam conforme modelo, resolução, quantidade e parâmetros escolhidos.</p>
+      <p className="ia-plan-estimate-note">Estimativas usam os preços mínimos atuais dos modelos de imagem READY. O mesmo saldo pode ser usado nas categorias disponíveis no catálogo; o consumo varia por modelo, resolução, quantidade e parâmetros.</p>
      </section>
 
      {selectedPack&&<div className="ia-plan-checkout">
