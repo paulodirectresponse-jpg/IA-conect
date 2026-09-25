@@ -154,9 +154,9 @@ export const WalletView:React.FC=()=>{
    <div className="ia-plans-dialog w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-[24px] border">
     <div className="ia-plans-header sticky top-0 z-10 px-5 sm:px-7 py-5 flex items-start justify-between gap-4">
      <div className="min-w-0">
-      <div className="ia-plans-eyebrow"><Sparkles className="w-3.5 h-3.5"/> IA Connect</div>
+      <div className="ia-plans-eyebrow"><Sparkles className="w-3.5 h-3.5"/> Planos IA Connect</div>
       <h2 className="ia-plans-title">Escolha o plano para o seu ritmo de criação</h2>
-      <p className="ia-plans-subtitle">Uma assinatura, um único saldo e acesso aos modelos disponíveis no estúdio. Você escolhe quanto quer produzir por mês.</p>
+      <p className="ia-plans-subtitle">Assinatura mensal com um único saldo e acesso aos modelos disponíveis no estúdio. Você escolhe quanto quer produzir por mês.</p>
      </div>
      <button onClick={()=>{setPlansOpen(false);setMessage('')}} aria-label="Fechar planos" className="ia-plans-close"><X className="w-4 h-4"/></button>
     </div>
