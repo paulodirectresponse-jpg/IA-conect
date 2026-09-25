@@ -40,6 +40,14 @@ describe('subscription stage 4 architecture',()=>{
     expect(service).toContain('checkout_expires_at:new Date(Date.now()+SUBSCRIPTION_CHECKOUT_TTL_MS).toISOString()');
   });
 
+  it('expires abandoned pending checkouts after 30 minutes and allows a fresh checkout',()=>{
+    const service=read('server/services/subscriptionService.ts');
+    expect(service).toContain('SUBSCRIPTION_CHECKOUT_TTL_MS=30*60*1000');
+    expect(service).toContain('isPendingCheckoutExpired');
+    expect(service).toContain("status:'CANCELED'");
+    expect(service).toContain("checkout_url:''");
+    expect(service).toContain('checkout_expires_at:new Date(Date.now()+SUBSCRIPTION_CHECKOUT_TTL_MS)');
+  });
   it('reuses the existing verified Mercado Pago webhook endpoint',()=>{
     const routes=read('server/routes/paymentRoutes.ts');
     expect(routes).toContain("eventType.startsWith('subscription_')");
