@@ -3,6 +3,7 @@ import { routingV2Repository } from '../routing-v2/repository.js';
 import { billingControlService } from './billingControlService.js';
 import { generationRepository } from '../repositories/generationRepository.js';
 import { assetReferenceResolver } from './assetReferenceResolver.js';
+import { commercialQaService } from './commercialQaService.js';
 
 export type SystemHealthStatus='OK'|'DEGRADED'|'ERROR';
 export interface SystemHealthCheck{
@@ -58,6 +59,20 @@ export const systemHealthService={
       });
     }catch{
       checks.push({key:'billing',label:'Créditos & geração',status:'ERROR',detail:'Não foi possível carregar os controles operacionais.'});
+    }
+
+    try{
+      const commercial=await commercialQaService.snapshot();
+      checks.push({
+        key:'commercial',
+        label:'Monetização',
+        status:commercial.status,
+        detail:commercial.status==='OK'
+          ?`Economics, 3 planos, margem técnica, checkout e webhook coerentes · ${commercial.ready_routes} Route(s) READY.`
+          :commercial.problems.join(' '),
+      });
+    }catch{
+      checks.push({key:'commercial',label:'Monetização',status:'ERROR',detail:'Não foi possível executar o QA comercial.'});
     }
 
     try{
