@@ -54,6 +54,14 @@ export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate
  };
  useEffect(()=>{load().catch(console.error);},[]);
  useEffect(()=>{
+  if(subscription?.status!=='PENDING'||!subscription.checkout_expires_at)return;
+  const delay=Math.max(0,Date.parse(subscription.checkout_expires_at)-Date.now());
+  const timer=window.setTimeout(()=>{
+    void subscriptionClient.getCurrent().then(next=>{setSubscription(next);if(next?.status!=='PENDING')setMessage('');}).catch(()=>{});
+  },Math.min(delay+500,2147483000));
+  return()=>window.clearTimeout(timer);
+ },[subscription?.status,subscription?.checkout_expires_at]);
+ useEffect(()=>{
   if(returnHandled.current||typeof window==='undefined')return;
   const params=new URLSearchParams(window.location.search);
   if(params.get('subscription')!=='return')return;
