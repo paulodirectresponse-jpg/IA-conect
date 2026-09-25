@@ -82,9 +82,8 @@ export const WalletView:React.FC=()=>{
   catch(e:any){setMessage(e?.message||'Não foi possível cancelar a assinatura.');}
   finally{setActionLoading(false);}
  };
- const baselineUnit=packs.length?unitPerThousand(packs[0]):0,bestUnit=packs.length?Math.min(...packs.map(unitPerThousand)):0;
+ const baselineUnit=packs.length?unitPerThousand(packs[0]):0;
  const active=subscription?.status==='ACTIVE',pending=subscription?.status==='PENDING';
- const samePlan=Boolean(selectedPack&&subscription?.pack_id===selectedPack.pack_id&&subscription?.pack_version===selectedPack.version&&!subscription?.pending_plan_change);
  const visibleTransactions=transactions.filter(tx=>tx.type!=='GENERATION_RESERVE');
  const rolloverCap=subscription?subscription.monthly_credits*(summary?.rollover_multiplier||2):0;
  const imageEstimate=(pack:PackVersion)=>{
