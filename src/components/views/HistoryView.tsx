@@ -2,6 +2,7 @@ import React,{useEffect,useState}from'react';
 import{AlertCircle,CheckCircle2,Clock,Loader2,PlayCircle}from'lucide-react';
 import{Generation}from'../../types/index.js';
 import{universalGenerationClient}from'../../services/universalGenerationClient.js';
+import{assetService}from'../../services/assetService.js';
 import{ResilientImage}from'../common/ResilientImage.js';
 
 const credits=(v?:number)=>`${Math.max(0,Number(v||0)).toLocaleString('pt-BR')} créditos`;
@@ -9,7 +10,7 @@ const isImage=(g:Generation)=>g.mode==='TEXT_TO_IMAGE'||g.mode==='IMAGE_TO_IMAGE
 
 export const HistoryView:React.FC=()=>{
  const[items,setItems]=useState<Generation[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState('');
- useEffect(()=>{universalGenerationClient.list().then(setItems).catch(e=>setError(e?.message||'Falha ao carregar histórico.')).finally(()=>setLoading(false))},[]);
+ useEffect(()=>{const load=()=>universalGenerationClient.list().then(setItems).catch(e=>setError(e?.message||'Falha ao carregar histórico.')).finally(()=>setLoading(false));void load();void assetService.recoverLegacyGeneratedHistory().then(result=>{if(result.recovered>0)void load()}).catch(()=>{})},[]);
  return <div className="ia-history space-y-7 pb-10">
   <header className="ia-view-header"><h1 className="ia-view-title">Histórico</h1><p className="ia-view-description">Resultados, status e créditos das suas gerações.</p></header>
   {loading?<div className="py-20 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-[var(--ia-text-3)]"/></div>
