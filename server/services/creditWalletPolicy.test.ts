@@ -7,13 +7,23 @@ const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
 
 describe('wallet policy stage 5',()=>{
   it('caps recurring rollover at two monthly allowances',()=>{
-    expect(computeSubscriptionRollover(0,4000,4000,2)).toEqual({cap:8000,allowedBefore:4000,expire:0});
-    expect(computeSubscriptionRollover(4000,4000,4000,2)).toEqual({cap:8000,allowedBefore:4000,expire:0});
-    expect(computeSubscriptionRollover(8000,4000,4000,2)).toEqual({cap:8000,allowedBefore:4000,expire:4000});
+    expect(computeSubscriptionRollover(4000,0,4000,2)).toEqual({cap:8000,allowedBefore:8000,expire:0});
+    expect(computeSubscriptionRollover(8000,0,4000,2)).toEqual({cap:8000,allowedBefore:8000,expire:0});
+    expect(computeSubscriptionRollover(12000,0,4000,2)).toEqual({cap:8000,allowedBefore:8000,expire:4000});
   });
 
   it('recalculates the cap against the target plan on downgrade',()=>{
-    expect(computeSubscriptionRollover(16500,4000,4000,2)).toEqual({cap:8000,allowedBefore:4000,expire:12500});
+    expect(computeSubscriptionRollover(20500,0,4000,2)).toEqual({cap:8000,allowedBefore:8000,expire:12500});
+  });
+
+
+  it('credits the confirmed monthly cycle before applying the rollover cut',()=>{
+    const subscription=read('server/services/subscriptionService.ts');
+    const issue=subscription.indexOf('await creditWalletService.issue({');
+    const rollover=subscription.indexOf('await creditWalletPolicyService.enforceSubscriptionRolloverCap');
+    expect(issue).toBeGreaterThan(-1);
+    expect(rollover).toBeGreaterThan(issue);
+    expect(subscription).toContain('incomingCredits:0');
   });
 
   it('makes both rollover cuts and no-op rollover decisions invoice-idempotent',()=>{
