@@ -55,6 +55,15 @@ describe('premium subscription design',()=>{
     expect(css).toContain('transform:scale(1.055)');
   });
 
+  it('makes the middle Pro card taller as well as wider on desktop',()=>{
+    const css=read('src/index.css');
+    expect(css).toContain('.ia-plan-card.is-primary-plan');
+    expect(css).toContain('min-height:396px');
+    expect(css).toContain('margin-block:-18px');
+    expect(css).toContain('min-height:408px');
+    expect(css).toContain('margin-block:-24px');
+  });
+
   it('shows image and video production estimates without inventing video numbers before READY models exist',()=>{
     const wallet=read('src/components/views/WalletView.tsx');
     expect(wallet).toContain("model.category==='VIDEO'");

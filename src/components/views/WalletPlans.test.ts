@@ -35,6 +35,13 @@ describe('commercial plans subscription experience',()=>{
     expect(wallet).not.toContain('border-amber-300/15 bg-amber-300');
   });
 
+  it('clears an expired pending checkout without requiring a page reload',()=>{
+    const wallet=read('src/components/views/WalletView.tsx');
+    expect(wallet).toContain("subscription?.status!=='PENDING'");
+    expect(wallet).toContain('subscription.checkout_expires_at');
+    expect(wallet).toContain('subscriptionClient.getCurrent()');
+  });
+
   it('supports plan change and cancellation from the wallet',()=>{
     const wallet=read('src/components/views/WalletView.tsx');
     expect(wallet).toContain('subscriptionClient.changePlan(pack.pack_id,pack.version)');
