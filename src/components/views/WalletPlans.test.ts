@@ -14,19 +14,32 @@ describe('commercial plans subscription experience',()=>{
     expect(wallet).not.toContain('packPresentation');
   });
 
-  it('uses recurring subscription checkout instead of one-time plan purchase',()=>{
+  it('starts recurring checkout directly from the selected plan card',()=>{
     const wallet=read('src/components/views/WalletView.tsx');
-    expect(wallet).toContain('subscriptionClient.createCheckout(selectedPack.pack_id,selectedPack.version)');
+    expect(wallet).toContain('subscriptionClient.createCheckout(pack.pack_id,pack.version)');
     expect(wallet).toContain('Assinatura mensal');
+    expect(wallet).toContain('Assinar {pack.name}');
+    expect(wallet).toContain('Preparando pagamento...');
     expect(wallet).toContain('window.location.assign(sub.checkout_url)');
     expect(wallet).not.toContain('paymentClient.purchasePack');
+    expect(wallet).not.toContain('Plano escolhido');
+  });
+
+  it('keeps pending checkout state and continuation inside the same plan card',()=>{
+    const wallet=read('src/components/views/WalletView.tsx');
+    expect(wallet).toContain('Checkout iniciado');
+    expect(wallet).toContain('Finalize o pagamento para ativar seu plano.');
+    expect(wallet).toContain('Continuar pagamento');
+    expect(wallet).toContain('Pagamento em processamento');
+    expect(wallet).not.toContain('Assinatura aguardando conclusão no Mercado Pago.');
+    expect(wallet).not.toContain('border-amber-300/15 bg-amber-300');
   });
 
   it('supports plan change and cancellation from the wallet',()=>{
     const wallet=read('src/components/views/WalletView.tsx');
-    expect(wallet).toContain('subscriptionClient.changePlan');
+    expect(wallet).toContain('subscriptionClient.changePlan(pack.pack_id,pack.version)');
     expect(wallet).toContain('subscriptionClient.cancel');
-    expect(wallet).toContain('Trocar no próximo ciclo');
+    expect(wallet).toContain('Mudar para {pack.name}');
     expect(wallet).toContain('Cancelar renovação');
   });
 });

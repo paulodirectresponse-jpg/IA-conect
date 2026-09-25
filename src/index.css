@@ -4127,3 +4127,102 @@ html[data-theme="light"] .ia-plan-current-banner{background:#f5fbff!important}
   border-color:var(--ia-line-strong);
   color:var(--ia-brand);
 }
+
+
+/* Plan card checkout — Stage 3 */
+.ia-plan-card.is-pending{
+  border-color:color-mix(in srgb,var(--ia-brand) 34%,var(--ia-line));
+  background:
+    radial-gradient(circle at 82% 4%,color-mix(in srgb,var(--ia-brand) 9%,transparent),transparent 34%),
+    color-mix(in srgb,var(--ia-brand) 3%,var(--ia-surface-2));
+}
+.ia-plan-inline-state{
+  display:flex;
+  flex-direction:column;
+  gap:.18rem;
+  margin-top:.85rem;
+  border:1px solid color-mix(in srgb,var(--ia-brand) 18%,var(--ia-line));
+  border-radius:10px;
+  background:color-mix(in srgb,var(--ia-brand) 6%,var(--ia-surface-soft));
+  padding:.65rem .7rem;
+}
+.ia-plan-inline-state span{
+  color:var(--ia-brand);
+  font-size:8px;
+  font-weight:720;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.ia-plan-inline-state strong{
+  color:var(--ia-text-2);
+  font-size:9px;
+  font-weight:620;
+  line-height:1.45;
+}
+.ia-plan-inline-message{
+  margin-top:.65rem;
+  border:1px solid var(--ia-line);
+  border-radius:9px;
+  background:var(--ia-surface-soft);
+  padding:.55rem .65rem;
+  color:var(--ia-text-3);
+  font-size:8px;
+  line-height:1.45;
+}
+.ia-plan-card-action{
+  margin-top:.85rem;
+  padding-top:.85rem;
+  border-top:1px solid var(--ia-line);
+}
+.ia-plan-card-cta{
+  display:flex;
+  width:100%;
+  min-height:42px;
+  align-items:center;
+  justify-content:center;
+  gap:.5rem;
+  border:1px solid color-mix(in srgb,var(--ia-brand) 28%,transparent);
+  border-radius:11px;
+  background:linear-gradient(90deg,var(--ia-brand),var(--ia-brand-strong));
+  padding:.65rem .8rem;
+  color:#fff;
+  font-size:10px;
+  font-weight:760;
+  box-shadow:0 14px 28px -20px color-mix(in srgb,var(--ia-brand) 56%,transparent);
+  transition:
+    filter var(--ia-motion-standard) var(--ia-ease-standard),
+    transform var(--ia-motion-fast) var(--ia-ease-out),
+    border-color var(--ia-motion-standard) var(--ia-ease-standard),
+    background-color var(--ia-motion-standard) var(--ia-ease-standard);
+}
+.ia-plan-card-cta:hover:not(:disabled){filter:brightness(1.055)}
+.ia-plan-card-cta:active:not(:disabled){transform:translateY(1px)}
+.ia-plan-card-cta:focus-visible{
+  outline:0;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--ia-brand) 14%,transparent);
+}
+.ia-plan-card-cta:disabled{cursor:not-allowed;opacity:.62;box-shadow:none}
+.ia-plan-card-cta.is-current,
+.ia-plan-card-cta.is-muted{
+  border-color:var(--ia-line);
+  background:var(--ia-surface-soft);
+  color:var(--ia-text-3);
+}
+.ia-plan-card-cta.is-current{color:var(--ia-text-2)}
+html[data-theme="light"] .ia-plan-card.is-pending{
+  background:linear-gradient(145deg,#fff,#f5fbff)!important;
+}
+html[data-theme="light"] .ia-plan-inline-state,
+html[data-theme="light"] .ia-plan-inline-message,
+html[data-theme="light"] .ia-plan-card-cta.is-current,
+html[data-theme="light"] .ia-plan-card-cta.is-muted{
+  background:#f7fbfe!important;
+}
+@media(max-width:900px){
+  .ia-plan-card-action{position:relative}
+  .ia-plan-card-cta{min-height:46px}
+}
+@media(prefers-reduced-motion:reduce){
+  .ia-plan-card-cta{transition-duration:1ms!important}
+  .ia-plan-card-cta:active:not(:disabled){transform:none}
+}
