@@ -7,6 +7,7 @@ import{workspaceService}from'../../services/workspaceService.js';
 import{CreditTransaction,PackVersion,UserSubscription,CreditWalletSummary}from'../../types/credits.js';
 import{formatCentsToBRL}from'../../config/constants.js';
 import{CreditAmount}from'../common/CreditAmount.js';
+import{SubscriptionReturnNotice,SubscriptionReturnState}from'./SubscriptionReturnNotice.js';
 
 const unitPerThousand=(p:PackVersion)=>Math.round((p.price_brl_cents/Math.max(1,p.total_credits))*1000);
 const statusLabel=(s?:string)=>s==='ACTIVE'?'Ativa':s==='PENDING'?'Aguardando ativação':s==='PAUSED'?'Pausada':s==='CANCELED'?'Cancelada':'Indisponível';
@@ -24,8 +25,6 @@ const txLabel=(tx:CreditTransaction)=>{
  if(tx.type==='MIGRATION_ISSUE')return'Saldo migrado';
  return tx.type.replaceAll('_',' ');
 };
-
-type SubscriptionReturnState={status:'SYNCING'|'ACTIVE'|'PENDING'|'FAILED';planName?:string;monthlyCredits?:number;checkoutUrl?:string;};
 
 export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate})=>{
  const{wallet,refreshWallet}=useAuth();
@@ -156,6 +155,13 @@ export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate
 
 
  return <div className="ia-wallet space-y-7 text-zinc-100">
+  {returnState&&<SubscriptionReturnNotice
+   state={returnState}
+   onDismiss={()=>setReturnState(null)}
+   onRefresh={()=>void refreshReturnStatus()}
+   onOpenPlans={()=>{setPlansOpen(true);setReturnState(null)}}
+   onCreate={()=>onNavigate?.('create-image')}
+  />}
   <div className="ia-wallet-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
    <div className="ia-view-header"><h1 className="ia-view-title">Créditos</h1><p className="ia-view-description">Sua assinatura, saldo e movimentações em um só lugar.</p></div>
    <div className="flex flex-wrap gap-2">
