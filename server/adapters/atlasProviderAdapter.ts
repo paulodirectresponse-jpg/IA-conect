@@ -40,11 +40,15 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
   isConfigured(){return Boolean(this.apiKey);}
 
   supports(modelId:string,mode:GenerationMode,providerModelIdentifier?:string){
-    if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE')return false;
+    if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE')return Boolean(providerModelIdentifier);
     return Boolean((providerModelIdentifier||VIDEO_FAMILIES[modelId])&&videoSuffixFor(mode));
   }
 
   private modelName(modelId:string,mode:GenerationMode,providerModelIdentifier?:string,capabilityId?:string){
+    if(mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE'){
+      if(!providerModelIdentifier)throw Object.assign(new Error('Mapping de imagem indisponível na Atlas.'),{code:'PROVIDER_INCOMPATIBLE'});
+      return providerModelIdentifier;
+    }
     const family=providerModelIdentifier||VIDEO_FAMILIES[modelId];
     const suffix=videoSuffixFor(mode,capabilityId);
     if(!family||!suffix)throw Object.assign(new Error('Modelo/modo não suportado pela Atlas.'),{code:'PROVIDER_INCOMPATIBLE'});
@@ -55,6 +59,27 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
     const model=this.modelName(params.model_id,params.mode,params.provider_model_identifier,String(params.capability_id||''));
     const {images,videos,audios}=groups(params);
     const prompt=compileProviderReferencePrompt(params,'atlas');
+
+    if(params.mode==='TEXT_TO_IMAGE'||params.mode==='IMAGE_TO_IMAGE'){
+      const out:any={
+        model,
+        prompt,
+        aspect_ratio:params.aspect_ratio,
+        resolution:String(params.resolution||'1K').toLowerCase(),
+        output_format:'png',
+        enable_sync_mode:false,
+        enable_base64_output:false,
+      };
+      if(params.seed!==null&&params.seed!==undefined)out.seed=params.seed;
+      if(params.negative_prompt?.trim())out.negative_prompt=params.negative_prompt.trim();
+      if(params.mode==='IMAGE_TO_IMAGE'){
+        const source=images.find(r=>r.role==='SOURCE')||images[0];
+        if(!source)throw Object.assign(new Error('Imagem de origem obrigatória para edição na Atlas.'),{code:'REFERENCE_REQUIRED'});
+        out.image=source.provider_accessible_url;
+        if(images.length>1)out.images=images.map(r=>r.provider_accessible_url);
+      }
+      return out;
+    }
 
     if(params.model_id==='minimax-h3'){
       const base:any={model,prompt,duration:params.duration_seconds,resolution:atlasResolution(params.model_id,params.resolution)};
@@ -137,7 +162,8 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
     if(!this.apiKey)throw Object.assign(new Error('Atlas Cloud não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),45000);
     try{
-      const res=await fetch(`${this.baseUrl}/api/v1/model/generateVideo`,{
+      const endpoint=(params.mode==='TEXT_TO_IMAGE'||params.mode==='IMAGE_TO_IMAGE')?'generateImage':'generateVideo';
+      const res=await fetch(`${this.baseUrl}/api/v1/model/${endpoint}`,{
         method:'POST',signal:controller.signal,
         headers:{Authorization:`Bearer ${this.apiKey}`,'Content-Type':'application/json'},
         body:JSON.stringify(this.buildPayload(params)),
