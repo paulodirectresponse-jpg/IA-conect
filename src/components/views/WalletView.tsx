@@ -156,16 +156,16 @@ export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate
  const rolloverCap=subscription?subscription.monthly_credits*(summary?.rollover_multiplier||2):0;
  const imageEstimate=(pack:PackVersion)=>{
   if(!imagePrices.length)return null;
-  const min=Math.min(...imagePrices),max=Math.max(...imagePrices);
-  const lower=Math.max(1,Math.floor(pack.total_credits/max)),upper=Math.max(lower,Math.floor(pack.total_credits/min));
-  return lower===upper?`≈ ${upper.toLocaleString('pt-BR')} imagens`:`≈ ${lower.toLocaleString('pt-BR')}–${upper.toLocaleString('pt-BR')} imagens`;
+  const cheapest=Math.min(...imagePrices);
+  const maximum=Math.max(1,Math.floor(pack.total_credits/cheapest));
+  return `≈ ${maximum.toLocaleString('pt-BR')} imagens`;
  };
  const videoEstimate=(pack:PackVersion)=>{
   if(!videoPrices.length)return null;
   const seconds=5;
-  const min=Math.min(...videoPrices)*seconds,max=Math.max(...videoPrices)*seconds;
-  const lower=Math.max(1,Math.floor(pack.total_credits/max)),upper=Math.max(lower,Math.floor(pack.total_credits/min));
-  return lower===upper?`≈ ${upper.toLocaleString('pt-BR')} vídeos de 5s`:`≈ ${lower.toLocaleString('pt-BR')}–${upper.toLocaleString('pt-BR')} vídeos de 5s`;
+  const cheapestFiveSeconds=Math.min(...videoPrices)*seconds;
+  const maximum=Math.max(1,Math.floor(pack.total_credits/cheapestFiveSeconds));
+  return `≈ ${maximum.toLocaleString('pt-BR')} vídeos de 5s`;
  };
  const planAudience=(id:string)=>id==='creator'?'Para começar':id==='pro'?'Para criar toda semana':'Para alto volume';
  const planTone=(id:string)=>id==='pro'?'is-recommended':'';
@@ -290,7 +290,7 @@ export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate
        <div className="ia-plan-comparison-row"><div>Estimativa de vídeos de 5s/mês</div>{packs.map(pack=><div key={pack.pack_id}>{videoEstimate(pack)||'Aguardando modelos de vídeo'}</div>)}</div>
        <div className="ia-plan-comparison-row"><div>Custo efetivo por 1.000 créditos</div>{packs.map(pack=><div key={pack.pack_id}>{formatCentsToBRL(unitPerThousand(pack))}</div>)}</div>
       </div>
-      <p className="ia-plan-estimate-note">Estimativas usam os preços mínimos atuais dos modelos READY. Imagens variam por modelo e parâmetros; vídeos usam uma referência de 5 segundos e serão calculados automaticamente quando os modelos de vídeo forem ativados. O mesmo saldo vale nas categorias disponíveis.</p>
+      <p className="ia-plan-estimate-note">Estimativas mostram a capacidade máxima usando o modelo READY de menor custo disponível. Em modelos mais caros, resolução maior ou parâmetros adicionais, a quantidade real pode ser menor. Vídeos usam referência de 5 segundos e serão calculados automaticamente quando os modelos forem ativados.</p>
      </section>
 
     </div>
