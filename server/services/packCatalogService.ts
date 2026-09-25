@@ -21,12 +21,15 @@ const HISTORICAL_PACKS:PackVersion[]=[
   {pack_id:'popular',version:1,price_brl_cents:5000,base_credits:5000,bonus_credits:500,total_credits:5500,active:false,effective_from:'2026-09-10T00:00:00.000Z',label:'5.500 créditos',name:'Pro legado',description:'Pack histórico.',features:[]},
   {pack_id:'professional',version:1,price_brl_cents:10000,base_credits:10000,bonus_credits:1500,total_credits:11500,active:false,effective_from:'2026-09-10T00:00:00.000Z',label:'11.500 créditos',name:'Studio legado',description:'Pack histórico.',features:[]},
   {pack_id:'power',version:1,price_brl_cents:20000,base_credits:20000,bonus_credits:4000,total_credits:24000,active:false,effective_from:'2026-09-10T00:00:00.000Z',label:'24.000 créditos',name:'Scale legado',description:'Pack histórico.',features:[]},
+  {pack_id:'creator',version:1,price_brl_cents:3990,base_credits:4000,bonus_credits:0,total_credits:4000,active:false,effective_from:'2026-09-25T00:00:00.000Z',label:'4.000 créditos',name:'Creator',description:'Versão comercial histórica.',features:[]},
+  {pack_id:'pro',version:1,price_brl_cents:7990,base_credits:8000,bonus_credits:400,total_credits:8400,active:false,effective_from:'2026-09-25T00:00:00.000Z',label:'8.400 créditos',name:'Pro',description:'Versão comercial histórica.',features:[]},
+  {pack_id:'studio',version:1,price_brl_cents:14990,base_credits:15000,bonus_credits:1500,total_credits:16500,active:false,effective_from:'2026-09-25T00:00:00.000Z',label:'16.500 créditos',name:'Studio',description:'Versão comercial histórica.',features:[]},
 ];
 
 const COMMERCIAL_PLANS:PackVersion[]=[
   {
     pack_id:'creator',
-    version:1,
+    version:2,
     price_brl_cents:4990,
     base_credits:5000,
     bonus_credits:0,
@@ -40,7 +43,7 @@ const COMMERCIAL_PLANS:PackVersion[]=[
   },
   {
     pack_id:'pro',
-    version:1,
+    version:2,
     price_brl_cents:9990,
     base_credits:11000,
     bonus_credits:0,
@@ -56,7 +59,7 @@ const COMMERCIAL_PLANS:PackVersion[]=[
   },
   {
     pack_id:'studio',
-    version:1,
+    version:2,
     price_brl_cents:19990,
     base_credits:23500,
     bonus_credits:0,
