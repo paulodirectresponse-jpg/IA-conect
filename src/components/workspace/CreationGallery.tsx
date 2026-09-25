@@ -172,6 +172,9 @@ export const CreationGallery: React.FC<Props> = ({
   }, []);
   useEffect(() => {
     void refresh();
+    void assetService.recoverLegacyGeneratedHistory().then((result)=>{
+      if(result.recovered>0)void refresh(true);
+    }).catch(()=>{});
     let refreshTimer: number | undefined;
     const generationHandler = (event: Event) => {
       const raw = (event as CustomEvent<any>).detail,

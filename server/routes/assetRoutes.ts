@@ -6,6 +6,7 @@ import { assetRepository } from '../repositories/assetRepository.js';
 import { assetService } from '../services/assetService.js';
 import { ASSET_UPLOAD_LIMITS } from '../../src/config/constants.js';
 import { AssetType } from '../../src/types/index.js';
+import { legacyImageRecoveryService } from '../services/legacyImageRecoveryService.js';
 
 export const assetRouter = Router();
 
@@ -182,6 +183,18 @@ assetRouter.post('/assets/signed-upload', requireAuth, async (req: Authenticated
     const code=err?.message==='SUPABASE_NOT_CONFIGURED'?'SUPABASE_NOT_CONFIGURED':'SIGNED_UPLOAD_FAILED';
     const status=code==='SUPABASE_NOT_CONFIGURED'?503:500;
     return res.status(status).json({success:false,error:{code,message:'Não foi possível preparar o upload.'}});
+  }
+});
+
+assetRouter.post('/assets/recover-generated', requireAuth, async (req:AuthenticatedRequest,res) => {
+  try{
+    const cursor=Math.max(0,Math.floor(Number(req.body?.cursor)||0));
+    const limit=Math.min(5,Math.max(1,Math.floor(Number(req.body?.limit)||3)));
+    const data=await legacyImageRecoveryService.runBatch({userId:req.user!.uid,cursor,limit});
+    return res.json({success:true,data});
+  }catch(err:any){
+    console.error('[RecoverGeneratedAssets]',err?.message||err);
+    return res.status(500).json({success:false,error:{code:'GENERATED_ASSET_RECOVERY_FAILED',message:'Não foi possível recuperar o histórico de imagens agora.'}});
   }
 });
 
