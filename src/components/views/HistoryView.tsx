@@ -2,6 +2,7 @@ import React,{useEffect,useState}from'react';
 import{AlertCircle,CheckCircle2,Clock,Loader2,PlayCircle}from'lucide-react';
 import{Generation}from'../../types/index.js';
 import{universalGenerationClient}from'../../services/universalGenerationClient.js';
+import{ResilientImage}from'../common/ResilientImage.js';
 
 const credits=(v?:number)=>`${Math.max(0,Number(v||0)).toLocaleString('pt-BR')} créditos`;
 const isImage=(g:Generation)=>g.mode==='TEXT_TO_IMAGE'||g.mode==='IMAGE_TO_IMAGE';
@@ -15,7 +16,7 @@ export const HistoryView:React.FC=()=>{
   :error?<div className="rounded-xl border border-rose-400/15 bg-rose-500/[0.06] p-4 text-sm text-rose-300">{error}</div>
   :items.length===0?<div className="ia-dashboard-empty py-20"><Clock className="w-7 h-7 mx-auto text-[var(--ia-text-4)] mb-3"/><p className="font-medium text-[var(--ia-text-1)]">Nenhuma geração ainda</p></div>
   :<div className="grid gap-2">{items.map(g=><article key={g.generation_id} className="ia-history-row">
-    <div className="ia-history-media">{g.result_url?(isImage(g)?<img src={g.thumbnail_url||g.result_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover"/>:<video src={g.result_url} muted playsInline preload="metadata" className="w-full h-full object-cover"/>):g.status==='SUCCEEDED'?<CheckCircle2 className="w-5 h-5 text-emerald-400"/>:g.status==='FAILED'?<AlertCircle className="w-5 h-5 text-rose-400"/>:<Loader2 className="w-5 h-5 animate-spin text-[var(--ia-text-3)]"/>}</div>
+    <div className="ia-history-media">{g.result_url?(isImage(g)?<ResilientImage sources={[g.thumbnail_url,g.result_url,...(g.result_urls||[])]} alt="Prévia da geração" className="w-full h-full object-cover"/>:<video src={g.result_url} muted playsInline preload="metadata" className="w-full h-full object-cover"/>):g.status==='SUCCEEDED'?<CheckCircle2 className="w-5 h-5 text-emerald-400"/>:g.status==='FAILED'?<AlertCircle className="w-5 h-5 text-rose-400"/>:<Loader2 className="w-5 h-5 animate-spin text-[var(--ia-text-3)]"/>}</div>
     <div className="min-w-0 flex-1">
      <div className="flex items-center gap-2"><p className="text-[13px] font-semibold text-[var(--ia-text-1)] truncate">{g.model_id}</p><span className="ia-badge">{g.status}</span></div>
      <p className="mt-1 text-[12px] text-[var(--ia-text-3)] truncate">{g.original_prompt||'Sem prompt'}</p>
