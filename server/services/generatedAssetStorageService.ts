@@ -44,6 +44,14 @@ export interface ArchivedGeneratedAsset {
   size_bytes:number;
 }
 
+async function verifyPublicAsset(url:string){
+  for(let attempt=0;attempt<4;attempt++){
+    try{const response=await fetch(url,{method:'HEAD',redirect:'follow'});if(response.ok)return true;}catch{}
+    if(attempt<3)await new Promise(resolve=>setTimeout(resolve,200*(attempt+1)));
+  }
+  return false;
+}
+
 export const generatedAssetStorageService={
   async archive(params:{
     userId:string;
@@ -90,11 +98,10 @@ export const generatedAssetStorageService={
       console.error('[GeneratedAssetArchive]',upload.status,body.slice(0,400));
       throw Object.assign(new Error('Não foi possível arquivar o arquivo gerado.'),{code:'ASSET_ARCHIVE_UPLOAD_FAILED'});
     }
-    return{
-      storage_path:storagePath,
-      public_url:publicUrl(config.supabaseUrl,config.bucket,storagePath),
-      mime_type:mime,
-      size_bytes:buffer.byteLength,
-    };
+    const deliveryUrl=publicUrl(config.supabaseUrl,config.bucket,storagePath);
+    if(!await verifyPublicAsset(deliveryUrl)){
+      throw Object.assign(new Error('O arquivo foi enviado, mas ainda não está disponível para leitura pública.'),{code:'ASSET_ARCHIVE_NOT_VISIBLE'});
+    }
+    return{storage_path:storagePath,public_url:deliveryUrl,mime_type:mime,size_bytes:buffer.byteLength};
   },
 };

@@ -23,7 +23,8 @@ describe('PR-05 generated asset storage',()=>{
     const fetchMock=vi.spyOn(globalThis,'fetch');
     fetchMock
       .mockResolvedValueOnce(new Response(new Uint8Array([1,2,3]),{status:200,headers:{'content-type':'image/png','content-length':'3'}}))
-      .mockResolvedValueOnce(new Response('{}',{status:200}));
+      .mockResolvedValueOnce(new Response('{}',{status:200}))
+      .mockResolvedValueOnce(new Response(null,{status:200}));
 
     const archived=await generatedAssetStorageService.archive({
       userId:'user-1',
@@ -38,7 +39,21 @@ describe('PR-05 generated asset storage',()=>{
     expect(archived.size_bytes).toBe(3);
     const uploadCall=fetchMock.mock.calls[1];
     expect(String(uploadCall[0])).toContain('/storage/v1/object/assets/users/user-1/assets/ast-1/generated.png');
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({method:'HEAD'});
     expect(JSON.stringify(archived)).not.toContain('server-secret');
+  });
+
+  it('does not publish an archived asset until its durable delivery URL is readable',async()=>{
+    process.env.SUPABASE_URL='https://storage.example';
+    process.env.SUPABASE_SECRET_KEY='server-secret';
+    process.env.SUPABASE_BUCKET='assets';
+    vi.spyOn(globalThis,'fetch')
+      .mockResolvedValueOnce(new Response(new Uint8Array([1]),{status:200,headers:{'content-type':'image/png'}}))
+      .mockResolvedValueOnce(new Response('{}',{status:200}))
+      .mockResolvedValue(new Response(null,{status:404}));
+    await expect(generatedAssetStorageService.archive({
+      userId:'user-1',assetId:'ast-1',sourceUrl:'https://provider.example/output',fallbackMime:'image/jpeg',fallbackExtension:'jpg',
+    })).rejects.toMatchObject({code:'ASSET_ARCHIVE_NOT_VISIBLE'});
   });
 
   it('fails safely when official storage is unavailable',async()=>{
