@@ -74,6 +74,22 @@ describe('premium subscription design',()=>{
     expect(wallet).toContain('Aguardando modelos de vídeo');
   });
 
+  it('makes the primary Pro card taller and selected plans visibly dominant on desktop',()=>{
+    const css=read('src/index.css');
+    expect(css).toContain('.ia-plan-card.is-primary-plan');
+    expect(css).toContain('min-height:390px');
+    expect(css).toContain('margin-block:-14px');
+    expect(css).toContain('min-height:404px');
+  });
+
+  it('shows only maximum image and video capacity based on the cheapest READY model',()=>{
+    const wallet=read('src/components/views/WalletView.tsx');
+    expect(wallet).toContain('const cheapest=Math.min(...imagePrices)');
+    expect(wallet).toContain('const maximum=Math.max(1,Math.floor(pack.total_credits/cheapest))');
+    expect(wallet).toContain('const cheapestFiveSeconds=Math.min(...videoPrices)*seconds');
+    expect(wallet).not.toContain('lower=');
+    expect(wallet).toContain('capacidade máxima usando o modelo READY de menor custo disponível');
+  });
   it('does not invent model-access tiers between Creator Pro and Studio',()=>{
     const wallet=read('src/components/views/WalletView.tsx');
     expect(wallet).toContain('<Check className="ia-compare-check"/> Todos');
