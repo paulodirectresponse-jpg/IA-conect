@@ -22,7 +22,7 @@ describe('pricing repair closure after Routing V2 cutover',()=>{
   expect(routes).toContain('cursor:req.body?.cursor');
   expect(routes).toContain('limit:req.body?.limit');
   expect(sync).toContain('next_cursor');
-  expect(ui).toContain('routingV2AdminService.syncPricing');
+  expect(ui).toContain('routingV2AdminService.operationalize');
  });
 
  it('keeps provider endpoint normalization used by transitional adapters',()=>{
