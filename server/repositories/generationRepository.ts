@@ -52,6 +52,16 @@ export const generationRepository={
   });
   return rows.map((r:any)=>r.data as Generation);
  },
+ async listUserGenerationsPage(userId:string,offset=0,limit=5):Promise<Generation[]>{
+  const rows=await firestoreAdminRest.runQuery({
+   from:[{collectionId:'generations'}],
+   where:{fieldFilter:{field:{fieldPath:'user_id'},op:'EQUAL',value:{stringValue:userId}}},
+   orderBy:[{field:{fieldPath:'created_at'},direction:'DESCENDING'}],
+   offset:Math.max(0,Math.floor(offset)),
+   limit:Math.max(1,Math.min(10,Math.floor(limit)||5))
+  });
+  return rows.map((r:any)=>r.data as Generation);
+ },
  async listAllGenerations(limit=50):Promise<Generation[]>{
   const rows=await firestoreAdminRest.runQuery({from:[{collectionId:'generations'}],orderBy:[{field:{fieldPath:'created_at'},direction:'DESCENDING'}],limit});
   return rows.map((r:any)=>r.data as Generation);
