@@ -47,11 +47,12 @@ describe('Routing Core V2 Part 4 — price sync and reconciliation',()=>{
     expect(deriveRoutingV2RouteStatus({route:route(),provider:{...provider,status:'DISABLED'},now})).toBe('DISABLED');
   });
 
-  it('uses the agreed simple economic defaults without activating them in production',()=>{
-    expect(DEFAULT_ROUTING_V2_PRICING_SETTINGS.target_margin_percent).toBe(40);
-    expect(DEFAULT_ROUTING_V2_PRICING_SETTINGS.safety_buffer_percent).toBe(5);
-    expect(DEFAULT_ROUTING_V2_PRICING_SETTINGS.reference_credit_value_brl).toBe(0.009);
+  it('uses the approved launch economics defaults',()=>{
+    expect(DEFAULT_ROUTING_V2_PRICING_SETTINGS.target_margin_percent).toBe(55);
+    expect(DEFAULT_ROUTING_V2_PRICING_SETTINGS.safety_buffer_percent).toBe(8);
+    expect(DEFAULT_ROUTING_V2_PRICING_SETTINGS.reference_credit_value_brl).toBe(0.01);
     expect(DEFAULT_ROUTING_V2_PRICING_SETTINGS.price_sync_interval_minutes).toBe(30);
+    expect(DEFAULT_ROUTING_V2_PRICING_SETTINGS.price_freshness_ttl_minutes).toBe(120);
   });
 
   it('keeps price sync outside the request path and bounded for Cloudflare',()=>{

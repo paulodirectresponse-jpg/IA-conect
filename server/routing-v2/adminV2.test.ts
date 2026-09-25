@@ -234,6 +234,21 @@ describe('Routing Core V2 Admin',()=>{
   });
 
 
+  it('uses the approved economics policy as the single pricing source and invalidates old snapshots',()=>{
+    const settings=read('server/routing-v2/pricingSettingsService.ts');
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+    expect(settings).toContain('target_margin_percent:55');
+    expect(settings).toContain('safety_buffer_percent:8');
+    expect(settings).toContain('reference_credit_value_brl:0.01');
+    expect(settings).toContain('price_freshness_ttl_minutes:120');
+    expect(settings).toContain('LEGACY_ROUTING_V2_PRICING_SETTINGS');
+    expect(settings).toContain("pricing_status:'STALE'");
+    expect(settings).toContain("status:route.pricing_snapshot?'DEGRADED'");
+    expect(view).toContain('55% margem · 8% buffer · R$ 0,01 por crédito');
+    expect(view).toContain('Salvar economics e recalcular');
+    expect(view).toContain('operationalizeAll()');
+  });
+
   it('groups route and pricing administration by logical model without changing router semantics',()=>{
     const view=read('src/components/admin/AdminRoutingV2.tsx');
     const router=read('server/routing-v2/routerService.ts');
