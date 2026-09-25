@@ -19,7 +19,7 @@ describe('pricing architecture after Routing V2 cutover',()=>{
   expect(routes).toContain("'/admin/routing-v2/pricing/settings'");
   expect(routes).toContain("'/admin/routing-v2/pricing/sync'");
   expect(routes).toContain('routingV2PriceSyncService.runBatch');
-  expect(ui).toContain('routingV2AdminService.syncPricing');
+  expect(ui).toContain('routingV2AdminService.operationalize');
   expect(ui).toContain('Economics Engine');
  });
 
