@@ -3,9 +3,9 @@ import { routingV2Repository } from '../routing-v2/repository.js';
 import { DEFAULT_ROUTING_V2_PRICING_SETTINGS } from '../routing-v2/pricingSettingsService.js';
 
 export const APPROVED_COMMERCIAL_PLANS={
-  creator:{price_brl_cents:4990,total_credits:5000},
-  pro:{price_brl_cents:9990,total_credits:11000},
-  studio:{price_brl_cents:19990,total_credits:23500},
+  creator:{version:2,price_brl_cents:4990,total_credits:5000},
+  pro:{version:2,price_brl_cents:9990,total_credits:11000},
+  studio:{version:2,price_brl_cents:19990,total_credits:23500},
 } as const;
 
 export const APPROVED_ECONOMICS={
@@ -35,7 +35,7 @@ export const commercialQaService={
     const plans=packCatalogService.list();
 
     const planRows=plans.map(plan=>{
-      const approved=(APPROVED_COMMERCIAL_PLANS as Record<string,{price_brl_cents:number;total_credits:number}>)[plan.pack_id];
+      const approved=(APPROVED_COMMERCIAL_PLANS as Record<string,{version:number;price_brl_cents:number;total_credits:number}>)[plan.pack_id];
       const technical_margin_percent=calculatePlanTechnicalMargin(
         plan.price_brl_cents,
         plan.total_credits,
@@ -46,7 +46,7 @@ export const commercialQaService={
         pack_id:plan.pack_id,
         price_brl_cents:plan.price_brl_cents,
         total_credits:plan.total_credits,
-        matches_approved:Boolean(approved&&approved.price_brl_cents===plan.price_brl_cents&&approved.total_credits===plan.total_credits),
+        matches_approved:Boolean(approved&&approved.version===plan.version&&approved.price_brl_cents===plan.price_brl_cents&&approved.total_credits===plan.total_credits),
         technical_margin_percent,
         margin_safe:technical_margin_percent>=COMMERCIAL_TECHNICAL_MARGIN_FLOOR_PERCENT,
       };
