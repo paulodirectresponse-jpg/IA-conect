@@ -4457,3 +4457,19 @@ html[data-theme="light"] .ia-subscription-return{
     margin-block:0;
   }
 }
+
+
+/* Plan vertical emphasis — checkout expiry refinement */
+@media(min-width:1100px){
+  .ia-plan-grid{align-items:center}
+  .ia-plan-card.is-primary-plan{
+    min-height:390px;
+    margin-block:-14px;
+    padding-top:1.35rem;
+    padding-bottom:1.35rem;
+  }
+  .ia-plan-card.is-primary-plan.is-selected{
+    min-height:404px;
+    margin-block:-20px;
+  }
+}
