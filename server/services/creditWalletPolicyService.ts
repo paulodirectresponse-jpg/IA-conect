@@ -39,13 +39,18 @@ async function expireLots(params:{userId:string;lots:Array<{lot:VersionedLot;cre
   const allocations=params.lots.map(({lot,credits})=>({credit_lot_id:lot.credit_lot_id,credits,net_cash_value_per_credit_micros:Number(lot.net_cash_value_per_credit_micros||0),source:String(lot.source||''),expires_at:lot.expires_at||null}));
   const txId=makeId('ctx');
   const tx={transaction_id:txId,user_id:params.userId,type:'EXPIRE',amount_credits:amount,status:'COMPLETED',reference_type:params.referenceType,reference_id:params.referenceId,idempotency_key:params.idempotencyKey,lot_allocations:allocations,balance_after_credits:nextAccount.available_credits,created_at:now,metadata:params.metadata};
-  await firestoreAdminRest.commit([
-    {update:{name:firestoreAdminRest.docName(ACCOUNT+'/'+encodeURIComponent(params.userId)),fields:firestoreAdminRest.fields(nextAccount)},currentDocument:{updateTime:accountDoc.updateTime}},
-    ...params.lots.map(({lot,credits})=>{const {__updateTime,...clean}=lot;const next={...clean,available_credits:Math.max(0,Number(lot.available_credits||0)-credits),expired_credits:Math.max(0,Number(lot.expired_credits||0)+credits)};return{update:{name:firestoreAdminRest.docName(LOTS+'/'+lot.credit_lot_id),fields:firestoreAdminRest.fields(next)},currentDocument:{updateTime:__updateTime}};}),
-    {update:{name:firestoreAdminRest.docName(TX+'/'+txId),fields:firestoreAdminRest.fields(tx)},currentDocument:{exists:false}},
-    {update:{name:firestoreAdminRest.docName(idemPath(params.idempotencyKey)),fields:firestoreAdminRest.fields({transaction_id:txId,user_id:params.userId,created_at:now})},currentDocument:{exists:false}},
-  ]);
-  return{expired:amount};
+  try{
+    await firestoreAdminRest.commit([
+      {update:{name:firestoreAdminRest.docName(ACCOUNT+'/'+encodeURIComponent(params.userId)),fields:firestoreAdminRest.fields(nextAccount)},currentDocument:{updateTime:accountDoc.updateTime}},
+      ...params.lots.map(({lot,credits})=>{const {__updateTime,...clean}=lot;const next={...clean,available_credits:Math.max(0,Number(lot.available_credits||0)-credits),expired_credits:Math.max(0,Number(lot.expired_credits||0)+credits)};return{update:{name:firestoreAdminRest.docName(LOTS+'/'+lot.credit_lot_id),fields:firestoreAdminRest.fields(next)},currentDocument:{updateTime:__updateTime}};}),
+      {update:{name:firestoreAdminRest.docName(TX+'/'+txId),fields:firestoreAdminRest.fields(tx)},currentDocument:{exists:false}},
+      {update:{name:firestoreAdminRest.docName(idemPath(params.idempotencyKey)),fields:firestoreAdminRest.fields({transaction_id:txId,user_id:params.userId,created_at:now})},currentDocument:{exists:false}},
+    ]);
+    return{expired:amount};
+  }catch(error){
+    if(await already(params.idempotencyKey))return{expired:0,duplicate:true};
+    throw error;
+  }
 }
 
 export const creditWalletPolicyService={
