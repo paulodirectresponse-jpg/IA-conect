@@ -66,6 +66,14 @@ describe('monetization stage 6 final QA',()=>{
     expect(execution).toContain('releaseForGeneration');
   });
 
+  it('treats a commercial version change as a real subscription plan change',()=>{
+    const service=read('server/services/subscriptionService.ts');
+    const wallet=read('src/components/views/WalletView.tsx');
+    expect(service).toContain("current.pack_id===pack.pack_id&&current.pack_version===pack.version");
+    expect(wallet).toContain("subscription?.pack_version===selectedPack.version");
+    expect(wallet).toContain("subscription?.pack_version===pack.version");
+  });
+
   it('publishes commercial QA into system health and the admin executive overview',()=>{
     const health=read('server/services/systemHealthService.ts');
     const overview=read('src/components/admin/AdminOverviewDashboard.tsx');
