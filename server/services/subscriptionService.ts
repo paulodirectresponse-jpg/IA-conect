@@ -24,9 +24,13 @@ export interface UserSubscription {
   created_at:string;
   updated_at:string;
   canceled_at?:string|null;
+  checkout_expires_at?:string|null;
 }
 
 const COLLECTION='subscriptions',POINTERS='user_subscriptions';
+export const SUBSCRIPTION_CHECKOUT_TTL_MS=30*60*1000;
+const checkoutExpiresAt=(createdAt:string)=>new Date(Date.parse(createdAt)+SUBSCRIPTION_CHECKOUT_TTL_MS).toISOString();
+const isPendingCheckoutExpired=(subscription:UserSubscription,nowMs=Date.now())=>subscription.status==='PENDING'&&Date.parse(subscription.checkout_expires_at||checkoutExpiresAt(subscription.created_at))<=nowMs;
 const cfg=()=>{
   const token=process.env.MERCADOPAGO_ACCESS_TOKEN?.trim();
   if(!token)throw Object.assign(new Error('Mercado Pago ainda não configurado.'),{code:'PAYMENTS_NOT_CONFIGURED'});
@@ -83,8 +87,17 @@ export const subscriptionService={
   async getCurrent(userId:string,{sync=true}={}){
     const pointer=await getPointer(userId);if(!pointer)return null;
     const local=await getLocal(pointer.subscription_id);if(!local)return null;
-    if(!sync||local.status==='CANCELED')return local;
-    try{return await syncFromGateway(local);}catch{return local;}
+    if(local.status==='CANCELED')return local;
+    let current=local;
+    if(sync){
+      try{current=await syncFromGateway(local);}catch{current=local;}
+    }
+    if(isPendingCheckoutExpired(current)){
+      await cancelGateway(current.gateway_subscription_id).catch(()=>{});
+      const now=new Date().toISOString();
+      return saveLocal({...current,status:'CANCELED',checkout_url:'',canceled_at:now,updated_at:now,checkout_expires_at:current.checkout_expires_at||checkoutExpiresAt(current.created_at)});
+    }
+    return current;
   },
 
   async createCheckout(params:{userId:string;email:string;packId:string;packVersion:number}){
@@ -109,7 +122,7 @@ export const subscriptionService={
       subscription_id:String(remote.id),user_id:params.userId,email:params.email,...packSnapshot(pack),
       status:statusMap(remote.status),gateway:'MERCADOPAGO',gateway_subscription_id:String(remote.id),
       checkout_url:String(remote.init_point||''),next_payment_date:remote.next_payment_date||null,pending_plan_change:null,
-      created_at:now,updated_at:now,canceled_at:null,
+      created_at:now,updated_at:now,canceled_at:null,checkout_expires_at:new Date(Date.now()+SUBSCRIPTION_CHECKOUT_TTL_MS).toISOString(),
     };
     await saveLocal(local);return local;
   },
