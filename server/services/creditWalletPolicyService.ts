@@ -14,6 +14,18 @@ async function listLots(userId:string):Promise<VersionedLot[]>{
   return rows.map((row:any)=>({...row.data,__updateTime:String(row.updateTime)}) as VersionedLot);
 }
 async function already(key:string){return (await firestoreAdminRest.get(idemPath(key))).exists;}
+async function markNoop(key:string,userId:string,metadata:Record<string,any>){
+  if(await already(key))return;
+  const now=new Date().toISOString();
+  try{await firestoreAdminRest.commit([{update:{name:firestoreAdminRest.docName(idemPath(key)),fields:firestoreAdminRest.fields({transaction_id:null,user_id:userId,created_at:now,metadata})},currentDocument:{exists:false}}]);}catch(error){if(!(await already(key)))throw error;}
+}
+
+export function computeSubscriptionRollover(currentRecurring:number,incomingCredits:number,monthlyCredits:number,multiplier=2){
+  const cap=Math.max(0,Math.floor(monthlyCredits*multiplier));
+  const allowedBefore=Math.max(0,cap-Math.max(0,Math.floor(incomingCredits)));
+  const expire=Math.max(0,Math.floor(currentRecurring)-allowedBefore);
+  return{cap,allowedBefore,expire};
+}
 
 async function expireLots(params:{userId:string;lots:Array<{lot:VersionedLot;credits:number}>;idempotencyKey:string;referenceType:string;referenceId:string;metadata?:Record<string,any>}){
   const amount=params.lots.reduce((sum,row)=>sum+row.credits,0);
@@ -47,14 +59,20 @@ export const creditWalletPolicyService={
   },
 
   async enforceSubscriptionRolloverCap(params:{userId:string;incomingCredits:number;monthlyCredits:number;invoiceId:string;planId:string}){
-    const cap=Math.max(0,Math.floor(params.monthlyCredits*this.rollover_multiplier));
-    const allowedBefore=Math.max(0,cap-Math.max(0,Math.floor(params.incomingCredits)));
+    const key='subscription-rollover:'+params.invoiceId;
     const recurring=(await listLots(params.userId)).filter(lot=>Number(lot.available_credits||0)>0&&lot.source==='PURCHASE'&&lot.metadata?.recurring===true).sort((a,b)=>Date.parse(String(a.created_at||0))-Date.parse(String(b.created_at||0)));
     const availableBefore=recurring.reduce((sum,lot)=>sum+Number(lot.available_credits||0),0);
-    let excess=Math.max(0,availableBefore-allowedBefore);
+    const computed=computeSubscriptionRollover(availableBefore,params.incomingCredits,params.monthlyCredits,this.rollover_multiplier);
+    const cap=computed.cap,allowedBefore=computed.allowedBefore;
+    if(await already(key))return{expired:0,duplicate:true,cap_credits:cap,available_before:availableBefore,allowed_before:allowedBefore};
+    let excess=computed.expire;
     const selected:Array<{lot:VersionedLot;credits:number}>=[];
     for(const lot of recurring){if(excess<=0)break;const credits=Math.min(excess,Number(lot.available_credits||0));if(credits>0){selected.push({lot,credits});excess-=credits;}}
-    const result=await expireLots({userId:params.userId,lots:selected,idempotencyKey:'subscription-rollover:'+params.invoiceId,referenceType:'SUBSCRIPTION_ROLLOVER',referenceId:params.invoiceId,metadata:{reason:'ROLLOVER_CAP',plan_id:params.planId,rollover_multiplier:this.rollover_multiplier,cap_credits:cap,incoming_credits:params.incomingCredits}});
+    if(!selected.length){
+      await markNoop(key,params.userId,{reason:'ROLLOVER_CAP_NOOP',plan_id:params.planId,rollover_multiplier:this.rollover_multiplier,cap_credits:cap,incoming_credits:params.incomingCredits});
+      return{expired:0,cap_credits:cap,available_before:availableBefore,allowed_before:allowedBefore};
+    }
+    const result=await expireLots({userId:params.userId,lots:selected,idempotencyKey:key,referenceType:'SUBSCRIPTION_ROLLOVER',referenceId:params.invoiceId,metadata:{reason:'ROLLOVER_CAP',plan_id:params.planId,rollover_multiplier:this.rollover_multiplier,cap_credits:cap,incoming_credits:params.incomingCredits}});
     return{...result,cap_credits:cap,available_before:availableBefore,allowed_before:allowedBefore};
   },
 
