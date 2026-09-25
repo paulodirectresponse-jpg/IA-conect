@@ -10,7 +10,7 @@ import { creditWalletPolicyService } from '../services/creditWalletPolicyService
 
 export const creditRouter=Router();
 
-creditRouter.get('/credits/account',requireAuth,async(req:AuthenticatedRequest,res)=>{try{res.json({success:true,data:await creditWalletService.getAccount(req.user!.uid)});}catch(err:any){res.status(500).json({success:false,error:{code:'CREDIT_ACCOUNT_ERROR',message:err?.message||'Não foi possível carregar os créditos.'}});}});
+creditRouter.get('/credits/account',requireAuth,async(req:AuthenticatedRequest,res)=>{try{await creditWalletPolicyService.sweepExpired(req.user!.uid);res.json({success:true,data:await creditWalletService.getAccount(req.user!.uid)});}catch(err:any){res.status(500).json({success:false,error:{code:'CREDIT_ACCOUNT_ERROR',message:err?.message||'Não foi possível carregar os créditos.'}});}});
 creditRouter.get('/credits/transactions',requireAuth,async(req:AuthenticatedRequest,res)=>{try{const rows=await creditWalletService.listTransactions(req.user!.uid,Number(req.query.limit||50));res.json({success:true,data:{transactions:rows,total:rows.length}});}catch(err:any){res.status(500).json({success:false,error:{code:'CREDIT_LEDGER_ERROR',message:err?.message||'Não foi possível carregar as movimentações.'}});}});
 creditRouter.get('/credits/summary',requireAuth,async(req:AuthenticatedRequest,res)=>{try{return res.json({success:true,data:await creditWalletPolicyService.summary(req.user!.uid)});}catch(err:any){return res.status(500).json({success:false,error:{code:'CREDIT_SUMMARY_ERROR',message:err?.message||'Não foi possível carregar o resumo da carteira.'}});}});
 creditRouter.get('/credits/packs',requireAuth,(_req,res)=>res.json({success:true,data:packCatalogService.list()}));
