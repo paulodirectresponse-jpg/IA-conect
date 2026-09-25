@@ -104,6 +104,12 @@ async function recoverGeneration(g:Generation){
   if(String(g.status)!=='SUCCEEDED'||!isImageGeneration(g)){
     return{outcome:'SKIPPED' as RecoveryOutcome,recovered:0,healthy:0,unavailable:0};
   }
+  const checkedAt=Date.parse(String(anyG.media_recovery_checked_at||''));
+  const recoveryStatus=String(anyG.media_recovery_status||'');
+  const cooldownMs=recoveryStatus==='UNAVAILABLE'?24*60*60*1000:7*24*60*60*1000;
+  if(Number.isFinite(checkedAt)&&checkedAt>0&&Date.now()-checkedAt<cooldownMs&&['HEALTHY','RECOVERED','UNAVAILABLE'].includes(recoveryStatus)){
+    return{outcome:'SKIPPED' as RecoveryOutcome,recovered:0,healthy:0,unavailable:0};
+  }
   const knownUrls=generationUrls(anyG);
   const requested=Math.max(
     1,
