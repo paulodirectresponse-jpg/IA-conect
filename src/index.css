@@ -4084,3 +4084,46 @@ html[data-theme="light"] .ia-plan-checkout{
 }
 .ia-plan-current-banner p:first-child{color:var(--ia-brand)}
 html[data-theme="light"] .ia-plan-current-banner{background:#f5fbff!important}
+
+
+/* Resilient media fallback */
+.ia-media-unavailable{
+  display:grid;
+  width:100%;
+  height:100%;
+  min-height:100%;
+  place-items:center;
+  background:
+    radial-gradient(circle at 50% 28%,color-mix(in srgb,var(--ia-brand) 6%,transparent),transparent 42%),
+    var(--ia-surface-media);
+  color:var(--ia-text-4);
+}
+.ia-media-unavailable-inner{
+  display:flex;
+  max-width:12rem;
+  flex-direction:column;
+  align-items:center;
+  gap:.45rem;
+  padding:1rem;
+  text-align:center;
+  font-size:9px;
+  line-height:1.45;
+}
+.ia-media-unavailable-inner svg{color:var(--ia-text-4)}
+.ia-media-unavailable-inner button{
+  display:inline-flex;
+  align-items:center;
+  gap:.35rem;
+  margin-top:.15rem;
+  border:1px solid var(--ia-line);
+  border-radius:9px;
+  background:var(--ia-surface-soft);
+  padding:.42rem .6rem;
+  color:var(--ia-text-3);
+  font-size:8px;
+  font-weight:650;
+}
+.ia-media-unavailable-inner button:hover{
+  border-color:var(--ia-line-strong);
+  color:var(--ia-brand);
+}
