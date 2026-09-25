@@ -6,3 +6,5 @@ export interface RetailPricingVersion{retail_pricing_id:string;pricing_signature
 
 export type SubscriptionStatus='PENDING'|'ACTIVE'|'PAUSED'|'CANCELED'|'FAILED';
 export interface UserSubscription{subscription_id:string;user_id:string;email:string;pack_id:string;pack_version:number;plan_name:string;price_brl_cents:number;monthly_credits:number;status:SubscriptionStatus;gateway:'MERCADOPAGO';gateway_subscription_id:string;checkout_url?:string;next_payment_date?:string|null;pending_plan_change?:{pack_id:string;pack_version:number;plan_name:string;price_brl_cents:number;monthly_credits:number}|null;created_at:string;updated_at:string;canceled_at?:string|null;}
+
+export interface CreditWalletSummary{available_credits:number;reserved_credits:number;subscription_credits:number;promotional_credits:number;other_credits:number;nearest_expiration_at:string|null;rollover_multiplier:number;}

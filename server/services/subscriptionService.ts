@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
 import { packCatalogService, PackVersion } from './packCatalogService.js';
 import { creditWalletService } from './creditWalletService.js';
+import { creditWalletPolicyService } from './creditWalletPolicyService.js';
 
 export type SubscriptionStatus='PENDING'|'ACTIVE'|'PAUSED'|'CANCELED'|'FAILED';
 
@@ -154,12 +155,13 @@ export const subscriptionService={
         userId:local.user_id,credits:Number(target.monthly_credits),source:'PURCHASE',
         idempotencyKey:`subscription-invoice:${invoiceId}`,referenceId:invoiceId,paymentId:`subscription:${invoiceId}`,
         packId:String(target.pack_id),packVersion:Number(target.pack_version),netCashBackingMicros:netBackingMicros,
-        metadata:{subscription_id:subscriptionId,invoice_id:invoiceId,plan_name:target.plan_name,recurring:true,gateway:'MERCADOPAGO'},
+        metadata:{subscription_id:subscriptionId,invoice_id:invoiceId,plan_name:target.plan_name,recurring:true,gateway:'MERCADOPAGO',rollover_multiplier:creditWalletPolicyService.rollover_multiplier},
       });
+      const rollover=await creditWalletPolicyService.enforceSubscriptionRolloverCap({userId:local.user_id,incomingCredits:0,monthlyCredits:Number(target.monthly_credits),invoiceId,planId:String(target.pack_id)});
       const remote=await mp(`/preapproval/${encodeURIComponent(subscriptionId)}`);
       const next:UserSubscription={...local,pack_id:String(target.pack_id),pack_version:Number(target.pack_version),plan_name:String(target.plan_name),price_brl_cents:Number(target.price_brl_cents),monthly_credits:Number(target.monthly_credits),status:statusMap(remote.status),next_payment_date:remote.next_payment_date||null,pending_plan_change:null,updated_at:new Date().toISOString()};
       await saveLocal(next);
-      return{subscription:next,credits_issued:Number(target.monthly_credits),invoice_id:invoiceId};
+      return{subscription:next,credits_issued:Number(target.monthly_credits),rollover_expired:Number(rollover.expired||0),rollover_cap_credits:Number(rollover.cap_credits||0),invoice_id:invoiceId};
     }
     return{ignored:true};
   },

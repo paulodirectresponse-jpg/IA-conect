@@ -36,7 +36,7 @@ const COMMERCIAL_PLANS:PackVersion[]=[
     label:'4.000 créditos',
     name:'Creator',
     description:'Para começar a produzir com frequência sem complicação.',
-    features:['Acesso a todos os modelos disponíveis','Créditos válidos em imagem, vídeo, voz, música e 3D','Saldo acumulável enquanto estiver disponível na conta'],
+    features:['Acesso a todos os modelos disponíveis','Créditos válidos em imagem, vídeo, voz, música e 3D','Rollover de créditos recorrentes até 2× a franquia mensal'],
   },
   {
     pack_id:'pro',

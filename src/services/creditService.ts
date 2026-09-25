@@ -1,10 +1,11 @@
 import { apiRequest } from './apiClient.js';
-import { CreditAccount, CreditTransaction, PackVersion } from '../types/credits.js';
+import { CreditAccount, CreditTransaction, PackVersion, CreditWalletSummary } from '../types/credits.js';
 
 export const creditService={
  async getAccount():Promise<CreditAccount>{
   return apiRequest<CreditAccount>('/api/credits/account');
  },
+ async getSummary():Promise<CreditWalletSummary>{ return apiRequest<CreditWalletSummary>('/api/credits/summary'); },
  async listTransactions(max=50):Promise<{transactions:CreditTransaction[];total:number}>{
   return apiRequest(`/api/credits/transactions?limit=${Math.min(100,max)}`);
  },

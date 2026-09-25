@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { authService } from '../services/authService.js';
 import { creditWalletService } from '../services/creditWalletService.js';
+import { creditWalletPolicyService } from '../services/creditWalletPolicyService.js';
 
 export const authRouter = Router();
 
@@ -19,6 +20,7 @@ authRouter.post('/auth/register-profile', requireAuth, async (req: Authenticated
       avatarUrl,
     });
 
+    await creditWalletPolicyService.sweepExpired(uid);
     const wallet = await creditWalletService.getAccount(uid);
 
     res.json({
@@ -50,6 +52,7 @@ authRouter.get('/auth/me', requireAuth, async (req: AuthenticatedRequest, res) =
       user = syncResult.user;
     }
 
+    await creditWalletPolicyService.sweepExpired(uid);
     const wallet = await creditWalletService.getAccount(uid);
 
     res.json({
