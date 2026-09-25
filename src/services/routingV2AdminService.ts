@@ -73,7 +73,7 @@ export const routingV2AdminService={
   getPricingSettings:()=>apiRequest<RoutingV2PricingSettingsAdmin>('/api/admin/routing-v2/pricing/settings'),
   savePricingSettings:(data:Partial<RoutingV2PricingSettingsAdmin>)=>post<RoutingV2PricingSettingsAdmin>('/api/admin/routing-v2/pricing/settings',data),
   syncPricing:(cursor=0,limit=10)=>post<any>('/api/admin/routing-v2/pricing/sync',{cursor,limit}),
-  operationalize:()=>post<any>('/api/admin/routing-v2/operationalize'),
+  operationalize:(cursor=0,limit=5)=>post<any>('/api/admin/routing-v2/operationalize',{cursor,limit}),
   getHealth:()=>apiRequest<RoutingV2HealthAdmin>('/api/admin/routing-v2/health'),
   getReadiness:()=>apiRequest<RoutingV2ReadinessAdmin>('/api/admin/routing-v2/readiness'),
   resetPreview:()=>post<any>('/api/admin/routing-v2/reset-preview',{confirm:'RESET_ROUTING_V2_PREVIEW'}),

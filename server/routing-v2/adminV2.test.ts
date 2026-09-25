@@ -245,7 +245,7 @@ describe('Routing Core V2 Admin',()=>{
     const client=read('src/services/routingV2AdminService.ts');
 
     expect(routes).toContain('/admin/routing-v2/operationalize');
-    expect(routes).toContain('providerHealthService.checkAllCore()');
+    expect(routes).toContain('const limit=Math.min(5');
     expect(priceSync).toContain('resolveRoutingV2ProviderAdapter(provider)');
     expect(priceSync).toContain('await getUsdBrlRate()');
     expect(resolver).toContain("['provider-wavespeed','provider-atlas','provider-runware']");
@@ -257,7 +257,20 @@ describe('Routing Core V2 Admin',()=>{
     expect(wrapper).toContain('ROUTING_V2_MAPPING_CAPABILITY_MISMATCH');
     expect(view).toContain('Ativar rotas agora');
     expect(view).toContain('Sincronizar e ativar rotas');
-    expect(client).toContain("operationalize:()=>post<any>('/api/admin/routing-v2/operationalize')");
+    expect(client).toContain("operationalize:(cursor=0,limit=5)=>post<any>('/api/admin/routing-v2/operationalize',{cursor,limit})");
+    expect(view).toContain('operationalizeAll');
+  });
+
+
+  it('keeps each Cloudflare activation invocation bounded and configures paid subrequest headroom',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+    const wrangler=read('wrangler.jsonc');
+    expect(routes).toContain('const limit=Math.min(5');
+    expect(routes).not.toContain('for(let index=0;index<100;index++)');
+    expect(view).toContain('routingV2AdminService.operationalize(cursor,5)');
+    expect(view).toContain('for(let i=0;i<100;i++)');
+    expect(wrangler).toContain('"subrequests": 50000');
   });
 
   it('supports Atlas image execution and live price estimation',()=>{
