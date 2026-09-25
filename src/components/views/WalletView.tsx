@@ -1,5 +1,5 @@
 import React,{useEffect,useState}from'react';
-import{Wallet,RotateCcw,FileText,Plus,Check,X,Loader2,Tag,ShieldCheck,ArrowRight,CalendarClock,CreditCard,Sparkles,Images}from'lucide-react';
+import{Wallet,RotateCcw,FileText,Plus,Check,X,Loader2,Tag,ArrowRight,CalendarClock,Sparkles,Images}from'lucide-react';
 import{useAuth}from'../../context/AuthContext.js';
 import{creditService}from'../../services/creditService.js';
 import{subscriptionClient}from'../../services/subscriptionClient.js';
@@ -33,7 +33,7 @@ export const WalletView:React.FC=()=>{
  const[summary,setSummary]=useState<CreditWalletSummary|null>(null);
  const[imagePrices,setImagePrices]=useState<number[]>([]);
  const[selectedPack,setSelectedPack]=useState<PackVersion|null>(null);
- const[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[plansOpen,setPlansOpen]=useState(false),[redeemOpen,setRedeemOpen]=useState(false),[redeemCode,setRedeemCode]=useState(''),[redeemLoading,setRedeemLoading]=useState(false),[redeemMessage,setRedeemMessage]=useState(''),[actionLoading,setActionLoading]=useState(false),[message,setMessage]=useState('');
+ const[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[plansOpen,setPlansOpen]=useState(false),[redeemOpen,setRedeemOpen]=useState(false),[redeemCode,setRedeemCode]=useState(''),[redeemLoading,setRedeemLoading]=useState(false),[redeemMessage,setRedeemMessage]=useState(''),[actionLoading,setActionLoading]=useState(false),[actionPackId,setActionPackId]=useState<string|null>(null),[message,setMessage]=useState(''),[messagePackId,setMessagePackId]=useState<string|null>(null);
 
  const load=async()=>{
   setLoading(true);
@@ -49,7 +49,7 @@ export const WalletView:React.FC=()=>{
  };
  useEffect(()=>{load().catch(console.error);},[]);
  const refresh=async()=>{setRefreshing(true);try{await Promise.all([refreshWallet(),load()]);}finally{setRefreshing(false);}};
- const choosePack=(pack:PackVersion)=>{setSelectedPack(pack);setMessage('');};
+ const choosePack=(pack:PackVersion)=>{setSelectedPack(pack);if(messagePackId!==pack.pack_id){setMessage('');setMessagePackId(null)}};
  const smartRedeem=async()=>{
   if(!redeemCode.trim())return;setRedeemLoading(true);setRedeemMessage('');
   try{
@@ -60,20 +60,20 @@ export const WalletView:React.FC=()=>{
   }catch(e:any){setRedeemMessage(e?.message||'Não foi possível resgatar este código.');}
   finally{setRedeemLoading(false);}
  };
- const subscribe=async()=>{
-  if(!selectedPack)return;setActionLoading(true);setMessage('');
+ const subscribe=async(pack:PackVersion)=>{
+  setSelectedPack(pack);setActionPackId(pack.pack_id);setMessage('');setMessagePackId(null);
   try{
-   const sub=await subscriptionClient.createCheckout(selectedPack.pack_id,selectedPack.version);setSubscription(sub);
+   const sub=await subscriptionClient.createCheckout(pack.pack_id,pack.version);setSubscription(sub);
    if(sub.checkout_url){window.location.assign(sub.checkout_url);return;}
-   setMessage('Assinatura criada, mas o checkout do Mercado Pago não foi retornado.');
-  }catch(e:any){setMessage(e?.message||'Não foi possível iniciar a assinatura.');}
-  finally{setActionLoading(false);}
+   setMessagePackId(pack.pack_id);setMessage('Checkout criado. Aguarde um instante e tente continuar o pagamento.');
+  }catch(e:any){setMessagePackId(pack.pack_id);setMessage(e?.message||'Não foi possível iniciar a assinatura.');}
+  finally{setActionPackId(null);}
  };
- const changePlan=async()=>{
-  if(!selectedPack)return;setActionLoading(true);setMessage('');
-  try{const sub=await subscriptionClient.changePlan(selectedPack.pack_id,selectedPack.version);setSubscription(sub);setMessage(`Mudança para ${selectedPack.name} programada para a próxima cobrança.`);}
-  catch(e:any){setMessage(e?.message||'Não foi possível alterar o plano.');}
-  finally{setActionLoading(false);}
+ const changePlan=async(pack:PackVersion)=>{
+  setSelectedPack(pack);setActionPackId(pack.pack_id);setMessage('');setMessagePackId(null);
+  try{const sub=await subscriptionClient.changePlan(pack.pack_id,pack.version);setSubscription(sub);setMessagePackId(pack.pack_id);setMessage(`Mudança para ${pack.name} programada para a próxima cobrança.`);}
+  catch(e:any){setMessagePackId(pack.pack_id);setMessage(e?.message||'Não foi possível alterar o plano.');}
+  finally{setActionPackId(null);}
  };
  const cancelSubscription=async()=>{
   if(!subscription||!window.confirm('Cancelar a renovação da assinatura? Seu saldo atual continuará disponível.'))return;
@@ -124,7 +124,7 @@ export const WalletView:React.FC=()=>{
    <div className="rounded-2xl border border-white/[0.07] bg-[#08131e] p-5">
     <div className="flex items-start justify-between gap-3">
      <div><p className="text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">Assinatura</p><h2 className="mt-1 text-[16px] font-black text-white">{active||pending?subscription?.plan_name:'Sem plano ativo'}</h2></div>
-     <span className={`rounded-full border px-2.5 py-1 text-[8px] font-bold ${active?'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-300':pending?'border-amber-300/20 bg-amber-300/[0.06] text-amber-200':'border-white/[0.06] text-zinc-500'}`}>{statusLabel(subscription?.status)}</span>
+     <span className={`rounded-full border px-2.5 py-1 text-[8px] font-bold ${active?'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-300':pending?'border-sky-300/20 bg-sky-300/[0.06] text-sky-200':'border-white/[0.06] text-zinc-500'}`}>{statusLabel(subscription?.status)}</span>
     </div>
     {subscription&&subscription.status!=='CANCELED'?<div className="mt-4 space-y-2 text-[9px]">
      <div className="flex items-center justify-between text-zinc-500"><span>Mensalidade</span><strong className="text-zinc-200">{formatCentsToBRL(subscription.price_brl_cents)}</strong></div>
@@ -163,24 +163,32 @@ export const WalletView:React.FC=()=>{
 
     <div className="p-4 sm:p-6">
      {active&&<div className="ia-plan-current-banner mb-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[9px] font-bold uppercase tracking-wider">Plano atual</p><p className="mt-1 text-[15px] font-black text-white">{subscription?.plan_name}</p><p className="mt-1 text-[9px] text-zinc-500">A troca de plano passa a valer na próxima cobrança. Seu saldo atual continua disponível; na renovação, o saldo recorrente respeita o limite de 2× a franquia mensal.</p></div><button onClick={cancelSubscription} disabled={actionLoading} className="h-9 rounded-xl border border-rose-300/15 bg-rose-400/[0.04] px-3 text-[9px] font-bold text-rose-200 disabled:opacity-40">Cancelar renovação</button></div>}
-     {pending&&<div className="mb-4 rounded-2xl border border-amber-300/15 bg-amber-300/[0.045] p-4"><p className="text-[10px] font-bold text-amber-200">Assinatura aguardando conclusão no Mercado Pago.</p>{subscription?.checkout_url&&<button onClick={()=>window.location.assign(subscription.checkout_url!)} className="mt-3 h-9 rounded-xl border border-amber-300/20 bg-amber-300/[0.08] px-3 text-[9px] font-bold text-amber-100">Continuar checkout</button>}</div>}
-
      <div className="ia-plan-grid">
-      {packs.map(pack=>{const selected=selectedPack?.pack_id===pack.pack_id&&selectedPack?.version===pack.version,unit=unitPerThousand(pack),saving=baselineUnit>0?Math.max(0,Math.round((1-unit/baselineUnit)*100)):0,current=subscription?.pack_id===pack.pack_id&&subscription?.pack_version===pack.version&&active,estimate=imageEstimate(pack);return <button key={`${pack.pack_id}-${pack.version}`} onClick={()=>choosePack(pack)} className={`ia-plan-card ${selected?'is-selected':''} ${planTone(pack.pack_id)}`}>
+      {packs.map(pack=>{const selected=selectedPack?.pack_id===pack.pack_id&&selectedPack?.version===pack.version,unit=unitPerThousand(pack),saving=baselineUnit>0?Math.max(0,Math.round((1-unit/baselineUnit)*100)):0,current=subscription?.pack_id===pack.pack_id&&subscription?.pack_version===pack.version&&active,pendingThis=subscription?.pack_id===pack.pack_id&&subscription?.pack_version===pack.version&&pending,changingToThis=subscription?.pending_plan_change?.pack_id===pack.pack_id&&subscription?.pending_plan_change?.pack_version===pack.version,estimate=imageEstimate(pack),busy=actionPackId===pack.pack_id;return <article key={`${pack.pack_id}-${pack.version}`} onClick={()=>choosePack(pack)} className={`ia-plan-card ${selected?'is-selected':''} ${planTone(pack.pack_id)} ${pendingThis?'is-pending':''}`}>
        <div className="ia-plan-card-top">
         <div>
          <div className="ia-plan-audience">{planAudience(pack.pack_id)}</div>
          <h3>{pack.name}</h3>
         </div>
-        {current?<span className="ia-plan-badge is-current">Plano atual</span>:pack.recommended?<span className="ia-plan-badge">Mais escolhido</span>:pack.pack_id==='studio'?<span className="ia-plan-badge is-subtle">Maior volume</span>:null}
+        {current?<span className="ia-plan-badge is-current">Plano atual</span>:pendingThis?<span className="ia-plan-badge">Pagamento iniciado</span>:changingToThis?<span className="ia-plan-badge">Próximo plano</span>:pack.recommended?<span className="ia-plan-badge">Mais escolhido</span>:pack.pack_id==='studio'?<span className="ia-plan-badge is-subtle">Maior volume</span>:null}
        </div>
        <div className="ia-plan-price"><strong>{formatCentsToBRL(pack.price_brl_cents)}</strong><span>/mês</span></div>
        <div className="ia-plan-credits"><CreditAmount value={pack.total_credits} size="md" className="font-black"/></div>
        <p className="ia-plan-description">{pack.description}</p>
        <div className="ia-plan-estimate"><Images className="w-4 h-4"/><div><span>Estimativa com imagens</span><strong>{estimate||'calculando preços atuais...'}</strong></div></div>
        <div className="ia-plan-features">{pack.features.slice(0,3).map(feature=><div key={feature}><Check className="w-3.5 h-3.5"/><span>{feature}</span></div>)}</div>
+       {pendingThis&&<div className="ia-plan-inline-state"><span>Checkout iniciado</span><strong>Finalize o pagamento para ativar seu plano.</strong></div>}
+       {changingToThis&&<div className="ia-plan-inline-state"><span>Mudança programada</span><strong>Este plano entra no próximo ciclo.</strong></div>}
+       {messagePackId===pack.pack_id&&message&&<div className="ia-plan-inline-message">{message}</div>}
        <div className="ia-plan-economics"><span>{saving>0?`${saving}% melhor custo que o Creator`:'Referência do plano'}</span><strong>{formatCentsToBRL(unit)} / 1.000</strong></div>
-      </button>})}
+       <div className="ia-plan-card-action">
+        {current?<button type="button" disabled className="ia-plan-card-cta is-current"><Check className="w-3.5 h-3.5"/>Seu plano</button>
+        :pendingThis&&subscription?.checkout_url?<button type="button" onClick={e=>{e.stopPropagation();window.location.assign(subscription.checkout_url!)}} className="ia-plan-card-cta"><span>Continuar pagamento</span><ArrowRight className="w-3.5 h-3.5"/></button>
+        :pendingThis?<button type="button" disabled className="ia-plan-card-cta is-muted">Pagamento em processamento</button>
+        :active?<button type="button" onClick={e=>{e.stopPropagation();void changePlan(pack)}} disabled={busy||changingToThis} className="ia-plan-card-cta">{busy?<><Loader2 className="w-3.5 h-3.5 animate-spin"/>Salvando...</>:changingToThis?<><CalendarClock className="w-3.5 h-3.5"/>Programado</>:<>Mudar para {pack.name}<CalendarClock className="w-3.5 h-3.5"/></>}</button>
+        :<button type="button" onClick={e=>{e.stopPropagation();void subscribe(pack)}} disabled={busy} className="ia-plan-card-cta">{busy?<><Loader2 className="w-3.5 h-3.5 animate-spin"/>Preparando pagamento...</>:<>Assinar {pack.name}<ArrowRight className="w-3.5 h-3.5"/></>}</button>}
+       </div>
+      </article>})}
      </div>
 
      <section className="ia-plan-comparison">
@@ -200,18 +208,6 @@ export const WalletView:React.FC=()=>{
       <p className="ia-plan-estimate-note">Estimativas usam os preços mínimos atuais dos modelos de imagem READY. O mesmo saldo pode ser usado nas categorias disponíveis no catálogo; o consumo varia por modelo, resolução, quantidade e parâmetros.</p>
      </section>
 
-     {selectedPack&&<div className="ia-plan-checkout">
-      <div className="grid gap-3 sm:grid-cols-3">
-       <div><p className="text-[8px] uppercase tracking-wider text-zinc-600">Plano escolhido</p><p className="mt-1 text-[12px] font-black text-white">{selectedPack.name}</p></div>
-       <div><p className="text-[8px] uppercase tracking-wider text-zinc-600">Mensalidade</p><p className="mt-1 text-[12px] font-black text-white">{formatCentsToBRL(selectedPack.price_brl_cents)}</p></div>
-       <div><p className="text-[8px] uppercase tracking-wider text-zinc-600">Todo ciclo</p><div className="mt-1"><CreditAmount value={selectedPack.total_credits} size="sm" className="font-black text-white"/></div></div>
-      </div>
-      {message&&<div className="mt-3 rounded-xl border border-sky-300/15 bg-sky-300/[0.05] px-3 py-2 text-[9px] text-sky-100">{message}</div>}
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-       <div className="ia-plan-security"><ShieldCheck className="h-4 w-4 shrink-0"/><span>Cobrança mensal segura. Os créditos entram após a confirmação do pagamento e o saldo recorrente pode acumular até 2× a franquia do plano.</span></div>
-       {active?<button onClick={changePlan} disabled={actionLoading||samePlan} className="ia-primary h-11 shrink-0 rounded-xl px-5 text-[10px] font-black disabled:opacity-35">{actionLoading?<Loader2 className="w-4 h-4 animate-spin"/>:samePlan?'Plano atual':<>Trocar no próximo ciclo<CalendarClock className="ml-2 inline w-3.5 h-3.5"/></>}</button>:<button onClick={subscribe} disabled={actionLoading} className="ia-primary h-11 shrink-0 rounded-xl px-5 text-[10px] font-black flex items-center justify-center gap-2 disabled:opacity-40">{actionLoading?<Loader2 className="w-4 h-4 animate-spin"/>:<>Assinar {selectedPack.name}<ArrowRight className="w-3.5 h-3.5"/></>}</button>}
-      </div>
-     </div>}
     </div>
    </div>
   </div>}
