@@ -74,6 +74,14 @@ describe('premium subscription design',()=>{
     expect(wallet).toContain('Aguardando modelos de vídeo');
   });
 
+  it('shows only the maximum image and video capacity from the cheapest READY model',()=>{
+    const wallet=read('src/components/views/WalletView.tsx');
+    expect(wallet).toContain('const cheapest=Math.min(...imagePrices)');
+    expect(wallet).toContain('const maximum=Math.max(1,Math.floor(pack.total_credits/cheapest))');
+    expect(wallet).toContain('const cheapestFiveSeconds=Math.min(...videoPrices)*seconds');
+    expect(wallet).not.toContain('lower=');
+    expect(wallet).toContain('capacidade máxima usando o modelo READY de menor custo disponível');
+  });
   it('does not invent model-access tiers between Creator Pro and Studio',()=>{
     const wallet=read('src/components/views/WalletView.tsx');
     expect(wallet).toContain('<Check className="ia-compare-check"/> Todos');
