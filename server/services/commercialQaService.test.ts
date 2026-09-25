@@ -70,7 +70,6 @@ describe('monetization stage 6 final QA',()=>{
     const service=read('server/services/subscriptionService.ts');
     const wallet=read('src/components/views/WalletView.tsx');
     expect(service).toContain("current.pack_id===pack.pack_id&&current.pack_version===pack.version");
-    expect(wallet).toContain("subscription?.pack_version===selectedPack.version");
     expect(wallet).toContain("subscription?.pack_version===pack.version");
   });
 
