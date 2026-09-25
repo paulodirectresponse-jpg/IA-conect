@@ -1,8 +1,9 @@
 import React,{useEffect,useState}from'react';
-import{Wallet,RotateCcw,FileText,Plus,Check,CheckCircle2,X,Loader2,Tag,ShieldCheck,ArrowRight,CalendarClock,CreditCard}from'lucide-react';
+import{Wallet,RotateCcw,FileText,Plus,Check,X,Loader2,Tag,ShieldCheck,ArrowRight,CalendarClock,CreditCard,Sparkles,Images,Layers3,Infinity as InfinityIcon}from'lucide-react';
 import{useAuth}from'../../context/AuthContext.js';
 import{creditService}from'../../services/creditService.js';
 import{subscriptionClient}from'../../services/subscriptionClient.js';
+import{workspaceService}from'../../services/workspaceService.js';
 import{CreditTransaction,PackVersion,UserSubscription,CreditWalletSummary}from'../../types/credits.js';
 import{formatCentsToBRL}from'../../config/constants.js';
 import{CreditAmount}from'../common/CreditAmount.js';
@@ -30,14 +31,16 @@ export const WalletView:React.FC=()=>{
  const[packs,setPacks]=useState<PackVersion[]>([]);
  const[subscription,setSubscription]=useState<UserSubscription|null>(null);
  const[summary,setSummary]=useState<CreditWalletSummary|null>(null);
+ const[imagePrices,setImagePrices]=useState<number[]>([]);
  const[selectedPack,setSelectedPack]=useState<PackVersion|null>(null);
  const[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[plansOpen,setPlansOpen]=useState(false),[redeemOpen,setRedeemOpen]=useState(false),[redeemCode,setRedeemCode]=useState(''),[redeemLoading,setRedeemLoading]=useState(false),[redeemMessage,setRedeemMessage]=useState(''),[actionLoading,setActionLoading]=useState(false),[message,setMessage]=useState('');
 
  const load=async()=>{
   setLoading(true);
   try{
-   const[t,p,s,w]=await Promise.all([creditService.listTransactions(50),creditService.listPacks(),subscriptionClient.getCurrent(),creditService.getSummary()]);
+   const[t,p,s,w,m]=await Promise.all([creditService.listTransactions(50),creditService.listPacks(),subscriptionClient.getCurrent(),creditService.getSummary(),workspaceService.listModels()]);
    setTransactions(t.transactions);setPacks(p);setSubscription(s);setSummary(w);
+   setImagePrices(m.filter(model=>model.category==='IMAGE'&&model.readiness==='READY'&&model.pricing_available&&Number(model.minimum_credit_price)>0).map(model=>Math.max(1,Math.ceil(Number(model.minimum_credit_price)))));
    if(!selectedPack&&p.length){
     const current=p.find(x=>x.pack_id===s?.pack_id);
     setSelectedPack(current||p.find(x=>x.recommended)||p[0]);
@@ -84,6 +87,15 @@ export const WalletView:React.FC=()=>{
  const samePlan=Boolean(selectedPack&&subscription?.pack_id===selectedPack.pack_id&&subscription?.pack_version===selectedPack.version&&!subscription?.pending_plan_change);
  const visibleTransactions=transactions.filter(tx=>tx.type!=='GENERATION_RESERVE');
  const rolloverCap=subscription?subscription.monthly_credits*(summary?.rollover_multiplier||2):0;
+ const imageEstimate=(pack:PackVersion)=>{
+  if(!imagePrices.length)return null;
+  const min=Math.min(...imagePrices),max=Math.max(...imagePrices);
+  const lower=Math.max(1,Math.floor(pack.total_credits/max)),upper=Math.max(lower,Math.floor(pack.total_credits/min));
+  return lower===upper?`≈ ${upper.toLocaleString('pt-BR')} imagens`:`≈ ${lower.toLocaleString('pt-BR')}–${upper.toLocaleString('pt-BR')} imagens`;
+ };
+ const planAudience=(id:string)=>id==='creator'?'Para começar':id==='pro'?'Para criar toda semana':'Para alto volume';
+ const planTone=(id:string)=>id==='pro'?'is-recommended':'';
+
 
  return <div className="ia-wallet space-y-7 text-zinc-100">
   <div className="ia-wallet-header flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -139,26 +151,56 @@ export const WalletView:React.FC=()=>{
   {redeemOpen&&<div className="fixed inset-0 z-[125] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"><div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#08131e] p-5"><div className="flex items-center justify-between"><div><h2 className="text-sm font-bold text-white">Resgatar código</h2><p className="text-[10px] text-zinc-500 mt-1">Códigos de crédito são aplicados diretamente à carteira.</p></div><button onClick={()=>setRedeemOpen(false)} className="p-2 text-zinc-600 hover:text-white"><X className="w-4 h-4"/></button></div><div className="mt-4 flex gap-2"><input autoFocus value={redeemCode} onChange={e=>setRedeemCode(e.target.value.toUpperCase())} placeholder="Digite seu código" className="flex-1 h-10 px-3 rounded-xl bg-white/[0.035] border border-white/[0.08] text-xs text-white uppercase outline-none focus:border-sky-300/40"/><button onClick={smartRedeem} disabled={redeemLoading||!redeemCode.trim()} className="ia-primary h-10 px-4 rounded-xl text-[10px] font-black disabled:opacity-40">{redeemLoading?<Loader2 className="w-4 h-4 animate-spin"/>:'Resgatar'}</button></div>{redeemMessage&&<div className="mt-3 p-3 rounded-xl border border-white/[0.07] bg-white/[0.03] text-[10px] text-zinc-300">{redeemMessage}</div>}</div></div>}
 
   {plansOpen&&<div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
-   <div className="w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-[24px] border border-white/[0.09] bg-[#07111b] shadow-[0_32px_100px_rgba(0,0,0,.65)]">
-    <div className="sticky top-0 z-10 px-5 sm:px-6 py-4 border-b border-white/[0.06] bg-[#07111b]/95 backdrop-blur-xl flex items-start justify-between gap-4">
-     <div><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-xl bg-sky-300/10 border border-sky-300/15 grid place-items-center"><CreditCard className="w-4 h-4 text-sky-300"/></div><div><h2 className="text-[15px] font-black text-white">Planos IA Connect</h2><p className="text-[10px] text-zinc-500 mt-0.5">Assinatura mensal · cobrança recorrente pelo Mercado Pago</p></div></div></div>
-     <button onClick={()=>{setPlansOpen(false);setMessage('')}} aria-label="Fechar planos" className="w-9 h-9 rounded-xl border border-white/[0.07] bg-white/[0.025] grid place-items-center text-zinc-500 hover:text-white"><X className="w-4 h-4"/></button>
+   <div className="ia-plans-dialog w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-[24px] border">
+    <div className="ia-plans-header sticky top-0 z-10 px-5 sm:px-7 py-5 flex items-start justify-between gap-4">
+     <div className="min-w-0">
+      <div className="ia-plans-eyebrow"><Sparkles className="w-3.5 h-3.5"/> IA Connect</div>
+      <h2 className="ia-plans-title">Escolha o plano para o seu ritmo de criação</h2>
+      <p className="ia-plans-subtitle">Uma assinatura, um único saldo e acesso aos modelos disponíveis no estúdio. Você escolhe quanto quer produzir por mês.</p>
+     </div>
+     <button onClick={()=>{setPlansOpen(false);setMessage('')}} aria-label="Fechar planos" className="ia-plans-close"><X className="w-4 h-4"/></button>
     </div>
 
     <div className="p-4 sm:p-6">
      {active&&<div className="mb-4 flex flex-col gap-3 rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.045] p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[9px] font-bold uppercase tracking-wider text-emerald-300">Plano atual</p><p className="mt-1 text-[15px] font-black text-white">{subscription?.plan_name}</p><p className="mt-1 text-[9px] text-zinc-500">A troca de plano passa a valer na próxima cobrança. Seu saldo atual continua disponível; na renovação, o saldo recorrente respeita o limite de 2× a franquia mensal.</p></div><button onClick={cancelSubscription} disabled={actionLoading} className="h-9 rounded-xl border border-rose-300/15 bg-rose-400/[0.04] px-3 text-[9px] font-bold text-rose-200 disabled:opacity-40">Cancelar renovação</button></div>}
      {pending&&<div className="mb-4 rounded-2xl border border-amber-300/15 bg-amber-300/[0.045] p-4"><p className="text-[10px] font-bold text-amber-200">Assinatura aguardando conclusão no Mercado Pago.</p>{subscription?.checkout_url&&<button onClick={()=>window.location.assign(subscription.checkout_url!)} className="mt-3 h-9 rounded-xl border border-amber-300/20 bg-amber-300/[0.08] px-3 text-[9px] font-bold text-amber-100">Continuar checkout</button>}</div>}
 
-     <div className="grid md:grid-cols-3 gap-3">
-      {packs.map(pack=>{const selected=selectedPack?.pack_id===pack.pack_id&&selectedPack?.version===pack.version,unit=unitPerThousand(pack),saving=baselineUnit>0?Math.max(0,Math.round((1-unit/baselineUnit)*100)):0,best=unit===bestUnit&&packs.length>1,current=subscription?.pack_id===pack.pack_id&&subscription?.pack_version===pack.version&&active;return <button key={`${pack.pack_id}-${pack.version}`} onClick={()=>choosePack(pack)} className={`ia-wallet-pack group relative min-h-[238px] p-4 rounded-2xl border text-left transition-[border-color,background-color,box-shadow] ${selected?'border-sky-300/55 bg-gradient-to-br from-sky-300/[0.12] to-blue-500/[0.035] shadow-[0_0_0_1px_rgba(125,211,252,.08),0_16px_40px_rgba(0,0,0,.22)]':'border-white/[0.07] bg-white/[0.022] hover:border-white/[0.14] hover:bg-white/[0.035]'}`}>
-       <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.08em] text-zinc-400">{pack.name}</p><p className="mt-2 text-[22px] font-black text-white">{formatCentsToBRL(pack.price_brl_cents)}<span className="ml-1 text-[9px] font-medium text-zinc-600">/mês</span></p><div className="mt-2"><CreditAmount value={pack.total_credits} size="sm" className="font-black text-sky-100"/></div></div>{current?<span className="rounded-full border border-emerald-300/20 bg-emerald-300/[0.06] px-2 py-1 text-[7px] font-black uppercase text-emerald-300">Atual</span>:(pack.badge||best)?<span className="rounded-full bg-sky-300 px-2 py-1 text-[7px] font-black uppercase text-[#03121c]">{pack.badge||'Melhor custo'}</span>:null}</div>
-       <p className="mt-3 min-h-[34px] text-[9px] leading-relaxed text-zinc-500">{pack.description}</p>
-       <div className="mt-3 space-y-1.5">{pack.features.slice(0,3).map(feature=><div key={feature} className="flex items-start gap-1.5 text-[8px] leading-relaxed text-zinc-400"><Check className="mt-0.5 h-3 w-3 shrink-0 text-sky-300"/><span>{feature}</span></div>)}</div>
-       <div className="mt-4 border-t border-white/[0.06] pt-3 flex items-center justify-between text-[8px] text-zinc-600"><span>{saving>0?`~${saving}% melhor custo`:'Preço base'}</span><span>{formatCentsToBRL(unit)} / 1.000</span></div>
+     <div className="ia-plan-grid">
+      {packs.map(pack=>{const selected=selectedPack?.pack_id===pack.pack_id&&selectedPack?.version===pack.version,unit=unitPerThousand(pack),saving=baselineUnit>0?Math.max(0,Math.round((1-unit/baselineUnit)*100)):0,current=subscription?.pack_id===pack.pack_id&&subscription?.pack_version===pack.version&&active,estimate=imageEstimate(pack);return <button key={`${pack.pack_id}-${pack.version}`} onClick={()=>choosePack(pack)} className={`ia-plan-card ${selected?'is-selected':''} ${planTone(pack.pack_id)}`}>
+       <div className="ia-plan-card-top">
+        <div>
+         <div className="ia-plan-audience">{planAudience(pack.pack_id)}</div>
+         <h3>{pack.name}</h3>
+        </div>
+        {current?<span className="ia-plan-badge is-current">Plano atual</span>:pack.recommended?<span className="ia-plan-badge">Mais escolhido</span>:pack.pack_id==='studio'?<span className="ia-plan-badge is-subtle">Maior volume</span>:null}
+       </div>
+       <div className="ia-plan-price"><strong>{formatCentsToBRL(pack.price_brl_cents)}</strong><span>/mês</span></div>
+       <div className="ia-plan-credits"><CreditAmount value={pack.total_credits} size="md" className="font-black"/></div>
+       <p className="ia-plan-description">{pack.description}</p>
+       <div className="ia-plan-estimate"><Images className="w-4 h-4"/><div><span>Estimativa com imagens</span><strong>{estimate||'calculando preços atuais...'}</strong></div></div>
+       <div className="ia-plan-features">{pack.features.slice(0,3).map(feature=><div key={feature}><Check className="w-3.5 h-3.5"/><span>{feature}</span></div>)}</div>
+       <div className="ia-plan-economics"><span>{saving>0?`${saving}% melhor custo que o Creator`:'Referência do plano'}</span><strong>{formatCentsToBRL(unit)} / 1.000</strong></div>
       </button>})}
      </div>
 
-     {selectedPack&&<div className="mt-4 rounded-2xl border border-white/[0.08] bg-[#0a1622] p-4">
+     <section className="ia-plan-comparison">
+      <div className="ia-plan-comparison-heading">
+       <div><span>Compare antes de assinar</span><h3>O que muda entre os planos</h3></div>
+       <p>Todos usam a mesma carteira e têm acesso aos modelos disponíveis. O volume mensal é a principal diferença.</p>
+      </div>
+      <div className="ia-plan-comparison-table">
+       <div className="ia-plan-comparison-row is-head"><div>Benefício</div>{packs.map(pack=><div key={pack.pack_id}>{pack.name}</div>)}</div>
+       <div className="ia-plan-comparison-row"><div>Créditos por mês</div>{packs.map(pack=><div key={pack.pack_id}><CreditAmount value={pack.total_credits} size="xs" className="font-bold"/></div>)}</div>
+       <div className="ia-plan-comparison-row"><div>Modelos disponíveis</div>{packs.map(pack=><div key={pack.pack_id}><Check className="ia-compare-check"/> Todos</div>)}</div>
+       <div className="ia-plan-comparison-row"><div>Imagem, vídeo, voz, música e 3D</div>{packs.map(pack=><div key={pack.pack_id}><Check className="ia-compare-check"/> Incluído</div>)}</div>
+       <div className="ia-plan-comparison-row"><div>Rollover máximo</div>{packs.map(pack=><div key={pack.pack_id}><CreditAmount value={pack.total_credits*2} size="xs" className="font-bold"/></div>)}</div>
+       <div className="ia-plan-comparison-row"><div>Estimativa de imagens/mês</div>{packs.map(pack=><div key={pack.pack_id}>{imageEstimate(pack)||'—'}</div>)}</div>
+       <div className="ia-plan-comparison-row"><div>Custo efetivo por 1.000 créditos</div>{packs.map(pack=><div key={pack.pack_id}>{formatCentsToBRL(unitPerThousand(pack))}</div>)}</div>
+      </div>
+      <p className="ia-plan-estimate-note">Estimativas de imagens usam os preços mínimos atuais dos modelos de imagem READY e variam conforme modelo, resolução, quantidade e parâmetros escolhidos.</p>
+     </section>
+
+     {selectedPack&&<div className="ia-plan-checkout">
       <div className="grid gap-3 sm:grid-cols-3">
        <div><p className="text-[8px] uppercase tracking-wider text-zinc-600">Plano escolhido</p><p className="mt-1 text-[12px] font-black text-white">{selectedPack.name}</p></div>
        <div><p className="text-[8px] uppercase tracking-wider text-zinc-600">Mensalidade</p><p className="mt-1 text-[12px] font-black text-white">{formatCentsToBRL(selectedPack.price_brl_cents)}</p></div>
@@ -166,7 +208,7 @@ export const WalletView:React.FC=()=>{
       </div>
       {message&&<div className="mt-3 rounded-xl border border-sky-300/15 bg-sky-300/[0.05] px-3 py-2 text-[9px] text-sky-100">{message}</div>}
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-       <div className="flex items-start gap-2 text-[8px] leading-relaxed text-zinc-600"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300"/><span>O Mercado Pago gerencia o meio de pagamento e as cobranças recorrentes. Os créditos entram somente quando cada cobrança for confirmada. Créditos recorrentes podem acumular até 2× a franquia mensal.</span></div>
+       <div className="ia-plan-security"><ShieldCheck className="h-4 w-4 shrink-0"/><span>Cobrança mensal segura. Os créditos entram após a confirmação do pagamento e o saldo recorrente pode acumular até 2× a franquia do plano.</span></div>
        {active?<button onClick={changePlan} disabled={actionLoading||samePlan} className="ia-primary h-11 shrink-0 rounded-xl px-5 text-[10px] font-black disabled:opacity-35">{actionLoading?<Loader2 className="w-4 h-4 animate-spin"/>:samePlan?'Plano atual':<>Trocar no próximo ciclo<CalendarClock className="ml-2 inline w-3.5 h-3.5"/></>}</button>:<button onClick={subscribe} disabled={actionLoading} className="ia-primary h-11 shrink-0 rounded-xl px-5 text-[10px] font-black flex items-center justify-center gap-2 disabled:opacity-40">{actionLoading?<Loader2 className="w-4 h-4 animate-spin"/>:<>Assinar {selectedPack.name}<ArrowRight className="w-3.5 h-3.5"/></>}</button>}
       </div>
      </div>}
