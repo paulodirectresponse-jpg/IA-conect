@@ -65,14 +65,15 @@ describe('Etapa 10 — final product QA guardrails',()=>{
     expect(exists('server/repositories/assetRepository.ts')).toBe(true);
   });
 
-  it('keeps Wallet on Credits V2 and payment services',()=>{
+  it('keeps Wallet on Credits V2 and recurring subscription services',()=>{
     const wallet=read('src/components/views/WalletView.tsx');
     const auth=read('src/context/AuthContext.tsx');
     expect(wallet).toContain('creditService');
-    expect(wallet).toContain('paymentClient');
+    expect(wallet).toContain('subscriptionClient');
     expect(wallet).toContain('refreshWallet');
     expect(auth).toContain('wallet');
     expect(exists('server/services/creditWalletService.ts')).toBe(true);
+    expect(exists('server/services/subscriptionService.ts')).toBe(true);
   });
 
   it('keeps Admin on Routing V2 and no V1 AI screens mounted',()=>{
