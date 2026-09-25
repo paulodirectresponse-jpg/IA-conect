@@ -21,7 +21,6 @@ authRouter.post('/auth/register-profile', requireAuth, async (req: Authenticated
     });
 
     await creditWalletPolicyService.sweepExpired(uid);
-    await creditWalletPolicyService.sweepExpired(uid);
     const wallet = await creditWalletService.getAccount(uid);
 
     res.json({
@@ -53,6 +52,7 @@ authRouter.get('/auth/me', requireAuth, async (req: AuthenticatedRequest, res) =
       user = syncResult.user;
     }
 
+    await creditWalletPolicyService.sweepExpired(uid);
     const wallet = await creditWalletService.getAccount(uid);
 
     res.json({
