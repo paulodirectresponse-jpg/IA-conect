@@ -29,7 +29,7 @@ describe('premium subscription design',()=>{
     expect(wallet).toContain("model.category==='IMAGE'");
     expect(wallet).toContain("model.readiness==='READY'");
     expect(wallet).toContain('model.minimum_credit_price');
-    expect(wallet).toContain('Estimativa com imagens');
+    expect(wallet).toContain('Imagens estimadas');
     expect(wallet).toContain('Estimativas usam os preços mínimos atuais');
     expect(wallet).toContain('workspaceService.listModels().catch(()=>[])');
   });
