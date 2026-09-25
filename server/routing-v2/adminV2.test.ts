@@ -234,6 +234,23 @@ describe('Routing Core V2 Admin',()=>{
   });
 
 
+  it('groups route and pricing administration by logical model without changing router semantics',()=>{
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+    const router=read('server/routing-v2/routerService.ts');
+    expect(view).toContain('routeGroups');
+    expect(view).toContain('groupedRoutesView');
+    expect(view).toContain('Melhor READY');
+    expect(view).toContain('provider(s)');
+    expect(view).toContain('capability(s)');
+    expect(view).toContain('groupedRoutesView(false)');
+    expect(view).toContain('groupedRoutesView(true)');
+    expect(router).toContain("route.status!=='READY'");
+    expect(router).toContain("route.pricing_status!=='CURRENT'");
+    expect(router).toContain("route.runtime_status!=='HEALTHY'");
+    expect(router).toContain('a.safe_cogs_brl-b.safe_cogs_brl||b.priority-a.priority');
+    expect(router).toContain("strategy:'LOWEST_SAFE_COGS'");
+  });
+
   it('operationalizes imported routes through factual health pricing FX and READY reconciliation',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     const priceSync=read('server/routing-v2/priceSyncService.ts');
