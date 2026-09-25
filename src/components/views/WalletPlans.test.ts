@@ -4,21 +4,29 @@ import {describe,expect,it} from 'vitest';
 
 const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
 
-describe('commercial plans stage 3',()=>{
+describe('commercial plans subscription experience',()=>{
   it('renders the official three-plan experience from server metadata',()=>{
     const wallet=read('src/components/views/WalletView.tsx');
     expect(wallet).toContain('Planos IA Connect');
-    expect(wallet).toContain('3 planos simples');
     expect(wallet).toContain('{pack.name}');
     expect(wallet).toContain('{pack.description}');
     expect(wallet).toContain('pack.features.slice(0,3)');
     expect(wallet).not.toContain('packPresentation');
   });
 
-  it('keeps plan selection on the existing secure Pix checkout',()=>{
+  it('uses recurring subscription checkout instead of one-time plan purchase',()=>{
     const wallet=read('src/components/views/WalletView.tsx');
-    expect(wallet).toContain('paymentClient.purchasePack(selectedPack.pack_id,selectedPack.version');
-    expect(wallet).toContain('Continuar para o Pix');
-    expect(wallet).toContain('Mercado Pago');
+    expect(wallet).toContain('subscriptionClient.createCheckout(selectedPack.pack_id,selectedPack.version)');
+    expect(wallet).toContain('Assinatura mensal');
+    expect(wallet).toContain('window.location.assign(sub.checkout_url)');
+    expect(wallet).not.toContain('paymentClient.purchasePack');
+  });
+
+  it('supports plan change and cancellation from the wallet',()=>{
+    const wallet=read('src/components/views/WalletView.tsx');
+    expect(wallet).toContain('subscriptionClient.changePlan');
+    expect(wallet).toContain('subscriptionClient.cancel');
+    expect(wallet).toContain('Trocar no próximo ciclo');
+    expect(wallet).toContain('Cancelar renovação');
   });
 });
