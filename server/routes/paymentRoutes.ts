@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { paymentService } from '../services/paymentService.js';
+import { subscriptionService } from '../services/subscriptionService.js';
 
 export const paymentRouter = Router();
 
@@ -9,10 +10,15 @@ paymentRouter.post('/payments/webhook', async (req, res) => {
   if (!dataId) return res.status(200).json({ok:true,ignored:true});
 
   try {
+    const eventType=String(req.body?.type || req.query.type || '');
+    if(eventType.startsWith('subscription_')){
+      const result=await subscriptionService.processWebhook({headers:req.headers as any,dataId,eventType});
+      return res.status(200).json({ok:true,...result});
+    }
     const result = await paymentService.processWebhook({
       headers:req.headers as any,
       dataId,
-      eventType:String(req.body?.type || req.query.type || ''),
+      eventType,
       action:String(req.body?.action || ''),
     });
     return res.status(200).json({ok:true,...result});
