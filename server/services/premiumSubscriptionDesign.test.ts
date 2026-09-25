@@ -34,6 +34,17 @@ describe('premium subscription design',()=>{
     expect(wallet).toContain('workspaceService.listModels().catch(()=>[])');
   });
 
+  it('keeps subscription action and pending state inside each plan card',()=>{
+    const wallet=read('src/components/views/WalletView.tsx');
+    const css=read('src/index.css');
+    expect(wallet).toContain('ia-plan-card-action');
+    expect(wallet).toContain('ia-plan-inline-state');
+    expect(wallet).toContain('Continuar pagamento');
+    expect(css).toContain('.ia-plan-card-cta');
+    expect(css).toContain('var(--ia-brand)');
+    expect(wallet).not.toContain('Assinatura aguardando conclusão no Mercado Pago.');
+  });
+
   it('does not invent model-access tiers between Creator Pro and Studio',()=>{
     const wallet=read('src/components/views/WalletView.tsx');
     expect(wallet).toContain('<Check className="ia-compare-check"/> Todos');
