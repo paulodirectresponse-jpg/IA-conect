@@ -1,5 +1,5 @@
-import React,{useEffect,useState}from'react';
-import{Wallet,RotateCcw,FileText,Plus,Check,X,Loader2,Tag,ArrowRight,CalendarClock,Sparkles,Images}from'lucide-react';
+import React,{useEffect,useRef,useState}from'react';
+import{Wallet,RotateCcw,FileText,Plus,Check,X,Loader2,Tag,ArrowRight,CalendarClock,Sparkles,Images,CircleCheck,Clock3,CircleX}from'lucide-react';
 import{useAuth}from'../../context/AuthContext.js';
 import{creditService}from'../../services/creditService.js';
 import{subscriptionClient}from'../../services/subscriptionClient.js';
@@ -25,7 +25,9 @@ const txLabel=(tx:CreditTransaction)=>{
  return tx.type.replaceAll('_',' ');
 };
 
-export const WalletView:React.FC=()=>{
+type SubscriptionReturnState={status:'SYNCING'|'ACTIVE'|'PENDING'|'FAILED';planName?:string;monthlyCredits?:number;checkoutUrl?:string;};
+
+export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate})=>{
  const{wallet,refreshWallet}=useAuth();
  const[transactions,setTransactions]=useState<CreditTransaction[]>([]);
  const[packs,setPacks]=useState<PackVersion[]>([]);
@@ -33,6 +35,8 @@ export const WalletView:React.FC=()=>{
  const[summary,setSummary]=useState<CreditWalletSummary|null>(null);
  const[imagePrices,setImagePrices]=useState<number[]>([]);
  const[selectedPack,setSelectedPack]=useState<PackVersion|null>(null);
+ const[returnState,setReturnState]=useState<SubscriptionReturnState|null>(null);
+ const returnHandled=useRef(false);
  const[loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[plansOpen,setPlansOpen]=useState(false),[redeemOpen,setRedeemOpen]=useState(false),[redeemCode,setRedeemCode]=useState(''),[redeemLoading,setRedeemLoading]=useState(false),[redeemMessage,setRedeemMessage]=useState(''),[actionLoading,setActionLoading]=useState(false),[actionPackId,setActionPackId]=useState<string|null>(null),[message,setMessage]=useState(''),[messagePackId,setMessagePackId]=useState<string|null>(null);
 
  const load=async()=>{
