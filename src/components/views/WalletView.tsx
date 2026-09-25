@@ -52,6 +52,46 @@ export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate
   }finally{setLoading(false);}
  };
  useEffect(()=>{load().catch(console.error);},[]);
+ useEffect(()=>{
+  if(returnHandled.current||typeof window==='undefined')return;
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('subscription')!=='return')return;
+  returnHandled.current=true;
+  let cancelled=false;
+  const run=async()=>{
+   setReturnState({status:'SYNCING'});
+   let sub:UserSubscription|null=null;
+   try{
+    for(let attempt=0;attempt<8;attempt++){
+     sub=await subscriptionClient.getCurrent();
+     if(cancelled)return;
+     if(sub&&sub.status!=='PENDING')break;
+     if(attempt<7)await new Promise(resolve=>setTimeout(resolve,1500));
+    }
+    if(cancelled)return;
+    if(sub)setSubscription(sub);
+    await Promise.all([
+     refreshWallet(),
+     creditService.getSummary().then(setSummary).catch(()=>{}),
+     creditService.listTransactions(50).then(result=>setTransactions(result.transactions)).catch(()=>{}),
+    ]);
+    if(!sub)setReturnState({status:'FAILED'});
+    else if(sub.status==='ACTIVE')setReturnState({status:'ACTIVE',planName:sub.plan_name,monthlyCredits:sub.monthly_credits});
+    else if(sub.status==='PENDING')setReturnState({status:'PENDING',planName:sub.plan_name,monthlyCredits:sub.monthly_credits,checkoutUrl:sub.checkout_url});
+    else setReturnState({status:'FAILED',planName:sub.plan_name});
+   }catch{
+    if(!cancelled)setReturnState({status:'FAILED'});
+   }finally{
+    if(!cancelled){
+     const next=new URL(window.location.href);
+     next.searchParams.delete('subscription');
+     window.history.replaceState({},'',next.pathname+next.search+next.hash);
+    }
+   }
+  };
+  void run();
+  return()=>{cancelled=true};
+ },[refreshWallet]);
  const refresh=async()=>{setRefreshing(true);try{await Promise.all([refreshWallet(),load()]);}finally{setRefreshing(false);}};
  const choosePack=(pack:PackVersion)=>{setSelectedPack(pack);if(messagePackId!==pack.pack_id){setMessage('');setMessagePackId(null)}};
  const smartRedeem=async()=>{
