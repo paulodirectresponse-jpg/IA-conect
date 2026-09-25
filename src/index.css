@@ -4076,3 +4076,11 @@ html[data-theme="light"] .ia-plan-checkout{
   .ia-plan-card,.ia-plans-close{transition-duration:1ms!important}
   .ia-plan-card:hover{transform:none}
 }
+
+.ia-plan-current-banner{
+  border:1px solid var(--ia-line-strong);
+  border-radius:14px;
+  background:color-mix(in srgb,var(--ia-brand) 5%,var(--ia-surface-1));
+}
+.ia-plan-current-banner p:first-child{color:var(--ia-brand)}
+html[data-theme="light"] .ia-plan-current-banner{background:#f5fbff!important}
