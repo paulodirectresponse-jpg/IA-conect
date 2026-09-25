@@ -1,5 +1,5 @@
 import React,{useEffect,useRef,useState}from'react';
-import{Wallet,RotateCcw,FileText,Plus,Check,X,Loader2,Tag,ArrowRight,CalendarClock,Sparkles,Images,CircleCheck,Clock3,CircleX}from'lucide-react';
+import{Wallet,RotateCcw,FileText,Plus,Check,X,Loader2,Tag,ArrowRight,CalendarClock,Sparkles,Images}from'lucide-react';
 import{useAuth}from'../../context/AuthContext.js';
 import{creditService}from'../../services/creditService.js';
 import{subscriptionClient}from'../../services/subscriptionClient.js';
@@ -7,7 +7,7 @@ import{workspaceService}from'../../services/workspaceService.js';
 import{CreditTransaction,PackVersion,UserSubscription,CreditWalletSummary}from'../../types/credits.js';
 import{formatCentsToBRL}from'../../config/constants.js';
 import{CreditAmount}from'../common/CreditAmount.js';
-import{SubscriptionReturnNotice,SubscriptionReturnState}from'./SubscriptionReturnNotice.js';
+import{SubscriptionReturnNotice,type SubscriptionReturnState}from'./SubscriptionReturnNotice.js';
 
 const unitPerThousand=(p:PackVersion)=>Math.round((p.price_brl_cents/Math.max(1,p.total_credits))*1000);
 const statusLabel=(s?:string)=>s==='ACTIVE'?'Ativa':s==='PENDING'?'Aguardando ativação':s==='PAUSED'?'Pausada':s==='CANCELED'?'Cancelada':'Indisponível';
