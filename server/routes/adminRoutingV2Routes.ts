@@ -389,7 +389,7 @@ adminRoutingV2Router.post('/admin/routing-v2/pricing/settings',...guard,async(re
 adminRoutingV2Router.post('/admin/routing-v2/operationalize',...guard,async(req,res)=>{
   try{
     const cursor=Math.max(0,Math.floor(Number(req.body?.cursor)||0));
-    const limit=Math.min(5,Math.max(1,Math.floor(Number(req.body?.limit)||5));
+    const limit=Math.min(5,Math.max(1,Math.floor(Number(req.body?.limit)||5)));
     const result=await routingV2PriceSyncService.runBatch({cursor,limit});
     const readiness=result.done?await routingV2ReadinessService.audit():null;
     return res.json({success:true,data:{...result,readiness}});
