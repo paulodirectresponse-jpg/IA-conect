@@ -1,5 +1,5 @@
 import React,{useEffect,useState}from'react';
-import{Wallet,RotateCcw,FileText,Plus,Check,X,Loader2,Tag,ShieldCheck,ArrowRight,CalendarClock,CreditCard,Sparkles,Images,Layers3,Infinity as InfinityIcon}from'lucide-react';
+import{Wallet,RotateCcw,FileText,Plus,Check,X,Loader2,Tag,ShieldCheck,ArrowRight,CalendarClock,CreditCard,Sparkles,Images}from'lucide-react';
 import{useAuth}from'../../context/AuthContext.js';
 import{creditService}from'../../services/creditService.js';
 import{subscriptionClient}from'../../services/subscriptionClient.js';
