@@ -153,7 +153,7 @@ export const subscriptionService={
       await creditWalletService.issue({
         userId:local.user_id,credits:Number(target.monthly_credits),source:'PURCHASE',
         idempotencyKey:`subscription-invoice:${invoiceId}`,referenceId:invoiceId,paymentId:`subscription:${invoiceId}`,
-        packId:String(target.pack_id),packVersion:Number(target.pack_version),netCashBackingMicros,
+        packId:String(target.pack_id),packVersion:Number(target.pack_version),netCashBackingMicros:netBackingMicros,
         metadata:{subscription_id:subscriptionId,invoice_id:invoiceId,plan_name:target.plan_name,recurring:true,gateway:'MERCADOPAGO'},
       });
       const remote=await mp(`/preapproval/${encodeURIComponent(subscriptionId)}`);
