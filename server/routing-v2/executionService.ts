@@ -76,11 +76,24 @@ async function createUniversalAssets(generation:Generation,urls:string[]){
     if(!url)continue;
     const assetId=generatedAssetId(generation.generation_id,index);
     const existing=await assetRepository.getAsset(assetId,generation.user_id);
-    if(existing){created.push(existing);continue;}
+    const alreadyArchived=Boolean(existing?.media_metadata?.archived===true&&existing?.storage_path&&!String(existing.storage_path).startsWith('provider://'));
+    if(existing&&alreadyArchived){created.push(existing);continue;}
     const archived=await generatedAssetStorageService.archive({
       userId:generation.user_id,assetId,sourceUrl:url,fallbackMime:fallbackMime(type),
       fallbackExtension:type==='IMAGE'?'jpg':type==='AUDIO'?'mp3':type==='MODEL_3D'?'glb':'mp4',
     });
+    if(existing){
+      created.push(await assetRepository.updateAsset(assetId,generation.user_id,{
+        storage_path:archived.storage_path,
+        public_url:archived.public_url,
+        thumbnail_url:type==='IMAGE'?archived.public_url:existing.thumbnail_url,
+        preview_url:archived.public_url,
+        preview_mime_type:archived.mime_type,
+        status:'READY',
+        media_metadata:{...(existing.media_metadata||{}),routing_core:'V2',route_id:String((generation as any).routing_v2_route_id||''),archived:true},
+      }));
+      continue;
+    }
     created.push(await assetRepository.createAsset({
       asset_id:assetId,
       owner_user_id:generation.user_id,
