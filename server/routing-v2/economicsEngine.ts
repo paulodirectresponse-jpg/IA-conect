@@ -43,14 +43,16 @@ export function calculateRoutingV2Economics(input:RoutingV2EconomicsInput):Routi
   const safeCogs=providerCostBrl*(1+input.settings.safety_buffer_percent/100);
   const targetMargin=input.settings.target_margin_percent/100;
   const sellingPrice=safeCogs/(1-targetMargin);
-  const retailCredits=Math.max(1,Math.ceil(sellingPrice/input.settings.reference_credit_value_brl));
+  const normalizedSellingPrice=roundMoney(sellingPrice);
+  const creditRatio=normalizedSellingPrice/input.settings.reference_credit_value_brl;
+  const retailCredits=Math.max(1,Math.ceil(creditRatio-1e-9));
   const realizedRevenue=retailCredits*input.settings.reference_credit_value_brl;
   const expectedMargin=realizedRevenue>0?(realizedRevenue-safeCogs)/realizedRevenue*100:0;
 
   return{
     provider_cost_brl:roundMoney(providerCostBrl),
     safe_cogs_brl:roundMoney(safeCogs),
-    selling_price_brl:roundMoney(sellingPrice),
+    selling_price_brl:normalizedSellingPrice,
     retail_credits:retailCredits,
     expected_margin_percent:roundMoney(expectedMargin),
     credit_value_brl:input.settings.reference_credit_value_brl,
