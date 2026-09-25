@@ -4,7 +4,7 @@ import{Asset,ModelRegistryItem,WorkspaceReference}from'../../types/index.js';
 import{UniversalModelPicker}from'./UniversalModelPicker.js';
 import{GeneratorFooter,GeneratorOptionGrid,GeneratorSettingRow,UniversalCreatorShell}from'./GeneratorControls.js';
 import{PromptComposer}from'./PromptComposer.js';
-import{formatCredits}from'../../utils/creditFormat.js';
+import{CreditAmount}from'../common/CreditAmount.js';
 import{getModelCapabilities}from'../../services/modelCapabilities.js';
 import{getImageModelCoverSources}from'../../config/imageModelCovers.js';
 
@@ -49,7 +49,8 @@ export const UnifiedImageCreatorPanel:React.FC<Props>=(p)=>{
    price={p.totalPrice}
    balance={p.balance}
    hasBalance={p.hasBalance}
-   primaryLabel={p.hasPendingReferences?'Gerar assim que a imagem enviar':p.totalPrice==null?'Gerar imagem':`Gerar imagem • ${formatCredits(p.totalPrice)}`}
+   primaryLabel={p.hasPendingReferences?'Gerar assim que a imagem enviar':'Gerar imagem'}
+   primaryPrice={!p.hasPendingReferences?p.totalPrice:null}
    onPrimary={p.onGenerate}
    primaryDisabled={p.generating||!p.prompt.trim()||(!p.hasPendingReferences&&(p.priceLoading||p.totalPrice==null||!p.hasBalance))}
    primaryBusy={p.generating}
@@ -63,7 +64,7 @@ export const UnifiedImageCreatorPanel:React.FC<Props>=(p)=>{
    <div className="space-y-1.5">
     {ratios.length>0&&<GeneratorSettingRow icon={Ratio} label="Proporção" value={p.aspectRatio} open={openCard==='ratio'} onToggle={()=>setOpenCard(openCard==='ratio'?null:'ratio')} semantic="ratio"><GeneratorOptionGrid values={ratios.map(value=>({value:String(value),label:String(value)}))} current={p.aspectRatio} onSelect={p.onChangeAspectRatio}/></GeneratorSettingRow>}
     {p.availableResolutions.length>0&&<GeneratorSettingRow icon={SlidersHorizontal} label="Resolução" value={p.resolution} open={openCard==='resolution'} onToggle={()=>setOpenCard(openCard==='resolution'?null:'resolution')} semantic="resolution"><GeneratorOptionGrid values={p.availableResolutions.map(value=>({value:String(value),label:String(value)}))} current={p.resolution} onSelect={p.onChangeResolution}/></GeneratorSettingRow>}
-    {(Number(p.activeModel?.supported_controls?.max_outputs)||0)>1&&<GeneratorSettingRow icon={Layers3} label="Quantidade" value={String(p.numberOfOutputs)} open={openCard==='outputs'} onToggle={()=>setOpenCard(openCard==='outputs'?null:'outputs')} semantic="outputs"><div><GeneratorOptionGrid values={Array.from({length:Math.min(4,Number(p.activeModel?.supported_controls?.max_outputs)||1)},(_,index)=>({value:String(index+1),label:String(index+1)}))} current={String(p.numberOfOutputs)} onSelect={value=>p.onChangeNumberOfOutputs(Number(value))}/>{p.unitPrice!=null&&<p className="mt-2 text-[8px] text-zinc-600">{formatCredits(p.unitPrice)} por imagem · preço fixo × quantidade</p>}</div></GeneratorSettingRow>}
+    {(Number(p.activeModel?.supported_controls?.max_outputs)||0)>1&&<GeneratorSettingRow icon={Layers3} label="Quantidade" value={String(p.numberOfOutputs)} open={openCard==='outputs'} onToggle={()=>setOpenCard(openCard==='outputs'?null:'outputs')} semantic="outputs"><div><GeneratorOptionGrid values={Array.from({length:Math.min(4,Number(p.activeModel?.supported_controls?.max_outputs)||1)},(_,index)=>({value:String(index+1),label:String(index+1)}))} current={String(p.numberOfOutputs)} onSelect={value=>p.onChangeNumberOfOutputs(Number(value))}/>{p.unitPrice!=null&&<p className="mt-2 flex items-center gap-1 text-[8px] text-zinc-600"><CreditAmount value={p.unitPrice} size="xs"/> <span>por imagem · preço fixo × quantidade</span></p>}</div></GeneratorSettingRow>}
    </div>
    {supportsSeed&&<section className="rounded-xl border border-white/[0.065] bg-white/[0.025] overflow-hidden"><button onClick={p.onToggleAdvanced} className="w-full h-10 px-3 flex items-center gap-2 text-[10px] font-semibold text-zinc-400"><Settings2 className="w-3.5 h-3.5"/> Configurações avançadas <ChevronDown className={`ml-auto w-3.5 h-3.5 transition-transform ${p.showAdvanced?'rotate-180':''}`}/></button>{p.showAdvanced&&<div className="px-3 pb-3"><label className="text-[8px] text-zinc-600">Seed<input value={p.seed} onChange={e=>p.onChangeSeed(e.target.value===''?'':Number(e.target.value))} type="number" placeholder="Aleatório" className="mt-1 w-full h-8 px-2 rounded-lg bg-[#0b0e13] border border-white/[0.06] text-[9px] text-zinc-300 outline-none"/></label></div>}</section>}
    {p.modelAdjustmentNotice&&<div role="status" className="rounded-xl border border-cyan-300/15 bg-cyan-300/[0.055] px-3 py-2 text-[9px] leading-relaxed text-cyan-100">Configuração ajustada automaticamente · {p.modelAdjustmentNotice}</div>}

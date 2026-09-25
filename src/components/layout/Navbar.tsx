@@ -18,7 +18,7 @@ import {
   Wallet as WalletIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
-import { formatCredits } from '../../utils/creditFormat.js';
+import { CreditAmount } from '../common/CreditAmount.js';
 import { BrandMark } from '../common/BrandMark.js';
 
 interface NavbarProps {
@@ -135,7 +135,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button onClick={() => navigate('wallet')} className="ia-shell-wallet">
           <WalletIcon className="h-3.5 w-3.5" />
           <span className="hidden text-[9px] font-medium text-[var(--ia-text-4)] sm:inline">Saldo</span>
-          <span className="ia-shell-wallet-value text-[11px] font-semibold tabular-nums text-[var(--ia-text-1)]">{formatCredits(balance)}</span>
+          <CreditAmount value={balance} size="sm" className="ia-shell-wallet-value font-semibold text-[var(--ia-text-1)]"/>
         </button>
 
         <div className="relative hidden sm:block" ref={createRef}>
