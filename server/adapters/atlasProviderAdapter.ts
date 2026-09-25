@@ -64,9 +64,6 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
       const out:any={
         model,
         prompt,
-        aspect_ratio:params.aspect_ratio,
-        resolution:String(params.resolution||'1K').toLowerCase(),
-        output_format:'png',
         enable_sync_mode:false,
         enable_base64_output:false,
       };
