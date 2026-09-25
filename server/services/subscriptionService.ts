@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
 import { packCatalogService, PackVersion } from './packCatalogService.js';
 import { creditWalletService } from './creditWalletService.js';
+import { creditWalletPolicyService } from './creditWalletPolicyService.js';
 
 export type SubscriptionStatus='PENDING'|'ACTIVE'|'PAUSED'|'CANCELED'|'FAILED';
 
@@ -150,11 +151,12 @@ export const subscriptionService={
       const invoiceId=String(invoice.id);
       const reservePct=Math.min(.5,Math.max(0,Number(process.env.CREDIT_CASH_RESERVE_PERCENT||8)/100));
       const netBackingMicros=Math.floor(Number(target.price_brl_cents||0)*10000*(1-reservePct));
+      const rollover=await creditWalletPolicyService.enforceSubscriptionRolloverCap({userId:local.user_id,incomingCredits:Number(target.monthly_credits),monthlyCredits:Number(target.monthly_credits),invoiceId,planId:String(target.pack_id)});
       await creditWalletService.issue({
         userId:local.user_id,credits:Number(target.monthly_credits),source:'PURCHASE',
         idempotencyKey:`subscription-invoice:${invoiceId}`,referenceId:invoiceId,paymentId:`subscription:${invoiceId}`,
         packId:String(target.pack_id),packVersion:Number(target.pack_version),netCashBackingMicros:netBackingMicros,
-        metadata:{subscription_id:subscriptionId,invoice_id:invoiceId,plan_name:target.plan_name,recurring:true,gateway:'MERCADOPAGO'},
+        metadata:{subscription_id:subscriptionId,invoice_id:invoiceId,plan_name:target.plan_name,recurring:true,gateway:'MERCADOPAGO',rollover_cap_credits:rollover.cap_credits,rollover_expired_credits:rollover.expired},
       });
       const remote=await mp(`/preapproval/${encodeURIComponent(subscriptionId)}`);
       const next:UserSubscription={...local,pack_id:String(target.pack_id),pack_version:Number(target.pack_version),plan_name:String(target.plan_name),price_brl_cents:Number(target.price_brl_cents),monthly_credits:Number(target.monthly_credits),status:statusMap(remote.status),next_payment_date:remote.next_payment_date||null,pending_plan_change:null,updated_at:new Date().toISOString()};
