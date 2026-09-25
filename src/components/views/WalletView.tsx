@@ -93,6 +93,21 @@ export const WalletView:React.FC<{onNavigate?:(view:string)=>void}>=({onNavigate
   return()=>{cancelled=true};
  },[refreshWallet]);
  const refresh=async()=>{setRefreshing(true);try{await Promise.all([refreshWallet(),load()]);}finally{setRefreshing(false);}};
+ const refreshReturnStatus=async()=>{
+  setReturnState(prev=>prev?{...prev,status:'SYNCING'}:{status:'SYNCING'});
+  try{
+   const sub=await subscriptionClient.getCurrent();setSubscription(sub);
+   await Promise.all([
+    refreshWallet(),
+    creditService.getSummary().then(setSummary),
+    creditService.listTransactions(50).then(result=>setTransactions(result.transactions)),
+   ]);
+   if(!sub)setReturnState({status:'FAILED'});
+   else if(sub.status==='ACTIVE')setReturnState({status:'ACTIVE',planName:sub.plan_name,monthlyCredits:sub.monthly_credits});
+   else if(sub.status==='PENDING')setReturnState({status:'PENDING',planName:sub.plan_name,monthlyCredits:sub.monthly_credits,checkoutUrl:sub.checkout_url});
+   else setReturnState({status:'FAILED',planName:sub.plan_name});
+  }catch{setReturnState({status:'FAILED'});}
+ };
  const choosePack=(pack:PackVersion)=>{setSelectedPack(pack);if(messagePackId!==pack.pack_id){setMessage('');setMessagePackId(null)}};
  const smartRedeem=async()=>{
   if(!redeemCode.trim())return;setRedeemLoading(true);setRedeemMessage('');
