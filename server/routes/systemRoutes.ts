@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
 import { featureFlagService } from '../services/featureFlagService.js';
 import { runtimeDependencyHealthService } from '../services/runtimeDependencyHealthService.js';
 
@@ -8,7 +9,7 @@ systemRouter.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-systemRouter.get('/runtime-health', async (_req, res) => {
+systemRouter.get('/runtime-health', requireAuth, requireAdmin, async (_req, res) => {
   try {
     const snapshot = await runtimeDependencyHealthService.snapshot();
     res.status(snapshot.status === 'ERROR' ? 503 : 200).json({ success: snapshot.status !== 'ERROR', data: snapshot });
