@@ -13,10 +13,10 @@ describe('runtime auth recovery architecture',()=>{
     expect(source).toContain('[Auth] Account datastore unavailable:');
   });
 
-  it('exposes a safe dependency diagnostic without returning secret values',()=>{
+  it('restricts dependency diagnostics to admins and avoids returning secret values',()=>{
     const route=read('server/routes/systemRoutes.ts');
     const service=read('server/services/runtimeDependencyHealthService.ts');
-    expect(route).toContain("systemRouter.get('/runtime-health'");
+    expect(route).toContain("systemRouter.get('/runtime-health', requireAuth, requireAdmin");
     expect(service).toContain("key:'firebase-service-account'");
     expect(service).toContain("key:'firestore'");
     expect(service).toContain("key:'providers'");
