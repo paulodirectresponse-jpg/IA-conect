@@ -105,6 +105,14 @@ async function userAssets(userId:string):Promise<Asset[]> {
 }
 
 export const assetRepository={
+  async findArchivedStorageProbeAsset():Promise<Asset|null> {
+    const rows=await firestoreAdminRest.runQuery({from:[{collectionId:'assets'}],limit:500});
+    return rows
+      .map((row:any)=>row.data as Asset)
+      .filter((asset)=>!asset.deleted_at&&asset.status==='READY'&&asset.media_metadata?.archived===true&&Boolean(asset.storage_path)&&!String(asset.storage_path).startsWith('provider://'))
+      .sort((a,b)=>Date.parse(b.updated_at||b.created_at)-Date.parse(a.updated_at||a.created_at))[0]||null;
+  },
+
   async listUserAssets(userId:string,filters?:{type?:AssetType;category?:AssetCategory;search?:string;includeUniversal?:boolean}):Promise<Asset[]> {
     const search=filters?.search?.toLowerCase().trim();
     const deduped=await dedupeGeneratedAssets(await userAssets(userId));

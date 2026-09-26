@@ -172,9 +172,6 @@ export const CreationGallery: React.FC<Props> = ({
   }, []);
   useEffect(() => {
     void refresh();
-    void assetService.recoverLegacyGeneratedHistory().then((result)=>{
-      if(result.recovered>0)void refresh(true);
-    }).catch(()=>{});
     let refreshTimer: number | undefined;
     const generationHandler = (event: Event) => {
       const raw = (event as CustomEvent<any>).detail,
@@ -759,6 +756,8 @@ export const CreationGallery: React.FC<Props> = ({
                               <p className="mt-2 text-[8px] text-zinc-500">
                                 {busy
                                   ? "Cancelando..."
+                                  : g!.media_storage_status === "PENDING"
+                                    ? "Salvando mídia"
                                   : `${Math.max(4, Math.min(96, g!.progress_percent || 8))}%`}
                               </p>
                             </div>

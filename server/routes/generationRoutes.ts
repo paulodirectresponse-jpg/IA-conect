@@ -90,6 +90,7 @@ function publicGeneration(g: any) {
     result_url: g.result_url,
     result_urls: g.result_urls,
     thumbnail_url: g.thumbnail_url,
+    media_storage_status: g.media_storage_status,
     error_code: publicFailure?.code ?? null,
     error_message: publicFailure?.message ?? null,
     attempt_count: g.attempt_count,

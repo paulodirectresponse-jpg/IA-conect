@@ -32,7 +32,7 @@ export const systemHealthService={
       checks.push({
         key:'ai_readiness',
         label:'Prontidão do catálogo de IA',
-        status:'OK',
+        status:ready>0?'OK':'DEGRADED',
         detail:ready>0?`${models.length} modelos, ${providers.length} providers e ${ready} Routes READY.`:'NOT_CONFIGURED — nenhuma Route V2 READY; configuração de IA necessária.',
       });
     }catch{
@@ -44,7 +44,7 @@ export const systemHealthService={
     checks.push({
       key:'providers',
       label:'Providers',
-      status:'OK',
+      status:healthyProviders.length>0?'OK':'DEGRADED',
       detail:healthyProviders.length>0?`${healthyProviders.length} provider(s) V2 com health real HEALTHY.`:'NOT_CONFIGURED — nenhum provider V2 cadastrado e saudável.',
     });
 
@@ -80,7 +80,7 @@ export const systemHealthService={
       checks.push({
         key:'storage',
         label:'Assets',
-        status:storage.is_configured?'OK':'ERROR',
+        status:!storage.is_configured?'ERROR':storage.signed_url_test==='PASS'?'OK':'DEGRADED',
         detail:storage.message,
       });
     }catch{

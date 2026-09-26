@@ -2,6 +2,7 @@ import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
 import { getFirebaseConfig } from '../repositories/firestoreClient.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { packCatalogService } from './packCatalogService.js';
+import { assetReferenceResolver } from './assetReferenceResolver.js';
 
 type CheckStatus='OK'|'ERROR'|'DEGRADED';
 interface RuntimeCheck{key:string;status:CheckStatus;code:string;detail:string;metadata?:Record<string,string|number|boolean>;}
@@ -93,13 +94,19 @@ export const runtimeDependencyHealthService={
       metadata:{configured_count:configured.length,total_count:adapters.length,configured_provider_ids:configured.join(',')},
     });
 
-    const storageConfigured=Boolean(process.env.SUPABASE_URL?.trim()&&process.env.SUPABASE_SECRET_KEY?.trim()&&process.env.SUPABASE_BUCKET?.trim());
-    checks.push({
-      key:'storage',
-      status:storageConfigured?'OK':'DEGRADED',
-      code:storageConfigured?'CONFIGURED':'MISSING_BINDING',
-      detail:storageConfigured?'Bindings do armazenamento estão configurados.':'Um ou mais bindings do armazenamento estão ausentes.',
-    });
+    try{
+      const storage=await assetReferenceResolver.runStorageDiagnostic();
+      const available=storage.is_configured&&storage.signed_url_test==='PASS';
+      checks.push({
+        key:'storage',
+        status:!storage.is_configured?'ERROR':available?'OK':'DEGRADED',
+        code:!storage.is_configured?'MISSING_BINDING':available?'SIGNED_READ_CONFIRMED':storage.details?.error||'STORAGE_READ_UNVERIFIED',
+        detail:storage.message,
+        metadata:{signed_url_test:storage.signed_url_test,bucket_accessible:Boolean(storage.details?.bucket_accessible),write_test:storage.write_test},
+      });
+    }catch{
+      checks.push({key:'storage',status:'ERROR',code:'STORAGE_DIAGNOSTIC_FAILED',detail:'Não foi possível validar o acesso de leitura ao Storage.'});
+    }
 
     const packs=packCatalogService.list();
     checks.push({

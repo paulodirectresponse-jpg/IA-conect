@@ -12,6 +12,15 @@ export interface ResolvedAssetReference {
   mime_type:string;
 }
 
+let storageDiagnosticCache:{expiresAt:number;result:StorageDiagnosticResult}|null=null;
+
+async function timedFetch(url:string,init:RequestInit,timeoutMs=5000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{return await fetch(url,{...init,signal:controller.signal});}
+  finally{clearTimeout(timer);}
+}
+
 function supabasePublicUrl(asset:Asset) {
   const base=process.env.SUPABASE_URL?.trim().replace(/\/+$/,'');
   const bucket=(process.env.SUPABASE_BUCKET||'ia-conect-assets').trim();
@@ -53,18 +62,72 @@ export const assetReferenceResolver={
   },
 
   async runStorageDiagnostic():Promise<StorageDiagnosticResult> {
+    if(storageDiagnosticCache&&storageDiagnosticCache.expiresAt>Date.now())return storageDiagnosticCache.result;
     const base=process.env.SUPABASE_URL?.trim().replace(/\/+$/,'');
     const bucket=(process.env.SUPABASE_BUCKET||'ia-conect-assets').trim();
     const secret=process.env.SUPABASE_SECRET_KEY?.trim();
     const configured=Boolean(base&&bucket&&secret);
-    return {
+    let signedUrlTest:StorageDiagnosticResult['signed_url_test']='SKIPPED';
+    let bucketAccessible=false;
+    let diagnosticError:string|undefined=configured?undefined:'SUPABASE_STORAGE_NOT_CONFIGURED';
+    let latencyMs=0;
+    if(configured){
+      try{
+        const probe=await assetRepository.findArchivedStorageProbeAsset();
+        if(!probe?.storage_path){
+          diagnosticError='NO_ARCHIVED_ASSET_TO_PROBE';
+        }else{
+          const path=probe.storage_path.split('/').map(encodeURIComponent).join('/');
+          const endpoint=`${base}/storage/v1/object/sign/${encodeURIComponent(bucket)}/${path}`;
+          const startedAt=Date.now();
+          const signedResponse=await timedFetch(endpoint,{
+            method:'POST',
+            headers:{Authorization:`Bearer ${secret}`,apikey:secret,'Content-Type':'application/json'},
+            body:JSON.stringify({expiresIn:60}),
+          });
+          if(!signedResponse.ok){
+            signedUrlTest='FAIL';
+            diagnosticError=`SIGNED_URL_HTTP_${signedResponse.status}`;
+          }else{
+            const body:any=await signedResponse.json().catch(()=>({}));
+            const value=String(body?.signedURL||body?.signedUrl||'');
+            if(!value){
+              signedUrlTest='FAIL';
+              diagnosticError='SIGNED_URL_MISSING';
+            }else{
+              const signedUrl=/^https:\/\//i.test(value)
+                ?value
+                :value.startsWith('/storage/v1/')?`${base}${value}`:`${base}/storage/v1${value.startsWith('/')?value:`/${value}`}`;
+              const readResponse=await timedFetch(signedUrl,{method:'HEAD',redirect:'follow'});
+              latencyMs=Date.now()-startedAt;
+              bucketAccessible=readResponse.ok;
+              signedUrlTest=readResponse.ok?'PASS':'FAIL';
+              if(!readResponse.ok)diagnosticError=`SIGNED_READ_HTTP_${readResponse.status}`;
+            }
+          }
+        }
+      }catch(error:any){
+        signedUrlTest='FAIL';
+        diagnosticError=error?.name==='AbortError'?'STORAGE_CHECK_TIMEOUT':'STORAGE_CHECK_FAILED';
+      }
+    }
+    const message=!configured
+      ?'Supabase Storage não está completamente configurado.'
+      :signedUrlTest==='PASS'
+        ?'Leitura autenticada por URL assinada confirmada no Storage. A gravação não foi testada.'
+        :diagnosticError==='NO_ARCHIVED_ASSET_TO_PROBE'
+          ?'Configuração encontrada, mas não há asset arquivado para validar a leitura. A gravação não foi testada.'
+          :'Storage configurado, mas a leitura do asset de verificação falhou. A gravação não foi testada.';
+    const result:StorageDiagnosticResult={
       is_configured:configured,
       storage_bucket:bucket||'ia-conect-assets',
-      write_test:configured?'PASS':'SKIPPED',
-      signed_url_test:configured?'PASS':'SKIPPED',
-      message:configured?'Supabase Storage configurado como armazenamento oficial de assets.':'Supabase Storage não está completamente configurado.',
-      details:{latency_ms:0,bucket_accessible:configured,error:configured?undefined:'SUPABASE_STORAGE_NOT_CONFIGURED'},
+      write_test:'SKIPPED',
+      signed_url_test:signedUrlTest,
+      message,
+      details:{latency_ms:latencyMs,bucket_accessible:bucketAccessible,error:diagnosticError},
       checked_at:new Date().toISOString(),
     };
+    storageDiagnosticCache={expiresAt:Date.now()+30_000,result};
+    return result;
   },
 };

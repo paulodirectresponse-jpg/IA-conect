@@ -180,7 +180,8 @@ describe('Routing Core V2 Admin',()=>{
     expect(routes).toContain('listRunwareCatalogModels(runwareTerm)');
     expect(routes).toContain('provider_diagnostics');
     expect(view).toContain('catalogDiagnostics');
-    expect(view).toContain('resultado(s)');
+    expect(view).toContain('encontrado(s) na API');
+    expect(view).toContain('catalog_count');
     expect(client).toContain('RoutingV2UnifiedCatalogDiagnosticAdmin');
   });
 
@@ -218,6 +219,18 @@ describe('Routing Core V2 Admin',()=>{
     expect(view).toContain('uniqueCatalogProviders(row.providers)');
   });
 
+  it('keeps non-image discoveries visible without inventing model capabilities',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+    expect(routes).toContain('inferCatalogCategory(row)');
+    expect(routes).toContain("return'VIDEO'");
+    expect(routes).toContain('inferNonImageCapabilities(row)');
+    expect(routes).toContain('catalog_count:providerCatalogCounts.get');
+    expect(view).toContain("category:row.category");
+    expect(view).toContain('capability não confirmada');
+    expect(view).toContain('Modelos cadastrados');
+  });
+
   it('supports unified provider catalog and bulk model import',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     const view=read('src/components/admin/AdminRoutingV2.tsx');
@@ -226,7 +239,7 @@ describe('Routing Core V2 Admin',()=>{
     expect(routes).toContain('/admin/routing-v2/models/bulk-import');
     expect(routes).toContain("mapping_source:'PROVIDER_CATALOG_API'");
     expect(routes).toContain('Promise.allSettled');
-    expect(view).toContain('Catálogo unificado de modelos');
+    expect(view).toContain('Descoberta remota de modelos');
     expect(view).toContain('Configurar selecionados');
     expect(view).toContain('Bindings encontrados');
     expect(client).toContain('searchUnifiedCatalog');

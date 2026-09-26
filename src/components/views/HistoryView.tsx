@@ -1,5 +1,5 @@
 import React,{useEffect,useState}from'react';
-import{AlertCircle,CheckCircle2,Clock,Loader2,PlayCircle}from'lucide-react';
+import{AlertCircle,CheckCircle2,Clock,Loader2,PlayCircle,RefreshCw}from'lucide-react';
 import{Generation}from'../../types/index.js';
 import{universalGenerationClient}from'../../services/universalGenerationClient.js';
 import{assetService}from'../../services/assetService.js';
@@ -9,21 +9,25 @@ const credits=(v?:number)=>`${Math.max(0,Number(v||0)).toLocaleString('pt-BR')} 
 const isImage=(g:Generation)=>g.mode==='TEXT_TO_IMAGE'||g.mode==='IMAGE_TO_IMAGE';
 
 export const HistoryView:React.FC=()=>{
- const[items,setItems]=useState<Generation[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState('');
- useEffect(()=>{const load=()=>universalGenerationClient.list().then(setItems).catch(e=>setError(e?.message||'Falha ao carregar histórico.')).finally(()=>setLoading(false));void load();void assetService.recoverLegacyGeneratedHistory().then(result=>{if(result.recovered>0)void load()}).catch(()=>{})},[]);
+ const[items,setItems]=useState<Generation[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[recoveryCursor,setRecoveryCursor]=useState(0),[recoveryDone,setRecoveryDone]=useState(false),[recovering,setRecovering]=useState(false),[recoveryMessage,setRecoveryMessage]=useState('');
+ const load=()=>universalGenerationClient.list().then(setItems).catch(e=>setError(e?.message||'Falha ao carregar histórico.')).finally(()=>setLoading(false));
+ useEffect(()=>{void load()},[]);
+ const recover=async()=>{setRecovering(true);setRecoveryMessage('');try{const result=await assetService.recoverLegacyGeneratedHistory(recoveryCursor,5);setRecoveryCursor(result.next_cursor??recoveryCursor);setRecoveryDone(result.done);setRecoveryMessage(`${result.recovered} imagem(ns) recuperada(s) · ${result.unavailable} indisponível(is) · ${result.processed} registro(s) verificado(s).`);await load()}catch(e:any){setRecoveryMessage(e?.message||'A recuperação não foi concluída.')}finally{setRecovering(false)}};
  return <div className="ia-history space-y-7 pb-10">
-  <header className="ia-view-header"><h1 className="ia-view-title">Histórico</h1><p className="ia-view-description">Resultados, status e créditos das suas gerações.</p></header>
+  <header className="ia-view-header"><div><h1 className="ia-view-title">Histórico</h1><p className="ia-view-description">Resultados, status e créditos das suas gerações.</p></div><button type="button" onClick={recover} disabled={recovering||recoveryDone} className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg border border-white/[0.09] bg-white/[0.04] px-3 text-[10px] font-bold text-zinc-200 hover:bg-white/[0.07] disabled:opacity-40"><RefreshCw className={`h-3.5 w-3.5 ${recovering?'animate-spin':''}`}/>{recovering?'Recuperando…':recoveryDone?'Recuperação concluída':'Recuperar imagens antigas'}</button></header>
+  {recoveryMessage&&<p role="status" className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-[10px] text-zinc-400">{recoveryMessage}</p>}
   {loading?<div className="py-20 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-[var(--ia-text-3)]"/></div>
   :error?<div className="rounded-xl border border-rose-400/15 bg-rose-500/[0.06] p-4 text-sm text-rose-300">{error}</div>
   :items.length===0?<div className="ia-dashboard-empty py-20"><Clock className="w-7 h-7 mx-auto text-[var(--ia-text-4)] mb-3"/><p className="font-medium text-[var(--ia-text-1)]">Nenhuma geração ainda</p></div>
   :<div className="grid gap-2">{items.map(g=><article key={g.generation_id} className="ia-history-row">
     <div className="ia-history-media">{g.result_url?(isImage(g)?<ResilientImage sources={[g.thumbnail_url,g.result_url,...(g.result_urls||[])]} alt="Prévia da geração" className="w-full h-full object-cover"/>:<video src={g.result_url} muted playsInline preload="metadata" className="w-full h-full object-cover"/>):g.status==='SUCCEEDED'?<CheckCircle2 className="w-5 h-5 text-emerald-400"/>:g.status==='FAILED'?<AlertCircle className="w-5 h-5 text-rose-400"/>:<Loader2 className="w-5 h-5 animate-spin text-[var(--ia-text-3)]"/>}</div>
     <div className="min-w-0 flex-1">
-     <div className="flex items-center gap-2"><p className="text-[13px] font-semibold text-[var(--ia-text-1)] truncate">{g.model_id}</p><span className="ia-badge">{g.status}</span></div>
+     <div className="flex items-center gap-2"><p className="text-[13px] font-semibold text-[var(--ia-text-1)] truncate">{g.model_id}</p><span className="ia-badge">{g.media_storage_status==='PENDING'?'SALVANDO MÍDIA':g.status}</span></div>
      <p className="mt-1 text-[12px] text-[var(--ia-text-3)] truncate">{g.original_prompt||'Sem prompt'}</p>
+     {g.media_storage_status==='PENDING'&&<p className="mt-1 text-[10px] text-amber-300">Resultado pronto; aguardando confirmação do armazenamento. Os créditos continuam reservados.</p>}
      <p className="mt-1.5 text-[10px] text-[var(--ia-text-4)]">{[g.duration_seconds?`${g.duration_seconds}s`:null,g.resolution||null,new Date(g.created_at).toLocaleString('pt-BR')].filter(Boolean).join(' · ')}</p>
     </div>
-    <div className="shrink-0 text-right"><p className="text-[12px] font-semibold text-[var(--ia-text-2)]">{credits(g.final_credit_cost??g.retail_credit_price)}</p>{g.result_url&&<a href={g.result_url} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex min-h-8 items-center gap-1 text-[11px] font-semibold text-sky-300 hover:text-sky-200"><PlayCircle className="w-3.5 h-3.5"/>Abrir</a>}</div>
+    <div className="shrink-0 text-right"><p className="text-[12px] font-semibold text-[var(--ia-text-2)]">{g.media_storage_status==='PENDING'?`Em reserva · ${credits(g.retail_credit_price)}`:credits(g.final_credit_cost??g.retail_credit_price)}</p>{g.result_url&&<a href={g.result_url} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex min-h-8 items-center gap-1 text-[11px] font-semibold text-sky-300 hover:text-sky-200"><PlayCircle className="w-3.5 h-3.5"/>Abrir</a>}</div>
    </article>)}</div>}
  </div>;
 };

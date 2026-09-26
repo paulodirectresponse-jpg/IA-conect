@@ -7,11 +7,11 @@ const video=(name:string)=>`${storage}/${encodeURIComponent(name)}`;
 const media=(key:string)=>`https://hzjyhhenajbjxkwkmzdg.supabase.co/functions/v1/showcase-media?key=${key}`;
 
 const models=[
- {name:'Kling 3.0',file:'Kling.mp4',headline:'Personagens, acting e movimento cinematográfico',description:'Movimento natural, direção de câmera e takes com acabamento cinematográfico.'},
- {name:'Omni Flash',file:'Omni flash.mp4',headline:'Vídeo multimodal com velocidade e qualidade',description:'Transforme texto, imagem e referências em um fluxo de criação multimodal.'},
- {name:'Seedance 2.5',file:'Seedance 2.5.mp4',headline:'Cenas longas e consistência visual',description:'Geração cinematográfica multimodal com áudio nativo e referências densas.'},
- {name:'WAN 3.0',file:'Wan 3.0.mp4',headline:'Realismo cinematográfico e referências',description:'Vídeo all-in-one com ótimo custo-benefício, áudio e referências.'},
- {name:'WAN 3.0 Prime',file:'Wan 3.0 prime.mp4',headline:'Qualidade premium para takes finais',description:'Modelo premium all-in-one com áudio nativo, referências multimodais e até 30s.'},
+ {name:'Kling 3.0',file:'Kling.mp4',poster:'/model-covers/kling-3-0.webp',headline:'Personagens, acting e movimento cinematográfico',description:'Movimento natural, direção de câmera e takes com acabamento cinematográfico.'},
+ {name:'Omni Flash',file:'Omni flash.mp4',poster:'/model-covers/google-omni-flash.webp',headline:'Vídeo multimodal com velocidade e qualidade',description:'Transforme texto, imagem e referências em um fluxo de criação multimodal.'},
+ {name:'Seedance 2.5',file:'Seedance 2.5.mp4',poster:'/model-covers/seedance-2-5.webp',headline:'Cenas longas e consistência visual',description:'Geração cinematográfica multimodal com áudio nativo e referências densas.'},
+ {name:'WAN 3.0',file:'Wan 3.0.mp4',poster:'/model-covers/wan-3-0.webp',headline:'Realismo cinematográfico e referências',description:'Vídeo all-in-one com ótimo custo-benefício, áudio e referências.'},
+ {name:'WAN 3.0 Prime',file:'Wan 3.0 prime.mp4',poster:'/model-covers/wan-3-0-prime.webp',headline:'Qualidade premium para takes finais',description:'Modelo premium all-in-one com áudio nativo, referências multimodais e até 30s.'},
 ];
 
 const gallery=[
@@ -36,6 +36,7 @@ const DeferredImage:React.FC<React.ImgHTMLAttributes<HTMLImageElement>&{src:stri
 const DeferredVideo:React.FC<{src:string;className?:string;poster?:string}>=({src,className,poster})=>{
  const{ref,ready}=useNearViewport<HTMLVideoElement>('0px'),[failed,setFailed]=useState(false);
  useEffect(()=>{const el=ref.current;if(!el||!ready||failed)return;const play=()=>{if(document.hidden){el.pause();return}void el.play().catch(()=>{})};play();document.addEventListener('visibilitychange',play);return()=>{document.removeEventListener('visibilitychange',play);el.pause()}},[ready,failed]);
+ if(failed&&poster)return <img src={poster} alt="" decoding="async" className={className}/>;
  if(failed)return <div className="public-model-video public-media-fallback">Prévia indisponível</div>;
  return <video ref={ref} src={ready?src:undefined} poster={poster} muted loop playsInline preload={ready?'metadata':'none'} onError={()=>setFailed(true)} className={className}/>;
 };
@@ -57,7 +58,7 @@ export const PublicLandingView:React.FC<Props>=({onLogin,onStart,includeShell=tr
    <div className="public-hero-content"><div className="public-hero-copy"><h1>Crie imagens e vídeos com as melhores IAs.</h1><p>Escolha modelos, use referências, veja o preço antes de gerar e mantenha tudo organizado em um único estúdio.</p><div className="public-hero-actions"><button className="public-primary public-primary-lg" onClick={onStart}>Começar agora <span aria-hidden="true">→</span></button><a className="public-secondary" href="#models">Explorar modelos</a></div></div><div className="public-proof"><span>Vários modelos</span><span>Preço antes de gerar</span><span>Pague pelo uso</span></div></div>
   </div></section>}
 
-  <section id="models" className="public-section"><div className="public-wrap"><div className="public-heading"><h2>Tecnologia de ponta para grandes ideias</h2><p>Compare estética, movimento e capacidade dos modelos antes de entrar no estúdio.</p></div><div className="public-model-grid">{models.map(item=><article key={item.name} className="public-model-card"><div className="public-model-media"><DeferredVideo src={video(item.file)} className="public-model-video"/><span>{item.name}</span></div><div className="public-model-body"><h3>{item.headline}</h3><p>{item.description}</p><button onClick={onStart}>Testar modelo <span aria-hidden="true">→</span></button></div></article>)}</div></div></section>
+  <section id="models" className="public-section"><div className="public-wrap"><div className="public-heading"><h2>Tecnologia de ponta para grandes ideias</h2><p>Compare estética, movimento e capacidade dos modelos antes de entrar no estúdio.</p></div><div className="public-model-grid">{models.map(item=><article key={item.name} className="public-model-card"><div className="public-model-media"><DeferredVideo src={video(item.file)} poster={item.poster} className="public-model-video"/><span>{item.name}</span></div><div className="public-model-body"><h3>{item.headline}</h3><p>{item.description}</p><button onClick={onStart}>Testar modelo <span aria-hidden="true">→</span></button></div></article>)}</div></div></section>
 
   <section id="gallery" className="public-gallery-section"><div className="public-wrap"><div className="public-heading public-heading-split"><h2>Veja o que é possível criar.</h2><p>Fotografia de produto, personagens, moda, CGI, arquitetura, ilustração e conceitos visuais em diferentes modelos e linguagens.</p></div><div className="public-gallery">{gallery.map(([key,label])=><figure key={key}><DeferredImage src={media(key)} alt={label} decoding="async"/><figcaption>{label}</figcaption></figure>)}</div></div></section>
 

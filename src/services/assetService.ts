@@ -54,7 +54,7 @@ interface UploadTicketResponse {
 
 const IMMUTABLE_CACHE_SECONDS=31536000;
 const pendingUploads=new Map<string,Promise<Asset>>();
-let legacyRecoveryPromise:Promise<{recovered:number;unavailable:number;processed:number}>|null=null;
+let legacyRecoveryPromise:Promise<{cursor:number;next_cursor:number|null;done:boolean;recovered:number;unavailable:number;processed:number}>|null=null;
 
 export function sanitizeAlias(v:string){
   return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]/g,'_').replace(/^_+|_+$/g,'').replace(/_+/g,'_');
@@ -333,23 +333,12 @@ async function legacyUpload(params:UploadAssetParams,type:AssetType):Promise<Ass
 }
 
 export const assetService={
-  recoverLegacyGeneratedHistory():Promise<{recovered:number;unavailable:number;processed:number}>{
+  recoverLegacyGeneratedHistory(cursor=0,limit=5):Promise<{cursor:number;next_cursor:number|null;done:boolean;recovered:number;unavailable:number;processed:number}>{
     if(legacyRecoveryPromise)return legacyRecoveryPromise;
-    legacyRecoveryPromise=(async()=>{
-      let cursor=0,recovered=0,unavailable=0,processed=0;
-      for(let i=0;i<40;i++){
-        const batch=await apiRequest<{cursor:number;next_cursor:number|null;done:boolean;processed:number;recovered:number;unavailable:number}>('/api/assets/recover-generated',{
-          method:'POST',
-          body:JSON.stringify({cursor,limit:3}),
-        });
-        recovered+=Number(batch.recovered||0);
-        unavailable+=Number(batch.unavailable||0);
-        processed+=Number(batch.processed||0);
-        if(batch.done||batch.next_cursor==null)break;
-        cursor=Number(batch.next_cursor||0);
-      }
-      return{recovered,unavailable,processed};
-    })().catch(error=>{legacyRecoveryPromise=null;throw error;});
+    legacyRecoveryPromise=apiRequest<{cursor:number;next_cursor:number|null;done:boolean;processed:number;recovered:number;unavailable:number}>('/api/assets/recover-generated',{
+      method:'POST',
+      body:JSON.stringify({cursor,limit:Math.min(5,Math.max(1,limit))}),
+    }).finally(()=>{legacyRecoveryPromise=null;});
     return legacyRecoveryPromise;
   },
 
