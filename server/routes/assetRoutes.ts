@@ -7,6 +7,7 @@ import { assetService } from '../services/assetService.js';
 import { ASSET_UPLOAD_LIMITS } from '../../src/config/constants.js';
 import { AssetType } from '../../src/types/index.js';
 import { legacyImageRecoveryService } from '../services/legacyImageRecoveryService.js';
+import { assetReferenceResolver } from '../services/assetReferenceResolver.js';
 
 export const assetRouter = Router();
 
@@ -188,6 +189,10 @@ assetRouter.post('/assets/signed-upload', requireAuth, async (req: Authenticated
 
 assetRouter.post('/assets/recover-generated', requireAuth, async (req:AuthenticatedRequest,res) => {
   try{
+    const storage=await assetReferenceResolver.runStorageDiagnostic();
+    if(!storage.is_configured||storage.signed_url_test!=='PASS'){
+      return res.status(503).json({success:false,error:{code:'ASSET_STORAGE_UNAVAILABLE',message:'A recuperação está pausada até o armazenamento confirmar leitura. Nenhum registro foi alterado.'}});
+    }
     const cursor=Math.max(0,Math.floor(Number(req.body?.cursor)||0));
     const limit=Math.min(5,Math.max(1,Math.floor(Number(req.body?.limit)||3)));
     const data=await legacyImageRecoveryService.runBatch({userId:req.user!.uid,cursor,limit});

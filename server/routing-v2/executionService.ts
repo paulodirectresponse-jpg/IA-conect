@@ -122,6 +122,42 @@ async function createUniversalAssets(generation:Generation,urls:string[]){
   return created;
 }
 
+function storageRetryDelay(attempts:number){
+  return Math.min(60*60*1000,15_000*Math.pow(2,Math.max(0,attempts-1)));
+}
+
+async function archiveAndComplete(generation:any,urls:string[]):Promise<Generation>{
+  generation.media_storage_status='PENDING';
+  generation.media_storage_attempts=Number(generation.media_storage_attempts||0)+1;
+  generation.media_storage_last_attempt_at=new Date().toISOString();
+  generation.status='PROCESSING';
+  generation.progress_percent=95;
+  try{
+    const assets=await createUniversalAssets(generation,urls);
+    if(!assets.length)throw Object.assign(new Error('Nenhum arquivo válido foi arquivado.'),{code:'PROVIDER_RESULT_EMPTY'});
+    await creditWalletService.captureForGeneration(generation.user_id,generation.generation_id);
+    generation.status='SUCCEEDED';
+    generation.progress_percent=100;
+    generation.final_credit_cost=Number(generation.retail_credit_price||0);
+    generation.result_asset_ids=assets.map(asset=>asset.asset_id);
+    generation.result_asset_id=assets[0]?.asset_id||null;
+    generation.result_url=assets[0]?.public_url||null;
+    generation.result_urls=assets.map(asset=>asset.public_url).filter(Boolean);
+    generation.completed_at=new Date().toISOString();
+    generation.media_storage_status='READY';
+    generation.media_storage_error_code=null;
+    generation.provider_result_urls=[];
+    await generationRepository.saveGeneration(generation);
+    return generation;
+  }catch(error:any){
+    generation.media_storage_status='PENDING';
+    generation.media_storage_error_code=String(error?.code||'ASSET_ARCHIVE_FAILED').slice(0,80);
+    console.warn('[RoutingV2ArchivePending]',generation.generation_id,generation.media_storage_error_code);
+    await generationRepository.saveGeneration(generation).catch(()=>null);
+    return generation;
+  }
+}
+
 export const routingV2ExecutionService={
   async preview(input:Omit<StartRoutingV2GenerationInput,'authorized_credit_price'|'client_request_id'|'source_job_id'|'references'|'parameters'>){
     const preview=await routingV2GenerationPricingService.preview({
@@ -285,6 +321,14 @@ export const routingV2ExecutionService={
     if(generation.routing_core_version!=='V2')throw Object.assign(new Error('Geração não pertence ao Routing Core V2.'),{code:'ROUTING_V2_GENERATION_REQUIRED'});
     if(['SUCCEEDED','FAILED','CANCELLED','REFUNDED'].includes(generation.status))return generation;
 
+    const savedProviderUrls=Array.isArray(generation.provider_result_urls)?generation.provider_result_urls.filter((url:any)=>/^https:\/\//i.test(String(url||''))):[];
+    if(savedProviderUrls.length){
+      const attempts=Number(generation.media_storage_attempts||0);
+      const lastAttempt=Date.parse(String(generation.media_storage_last_attempt_at||''));
+      if(Number.isFinite(lastAttempt)&&lastAttempt>0&&Date.now()-lastAttempt<storageRetryDelay(attempts))return generation;
+      return archiveAndComplete(generation,savedProviderUrls);
+    }
+
     const routeId=String(generation.routing_v2_route_id||'');
     const route=await routingV2Repository.getRoute(routeId);
     if(!route)throw Object.assign(new Error('Route V2 da geração não foi encontrada.'),{code:'ROUTING_V2_ROUTE_NOT_FOUND'});
@@ -310,17 +354,30 @@ export const routingV2ExecutionService={
       return generation;
     }
 
-    const assets=await createUniversalAssets(generation,status.result_urls||[]);
-    await creditWalletService.captureForGeneration(userId,generationId);
-    generation.status='SUCCEEDED';
-    generation.progress_percent=100;
-    generation.final_credit_cost=Number(generation.retail_credit_price||0);
-    generation.result_asset_ids=assets.map(asset=>asset.asset_id);
-    generation.result_asset_id=assets[0]?.asset_id||null;
-    generation.result_url=assets[0]?.public_url||null;
-    generation.result_urls=assets.map(asset=>asset.public_url).filter(Boolean);
-    generation.completed_at=new Date().toISOString();
+    const urls=Array.isArray(status.result_urls)?status.result_urls.map((url:any)=>String(url||'').trim()).filter((url:string)=>/^https:\/\//i.test(url)):[];
+    const structured=Boolean((status as any).result_text||(status as any).result_structured);
+    if(!urls.length&&!structured){
+      await creditWalletService.releaseForGeneration(userId,generationId).catch(()=>{});
+      generation.status='FAILED';
+      generation.error_code='PROVIDER_RESULT_EMPTY';
+      generation.error_message='O provider concluiu sem retornar um arquivo ou resultado recuperável.';
+      generation.failed_at=new Date().toISOString();
+      await generationRepository.saveGeneration(generation);
+      return generation;
+    }
+    if(!urls.length){
+      await creditWalletService.captureForGeneration(userId,generationId);
+      generation.status='SUCCEEDED';
+      generation.progress_percent=100;
+      generation.final_credit_cost=Number(generation.retail_credit_price||0);
+      generation.completed_at=new Date().toISOString();
+      await generationRepository.saveGeneration(generation);
+      return generation;
+    }
+    generation.provider_result_urls=urls;
+    generation.media_storage_status='PENDING';
+    generation.media_storage_attempts=0;
     await generationRepository.saveGeneration(generation);
-    return generation;
+    return archiveAndComplete(generation,urls);
   },
 };

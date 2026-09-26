@@ -34,21 +34,25 @@ describe('legacy image recovery stage 2',()=>{
     expect(service).toContain("7*24*60*60*1000");
   });
 
-  it('runs recovery automatically from gallery library and history without blocking initial render',()=>{
+  it('keeps recovery explicit, bounded to one batch, and out of normal gallery/library loads',()=>{
     const gallery=read('src/components/workspace/CreationGallery.tsx');
     const assets=read('src/components/views/AssetsView.tsx');
     const history=read('src/components/views/HistoryView.tsx');
     const client=read('src/services/assetService.ts');
-    expect(gallery).toContain('recoverLegacyGeneratedHistory');
-    expect(assets).toContain('recoverLegacyGeneratedHistory');
+    expect(gallery).not.toContain('recoverLegacyGeneratedHistory');
+    expect(assets).not.toContain('recoverLegacyGeneratedHistory');
     expect(history).toContain('recoverLegacyGeneratedHistory');
+    expect(history).toContain('Recuperar imagens antigas');
     expect(client).toContain('legacyRecoveryPromise');
-    expect(client).toContain('for(let i=0;i<40;i++)');
+    expect(client).not.toContain('for(let i=0;i<40;i++)');
+    expect(client).toContain('Math.min(5,Math.max(1,limit))');
   });
 
   it('keeps recovery user-scoped and authenticated',()=>{
     const routes=read('server/routes/assetRoutes.ts');
     expect(routes).toContain("assetRouter.post('/assets/recover-generated', requireAuth");
     expect(routes).toContain('userId:req.user!.uid');
+    expect(routes).toContain("storage.signed_url_test!=='PASS'");
+    expect(routes.indexOf("storage.signed_url_test!=='PASS'")).toBeLessThan(routes.indexOf('legacyImageRecoveryService.runBatch'));
   });
 });
