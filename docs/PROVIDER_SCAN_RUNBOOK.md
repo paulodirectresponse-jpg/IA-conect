@@ -26,9 +26,11 @@ A existência do nome de um secret não confirma que seu valor está correto, at
 
 ## Descoberta e validação de catálogo
 
-Em **Administração → IA & Roteamento → Modelos**, a descoberta unificada consulta atualmente WaveSpeed, Atlas Cloud e Runware. É uma busca remota de leitura: os resultados não são gravados no inventário do IA Connect e não criam modelos ou rotas.
+Em **Administração → IA & Roteamento → Modelos**, a descoberta unificada consulta os catálogos remotos de WaveSpeed, Atlas Cloud, Runware, fal.ai, DeepInfra, Replicate e AI/ML API. É uma busca de leitura: os resultados não são gravados no inventário do IA Connect e não criam modelos ou rotas. fal.ai, Replicate e AI/ML API usam consultas de catálogo oficiais; DeepInfra expõe uma lista pública e a filtragem é feita no Worker.
 
-Os seis outros providers estão cadastrados com adapters de compatibilidade para execução, mas ainda não participam dessa descoberta unificada nem têm checagem de saúde V2 específica. Para eles, o model identifier, a capability, o formato de entrada e o preço precisam ser confirmados na documentação ou catálogo oficial do provider antes de criar uma rota. Não invente identifiers nem converta um resultado de busca em rota automaticamente.
+PiAPI e Kie.ai continuam cadastrados, mas não aparecem nessa busca. A documentação pública consultada da PiAPI descreve criação e consulta de tarefas, sem um endpoint de catálogo ou probe de conta que possamos usar com segurança. Kie.ai tem um endpoint oficial de saldo, usado apenas para a checagem de saúde; a lista de modelos continua sendo o Market documentado, sem endpoint de catálogo por API confirmado. Não invente identifiers nem converta um resultado de busca em rota automaticamente.
+
+Os probes específicos de saúde consultam endpoints oficiais de leitura para fal.ai, DeepInfra, Replicate, AI/ML API e Kie.ai, além dos três checks existentes de WaveSpeed, Atlas Cloud e Runware. O probe valida apenas credencial e disponibilidade do endpoint consultado; não confirma cada modelo, capability, preço ou geração. PiAPI permanece `UNKNOWN` enquanto não houver um probe autenticado seguro documentado.
 
 O antigo painel e fluxo **APIs & Scan** não está conectado à tela administrativa ativa. Não use instruções antigas que indiquem esse painel como fonte de saúde ou catálogo atual.
 
@@ -39,11 +41,11 @@ Uma geração pela rota V2 precisa de todos estes itens verificados:
 1. Secret válido para o provider.
 2. Model identifier confirmado no provider.
 3. Capability compatível com aquele identifier.
-4. Preço e unidade de cobrança verificados.
+4. Preço e unidade de cobrança verificados para a configuração usada.
 5. Modelo e rota cadastrados no inventário.
 6. Rota `READY`, com preço vigente e estado de runtime saudável.
 
-Somente rotas `READY` são elegíveis para publicação aos geradores. Para os seis providers sem probe V2, ainda é necessário implementar ou executar uma checagem oficial sem gerar mídia antes de liberá-los. Uma geração de ponta a ponta pode consumir saldo do provider e só deve ser feita com um modelo, entrada e custo estimado definidos.
+Somente rotas `READY` são elegíveis para publicação aos geradores. Uma geração de ponta a ponta pode consumir saldo do provider; por isso, os testes automáticos e os probes de saúde ficam em chamadas de leitura. O teste real de geração deve ser feito depois de escolher modelo, entrada e custo estimado.
 
 ## Estado das verificações
 

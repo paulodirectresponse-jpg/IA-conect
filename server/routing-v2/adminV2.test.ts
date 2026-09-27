@@ -70,10 +70,14 @@ describe('Routing Core V2 Admin',()=>{
 
     expect(routes).toContain("startsWith('wrapper:')");
     expect(routes).toContain('adapter.listModels(provider,rawQuery)');
-    expect(wrapper).toContain("providerId === 'provider-atlas'");
-    expect(wrapper).toContain("providerId === 'provider-runware'");
+    expect(wrapper).toContain("'provider-atlas':()=>listAtlasCatalogModels()");
+    expect(wrapper).toContain("'provider-runware':query=>listRunwareCatalogModels(query)");
     expect(wrapper).toContain('listAtlasCatalogModels');
     expect(wrapper).toContain('listRunwareCatalogModels');
+    expect(wrapper).toContain("'provider-fal':query=>listFalCatalogModels(query)");
+    expect(wrapper).toContain("'provider-deepinfra':query=>listDeepInfraCatalogModels(query)");
+    expect(wrapper).toContain("'provider-replicate':query=>listReplicateCatalogModels(query)");
+    expect(wrapper).toContain("'provider-aiml':query=>listAimlCatalogModels(query)");
     expect(catalog).toContain('/api/v1/models');
     expect(catalog).toContain("taskType:'modelSearch'");
     expect(catalog).toContain("const rawSearch=clean(query)");
@@ -193,6 +197,17 @@ describe('Routing Core V2 Admin',()=>{
     expect(client).toContain('RoutingV2UnifiedCatalogDiagnosticAdmin');
   });
 
+  it('adds documented fal, DeepInfra, Replicate and AI/ML API catalog discovery',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const catalog=read('server/routing-v2/providerCatalogService.ts');
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+    for(const source of ['listFalCatalogModels(query)','listDeepInfraCatalogModels(query)','listReplicateCatalogModels(query)','listAimlCatalogModels(query)'])expect(routes).toContain(source);
+    for(const source of ['https://api.fal.ai','/models/list','/search?','/v1/models?include=modalities,capabilities'])expect(catalog).toContain(source);
+    expect(view).toContain('fal.ai, DeepInfra, Replicate e AI/ML API');
+    expect(routes).toContain("res.set('Cache-Control','private, no-store, no-cache, max-age=0')");
+    expect(routes).toContain("import '../routing-v2/health.init.js'");
+  });
+
   it('resolves provider-specific image slugs and AIR ids to the same canonical model',()=>{
     expect(resolveCanonicalImageModel('GPT Image 2','openai:gpt-image@2','OpenAI')?.canonical_id).toBe('gpt-image-2');
     expect(resolveCanonicalImageModel('openai/gpt-image-2/text-to-image','openai/gpt-image-2/text-to-image','OpenAI')?.canonical_id).toBe('gpt-image-2');
@@ -207,7 +222,7 @@ describe('Routing Core V2 Admin',()=>{
 
   it('does not rely on stale supports_catalog_sync or intermediary adapters for unified discovery',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
-    expect(routes).toContain("['provider-wavespeed','provider-atlas','provider-runware']");
+    expect(routes).toContain("['provider-wavespeed','provider-atlas','provider-runware','provider-fal','provider-deepinfra','provider-replicate','provider-aiml']");
     expect(routes).toContain("provider.provider_id==='provider-wavespeed'");
     expect(routes).toContain('listWaveSpeedCatalogModels(query)');
     expect(routes).toContain('canonical?.default_capabilities');

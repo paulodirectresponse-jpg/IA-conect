@@ -14,12 +14,13 @@ import { routingV2ReadinessService } from '../routing-v2/readinessService.js';
 import { routingV2CutoverService } from '../routing-v2/cutoverService.js';
 import { routingV2ModelBootstrapService } from '../routing-v2/modelBootstrapService.js';
 import { routingV2HealthAdminRoutes } from '../routing-v2/adminHealthRoutes.js';
+import '../routing-v2/health.init.js';
 import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapService.js';
 import { routingV2SmartRouter } from '../routing-v2/smartRouter.js';
 import { factoryResetService } from '../services/factoryResetService.js';
 import { CANONICAL_IMAGE_MODELS, catalogSearchTerms, normalizeImageModelText, resolveCanonicalImageModel } from '../routing-v2/imageCatalogCanonical.js';
 import { isCatalogIdentityUsable, parseCatalogModelIdentity } from '../routing-v2/imageCatalogIdentity.js';
-import { listAtlasCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from '../routing-v2/providerCatalogService.js';
+import { listAimlCatalogModels, listAtlasCatalogModels, listDeepInfraCatalogModels, listFalCatalogModels, listReplicateCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from '../routing-v2/providerCatalogService.js';
 import { providerHealthService } from '../routing-v2/providerHealthService.js';
 import { normalizeUnifiedCatalogDisplayName, normalizeUnifiedCatalogSearch, providerIdentifierModelName } from '../routing-v2/unifiedCatalogIdentity.js';
 
@@ -187,7 +188,7 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
     const query=String(req.query.q||'').trim();
     const allProviders=await routingV2ProviderService.list();
     const providerMap=new Map(allProviders.map(p=>[p.provider_id,p]));
-    const providers=['provider-wavespeed','provider-atlas','provider-runware']
+    const providers=['provider-wavespeed','provider-atlas','provider-runware','provider-fal','provider-deepinfra','provider-replicate','provider-aiml']
       .map(id=>providerMap.get(id))
       .filter((p):p is NonNullable<typeof p>=>Boolean(p&&p.status!=='DISABLED'));
     const terms=catalogSearchTerms(query);
@@ -223,6 +224,22 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
       }
       if(provider.provider_id==='provider-wavespeed'){
         pushRows(await withTimeout(listWaveSpeedCatalogModels(query),'WaveSpeed'));
+        return{provider,rows,attempts:1};
+      }
+      if(provider.provider_id==='provider-fal'){
+        pushRows(await withTimeout(listFalCatalogModels(query),'fal.ai'));
+        return{provider,rows,attempts:1};
+      }
+      if(provider.provider_id==='provider-deepinfra'){
+        pushRows(await withTimeout(listDeepInfraCatalogModels(query),'DeepInfra'));
+        return{provider,rows,attempts:1};
+      }
+      if(provider.provider_id==='provider-replicate'){
+        pushRows(await withTimeout(listReplicateCatalogModels(query),'Replicate'));
+        return{provider,rows,attempts:1};
+      }
+      if(provider.provider_id==='provider-aiml'){
+        pushRows(await withTimeout(listAimlCatalogModels(query),'AI/ML API'));
         return{provider,rows,attempts:1};
       }
       throw new Error('Provider de catálogo não suportado.');

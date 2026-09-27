@@ -2,6 +2,7 @@
 import './providers/wavespeedHealthCheck.js';
 import './providers/atlasHealthCheck.js';
 import './providers/runwareHealthCheck.js';
+import './providers/credentialHealthChecks.js';
 
 export { providerHealthService } from './providerHealthService.js';
 export { routingV2HealthAdminRoutes } from './adminHealthRoutes.js';

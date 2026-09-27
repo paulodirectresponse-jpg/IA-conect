@@ -3,6 +3,7 @@ import { routingV2Repository } from './repository.js';
 import { providerHealthService } from './providerHealthService.js';
 import { routingV2ProviderService } from './providerService.js';
 import { getProviderHealthCheck } from './healthAdapter.js';
+import './health.init.js';
 
 const runtimeEnabled=process.env.ROUTING_V2_RUNTIME_TEST==='true'&&Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
 (runtimeEnabled?describe:describe.skip)('Health Runtime Integration Tests', () => {
@@ -14,17 +15,14 @@ const runtimeEnabled=process.env.ROUTING_V2_RUNTIME_TEST==='true'&&Boolean(proce
     }
   });
 
-  it('should have all 3 health checks registered', async () => {
-    const wavespeed = getProviderHealthCheck('provider-wavespeed');
-    const atlas = getProviderHealthCheck('provider-atlas');
-    const runware = getProviderHealthCheck('provider-runware');
-
-    expect(wavespeed).not.toBeNull();
-    expect(atlas).not.toBeNull();
-    expect(runware).not.toBeNull();
-    expect(wavespeed?.providerId).toBe('provider-wavespeed');
-    expect(atlas?.providerId).toBe('provider-atlas');
-    expect(runware?.providerId).toBe('provider-runware');
+  it('should have all eight documented credential probes registered', async () => {
+    const probeIds=['provider-wavespeed','provider-atlas','provider-runware','provider-fal','provider-deepinfra','provider-replicate','provider-aiml','provider-kie'];
+    for(const providerId of probeIds){
+      const check=getProviderHealthCheck(providerId);
+      expect(check).not.toBeNull();
+      expect(check?.providerId).toBe(providerId);
+    }
+    expect(getProviderHealthCheck('provider-piapi')).toBeNull();
   });
 
   it('should persist health_status and last_health_check_at', async () => {
