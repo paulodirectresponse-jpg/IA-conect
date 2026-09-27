@@ -57,7 +57,7 @@ export const routingV2AdminService={
   updateProvider:(id:string,data:any)=>patch<RoutingV2ProviderAdmin>(`/api/admin/routing-v2/providers/${encodeURIComponent(id)}`,data),
   disableProvider:(id:string)=>post<RoutingV2ProviderAdmin>(`/api/admin/routing-v2/providers/${encodeURIComponent(id)}/disable`),
   searchProviderModels:(id:string,q='')=>apiRequest<RoutingV2CatalogModelAdmin[]>(`/api/admin/routing-v2/providers/${encodeURIComponent(id)}/catalog-models?q=${encodeURIComponent(q)}`),
-  searchUnifiedCatalog:(q='')=>apiRequest<RoutingV2UnifiedCatalogResponseAdmin>(`/api/admin/routing-v2/catalog-unified?q=${encodeURIComponent(q)}`),
+  searchUnifiedCatalog:(q='')=>apiRequest<RoutingV2UnifiedCatalogResponseAdmin>(`/api/admin/routing-v2/catalog-unified?q=${encodeURIComponent(q)}`,{cache:'no-store'}),
 
   listModels:()=>apiRequest<RoutingV2ModelAdmin[]>('/api/admin/routing-v2/models'),
   createModel:(data:any)=>post<RoutingV2ModelAdmin>('/api/admin/routing-v2/models',data),
