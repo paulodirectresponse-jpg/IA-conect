@@ -1,6 +1,5 @@
 import React,{useState}from 'react';
-import { ArrowRight } from 'lucide-react';
-import{ViewportVideo}from'../common/ViewportVideo.js';
+import { ArrowRight,Play } from 'lucide-react';
 
 const SHOWCASE_STORAGE_BASE='https://hzjyhhenajbjxkwkmzdg.supabase.co/storage/v1/object/public/ia-conect-assets/showcase';
 export const showcaseVideo=(fileName:string)=>`${SHOWCASE_STORAGE_BASE}/${encodeURIComponent(fileName)}`;
@@ -25,10 +24,13 @@ export const SHOWCASE_MODELS:ShowcaseItem[]=[
   {modelId:'wan-3-0-prime',name:'WAN 3.0 Prime',mode:'VIDEO',videoSrc:showcaseVideo('Wan 3.0 prime.mp4'),posterSrc:'/model-covers/wan-3-0-prime.webp',sourceLabel:'IA Connect showcase',headline:'Qualidade premium para takes finais',description:'Modelo premium all-in-one com áudio nativo, referências multimodais e até 30s.',badges:['premium','referências','vídeo'],availableInStudio:true},
 ];
 
-const AutoLoopPreview:React.FC<{item:ShowcaseItem}>=({item})=>{
- const[failed,setFailed]=useState(false);
- if(failed)return <img src={item.posterSrc} alt={`Prévia de ${item.name}`} decoding="async" className="absolute inset-0 h-full w-full object-cover"/>;
- return <ViewportVideo className="absolute inset-0 w-full h-full object-cover" src={item.videoSrc} poster={item.posterSrc} rootMargin="0px" muted loop playsInline disablePictureInPicture onError={()=>setFailed(true)}/>;
+const OnDemandPreview:React.FC<{item:ShowcaseItem}>=({item})=>{
+ const[requested,setRequested]=useState(false),[failed,setFailed]=useState(false);
+ if(requested&&!failed)return <video autoPlay controls muted playsInline preload="none" src={item.videoSrc} poster={item.posterSrc} aria-label={`Prévia em vídeo de ${item.name}`} onError={()=>setFailed(true)} className="absolute inset-0 h-full w-full object-cover"/>;
+ return <button type="button" onClick={()=>{if(failed)setFailed(false);setRequested(true)}} aria-label={`Assistir prévia de ${item.name}`} className="ia-model-showcase-preview absolute inset-0 h-full w-full">
+  <img src={item.posterSrc} alt={`Prévia de ${item.name}`} decoding="async" className="absolute inset-0 h-full w-full object-cover"/>
+  <span className="ia-model-showcase-preview-action"><Play className="h-4 w-4 fill-current"/>{failed?'Tentar novamente':'Assistir prévia'}</span>
+ </button>;
 };
 
 export const ModelShowcase:React.FC<{compact?:boolean;onTry?:(item:ShowcaseItem)=>void;title?:string;subtitle?:string}> = ({compact=false,onTry,title='Modelos em destaque',subtitle='Veja os resultados em movimento e entre direto no modelo certo.'}) => <section className={`ia-model-showcase ${compact?'is-compact':''}`}>
@@ -41,7 +43,7 @@ export const ModelShowcase:React.FC<{compact?:boolean;onTry?:(item:ShowcaseItem)
   <div className="ia-model-showcase-grid">
     {SHOWCASE_MODELS.map(item=><article key={item.modelId} className="ia-model-showcase-card group">
       <div className="ia-model-showcase-media">
-        <AutoLoopPreview item={item}/>
+        <OnDemandPreview item={item}/>
         <div className="ia-model-showcase-media-shade"/>
         <div className="ia-model-showcase-model-name">{item.name}</div>
       </div>
