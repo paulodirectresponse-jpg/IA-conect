@@ -7,6 +7,7 @@ import { reconcileRoutingV2Route } from './routeReconciler.js';
 import { routingV2Repository } from './repository.js';
 import { providerHealthService } from './providerHealthService.js';
 import { getUsdBrlRate } from './fxRateService.js';
+import { isOfficialRoutingV2Provider } from './providerService.js';
 
 export interface RoutingV2PriceSyncRow{
   route_id:string;
@@ -41,6 +42,7 @@ function referenceInput(config:RoutingV2BillingConfig){
 }
 
 async function providerRuntime(provider:RoutingV2Provider){
+  if(!isOfficialRoutingV2Provider(provider.provider_id))return{adapter:null,runtime_status:'UNAVAILABLE' as const};
   const adapter=resolveRoutingV2ProviderAdapter(provider);
   if(!adapter||!adapter.isConfigured(provider))return{adapter:null,runtime_status:'UNAVAILABLE' as const};
   try{

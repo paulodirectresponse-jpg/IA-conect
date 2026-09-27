@@ -2,6 +2,7 @@ import { RoutingV2Provider } from './domain.js';
 import { RoutingV2ProviderHealth } from './adapter.js';
 import { checkProviderHealth } from './healthAdapter.js';
 import { routingV2Repository } from './repository.js';
+import { isOfficialRoutingV2Provider } from './providerService.js';
 
 const now = () => new Date().toISOString();
 
@@ -16,6 +17,9 @@ export interface ProviderHealthCheckResult {
 
 export const providerHealthService = {
   async checkAndPersist(provider: RoutingV2Provider): Promise<ProviderHealthCheckResult> {
+    if (!isOfficialRoutingV2Provider(provider.provider_id) || provider.status === 'DISABLED') {
+      throw new Error('A checagem está limitada aos três provedores oficiais ativos: WaveSpeed AI, Atlas Cloud e Runware.');
+    }
     try {
       const health = await checkProviderHealth(provider);
       const checkedAt = health.checked_at || now();
@@ -49,7 +53,8 @@ export const providerHealthService = {
   },
 
   async checkAllCore(): Promise<ProviderHealthCheckResult[]> {
-    const providers = await routingV2Repository.listProviders();
+    const providers = (await routingV2Repository.listProviders())
+      .filter(provider => isOfficialRoutingV2Provider(provider.provider_id) && provider.status !== 'DISABLED');
     return Promise.all(providers.map(provider => this.checkAndPersist(provider)));
   },
 
@@ -57,6 +62,9 @@ export const providerHealthService = {
     const provider = await routingV2Repository.getProvider(providerId);
     if (!provider) {
       throw new Error(`Provider ${providerId} não encontrado`);
+    }
+    if (!isOfficialRoutingV2Provider(provider.provider_id) || provider.status === 'DISABLED') {
+      throw new Error('Somente os três provedores oficiais ativos podem passar por checagem de saúde.');
     }
     return this.checkAndPersist(provider);
   },

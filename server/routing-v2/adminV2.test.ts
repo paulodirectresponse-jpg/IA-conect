@@ -56,10 +56,10 @@ describe('Routing Core V2 Admin',()=>{
     expect(view).toContain('rotas READY');
     expect(view).not.toContain('Ativar V2_ONLY');
     expect(view).not.toContain('Resetar inventário V2 (preview)');
-    expect(view).toContain('Cadastrar 9 providers');
+    expect(view).toContain('Cadastrar os 3 oficiais');
     expect(view).toContain('Testar conexões');
     expect(view).toContain('checkProviderHealth');
-    expect(view).toContain('WaveSpeed, Atlas Cloud, Runware, fal.ai, DeepInfra, Replicate, AI/ML API, PiAPI e Kie.ai');
+    expect(view).toContain('WaveSpeed AI, Atlas Cloud e Runware');
     expect(admin).toContain('AdminRoutingV2');
     expect(admin).toContain("id:'ai-routing'");
     expect(admin).not.toContain('AdminAIProvidersHub');
@@ -211,13 +211,12 @@ describe('Routing Core V2 Admin',()=>{
     expect(client).toContain('RoutingV2UnifiedCatalogDiagnosticAdmin');
   });
 
-  it('adds documented fal, DeepInfra, Replicate and AI/ML API catalog discovery',()=>{
+  it('keeps non-official provider catalogs out of active discovery',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
-    const catalog=read('server/routing-v2/providerCatalogService.ts');
     const view=read('src/components/admin/AdminRoutingV2.tsx');
-    for(const source of ['listFalCatalogModels(query)','listDeepInfraCatalogModels(query)','listReplicateCatalogModels(query)','listAimlCatalogModels(query)'])expect(routes).toContain(source);
-    for(const source of ['https://api.fal.ai','/models/list','/search?','/v1/models?include=modalities,capabilities'])expect(catalog).toContain(source);
-    expect(view).toContain('fal.ai, DeepInfra, Replicate e AI/ML API');
+    for(const source of ['listFalCatalogModels','listDeepInfraCatalogModels','listReplicateCatalogModels','listAimlCatalogModels'])expect(routes).not.toContain(source);
+    expect(view).toContain('WaveSpeed AI, Atlas Cloud e Runware');
+    expect(view).not.toContain('fal.ai, DeepInfra, Replicate e AI/ML API');
     expect(routes).toContain("res.set('Cache-Control','private, no-store, no-cache, max-age=0')");
     expect(routes).toContain("import '../routing-v2/health.init.js'");
   });
@@ -236,7 +235,12 @@ describe('Routing Core V2 Admin',()=>{
 
   it('does not rely on stale supports_catalog_sync or intermediary adapters for unified discovery',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
-    expect(routes).toContain("['provider-wavespeed','provider-atlas','provider-runware','provider-fal','provider-deepinfra','provider-replicate','provider-aiml']");
+    expect(routes).toContain('ROUTING_V2_CORE_PROVIDERS.map(({provider_id})=>providerMap.get(provider_id))');
+    expect(routes).toContain('isOfficialRoutingV2Provider(provider.provider_id)');
+    expect(routes).not.toContain('listFalCatalogModels');
+    expect(routes).not.toContain('listDeepInfraCatalogModels');
+    expect(routes).not.toContain('listReplicateCatalogModels');
+    expect(routes).not.toContain('listAimlCatalogModels');
     expect(routes).toContain("provider.provider_id==='provider-wavespeed'");
     expect(routes).toContain('listWaveSpeedCatalogModels(query)');
     expect(routes).toContain('canonical?.default_capabilities');
