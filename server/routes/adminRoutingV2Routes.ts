@@ -21,6 +21,7 @@ import { CANONICAL_IMAGE_MODELS, catalogSearchTerms, normalizeImageModelText, re
 import { isCatalogIdentityUsable, parseCatalogModelIdentity } from '../routing-v2/imageCatalogIdentity.js';
 import { listAtlasCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from '../routing-v2/providerCatalogService.js';
 import { providerHealthService } from '../routing-v2/providerHealthService.js';
+import { normalizeUnifiedCatalogSearch, providerIdentifierModelName } from '../routing-v2/unifiedCatalogIdentity.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -132,13 +133,15 @@ function catalogBase(value:string){
   for(const[suffix]of IMAGE_SUFFIXES)base=base.replace(suffix,'');
   return base.replace(/\/+$/,'').trim();
 }
-function catalogDisplayName(name:string,identifier:string){
-  const base=catalogBase(name)||catalogBase(identifier);
+function catalogDisplayName(name:string,identifier:string,vendor=''){
+  const providerName=providerIdentifierModelName(name,identifier,vendor);
+  const base=catalogBase(providerName||name)||catalogBase(identifier);
   const withoutNamespace=base.includes('/')?base.split('/').slice(-1)[0]:base;
   return withoutNamespace.replace(/[-_]+/g,' ').replace(/\b\w/g,m=>m.toUpperCase()).trim();
 }
 function catalogKey(name:string,identifier:string,vendor=''){
-  const base=catalogBase(name)||catalogBase(identifier);
+  const providerName=providerIdentifierModelName(name,identifier,vendor);
+  const base=catalogBase(providerName||name)||catalogBase(identifier);
   const strip=(value:string)=>String(value||'').toLowerCase()
     .replace(/^(openai|google|bytedance|black-forest-labs|bfl|alibaba|ideogram|recraft|krea|meta|luma|xai)\//,'')
     .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
@@ -146,8 +149,8 @@ function catalogKey(name:string,identifier:string,vendor=''){
 }
 function matchesUnifiedCatalogQuery(row:any,query:string,terms:string[]){
   if(!query)return true;
-  const raw=`${String(row?.name||'')} ${String(row?.provider_model_identifier||'')} ${catalogVendor(row?.vendor)} ${catalogVendor(row?.metadata?.provider)} ${catalogVendor(row?.metadata?.creator)}`.toLowerCase();
-  const normalizedTerms=terms.map(term=>term.toLowerCase().trim()).filter(Boolean);
+  const raw=normalizeUnifiedCatalogSearch(`${String(row?.name||'')} ${String(row?.provider_model_identifier||'')} ${catalogVendor(row?.vendor)} ${catalogVendor(row?.metadata?.provider)} ${catalogVendor(row?.metadata?.creator)}`);
+  const normalizedTerms=terms.map(normalizeUnifiedCatalogSearch).filter(Boolean);
   return normalizedTerms.some(term=>raw.includes(term));
 }
 const CANONICAL_IMAGE_IDS=new Set(CANONICAL_IMAGE_MODELS.map(model=>model.canonical_id));
@@ -239,7 +242,7 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
           const vendor=catalogVendor(row?.vendor)||catalogVendor(row?.metadata?.provider)||catalogVendor(row?.metadata?.creator);
           const key=catalogKey(rawName,identifier,vendor);
           if(!key)continue;
-          const current=grouped.get(key)||{catalog_key:key,name:catalogDisplayName(rawName,identifier)||rawName,vendor,category,capabilities:[],providers:[]};
+          const current=grouped.get(key)||{catalog_key:key,name:catalogDisplayName(rawName,identifier,vendor)||rawName,vendor,category,capabilities:[],providers:[]};
           if(current.category==='OTHER'&&category!=='OTHER')current.category=category;
           if(!current.vendor&&vendor)current.vendor=vendor;
           current.capabilities=Array.from(new Set([...(current.capabilities||[]),...capabilities]));
