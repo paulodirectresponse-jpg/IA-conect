@@ -44,8 +44,8 @@ describe('Routing Core V2 Admin',()=>{
     expect(view).toContain('rotas READY');
     expect(view).not.toContain('Ativar V2_ONLY');
     expect(view).not.toContain('Resetar inventário V2 (preview)');
-    expect(view).toContain('Cadastrar 3 providers base');
-    expect(view).toContain('WaveSpeed, Atlas Cloud e Runware');
+    expect(view).toContain('Cadastrar 9 providers');
+    expect(view).toContain('WaveSpeed, Atlas Cloud, Runware, fal.ai, DeepInfra, Replicate, AI/ML API, PiAPI e Kie.ai');
     expect(admin).toContain('AdminRoutingV2');
     expect(admin).toContain("id:'ai-routing'");
     expect(admin).not.toContain('AdminAIProvidersHub');

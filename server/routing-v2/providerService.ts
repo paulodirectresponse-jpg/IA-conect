@@ -55,7 +55,13 @@ function validateAdapterId(value:string){
 export const ROUTING_V2_CORE_PROVIDERS=[
   {provider_id:'provider-wavespeed',name:'WaveSpeed AI',type:'AGGREGATOR' as const,adapter_id:'v2:provider-wavespeed',priority:110},
   {provider_id:'provider-atlas',name:'Atlas Cloud',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-atlas',priority:100},
-  {provider_id:'provider-runware',name:'Runware',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-runware',priority:90},
+  {provider_id:'provider-runware',name:'Runware',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-runware',priority:95},
+  {provider_id:'provider-fal',name:'fal.ai',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-fal',priority:90},
+  {provider_id:'provider-deepinfra',name:'DeepInfra',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-deepinfra',priority:85},
+  {provider_id:'provider-replicate',name:'Replicate',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-replicate',priority:80},
+  {provider_id:'provider-aiml',name:'AI/ML API',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-aiml',priority:75},
+  {provider_id:'provider-piapi',name:'PiAPI',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-piapi',priority:70},
+  {provider_id:'provider-kie',name:'Kie.ai',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-kie',priority:65},
 ];
 
 export const routingV2ProviderService={
