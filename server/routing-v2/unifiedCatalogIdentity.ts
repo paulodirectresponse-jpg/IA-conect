@@ -45,3 +45,11 @@ export function providerIdentifierModelName(name:string,identifier:string,vendor
 export function normalizeUnifiedCatalogSearch(value:string){
   return String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
 }
+
+export function normalizeUnifiedCatalogDisplayName(name:string,identifiers:string[],vendor=''){
+  for(const identifier of identifiers){
+    const resolved=providerIdentifierModelName(name,identifier,vendor);
+    if(resolved)return resolved;
+  }
+  return name;
+}

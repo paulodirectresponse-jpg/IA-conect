@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeUnifiedCatalogSearch, providerIdentifierModelName } from './unifiedCatalogIdentity.js';
+import { normalizeUnifiedCatalogDisplayName, normalizeUnifiedCatalogSearch, providerIdentifierModelName } from './unifiedCatalogIdentity.js';
 
 describe('unified catalog provider identity',()=>{
   it('uses the model identifier when a provider returns a generic video endpoint label',()=>{
@@ -13,6 +13,15 @@ describe('unified catalog provider identity',()=>{
 
   it('preserves meaningful provider model names',()=>{
     expect(providerIdentifierModelName('Seedance 2.5','bytedance/seedance-2.5/image-to-video','ByteDance')).toBe('');
+  });
+
+  it('normalizes generic labels after provider results have been grouped',()=>{
+    expect(normalizeUnifiedCatalogDisplayName('Image To Video',[
+      'bytedance/seedance-2.5/image-to-video',
+    ],'bytedance')).toBe('Seedance 2.5');
+    expect(normalizeUnifiedCatalogDisplayName('Seedance 2.5',[
+      'bytedance/seedance-2.5/image-to-video',
+    ],'bytedance')).toBe('Seedance 2.5');
   });
 
   it('normalizes punctuation so display-name searches match provider IDs',()=>{

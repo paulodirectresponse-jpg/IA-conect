@@ -21,7 +21,7 @@ import { CANONICAL_IMAGE_MODELS, catalogSearchTerms, normalizeImageModelText, re
 import { isCatalogIdentityUsable, parseCatalogModelIdentity } from '../routing-v2/imageCatalogIdentity.js';
 import { listAtlasCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from '../routing-v2/providerCatalogService.js';
 import { providerHealthService } from '../routing-v2/providerHealthService.js';
-import { normalizeUnifiedCatalogSearch, providerIdentifierModelName } from '../routing-v2/unifiedCatalogIdentity.js';
+import { normalizeUnifiedCatalogDisplayName, normalizeUnifiedCatalogSearch, providerIdentifierModelName } from '../routing-v2/unifiedCatalogIdentity.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -182,6 +182,8 @@ function isTechnicalImageCatalogNoise(name:string,identifier:string,canonical:an
 }
 adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,res)=>{
   try{
+    res.set('Cache-Control','private, no-store, no-cache, max-age=0');
+    res.set('Pragma','no-cache');
     const query=String(req.query.q||'').trim();
     const allProviders=await routingV2ProviderService.list();
     const providerMap=new Map(allProviders.map(p=>[p.provider_id,p]));
@@ -279,8 +281,10 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         grouped.set(key,current);
       }
     });
+    const normalizedQuery=normalizeUnifiedCatalogSearch(query);
     const filteredRows=Array.from(grouped.values())
-      .filter((row:any)=>!query||row.name.toLowerCase().includes(query.toLowerCase())||row.providers.some((p:any)=>p.provider_model_identifier.toLowerCase().includes(query.toLowerCase())));
+      .map((row:any)=>({...row,name:normalizeUnifiedCatalogDisplayName(row.name,row.providers.map((p:any)=>p.provider_model_identifier),row.vendor)}))
+      .filter((row:any)=>!normalizedQuery||normalizeUnifiedCatalogSearch(row.name).includes(normalizedQuery)||row.providers.some((p:any)=>normalizeUnifiedCatalogSearch(p.provider_model_identifier).includes(normalizedQuery)));
     const canonicalRows=filteredRows.filter((row:any)=>CANONICAL_IMAGE_IDS.has(row.catalog_key));
     const rows=filteredRows
       .filter((row:any)=>CANONICAL_IMAGE_IDS.has(row.catalog_key)||!isGenericGroupedCatalogNoise(row,canonicalRows))

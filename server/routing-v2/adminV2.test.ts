@@ -86,6 +86,14 @@ describe('Routing Core V2 Admin',()=>{
     expect(providers).toContain("await this.update(input.provider_id,{adapter_id:input.adapter_id,priority:input.priority})");
   });
 
+  it('keeps live catalog discovery uncached and normalizes the final grouped names',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const client=read('src/services/routingV2AdminService.ts');
+    expect(routes).toContain("res.set('Cache-Control','private, no-store, no-cache, max-age=0')");
+    expect(routes).toContain('normalizeUnifiedCatalogDisplayName(row.name,row.providers.map');
+    expect(client).toContain("{cache:'no-store'}");
+  });
+
 
 
 
