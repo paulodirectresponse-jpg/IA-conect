@@ -25,6 +25,18 @@ describe('Routing Core V2 Admin',()=>{
     expect(source).toContain('adapter.listModels');
   });
 
+  it('runs provider health probes only through an explicit POST action',()=>{
+    const healthRoutes=read('server/routing-v2/adminHealthRoutes.ts');
+    const getStart=healthRoutes.indexOf("router.get('/providers/health'");
+    const postStart=healthRoutes.indexOf("router.post('/providers/health/check'");
+    expect(getStart).toBeGreaterThanOrEqual(0);
+    expect(postStart).toBeGreaterThan(getStart);
+    expect(healthRoutes.slice(getStart,postStart)).toContain('routingV2Repository.listProviders()');
+    expect(healthRoutes.slice(getStart,postStart)).not.toContain('checkAllCore()');
+    expect(healthRoutes.slice(postStart)).toContain('providerHealthService.checkAllCore()');
+    expect(read('src/services/routingV2AdminService.ts')).toContain("'/api/admin/routing-v2/providers/health/check'");
+  });
+
   it('keeps Admin V2 free from V1 publication repair and routing policies',()=>{
     const source=read('server/routes/adminRoutingV2Routes.ts');
     expect(source).not.toContain('stableModelPublicationService');
@@ -45,6 +57,8 @@ describe('Routing Core V2 Admin',()=>{
     expect(view).not.toContain('Ativar V2_ONLY');
     expect(view).not.toContain('Resetar inventário V2 (preview)');
     expect(view).toContain('Cadastrar 9 providers');
+    expect(view).toContain('Testar conexões');
+    expect(view).toContain('checkProviderHealth');
     expect(view).toContain('WaveSpeed, Atlas Cloud, Runware, fal.ai, DeepInfra, Replicate, AI/ML API, PiAPI e Kie.ai');
     expect(admin).toContain('AdminRoutingV2');
     expect(admin).toContain("id:'ai-routing'");

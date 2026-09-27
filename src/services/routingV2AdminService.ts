@@ -46,6 +46,12 @@ export interface RoutingV2HealthAdmin{
   routes:{total:number;ready:number;degraded:number;stale:number;disabled:number};
   pricing:{price_sync_interval_minutes:number;price_freshness_ttl_minutes:number};
 }
+export interface RoutingV2ProviderHealthCheckAdmin{
+  provider_id:string;provider_name:string;health_status:RoutingV2RuntimeStatus;checked_at:string;message?:string;error?:string;
+}
+export interface RoutingV2ProviderHealthCheckResponseAdmin{
+  checked_at:string;results:RoutingV2ProviderHealthCheckAdmin[];
+}
 
 const post=<T>(url:string,body:any={})=>apiRequest<T>(url,{method:'POST',body:JSON.stringify(body)});
 const patch=<T>(url:string,body:any)=>apiRequest<T>(url,{method:'PATCH',body:JSON.stringify(body)});
@@ -75,6 +81,7 @@ export const routingV2AdminService={
   syncPricing:(cursor=0,limit=10)=>post<any>('/api/admin/routing-v2/pricing/sync',{cursor,limit}),
   operationalize:(cursor=0,limit=5)=>post<any>('/api/admin/routing-v2/operationalize',{cursor,limit}),
   getHealth:()=>apiRequest<RoutingV2HealthAdmin>('/api/admin/routing-v2/health'),
+  checkProviderHealth:()=>post<RoutingV2ProviderHealthCheckResponseAdmin>('/api/admin/routing-v2/providers/health/check'),
   getReadiness:()=>apiRequest<RoutingV2ReadinessAdmin>('/api/admin/routing-v2/readiness'),
   resetPreview:()=>post<any>('/api/admin/routing-v2/reset-preview',{confirm:'RESET_ROUTING_V2_PREVIEW'}),
   getCutover:()=>apiRequest<RoutingV2CutoverAdmin>('/api/admin/routing-v2/cutover'),

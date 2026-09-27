@@ -4,8 +4,28 @@ import { routingV2Repository } from './repository.js';
 
 const router = Router();
 
-// GET /admin/routing-v2/providers/health - listar health de todos os providers
-router.get('/providers/health', async (req, res) => {
+// GET /admin/routing-v2/providers/health - ler o último health persistido
+router.get('/providers/health', async (_req, res) => {
+  try {
+    const providers = await routingV2Repository.listProviders();
+    res.json({
+      checked_at: new Date().toISOString(),
+      results: providers.map(provider => ({
+        provider_id: provider.provider_id,
+        provider_name: provider.name,
+        health_status: provider.health_status,
+        checked_at: provider.last_health_check_at || '',
+      })),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      error: String(error?.message || error),
+    });
+  }
+});
+
+// POST /admin/routing-v2/providers/health/check - consultar e persistir o health atual
+router.post('/providers/health/check', async (_req, res) => {
   try {
     const results = await providerHealthService.checkAllCore();
     res.json({
