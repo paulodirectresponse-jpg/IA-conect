@@ -1,7 +1,7 @@
 import { RoutingV2ProviderAdapter } from './adapter.js';
 import { CapabilityId } from '../beta/capabilityRegistry.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
-import { listAtlasCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from './providerCatalogService.js';
+import { listAimlCatalogModels, listAtlasCatalogModels, listDeepInfraCatalogModels, listFalCatalogModels, listReplicateCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from './providerCatalogService.js';
 import { checkProviderHealth } from './healthAdapter.js';
 
 // Compatibility wrapper used only for execution delegation while HYBRID is active.
@@ -12,6 +12,16 @@ import { checkProviderHealth } from './healthAdapter.js';
 // - It MUST NOT fabricate catalog evidence.
 // Catalog discovery is exposed only where the provider has a verified live catalog source.
 // Health and pricing remain factual and are not inferred by this wrapper.
+
+const catalogLists:Record<string,(query?:string)=>Promise<import('./adapter.js').RoutingV2CatalogModel[]>>={
+  'provider-atlas':()=>listAtlasCatalogModels(),
+  'provider-runware':query=>listRunwareCatalogModels(query),
+  'provider-wavespeed':query=>listWaveSpeedCatalogModels(query),
+  'provider-fal':query=>listFalCatalogModels(query),
+  'provider-deepinfra':query=>listDeepInfraCatalogModels(query),
+  'provider-replicate':query=>listReplicateCatalogModels(query),
+  'provider-aiml':query=>listAimlCatalogModels(query),
+};
 
 
 function assertIdentifierMatchesCapability(identifier:string,capabilityId:CapabilityId){
@@ -34,13 +44,9 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
 
     isConfigured: () => legacy.isConfigured(),
 
-    listModels: providerId === 'provider-atlas'
-      ? async () => listAtlasCatalogModels()
-      : providerId === 'provider-runware'
-        ? async (_provider, query) => listRunwareCatalogModels(query)
-        : providerId === 'provider-wavespeed'
-          ? async (_provider, query) => listWaveSpeedCatalogModels(query)
-          : undefined,
+    listModels: catalogLists[providerId]
+      ? async (_provider,query) => catalogLists[providerId](query)
+      : undefined,
 
     async health(provider) {
       return checkProviderHealth(provider);

@@ -50,14 +50,7 @@ export const providerHealthService = {
 
   async checkAllCore(): Promise<ProviderHealthCheckResult[]> {
     const providers = await routingV2Repository.listProviders();
-    const results: ProviderHealthCheckResult[] = [];
-
-    for (const provider of providers) {
-      const result = await this.checkAndPersist(provider);
-      results.push(result);
-    }
-
-    return results;
+    return Promise.all(providers.map(provider => this.checkAndPersist(provider)));
   },
 
   async checkByProviderId(providerId: string): Promise<ProviderHealthCheckResult> {
