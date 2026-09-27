@@ -2,24 +2,26 @@ import React,{useState}from'react';
 import{useReducedMotion}from'motion/react';
 import{ArrowRight,BookOpen,Image as ImageIcon,Layers3,Sparkles,Video,Wallet,Zap}from'lucide-react';
 import{BrandMark}from'../common/BrandMark.js';
-import{ViewportVideo}from'../common/ViewportVideo.js';
 import{ViewportImage}from'../common/ViewportImage.js';
-import{ModelShowcase,ShowcaseItem,showcaseVideo}from'../workspace/ModelShowcase.js';
+import{ModelShowcase,ShowcaseItem}from'../workspace/ModelShowcase.js';
 
 interface Props{onLogin:()=>void;onStart:()=>void;}
 const media=(key:string)=>`https://hzjyhhenajbjxkwkmzdg.supabase.co/functions/v1/showcase-media?key=${key}`;
-const heroVideo=showcaseVideo('Hero.mp4');
 
-type GalleryItem={key:string;label:string;ratio:number};
+type GalleryItem={key:string;label:string;ratio:number;fallback:string};
 const galleryRows:GalleryItem[][]=[
- [{key:'product',label:'Produto & publicidade',ratio:5/4},{key:'character',label:'Personagens realistas',ratio:4/5},{key:'cgi',label:'CGI surreal',ratio:16/9},{key:'architecture',label:'Arquitetura & interiores',ratio:16/9}],
- [{key:'fashion',label:'Moda & editorial',ratio:4/5},{key:'toy',label:'3D & estilizado',ratio:1},{key:'anime',label:'Anime & ilustração',ratio:16/9},{key:'scifi',label:'Arte conceitual & sci-fi',ratio:16/9}],
+ [{key:'product',label:'Produto & publicidade',ratio:5/4,fallback:'/starter-ideas/product-premium.svg'},{key:'character',label:'Personagens realistas',ratio:4/5,fallback:'/starter-ideas/character.svg'},{key:'cgi',label:'CGI surreal',ratio:16/9,fallback:'/starter-ideas/cgi-concept.svg'},{key:'architecture',label:'Arquitetura & interiores',ratio:16/9,fallback:'/starter-ideas/architecture.svg'}],
+ [{key:'fashion',label:'Moda & editorial',ratio:4/5,fallback:'/starter-ideas/product-premium.svg'},{key:'toy',label:'3D & estilizado',ratio:1,fallback:'/starter-ideas/image-to-video.svg'},{key:'anime',label:'Anime & ilustração',ratio:16/9,fallback:'/starter-ideas/character.svg'},{key:'scifi',label:'Arte conceitual & sci-fi',ratio:16/9,fallback:'/starter-ideas/cinematic-video.svg'}],
 ];
 
-const GalleryCard:React.FC<{item:GalleryItem}>=({item})=><figure className="ia-landing-gallery-card group relative min-w-0 overflow-hidden" style={{aspectRatio:item.ratio}}>
- <ViewportImage src={media(item.key)} alt={item.label} decoding="async" className="absolute inset-0 h-full w-full object-cover"/>
+const GalleryCard:React.FC<{item:GalleryItem}>=({item})=>{
+ const[failed,setFailed]=useState(false);
+ return <figure className="ia-landing-gallery-card group relative min-w-0 overflow-hidden" style={{aspectRatio:item.ratio}}>
+ <ViewportImage src={failed?item.fallback:media(item.key)} alt={failed?`Prévia ilustrativa: ${item.label}`:item.label} onError={()=>setFailed(true)} decoding="async" className="absolute inset-0 h-full w-full object-cover"/>
+ {failed&&<span className="ia-landing-gallery-fallback">Prévia ilustrativa</span>}
  <figcaption className="absolute inset-x-0 bottom-0 px-3.5 pb-3.5 pt-14"><p className="text-[11px] font-semibold text-white">{item.label}</p></figcaption>
 </figure>;
+};
 
 const Feature:React.FC<{icon:any;title:string;text:string}>=({icon:Icon,title,text})=><article className="ia-landing-feature">
  <Icon className="ia-landing-feature-icon"/>
@@ -29,7 +31,6 @@ const Feature:React.FC<{icon:any;title:string;text:string}>=({icon:Icon,title,te
 
 export const LandingPageView:React.FC<Props>=({onLogin,onStart})=>{
  const reduceMotion=useReducedMotion();
- const[heroVideoReady,setHeroVideoReady]=useState(false);
  const startFromModel=(item:ShowcaseItem)=>{sessionStorage.setItem('ia-connect:last-showcase-model',item.modelId);onStart()};
  return <div className="ia-landing min-h-screen overflow-x-hidden text-white">
   <header className="ia-landing-header fixed inset-x-0 top-0 z-50">
@@ -51,7 +52,6 @@ export const LandingPageView:React.FC<Props>=({onLogin,onStart})=>{
    <section className="px-3 pt-[82px] sm:px-5 sm:pt-[92px]">
     <div className="ia-landing-hero relative mx-auto max-w-7xl overflow-hidden">
      <img src="/enterprise/visuals/planet-hero-wide-v1.webp" alt="" aria-hidden="true" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover object-center"/>
-     <ViewportVideo src={heroVideo} eager deferUntilWindowLoad playWhenVisible={!reduceMotion} muted loop playsInline aria-hidden="true" onCanPlay={()=>setHeroVideoReady(true)} className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-500 ${heroVideoReady?'opacity-100':'opacity-0'}`}/>
      <div className="ia-landing-hero-overlay absolute inset-0"/>
      <div className="relative z-10 flex min-h-[590px] items-end sm:min-h-[660px]">
       <div className="w-full px-5 pb-8 pt-24 sm:px-8 sm:pb-10 lg:px-12 lg:pb-12">

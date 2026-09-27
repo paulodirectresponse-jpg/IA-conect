@@ -57,8 +57,11 @@ img,video{display:block}
 .public-model-media{position:relative;aspect-ratio:4/5;border-radius:14px;overflow:hidden;background:#05080d;border:1px solid rgba(103,190,255,.08)}
 .public-model-video,.public-media-fallback{width:100%;height:100%;object-fit:cover;background:#05080d}
 .public-media-fallback{display:grid;place-items:center;color:#596779;font-size:10px}
-.public-model-media:after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.82),transparent 46%)}
-.public-model-media>span{position:absolute;z-index:2;left:12px;bottom:12px;font-size:11px;font-weight:800}
+.public-model-media:after{content:"";position:absolute;z-index:0;inset:0;pointer-events:none;background:linear-gradient(0deg,rgba(0,0,0,.82),transparent 46%)}
+.public-preview-trigger{position:absolute;z-index:1;inset:0;display:grid;place-items:center;width:100%;height:100%;padding:0;border:0;background:transparent;color:#fff}
+.public-preview-action{position:relative;z-index:1;padding:9px 12px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(3,9,15,.72);font-size:10px;font-weight:750;backdrop-filter:blur(8px)}
+.public-preview-trigger:focus-visible{outline:2px solid #5ed2ff;outline-offset:-3px}
+.public-model-media>span:not(.public-preview-action){position:absolute;z-index:2;left:12px;bottom:12px;pointer-events:none;font-size:11px;font-weight:800}
 .public-model-body{padding:12px 2px 0}
 .public-model-body h3{margin:0;font-size:13px;line-height:1.35}
 .public-model-body p{margin:7px 0 0;color:#748295;font-size:11px;line-height:1.55}
@@ -68,6 +71,7 @@ img,video{display:block}
 .public-gallery figure{position:relative;margin:0;aspect-ratio:4/3;border-radius:14px;overflow:hidden;background:#08131e;border:1px solid rgba(103,190,255,.07)}
 .public-gallery img{width:100%;height:100%;object-fit:cover;transition:transform 260ms var(--public-ease)}
 .public-gallery figure:hover img{transform:scale(1.012)}
+.public-gallery-fallback{position:absolute;z-index:1;inset:12px auto auto 12px;padding:6px 8px;border:1px solid rgba(103,190,255,.16);border-radius:999px;background:rgba(3,9,15,.72);color:#c3d5e1;font-size:9px;font-weight:700;backdrop-filter:blur(8px)}
 .public-gallery figcaption{position:absolute;inset:auto 0 0;padding:42px 12px 12px;background:linear-gradient(transparent,rgba(0,0,0,.72));font-size:11px;font-weight:750}
 .public-features{margin-top:34px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid rgba(148,190,220,.08);border-bottom:1px solid rgba(148,190,220,.08)}
 .public-features article{padding:26px 22px}
