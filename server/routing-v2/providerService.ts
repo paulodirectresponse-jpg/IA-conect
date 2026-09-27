@@ -56,13 +56,9 @@ export const ROUTING_V2_CORE_PROVIDERS=[
   {provider_id:'provider-wavespeed',name:'WaveSpeed AI',type:'AGGREGATOR' as const,adapter_id:'v2:provider-wavespeed',priority:110},
   {provider_id:'provider-atlas',name:'Atlas Cloud',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-atlas',priority:100},
   {provider_id:'provider-runware',name:'Runware',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-runware',priority:95},
-  {provider_id:'provider-fal',name:'fal.ai',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-fal',priority:90},
-  {provider_id:'provider-deepinfra',name:'DeepInfra',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-deepinfra',priority:85},
-  {provider_id:'provider-replicate',name:'Replicate',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-replicate',priority:80},
-  {provider_id:'provider-aiml',name:'AI/ML API',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-aiml',priority:75},
-  {provider_id:'provider-piapi',name:'PiAPI',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-piapi',priority:70},
-  {provider_id:'provider-kie',name:'Kie.ai',type:'AGGREGATOR' as const,adapter_id:'wrapper:provider-kie',priority:65},
 ];
+const officialProviderIds=new Set(ROUTING_V2_CORE_PROVIDERS.map(provider=>provider.provider_id));
+export const isOfficialRoutingV2Provider=(providerId:string)=>officialProviderIds.has(providerId);
 
 export const routingV2ProviderService={
   async list(){
@@ -95,6 +91,7 @@ export const routingV2ProviderService={
     const providerId=validateId(input.provider_id,'provider_id');
     const name=String(input.name||'').trim();
     const known=ROUTING_V2_CORE_PROVIDERS.find(row=>row.provider_id===providerId);
+    if(!known)throw new Error('Somente WaveSpeed AI, Atlas Cloud e Runware são provedores oficiais do IA Connect.');
     const adapterId=validateAdapterId(input.adapter_id||known?.adapter_id||`wrapper:${providerId}`);
     if(!name)throw new Error('Nome do provider é obrigatório.');
     if(await routingV2Repository.getProvider(providerId))throw new Error('Provider V2 já existe.');
@@ -128,6 +125,7 @@ export const routingV2ProviderService={
   async update(providerId:string,input:UpdateRoutingV2ProviderInput){
     const current=await routingV2Repository.getProvider(providerId);
     if(!current)throw new Error('Provider V2 não encontrado.');
+    if(!isOfficialRoutingV2Provider(providerId)&&input.status&&input.status!=='DISABLED')throw new Error('Este provider não faz parte dos três provedores oficiais do IA Connect e não pode ser ativado.');
     const adapterId=input.adapter_id===undefined?current.adapter_id:validateAdapterId(input.adapter_id);
     const adapter=resolveAdapter(adapterId);
     if(!adapter)throw new Error('Adapter V2 não registrado.');

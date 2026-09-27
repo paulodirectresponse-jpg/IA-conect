@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireAdmin, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { isCapabilityId } from '../beta/capabilityRegistry.js';
-import { routingV2ProviderService } from '../routing-v2/providerService.js';
+import { isOfficialRoutingV2Provider, ROUTING_V2_CORE_PROVIDERS, routingV2ProviderService } from '../routing-v2/providerService.js';
 import { routingV2ModelService } from '../routing-v2/modelService.js';
 import { routingV2RouteService } from '../routing-v2/routeService.js';
 import { routingV2Repository } from '../routing-v2/repository.js';
@@ -20,9 +20,9 @@ import { routingV2SmartRouter } from '../routing-v2/smartRouter.js';
 import { factoryResetService } from '../services/factoryResetService.js';
 import { CANONICAL_IMAGE_MODELS, catalogSearchTerms, normalizeImageModelText, resolveCanonicalImageModel } from '../routing-v2/imageCatalogCanonical.js';
 import { isCatalogIdentityUsable, parseCatalogModelIdentity } from '../routing-v2/imageCatalogIdentity.js';
-import { listAimlCatalogModels, listAtlasCatalogModels, listDeepInfraCatalogModels, listFalCatalogModels, listReplicateCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from '../routing-v2/providerCatalogService.js';
+import { listAtlasCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from '../routing-v2/providerCatalogService.js';
 import { providerHealthService } from '../routing-v2/providerHealthService.js';
-import { normalizeUnifiedCatalogDisplayName, normalizeUnifiedCatalogSearch, providerIdentifierModelName } from '../routing-v2/unifiedCatalogIdentity.js';
+import { canonicalizeUnifiedVideoCatalogIdentity, normalizeUnifiedCatalogDisplayName, normalizeUnifiedCatalogSearch, providerIdentifierModelName } from '../routing-v2/unifiedCatalogIdentity.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -67,6 +67,7 @@ adminRoutingV2Router.get('/admin/routing-v2/providers/:providerId/catalog-models
   try{
     const provider=await routingV2ProviderService.get(req.params.providerId);
     if(!provider)return res.status(404).json({success:false,error:{code:'ROUTING_V2_PROVIDER_NOT_FOUND',message:'Provider V2 não encontrado.'}});
+    if(!isOfficialRoutingV2Provider(provider.provider_id)||provider.status==='DISABLED')return res.status(409).json({success:false,error:{code:'ROUTING_V2_PROVIDER_NOT_OFFICIAL',message:'Somente WaveSpeed AI, Atlas Cloud e Runware ativos podem ser consultados.'}});
     const adapter=adapterFor(provider);
     if(!adapter?.listModels)return res.status(409).json({success:false,error:{code:'ROUTING_V2_CATALOG_UNAVAILABLE',message:'Este provider não oferece catálogo de modelos pelo adapter V2.'}});
     const rawQuery=String(req.query.q||'').trim();
@@ -124,10 +125,15 @@ function inferCatalogCategory(row:any):CatalogCategory{
   return'OTHER';
 }
 function inferNonImageCapabilities(row:any){
-  const values=[...(Array.isArray(row?.capabilities)?row.capabilities:[]),...(Array.isArray(row?.metadata?.capabilities)?row.metadata.capabilities:[]),row?.metadata?.type,row?.metadata?.category,...(Array.isArray(row?.metadata?.tags)?row.metadata.tags:[])].map((value:any)=>String(value||'').toLowerCase().replace(/_/g,'-'));
+  const values=[...(Array.isArray(row?.capabilities)?row.capabilities:[]),...(Array.isArray(row?.metadata?.capabilities)?row.metadata.capabilities:[]),row?.metadata?.type,row?.metadata?.category,...(Array.isArray(row?.metadata?.tags)?row.metadata.tags:[]),row?.name,row?.provider_model_identifier].map((value:any)=>String(value||'').toLowerCase().replace(/_/g,'-'));
   const raw=values.join(' ');
   const supported=['text-to-video','image-to-video','first-frame','last-frame','video-extend','video-edit','text-to-speech','sound-effects','music','text-to-3d','image-to-3d','multi-image-to-3d','texture-3d'];
-  return supported.filter(capability=>raw.includes(capability));
+  const inferred=supported.filter(capability=>raw.includes(capability));
+  if(/\b(?:t2v|text[\s-]*to[\s-]*video)\b/i.test(raw))inferred.push('text-to-video');
+  if(/\b(?:i2v|image[\s-]*to[\s-]*video|r2v|reference[\s-]*to[\s-]*video)\b/i.test(raw))inferred.push('image-to-video');
+  if(/\b(?:video[\s-]*extend|extend[\s-]*video)\b/i.test(raw))inferred.push('video-extend');
+  if(/\b(?:video[\s-]*edit|edit[\s-]*video)\b/i.test(raw))inferred.push('video-edit');
+  return Array.from(new Set(inferred));
 }
 function catalogBase(value:string){
   let base=String(value||'').trim();
@@ -147,6 +153,17 @@ function catalogKey(name:string,identifier:string,vendor=''){
     .replace(/^(openai|google|bytedance|black-forest-labs|bfl|alibaba|ideogram|recraft|krea|meta|luma|xai)\//,'')
     .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
   return strip(base)||strip(name)||strip(vendor);
+}
+function addCatalogProviderBinding(row:any,binding:any){
+  const key=`${String(binding?.provider_id||'').toLowerCase()}|${String(binding?.provider_model_identifier||'').trim().toLowerCase()}`;
+  if(!key||key==='|')return;
+  const existing=(row.providers||[]).find((provider:any)=>`${String(provider?.provider_id||'').toLowerCase()}|${String(provider?.provider_model_identifier||'').trim().toLowerCase()}`===key);
+  if(existing){
+    existing.capabilities=Array.from(new Set([...(existing.capabilities||[]),...(binding.capabilities||[])]));
+    existing.metadata={...(existing.metadata||{}),...(binding.metadata||{})};
+    return;
+  }
+  row.providers.push(binding);
 }
 function matchesUnifiedCatalogQuery(row:any,query:string,terms:string[]){
   if(!query)return true;
@@ -188,8 +205,7 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
     const query=String(req.query.q||'').trim();
     const allProviders=await routingV2ProviderService.list();
     const providerMap=new Map(allProviders.map(p=>[p.provider_id,p]));
-    const providers=['provider-wavespeed','provider-atlas','provider-runware','provider-fal','provider-deepinfra','provider-replicate','provider-aiml']
-      .map(id=>providerMap.get(id))
+    const providers=ROUTING_V2_CORE_PROVIDERS.map(({provider_id})=>providerMap.get(provider_id))
       .filter((p):p is NonNullable<typeof p>=>Boolean(p&&p.status!=='DISABLED'));
     const terms=catalogSearchTerms(query);
     const runwareTerm=terms.find(term=>term.toLowerCase()!==query.toLowerCase())||query||'image';
@@ -226,22 +242,6 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         pushRows(await withTimeout(listWaveSpeedCatalogModels(query),'WaveSpeed'));
         return{provider,rows,attempts:1};
       }
-      if(provider.provider_id==='provider-fal'){
-        pushRows(await withTimeout(listFalCatalogModels(query),'fal.ai'));
-        return{provider,rows,attempts:1};
-      }
-      if(provider.provider_id==='provider-deepinfra'){
-        pushRows(await withTimeout(listDeepInfraCatalogModels(query),'DeepInfra'));
-        return{provider,rows,attempts:1};
-      }
-      if(provider.provider_id==='provider-replicate'){
-        pushRows(await withTimeout(listReplicateCatalogModels(query),'Replicate'));
-        return{provider,rows,attempts:1};
-      }
-      if(provider.provider_id==='provider-aiml'){
-        pushRows(await withTimeout(listAimlCatalogModels(query),'AI/ML API'));
-        return{provider,rows,attempts:1};
-      }
       throw new Error('Provider de catálogo não suportado.');
     }));
     const grouped=new Map<string,any>();
@@ -259,13 +259,14 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         if(category!=='IMAGE'){
           const capabilities=inferNonImageCapabilities(row);
           const vendor=catalogVendor(row?.vendor)||catalogVendor(row?.metadata?.provider)||catalogVendor(row?.metadata?.creator);
-          const key=catalogKey(rawName,identifier,vendor);
+          const videoIdentity=category==='VIDEO'?canonicalizeUnifiedVideoCatalogIdentity(rawName,identifier,vendor):null;
+          const key=videoIdentity?.catalog_key||catalogKey(rawName,identifier,vendor);
           if(!key)continue;
-          const current=grouped.get(key)||{catalog_key:key,name:catalogDisplayName(rawName,identifier,vendor)||rawName,vendor,category,capabilities:[],providers:[]};
+          const current=grouped.get(key)||{catalog_key:key,name:videoIdentity?.display_name||catalogDisplayName(rawName,identifier,vendor)||rawName,vendor,category,capabilities:[],providers:[]};
           if(current.category==='OTHER'&&category!=='OTHER')current.category=category;
           if(!current.vendor&&vendor)current.vendor=vendor;
           current.capabilities=Array.from(new Set([...(current.capabilities||[]),...capabilities]));
-          current.providers.push({provider_id:provider.provider_id,provider_name:provider.name,provider_model_identifier:identifier,capabilities,metadata:row?.metadata||{}});
+          addCatalogProviderBinding(current,{provider_id:provider.provider_id,provider_name:provider.name,provider_model_identifier:identifier,capabilities,metadata:row?.metadata||{}});
           grouped.set(key,current);
           continue;
         }
@@ -288,7 +289,7 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         const current=grouped.get(key)||{catalog_key:key,name:displayName,vendor,category:'IMAGE',capabilities:[],providers:[]};
         if(!current.vendor&&vendor)current.vendor=vendor;
         current.capabilities=Array.from(new Set([...(current.capabilities||[]),...resolvedCapabilities]));
-        current.providers.push({
+        addCatalogProviderBinding(current,{
           provider_id:provider.provider_id,
           provider_name:provider.name,
           provider_model_identifier:identifier,
@@ -327,6 +328,8 @@ adminRoutingV2Router.post('/admin/routing-v2/models/bulk-import',...guard,async(
     for(const raw of items){
       const modelId=String(raw?.model_id||'').trim();
       try{
+        const bindings=Array.isArray(raw?.providers)?raw.providers:[];
+        if(bindings.some((binding:any)=>binding?.provider_id&&!isOfficialRoutingV2Provider(String(binding.provider_id))))throw new Error('A importação aceita somente WaveSpeed AI, Atlas Cloud e Runware.');
         let model=await routingV2ModelService.get(modelId);
         let capabilities=(Array.isArray(raw?.capabilities)?raw.capabilities:[]).filter(isCapabilityId);
         if(model&&!capabilities.length)capabilities=model.capabilities||[];
@@ -349,7 +352,6 @@ adminRoutingV2Router.post('/admin/routing-v2/models/bulk-import',...guard,async(
           } as any);
           result.existing_models.push(modelId);
         }
-        const bindings=Array.isArray(raw?.providers)?raw.providers:[];
         for(const binding of bindings){
           const providerId=String(binding?.provider_id||'').trim();
           const identifier=String(binding?.provider_model_identifier||'').trim();
@@ -426,7 +428,10 @@ adminRoutingV2Router.post('/admin/routing-v2/routes/bootstrap-canonical',...guar
   }catch(err){return error(res,err,'ROUTING_V2_ROUTE_BOOTSTRAP_FAILED');}
 });
 adminRoutingV2Router.post('/admin/routing-v2/routes',...guard,async(req,res)=>{
-  try{return res.json({success:true,data:await routingV2RouteService.create(req.body)});}catch(err){return error(res,err,'ROUTING_V2_ROUTE_CREATE_FAILED');}
+  try{
+    if(!isOfficialRoutingV2Provider(String(req.body?.provider_id||'')))throw new Error('Somente WaveSpeed AI, Atlas Cloud e Runware podem receber novas rotas.');
+    return res.json({success:true,data:await routingV2RouteService.create(req.body)});
+  }catch(err){return error(res,err,'ROUTING_V2_ROUTE_CREATE_FAILED');}
 });
 adminRoutingV2Router.patch('/admin/routing-v2/routes/:routeId',...guard,async(req,res)=>{
   try{return res.json({success:true,data:await routingV2RouteService.update(req.params.routeId,req.body)});}catch(err){return error(res,err,'ROUTING_V2_ROUTE_UPDATE_FAILED');}
