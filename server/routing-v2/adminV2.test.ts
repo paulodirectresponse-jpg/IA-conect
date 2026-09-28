@@ -148,7 +148,7 @@ describe('Routing Core V2 Admin',()=>{
     expect(routes).toContain('identity.display_name');
     expect(routes).toContain('isCatalogIdentityUsable(identity)');
     expect(routes).toContain("listAtlasCatalogModels()");
-    expect(routes).toContain("listRunwareCatalogModels(runwareTerm)");
+    expect(routes).toContain("searchRunwareCatalogModels(runwareTerm,{offset:0,limit:100})");
   });
 
   it('prioritizes canonical image models and hides generic endpoint noise only at presentation layer',()=>{
@@ -160,15 +160,15 @@ describe('Routing Core V2 Admin',()=>{
     expect(identity).toContain('GENERIC_ENDPOINT_PATTERN');
     expect(identity).toContain('reference[\\s/_-]*to[\\s/_-]*image');
     expect(routes).toContain("listAtlasCatalogModels()");
-    expect(routes).toContain("listRunwareCatalogModels(runwareTerm)");
+    expect(routes).toContain("searchRunwareCatalogModels(runwareTerm,{offset:0,limit:100})");
   });
 
-  it('filters unified catalog rows before canonical grouping and repairs existing model identity',()=>{
+  it('uses token-aware search before grouping and repairs existing model identity',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     const models=read('server/routing-v2/modelService.ts');
-    expect(routes).toContain('matchesUnifiedCatalogQuery');
-    expect(routes).toContain('if(!matchesUnifiedCatalogQuery(row,query,terms))continue');
-    expect(routes).toContain('if(rows.length>=250)break');
+    expect(routes).toContain('unifiedCatalogSearchScore(query,catalogSearchValues(row))');
+    expect(routes).toContain('identityKey=key.toLowerCase()');
+    expect(routes).toContain('pageRows=rows.slice(offset,offset+limit)');
     expect(routes).toContain('routingV2ModelService.updateIdentity');
     expect(models).toContain('async updateIdentity');
   });
@@ -180,17 +180,19 @@ describe('Routing Core V2 Admin',()=>{
     expect(routes).toContain("[\\s\\/_-])(video|3d|audio");
     expect(routes).toContain("if(isTechnicalImageCatalogNoise(rawName,identifier,canonical))continue");
     expect(routes).toContain("listAtlasCatalogModels()");
-    expect(routes).toContain("listRunwareCatalogModels(runwareTerm)");
+    expect(routes).toContain("searchRunwareCatalogModels(runwareTerm,{offset:0,limit:100})");
   });
 
   it('keeps unified catalog within runtime budget and returns partial provider results',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     const catalog=read('server/routing-v2/providerCatalogService.ts');
-    expect(routes).toContain("const runwareTerm=terms.find");
+    expect(routes).toContain('const runwareTerm=queryTokens.sort');
     expect(routes).toContain("withTimeout");
     expect(routes).toContain("ms=6500");
-    expect(routes).toContain("listRunwareCatalogModels(runwareTerm)");
-    expect(routes).not.toContain("Promise.allSettled(terms.map(term=>listRunwareCatalogModels(term)))");
+    expect(routes).toContain("searchRunwareCatalogModels(runwareTerm,{offset:0,limit:100})");
+    expect(routes).toContain('firstPage.total_results');
+    expect(routes).toContain('source_truncated:diagnostics.some');
+    expect(routes).not.toContain('catalogSearchTerms(query)');
     expect(catalog).toContain("controller.abort(),5500");
   });
 
@@ -199,15 +201,16 @@ describe('Routing Core V2 Admin',()=>{
     const view=read('src/components/admin/AdminRoutingV2.tsx');
     const client=read('src/services/routingV2AdminService.ts');
     expect(routes).toContain("provider.provider_id==='provider-wavespeed'");
-    expect(routes).toContain('listWaveSpeedCatalogModels(query)');
+    expect(routes).toContain('listWaveSpeedCatalogModels()');
     expect(routes).toContain("provider.provider_id==='provider-atlas'");
     expect(routes).toContain('listAtlasCatalogModels()');
     expect(routes).toContain("provider.provider_id==='provider-runware'");
-    expect(routes).toContain('listRunwareCatalogModels(runwareTerm)');
+    expect(routes).toContain('searchRunwareCatalogModels(runwareTerm,{offset:0,limit:100})');
     expect(routes).toContain('provider_diagnostics');
     expect(view).toContain('catalogDiagnostics');
-    expect(view).toContain('encontrado(s) na API');
+    expect(view).toContain('retorno(s) da API');
     expect(view).toContain('catalog_count');
+    expect(view).toContain('matched_count');
     expect(client).toContain('RoutingV2UnifiedCatalogDiagnosticAdmin');
   });
 
@@ -216,6 +219,10 @@ describe('Routing Core V2 Admin',()=>{
     const view=read('src/components/admin/AdminRoutingV2.tsx');
     for(const source of ['listFalCatalogModels','listDeepInfraCatalogModels','listReplicateCatalogModels','listAimlCatalogModels'])expect(routes).not.toContain(source);
     expect(view).toContain('WaveSpeed AI, Atlas Cloud e Runware');
+    expect(view).toContain('resetCatalogSearch(e.target.value)');
+    expect(view).toContain('catalogRequestId.current');
+    expect(view).toContain('Carregar mais');
+    expect(view).toContain('Filtrar inventário cadastrado');
     expect(view).not.toContain('fal.ai, DeepInfra, Replicate e AI/ML API');
     expect(routes).toContain("res.set('Cache-Control','private, no-store, no-cache, max-age=0')");
     expect(routes).toContain("import '../routing-v2/health.init.js'");
@@ -242,7 +249,7 @@ describe('Routing Core V2 Admin',()=>{
     expect(routes).not.toContain('listReplicateCatalogModels');
     expect(routes).not.toContain('listAimlCatalogModels');
     expect(routes).toContain("provider.provider_id==='provider-wavespeed'");
-    expect(routes).toContain('listWaveSpeedCatalogModels(query)');
+    expect(routes).toContain('listWaveSpeedCatalogModels()');
     expect(routes).toContain('canonical?.default_capabilities');
     expect(routes).not.toContain("p.status!=='DISABLED'&&p.supports_catalog_sync");
   });
