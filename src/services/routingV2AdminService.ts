@@ -26,8 +26,8 @@ export interface RoutingV2RouteAdmin{
 export interface RoutingV2CatalogModelAdmin{provider_model_identifier:string;name:string;vendor?:string|null;capabilities?:string[];metadata?:Record<string,unknown>;}
 export interface RoutingV2UnifiedCatalogProviderAdmin{provider_id:string;provider_name:string;provider_model_identifier:string;capabilities:string[];metadata?:Record<string,unknown>;}
 export interface RoutingV2UnifiedCatalogModelAdmin{catalog_key:string;name:string;vendor:string;category:'VIDEO'|'IMAGE'|'AUDIO'|'MODEL_3D'|'OTHER';capabilities:string[];providers:RoutingV2UnifiedCatalogProviderAdmin[];}
-export interface RoutingV2UnifiedCatalogDiagnosticAdmin{provider_id:string;provider_name:string;status:'OK'|'ERROR';count:number;catalog_count?:number;attempts?:number;message?:string;}
-export interface RoutingV2UnifiedCatalogResponseAdmin{rows:RoutingV2UnifiedCatalogModelAdmin[];failures:Array<{provider_id:string;message:string}>;provider_diagnostics:RoutingV2UnifiedCatalogDiagnosticAdmin[];}
+export interface RoutingV2UnifiedCatalogDiagnosticAdmin{provider_id:string;provider_name:string;status:'OK'|'ERROR';returned_count:number;matched_count:number;catalog_count:number;total_count:number|null;truncated:boolean;attempts?:number;message?:string;}
+export interface RoutingV2UnifiedCatalogResponseAdmin{rows:RoutingV2UnifiedCatalogModelAdmin[];query:string;total_count:number;offset:number;limit:number;has_more:boolean;source_truncated:boolean;failures:Array<{provider_id:string;message:string}>;provider_diagnostics:RoutingV2UnifiedCatalogDiagnosticAdmin[];}
 export interface RoutingV2BulkImportResultAdmin{created_models:string[];existing_models:string[];created_routes:string[];skipped_routes:string[];failed:Array<{model_id:string;error:string}>;}
 export interface RoutingV2PricingSettingsAdmin{target_margin_percent:number;safety_buffer_percent:number;reference_credit_value_brl:number;price_sync_interval_minutes:number;price_freshness_ttl_minutes:number;stale_grace_minutes:number;updated_at:string;}
 export interface RoutingV2ReadinessAdmin{
@@ -63,7 +63,7 @@ export const routingV2AdminService={
   updateProvider:(id:string,data:any)=>patch<RoutingV2ProviderAdmin>(`/api/admin/routing-v2/providers/${encodeURIComponent(id)}`,data),
   disableProvider:(id:string)=>post<RoutingV2ProviderAdmin>(`/api/admin/routing-v2/providers/${encodeURIComponent(id)}/disable`),
   searchProviderModels:(id:string,q='')=>apiRequest<RoutingV2CatalogModelAdmin[]>(`/api/admin/routing-v2/providers/${encodeURIComponent(id)}/catalog-models?q=${encodeURIComponent(q)}`),
-  searchUnifiedCatalog:(q='')=>apiRequest<RoutingV2UnifiedCatalogResponseAdmin>(`/api/admin/routing-v2/catalog-unified?q=${encodeURIComponent(q)}`,{cache:'no-store'}),
+  searchUnifiedCatalog:(q='',options:{offset?:number;limit?:number}={})=>apiRequest<RoutingV2UnifiedCatalogResponseAdmin>(`/api/admin/routing-v2/catalog-unified?q=${encodeURIComponent(q)}&offset=${Math.max(0,Math.trunc(options.offset||0))}&limit=${Math.min(100,Math.max(1,Math.trunc(options.limit||50)))}`,{cache:'no-store'}),
 
   listModels:()=>apiRequest<RoutingV2ModelAdmin[]>('/api/admin/routing-v2/models'),
   createModel:(data:any)=>post<RoutingV2ModelAdmin>('/api/admin/routing-v2/models',data),

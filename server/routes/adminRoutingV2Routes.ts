@@ -18,11 +18,11 @@ import '../routing-v2/health.init.js';
 import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapService.js';
 import { routingV2SmartRouter } from '../routing-v2/smartRouter.js';
 import { factoryResetService } from '../services/factoryResetService.js';
-import { CANONICAL_IMAGE_MODELS, catalogSearchTerms, normalizeImageModelText, resolveCanonicalImageModel } from '../routing-v2/imageCatalogCanonical.js';
+import { CANONICAL_IMAGE_MODELS, normalizeImageModelText, resolveCanonicalImageModel } from '../routing-v2/imageCatalogCanonical.js';
 import { isCatalogIdentityUsable, parseCatalogModelIdentity } from '../routing-v2/imageCatalogIdentity.js';
-import { listAtlasCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from '../routing-v2/providerCatalogService.js';
+import { listAtlasCatalogModels, listWaveSpeedCatalogModels, searchRunwareCatalogModels } from '../routing-v2/providerCatalogService.js';
 import { providerHealthService } from '../routing-v2/providerHealthService.js';
-import { canonicalizeUnifiedVideoCatalogIdentity, normalizeUnifiedCatalogDisplayName, normalizeUnifiedCatalogSearch, providerIdentifierModelName } from '../routing-v2/unifiedCatalogIdentity.js';
+import { canonicalizeUnifiedVideoCatalogIdentity, normalizeUnifiedCatalogDisplayName, normalizeUnifiedCatalogSearch, providerIdentifierModelName, unifiedCatalogSearchScore } from '../routing-v2/unifiedCatalogIdentity.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -165,11 +165,22 @@ function addCatalogProviderBinding(row:any,binding:any){
   }
   row.providers.push(binding);
 }
-function matchesUnifiedCatalogQuery(row:any,query:string,terms:string[]){
-  if(!query)return true;
-  const raw=normalizeUnifiedCatalogSearch(`${String(row?.name||'')} ${String(row?.provider_model_identifier||'')} ${catalogVendor(row?.vendor)} ${catalogVendor(row?.metadata?.provider)} ${catalogVendor(row?.metadata?.creator)}`);
-  const normalizedTerms=terms.map(normalizeUnifiedCatalogSearch).filter(Boolean);
-  return normalizedTerms.some(term=>raw.includes(term));
+function catalogSearchValues(row:any){
+  const metadata=row?.metadata||{};
+  const values=[
+    row?.name,row?.provider_model_identifier,row?.vendor,
+    metadata?.provider,metadata?.creator,metadata?.vendor,metadata?.aliases,
+    metadata?.tags,metadata?.capabilities,metadata?.category,metadata?.type,
+    metadata?.architecture,
+  ];
+  const flatten=(value:any):string[]=>{
+    if(value==null)return[];
+    if(Array.isArray(value))return value.flatMap(flatten);
+    if(typeof value==='string'||typeof value==='number')return[String(value)];
+    if(typeof value==='object')return[catalogVendor(value)].filter(Boolean);
+    return[];
+  };
+  return values.flatMap(flatten);
 }
 const CANONICAL_IMAGE_IDS=new Set(CANONICAL_IMAGE_MODELS.map(model=>model.canonical_id));
 function isGenericGroupedCatalogNoise(row:any,canonicalRows:any[]){
@@ -203,22 +214,26 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
     res.set('Cache-Control','private, no-store, no-cache, max-age=0');
     res.set('Pragma','no-cache');
     const query=String(req.query.q||'').trim();
+    const limit=Math.min(100,Math.max(1,Math.trunc(Number(req.query.limit)||50)));
+    const offset=Math.max(0,Math.trunc(Number(req.query.offset)||0));
     const allProviders=await routingV2ProviderService.list();
     const providerMap=new Map(allProviders.map(p=>[p.provider_id,p]));
     const providers=ROUTING_V2_CORE_PROVIDERS.map(({provider_id})=>providerMap.get(provider_id))
       .filter((p):p is NonNullable<typeof p>=>Boolean(p&&p.status!=='DISABLED'));
-    const terms=catalogSearchTerms(query);
-    const runwareTerm=terms.find(term=>term.toLowerCase()!==query.toLowerCase())||query||'image';
+    const queryTokens=normalizeUnifiedCatalogSearch(query).split(' ').filter(token=>/[a-z]/i.test(token));
+    const runwareTerm=queryTokens.sort((a,b)=>b.length-a.length)[0]||query||'ai';
     const settled=await Promise.allSettled(providers.map(async provider=>{
       const rows:any[]=[];
       const seen=new Set<string>();
       const pushRows=(items:any[])=>{
         for(const row of items){
-          if(!matchesUnifiedCatalogQuery(row,query,terms))continue;
           const key=String(row?.provider_model_identifier||'').trim();
-          if(!key||seen.has(key))continue;
-          seen.add(key);rows.push(row);
-          if(rows.length>=250)break;
+          const identityKey=key.toLowerCase();
+          if(!identityKey||seen.has(identityKey))continue;
+          const score=unifiedCatalogSearchScore(query,catalogSearchValues(row));
+          if(score==null)continue;
+          seen.add(identityKey);
+          rows.push({...row,_unified_search_score:score});
         }
       };
       const withTimeout=async<T>(promise:Promise<T>,label:string,ms=6500):Promise<T>=>{
@@ -231,16 +246,31 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         }finally{if(timer)clearTimeout(timer);}
       };
       if(provider.provider_id==='provider-atlas'){
-        pushRows(await withTimeout(listAtlasCatalogModels(),'Atlas Cloud'));
-        return{provider,rows,attempts:1};
+        const response=await withTimeout(listAtlasCatalogModels(),'Atlas Cloud');
+        pushRows(response);
+        return{provider,rows,returned_count:response.length,total_count:null,truncated:false,attempts:1,message:null};
       }
       if(provider.provider_id==='provider-runware'){
-        pushRows(await withTimeout(listRunwareCatalogModels(runwareTerm),'Runware'));
-        return{provider,rows,attempts:1};
+        const firstPage=await withTimeout(searchRunwareCatalogModels(runwareTerm,{offset:0,limit:100}),'Runware');
+        const maxRows=300;
+        const pageCount=Math.min(Math.ceil(firstPage.total_results/firstPage.limit),Math.ceil(maxRows/firstPage.limit));
+        const additionalPages=await Promise.allSettled(Array.from({length:Math.max(0,pageCount-1)},(_,index)=>
+          withTimeout(searchRunwareCatalogModels(runwareTerm,{offset:(index+1)*firstPage.limit,limit:firstPage.limit}),'Runware'),
+        ));
+        const successfulPages=additionalPages.filter((page):page is PromiseFulfilledResult<Awaited<ReturnType<typeof searchRunwareCatalogModels>>>=>page.status==='fulfilled').map(page=>page.value);
+        const pageErrors=additionalPages.filter((page):page is PromiseRejectedResult=>page.status==='rejected');
+        const responses=[firstPage,...successfulPages];
+        const response=responses.flatMap(page=>page.rows);
+        pushRows(response);
+        const returnedCount=response.length;
+        const truncated=returnedCount<firstPage.total_results;
+        const message=pageErrors.length?`${pageErrors.length} página(s) adicional(is) do Runware não responderam.`:null;
+        return{provider,rows,returned_count:returnedCount,total_count:firstPage.total_results,truncated,attempts:responses.length+pageErrors.length,message};
       }
       if(provider.provider_id==='provider-wavespeed'){
-        pushRows(await withTimeout(listWaveSpeedCatalogModels(query),'WaveSpeed'));
-        return{provider,rows,attempts:1};
+        const response=await withTimeout(listWaveSpeedCatalogModels(),'WaveSpeed');
+        pushRows(response);
+        return{provider,rows,returned_count:response.length,total_count:null,truncated:false,attempts:1,message:null};
       }
       throw new Error('Provider de catálogo não suportado.');
     }));
@@ -249,8 +279,8 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
     const providerDiagnostics:any[]=[];
     settled.forEach((result,index)=>{
       const provider=providers[index];
-      if(result.status==='rejected'){const message=String((result.reason as any)?.message||result.reason);failures.push({provider_id:provider.provider_id,message});providerDiagnostics.push({provider_id:provider.provider_id,provider_name:provider.name,status:'ERROR',count:0,message});return;}
-      providerDiagnostics.push({provider_id:provider.provider_id,provider_name:provider.name,status:'OK',count:result.value.rows.length,catalog_count:0,attempts:result.value.attempts});
+      if(result.status==='rejected'){const message=String((result.reason as any)?.message||result.reason);failures.push({provider_id:provider.provider_id,message});providerDiagnostics.push({provider_id:provider.provider_id,provider_name:provider.name,status:'ERROR',returned_count:0,matched_count:0,catalog_count:0,total_count:null,truncated:false,message});return;}
+      providerDiagnostics.push({provider_id:provider.provider_id,provider_name:provider.name,status:'OK',returned_count:result.value.returned_count,matched_count:0,catalog_count:0,total_count:result.value.total_count,truncated:result.value.truncated,attempts:result.value.attempts,message:result.value.message||undefined});
       for(const row of result.value.rows){
         const rawName=String(row?.name||row?.provider_model_identifier||'').trim();
         const identifier=String(row?.provider_model_identifier||'').trim();
@@ -265,6 +295,7 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
           const current=grouped.get(key)||{catalog_key:key,name:videoIdentity?.display_name||catalogDisplayName(rawName,identifier,vendor)||rawName,vendor,category,capabilities:[],providers:[]};
           if(current.category==='OTHER'&&category!=='OTHER')current.category=category;
           if(!current.vendor&&vendor)current.vendor=vendor;
+          current._unified_search_score=Math.max(current._unified_search_score||0,row._unified_search_score||0);
           current.capabilities=Array.from(new Set([...(current.capabilities||[]),...capabilities]));
           addCatalogProviderBinding(current,{provider_id:provider.provider_id,provider_name:provider.name,provider_model_identifier:identifier,capabilities,metadata:row?.metadata||{}});
           grouped.set(key,current);
@@ -288,6 +319,7 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         const displayName=canonical?.display_name||identity.display_name||catalogDisplayName(rawName,identifier)||rawName;
         const current=grouped.get(key)||{catalog_key:key,name:displayName,vendor,category:'IMAGE',capabilities:[],providers:[]};
         if(!current.vendor&&vendor)current.vendor=vendor;
+        current._unified_search_score=Math.max(current._unified_search_score||0,row._unified_search_score||0);
         current.capabilities=Array.from(new Set([...(current.capabilities||[]),...resolvedCapabilities]));
         addCatalogProviderBinding(current,{
           provider_id:provider.provider_id,
@@ -299,10 +331,10 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         grouped.set(key,current);
       }
     });
-    const normalizedQuery=normalizeUnifiedCatalogSearch(query);
-    const filteredRows=Array.from(grouped.values())
-      .map((row:any)=>({...row,name:normalizeUnifiedCatalogDisplayName(row.name,row.providers.map((p:any)=>p.provider_model_identifier),row.vendor)}))
-      .filter((row:any)=>!normalizedQuery||normalizeUnifiedCatalogSearch(row.name).includes(normalizedQuery)||row.providers.some((p:any)=>normalizeUnifiedCatalogSearch(p.provider_model_identifier).includes(normalizedQuery)));
+    const normalizedRows=Array.from(grouped.values())
+      .map((row:any)=>({...row,name:normalizeUnifiedCatalogDisplayName(row.name,row.providers.map((p:any)=>p.provider_model_identifier),row.vendor)}));
+    const bestSearchScore=query&&normalizedRows.length?Math.max(...normalizedRows.map((row:any)=>row._unified_search_score||0)):0;
+    const filteredRows=normalizedRows.filter((row:any)=>!query||(row._unified_search_score||0)===bestSearchScore);
     const canonicalRows=filteredRows.filter((row:any)=>CANONICAL_IMAGE_IDS.has(row.catalog_key));
     const rows=filteredRows
       .filter((row:any)=>CANONICAL_IMAGE_IDS.has(row.catalog_key)||!isGenericGroupedCatalogNoise(row,canonicalRows))
@@ -310,12 +342,18 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         const aCanonical=CANONICAL_IMAGE_IDS.has(a.catalog_key)?1:0;
         const bCanonical=CANONICAL_IMAGE_IDS.has(b.catalog_key)?1:0;
         return bCanonical-aCanonical||b.providers.length-a.providers.length||a.name.localeCompare(b.name);
-      })
-      .slice(0,200);
+      });
     const providerCatalogCounts=new Map<string,Set<string>>();
-    for(const row of rows)for(const provider of row.providers){const keys=providerCatalogCounts.get(provider.provider_id)||new Set<string>();keys.add(row.catalog_key);providerCatalogCounts.set(provider.provider_id,keys);}
-    const diagnostics=providerDiagnostics.map(row=>({...row,catalog_count:providerCatalogCounts.get(row.provider_id)?.size||0}));
-    return res.json({success:true,data:{rows,failures,provider_diagnostics:diagnostics}});
+    const providerMatchedCounts=new Map<string,Set<string>>();
+    for(const row of rows)for(const binding of row.providers){
+      const catalogKeys=providerCatalogCounts.get(binding.provider_id)||new Set<string>();
+      catalogKeys.add(row.catalog_key);providerCatalogCounts.set(binding.provider_id,catalogKeys);
+      const identifiers=providerMatchedCounts.get(binding.provider_id)||new Set<string>();
+      identifiers.add(String(binding.provider_model_identifier||'').toLowerCase());providerMatchedCounts.set(binding.provider_id,identifiers);
+    }
+    const diagnostics=providerDiagnostics.map(row=>({...row,matched_count:providerMatchedCounts.get(row.provider_id)?.size||0,catalog_count:providerCatalogCounts.get(row.provider_id)?.size||0}));
+    const pageRows=rows.slice(offset,offset+limit).map((row:any)=>{const{_unified_search_score,...publicRow}=row;return publicRow;});
+    return res.json({success:true,data:{rows:pageRows,query,total_count:rows.length,offset,limit,has_more:offset+pageRows.length<rows.length,source_truncated:diagnostics.some(row=>row.truncated),failures,provider_diagnostics:diagnostics}});
   }catch(err){return error(res,err,'ROUTING_V2_UNIFIED_CATALOG_FAILED');}
 });
 

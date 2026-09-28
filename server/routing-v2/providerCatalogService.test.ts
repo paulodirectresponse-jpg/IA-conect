@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { listAimlCatalogModels, listDeepInfraCatalogModels, listFalCatalogModels, listReplicateCatalogModels } from './providerCatalogService.js';
+import { listAimlCatalogModels, listDeepInfraCatalogModels, listFalCatalogModels, listReplicateCatalogModels, searchRunwareCatalogModels } from './providerCatalogService.js';
 
 function mockJson(body:any,status=200){
   vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})));
@@ -41,5 +41,16 @@ describe('live read-only provider model catalogs',()=>{
     const rows=await listAimlCatalogModels('Seedance');
     expect(rows[0]).toMatchObject({provider_model_identifier:'bytedance/seedance-2.5',vendor:'ByteDance',capabilities:['text-to-video','image-to-video']});
     expect(fetchMock).toHaveBeenCalledWith('https://api.aimlapi.com/v1/models?include=modalities,capabilities',expect.any(Object));
+  });
+
+  it('paginates Runware model search and preserves total results and verified metadata',async()=>{
+    vi.stubEnv('RUNWARE_API_KEY','runware-test-key');
+    const fetchMock=mockJson({data:[{taskUUID:'not-the-generated-id',totalResults:245,results:[{air:'bytedance:seedance-2-0@1',name:'Seedance 2.0',provider:'ByteDance',category:'video',capabilities:['image-to-video'],source:'featured',tags:['video']}]}]});
+    const page=await searchRunwareCatalogModels('Seedance',{offset:100,limit:50});
+    const requestBody=JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(requestBody[0]).toMatchObject({taskType:'modelSearch',search:'Seedance',visibility:'public',offset:100,limit:50});
+    expect(page).toMatchObject({total_results:245,offset:100,limit:50});
+    expect(page.rows[0]).toMatchObject({provider_model_identifier:'bytedance:seedance-2-0@1',capabilities:['image-to-video'],metadata:{source:'featured',tags:['video']}});
+    expect(fetchMock).toHaveBeenCalledWith('https://api.runware.ai/v1',expect.objectContaining({headers:{Authorization:'Bearer runware-test-key','Content-Type':'application/json'}}));
   });
 });

@@ -85,10 +85,12 @@ export async function listAtlasCatalogModels():Promise<RoutingV2CatalogModel[]>{
       provider_model_identifier:identifier,
       name,
       vendor,
-      capabilities:catalogCapability(row?.type,row?.name,row?.model),
+      capabilities:catalogCapability(row?.type,row?.capabilities,row?.tags,row?.name,row?.model),
       metadata:{
         type:row?.type??null,
         tags:Array.isArray(row?.tags)?row.tags:[],
+        aliases:Array.isArray(row?.aliases)?row.aliases:[],
+        capabilities:Array.isArray(row?.capabilities)?row.capabilities:[],
         schema:row?.schema??null,
         display_console:row?.display_console??null,
       },
@@ -96,7 +98,14 @@ export async function listAtlasCatalogModels():Promise<RoutingV2CatalogModel[]>{
   }).filter((row:RoutingV2CatalogModel)=>Boolean(row.provider_model_identifier));
 }
 
-export async function listRunwareCatalogModels(query=''):Promise<RoutingV2CatalogModel[]>{
+export interface RunwareCatalogSearchPage{
+  rows:RoutingV2CatalogModel[];
+  total_results:number;
+  offset:number;
+  limit:number;
+}
+
+export async function searchRunwareCatalogModels(query='',options:{offset?:number;limit?:number}={}):Promise<RunwareCatalogSearchPage>{
   const apiKey=process.env.RUNWARE_API_KEY?.trim();
   if(!apiKey)throw Object.assign(new Error('Runware não configurada.'),{code:'ROUTING_V2_PROVIDER_NOT_CONFIGURED'});
 
@@ -105,6 +114,8 @@ export async function listRunwareCatalogModels(query=''):Promise<RoutingV2Catalo
   const rawSearch=clean(query);
   const search=(rawSearch||'ai').slice(0,48);
   if(search.length<2)throw Object.assign(new Error('Busca Runware deve ter entre 2 e 48 caracteres.'),{code:'ROUTING_V2_RUNWARE_SEARCH_INVALID'});
+  const offset=Math.max(0,Math.trunc(Number(options.offset)||0));
+  const limit=Math.min(100,Math.max(1,Math.trunc(Number(options.limit)||100)));
   const body=await readJson(url,{
     method:'POST',
     headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},
@@ -114,15 +125,15 @@ export async function listRunwareCatalogModels(query=''):Promise<RoutingV2Catalo
       search,
       visibility:'public',
       sort:'popularity',
-      offset:0,
-      limit:100,
+      offset,
+      limit,
     }]),
   });
 
   const envelope=Array.isArray(body?.data)?body.data.find((item:any)=>item?.taskUUID===taskUUID)||body.data[0]:body;
   const rows=Array.isArray(envelope?.results)?envelope.results:[];
 
-  return rows.map((row:any)=>{
+  const models=rows.map((row:any)=>{
     const identifier=clean(row?.air||row?.model||row?.id);
     const name=clean(row?.name||row?.model||identifier);
     const vendor=clean(row?.provider||row?.creator||identifier.split(':')[0])||null;
@@ -130,17 +141,29 @@ export async function listRunwareCatalogModels(query=''):Promise<RoutingV2Catalo
       provider_model_identifier:identifier,
       name,
       vendor,
-      capabilities:catalogCapability(row?.type,row?.category,row?.name,row?.model),
+      capabilities:catalogCapability(row?.type,row?.category,row?.capabilities,row?.tags,row?.name,row?.model),
       metadata:{
         category:row?.category??null,
         architecture:row?.architecture??null,
         source:row?.source??null,
         type:row?.type??null,
         tags:Array.isArray(row?.tags)?row.tags:[],
+        capabilities:Array.isArray(row?.capabilities)?row.capabilities:[],
         hero_image:row?.heroImage??null,
       },
     };
   }).filter((row:RoutingV2CatalogModel)=>Boolean(row.provider_model_identifier));
+
+  return{
+    rows:models,
+    total_results:Math.max(models.length,Number(envelope?.totalResults)||0),
+    offset,
+    limit,
+  };
+}
+
+export async function listRunwareCatalogModels(query=''):Promise<RoutingV2CatalogModel[]>{
+  return(await searchRunwareCatalogModels(query)).rows;
 }
 
 
@@ -157,7 +180,7 @@ export async function listWaveSpeedCatalogModels(query=''):Promise<RoutingV2Cata
     const identifier=clean(row?.model_id||row?.model||row?.id||row?.name);
     const name=clean(row?.name||row?.display_name||row?.displayName||identifier);
     const vendor=clean(row?.provider||row?.vendor||identifier.split('/')[0])||null;
-    const capabilities=catalogCapability(row?.type,name,identifier);
+    const capabilities=catalogCapability(row?.type,row?.capabilities,row?.tags,name,identifier);
     return{
       provider_model_identifier:identifier,
       name,
@@ -165,6 +188,9 @@ export async function listWaveSpeedCatalogModels(query=''):Promise<RoutingV2Cata
       capabilities,
       metadata:{
         type:row?.type??null,
+        aliases:Array.isArray(row?.aliases)?row.aliases:[],
+        tags:Array.isArray(row?.tags)?row.tags:[],
+        capabilities:Array.isArray(row?.capabilities)?row.capabilities:[],
         base_price:row?.base_price??null,
         description:row?.description??null,
         api_schema:row?.api_schema??null,
