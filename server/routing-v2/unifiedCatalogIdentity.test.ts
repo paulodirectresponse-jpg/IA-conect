@@ -47,6 +47,9 @@ describe('unified catalog provider identity',()=>{
   it('keeps version searches ordered and prevents numeric matches across unrelated metadata fields',()=>{
     expect(unifiedCatalogSearchScore('Seedance 2.0',['Seedance 2 Fast'])).not.toBeNull();
     expect(unifiedCatalogSearchScore('Seedance 2.0',['Seedance 1 Pro','architecture v2','release 0'])).toBeNull();
+    expect(unifiedCatalogSearchScore('Seedance 2.0',['Seedance 2.5 Fast'])).toBeNull();
+    expect(unifiedCatalogSearchScore('Seedance 2',['Seedance 2.5 Fast'])).toBeNull();
+    expect(unifiedCatalogSearchScore('Seedance 2.0',['bytedance:seedance-v2-0@1'])).not.toBeNull();
     expect(unifiedCatalogSearchScore('GPT Image 2.5',['GPT Image 2.5 Sunburst'])).not.toBeNull();
     expect(unifiedCatalogSearchScore('GPT Image 2.5',['GPT Image 2 Sunburst 5'])).toBeNull();
     expect(unifiedCatalogSearchScore('text to video',['Seedance 2.5','image-to-video','text-to-video'])).not.toBeNull();
