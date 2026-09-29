@@ -17,6 +17,7 @@ interface Props{
  showAdvanced:boolean;onToggleAdvanced:()=>void;seed:number|'';onChangeSeed:(v:number|'')=>void;
  totalPrice:number|null;unitPrice:number|null;balance:number;hasBalance:boolean;generating:boolean;priceLoading:boolean;onGenerate:()=>void;error?:string;modelAdjustmentNotice?:string;
  unitPricesByModelId:Record<string,number|null>;priceLoadingModelIds:string[];
+ catalogLoading?:boolean;catalogError?:string;onRetryCatalog?:()=>void;
 }
 type OpenCard='ratio'|'resolution'|'outputs'|null;
 const filesFromDrop=(e:React.DragEvent)=>Array.from(e.dataTransfer.files||[]);
@@ -41,6 +42,9 @@ export const UnifiedImageCreatorPanel:React.FC<Props>=(p)=>{
    onToggleFavorite={p.onToggleFavorite}
    unitPricesByModelId={p.unitPricesByModelId}
    priceLoadingModelIds={p.priceLoadingModelIds}
+   catalogLoading={p.catalogLoading}
+   catalogError={p.catalogError}
+   onRetryCatalog={p.onRetryCatalog}
    selectedCoverSources={selectedCoverSources}
   />}
   footer={<GeneratorFooter

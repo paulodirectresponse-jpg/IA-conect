@@ -65,7 +65,23 @@ export const adminService = {
   async saveModel(data:Partial<ModelRegistryItem>){return mutate<ModelRegistryItem>('/api/admin/models',{method:'POST',body:JSON.stringify(data)});},
   async bulkAddCuratedModels(model_ids:string[]){return mutate<{added:Array<{model_id:string;name:string;status:string;beta_only:boolean}>;already_present:Array<{model_id:string;name:string}>;rejected:string[]}>('/api/admin/models/bulk-curated',{method:'POST',body:JSON.stringify({model_ids})});},
   async updateModel(modelId:string,data:Partial<ModelRegistryItem>){return mutate<ModelRegistryItem>(`/api/admin/models/${modelId}`,{method:'PATCH',body:JSON.stringify(data)});},
-  async listProviders(){return cachedGet<ProviderRegistryItem[]>('/api/catalog/providers');},
+  async listProviders(){
+    const officialProviderIds=new Set(['provider-wavespeed','provider-atlas','provider-runware']);
+    const rows=await cachedGet<Array<{
+      provider_id:string;name:string;slug:string;status:'ACTIVE'|'DEGRADED'|'DISABLED';priority:number;
+      is_configured?:boolean;created_at:string;updated_at:string;
+    }>>('/api/admin/routing-v2/providers');
+    return rows.filter(provider=>officialProviderIds.has(provider.provider_id)).map((provider):ProviderRegistryItem=>({
+      provider_id:provider.provider_id,
+      name:provider.name,
+      slug:provider.slug,
+      status:provider.status==='DISABLED'?'INACTIVE':provider.status,
+      priority:provider.priority,
+      is_configured:Boolean(provider.is_configured),
+      created_at:provider.created_at,
+      updated_at:provider.updated_at,
+    }));
+  },
   async getProviderFinance(refresh=false){
     const base='/api/admin/provider-finance';
     if(!refresh)return cachedGet<{providers:ProviderFinanceSnapshot[];total_brl_cents:number;fx_rate_usd_brl:number;updated_at:string}>(base);

@@ -77,6 +77,8 @@ interface Props {
 export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
   const { wallet, refreshWallet } = useAuth();
   const [models, setModels] = useState<ModelRegistryItem[]>([]),
+    [catalogLoading, setCatalogLoading] = useState(true),
+    [catalogError, setCatalogError] = useState(""),
     [selectionMode, setSelectionMode] = useState<"AUTO" | "MANUAL">("AUTO"),
     [manualModelId, setManualModelId] = useState(""),
     [initialImage, setInitialImage] = useState<Asset | null>(null),
@@ -120,43 +122,57 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
     unitQuoteCacheRef = useRef(new Map<string, number>());
   const [mobileActiveCount, setMobileActiveCount] = useState(0);
 
+  const loadVideoCatalog = useCallback(async () => {
+    setCatalogLoading(true);
+    setCatalogError("");
+    try {
+      const catalogs = await Promise.all([
+        universalGenerationClient.catalog("text-to-video"),
+        universalGenerationClient.catalog("image-to-video"),
+        universalGenerationClient.catalog("first-frame"),
+        universalGenerationClient.catalog("last-frame"),
+        universalGenerationClient.catalog("video-edit"),
+      ]);
+      const videoModels = Array.from(
+        new Map(
+          catalogs
+            .flat()
+            .filter((m) => m.status !== "INACTIVE" && m.category === "VIDEO")
+            .map((m) => [m.model_id, m]),
+        ).values(),
+      );
+      const active = videoModels.filter((model) =>
+        (model.supported_durations || []).some(
+          (duration) => Number.isFinite(Number(duration)) && Number(duration) > 0,
+        ),
+      );
+      setModels(active);
+      setManualModelId((current) =>
+        active.some((model) => model.model_id === current)
+          ? current
+          : active[0]?.model_id || "",
+      );
+      if (!active.length) {
+        setCatalogError(
+          videoModels.length
+            ? `A API retornou ${videoModels.length} modelo(s) de vídeo, mas nenhum tem durações válidas no catálogo.`
+            : "A API respondeu, mas não retornou modelos de vídeo com rota READY nas capacidades consultadas.",
+        );
+      }
+    } catch (error) {
+      setModels([]);
+      setManualModelId("");
+      setCatalogError(
+        error instanceof Error ? error.message : String(error || "Falha ao carregar catálogo de vídeo."),
+      );
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let mounted = true;
-    Promise.all([
-      universalGenerationClient.catalog("text-to-video"),
-      universalGenerationClient.catalog("image-to-video"),
-      universalGenerationClient.catalog("first-frame"),
-      universalGenerationClient.catalog("last-frame"),
-      universalGenerationClient.catalog("video-edit"),
-    ])
-      .then((catalogs) => {
-        if (!mounted) return;
-        const active = Array.from(
-          new Map(
-            catalogs
-              .flat()
-              .filter(
-                (m) =>
-                  m.status !== "INACTIVE" &&
-                  m.category === "VIDEO" &&
-                  (m.supported_durations || []).some(
-                    (duration) => Number.isFinite(Number(duration)) && Number(duration) > 0,
-                  ),
-              )
-              .map((m) => [m.model_id, m]),
-          ).values(),
-        );
-        setModels(active);
-        setManualModelId((c) =>
-          active.some((m) => m.model_id === c) ? c : active[0]?.model_id || "",
-        );
-      })
-      .catch(() => {
-        if (mounted) {
-          setModels([]);
-          setManualModelId("");
-        }
-      });
+    void loadVideoCatalog();
     workspaceService
       .listPresets()
       .then((r) => mounted && setPresets(r))
@@ -178,7 +194,7 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
       mounted = false;
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     };
-  }, []);
+  }, [loadVideoCatalog]);
   useEffect(() => {
     if (initialAsset?.type === "IMAGE") {
       setInitialImage(initialAsset);
@@ -944,6 +960,9 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
             onSelectModel={handleModelSelection}
             favoriteModelIds={favoriteModelIds}
             recentModelIds={recentModelIds}
+            catalogLoading={catalogLoading}
+            catalogError={catalogError}
+            onRetryCatalog={() => void loadVideoCatalog()}
             onToggleFavorite={async (id) => {
               const p = await workspaceService.toggleFavoriteModel(id);
               setFavoriteModelIds(p.favorite_model_ids || []);

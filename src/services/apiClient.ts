@@ -26,9 +26,20 @@ async function performApiRequest<T = any>(endpoint: string, options: RequestInit
   const startedAt = perfNow();
   const method = String(options.method || 'GET').toUpperCase();
   const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(options.headers as Record<string,string> || {}) };
-  if (auth.currentUser) {
-    try { headers['Authorization'] = `Bearer ${await auth.currentUser.getIdToken()}`; }
-    catch (e) { console.warn('[ApiClient] Failed to obtain ID token:', e); }
+  try {
+    await auth.authStateReady();
+  } catch (error) {
+    console.warn('[ApiClient] Failed to restore authentication state:', error);
+    throw new ApiError('Não foi possível restaurar sua sessão. Recarregue a página e tente novamente.', 'AUTH_STATE_UNAVAILABLE', 401);
+  }
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    try {
+      headers['Authorization'] = `Bearer ${await currentUser.getIdToken()}`;
+    } catch (error) {
+      console.warn('[ApiClient] Failed to obtain ID token:', error);
+      throw new ApiError('Não foi possível validar sua sessão. Recarregue a página e tente novamente.', 'AUTH_TOKEN_UNAVAILABLE', 401);
+    }
   }
 
   const url = normalizeUrl(endpoint);
