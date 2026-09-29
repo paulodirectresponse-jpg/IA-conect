@@ -72,6 +72,8 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
 }) => {
   const { wallet, refreshWallet } = useAuth();
   const [models, setModels] = useState<ModelRegistryItem[]>([]),
+    [catalogLoading, setCatalogLoading] = useState(true),
+    [catalogError, setCatalogError] = useState(""),
     [assets, setAssets] = useState<Asset[]>([]),
     [favoriteModelIds, setFavoriteModelIds] = useState<string[]>([]),
     [recentModelIds, setRecentModelIds] = useState<string[]>([]),
@@ -98,38 +100,63 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
   const quoteSeq = useRef(0),
     quoteCache = useRef(new Map<string, number>());
   const [mobileActiveCount, setMobileActiveCount] = useState(0);
-  useEffect(() => {
-    let mounted = true;
-    Promise.all([
-      universalGenerationClient.catalog("text-to-image").catch(() => []),
-      universalGenerationClient.catalog("image-to-image").catch(() => []),
-      assetService.listAssets().catch(() => []),
-      workspaceService
-        .getUserPreferences()
-        .catch(() => ({ favorite_model_ids: [], recent_model_ids: [] }) as any),
-    ]).then(([textModels, editModels, ar, prefs]) => {
-      if (!mounted) return;
+
+  const loadImageCatalog = useCallback(async () => {
+    setCatalogLoading(true);
+    setCatalogError("");
+    try {
+      const [textModels, editModels] = await Promise.all([
+        universalGenerationClient.catalog("text-to-image"),
+        universalGenerationClient.catalog("image-to-image"),
+      ]);
       const imageModels = Array.from(
         new Map(
           [...textModels, ...editModels]
-            .filter((m) => m.category === "IMAGE" && m.status !== "INACTIVE")
-            .map((m) => [m.model_id, m]),
+            .filter((model) => model.category === "IMAGE" && model.status !== "INACTIVE")
+            .map((model) => [model.model_id, model]),
         ).values(),
       );
       setModels(imageModels);
-      setManualModelId((c) =>
-        imageModels.some((m) => m.model_id === c)
-          ? c
+      setManualModelId((current) =>
+        imageModels.some((model) => model.model_id === current)
+          ? current
           : imageModels[0]?.model_id || "",
       );
-      setAssets(ar || []);
-      setFavoriteModelIds(prefs.favorite_model_ids || []);
-      setRecentModelIds(prefs.recent_model_ids || []);
-    });
+      if (!imageModels.length) {
+        setCatalogError(
+          "A API respondeu, mas não retornou modelos de imagem com rota READY para texto-para-imagem ou imagem-para-imagem.",
+        );
+      }
+    } catch (error) {
+      setModels([]);
+      setManualModelId("");
+      setCatalogError(
+        error instanceof Error ? error.message : String(error || "Falha ao carregar catálogo de imagem."),
+      );
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    void loadImageCatalog();
+    assetService
+      .listAssets()
+      .then((rows) => mounted && setAssets(rows || []))
+      .catch(() => {});
+    workspaceService
+      .getUserPreferences()
+      .then((prefs) => {
+        if (!mounted) return;
+        setFavoriteModelIds(prefs.favorite_model_ids || []);
+        setRecentModelIds(prefs.recent_model_ids || []);
+      })
+      .catch(() => {});
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [loadImageCatalog]);
   const editImage = useCallback((asset: Asset) => {
     setError("");
     setSelectionMode("AUTO");
@@ -642,6 +669,9 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
             favoriteModelIds={favoriteModelIds}
             recentModelIds={recentModelIds}
             onToggleFavorite={toggleFavorite}
+            catalogLoading={catalogLoading}
+            catalogError={catalogError}
+            onRetryCatalog={() => void loadImageCatalog()}
             references={references}
             onOpenPicker={() => openPicker("ASSETS")}
             onRemoveReference={removeReference}

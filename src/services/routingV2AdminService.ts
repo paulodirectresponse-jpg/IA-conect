@@ -16,6 +16,7 @@ export interface RoutingV2CreateRouteAdmin{
 export interface RoutingV2ProviderAdmin{
   provider_id:string;name:string;slug:string;type:RoutingV2ProviderType;status:RoutingV2ProviderStatus;priority:number;adapter_id:string;
   secret_reference?:string|null;supports_catalog_sync:boolean;supports_pricing_sync:boolean;supports_balance:boolean;
+  is_configured?:boolean;
   balance_amount?:number|null;balance_currency?:'USD'|'BRL'|null;balance_updated_at?:string|null;
   health_status:RoutingV2RuntimeStatus;last_health_check_at?:string|null;created_at:string;updated_at:string;
 }

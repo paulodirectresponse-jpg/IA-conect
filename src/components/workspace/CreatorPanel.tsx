@@ -24,6 +24,7 @@ interface Props {
   totalEstimatedCostCents: number | null; unitPriceCents: number | null; availableBalanceCents: number; hasSufficientFunds: boolean;
   onNavigateToWallet?: () => void; onGenerate: () => void; validating: boolean; generating?: boolean; validationErrors: string[]; generationError?: string;
   modelAdjustmentNotice?: string; unitPricesByModelId?: Record<string, number | null>; priceLoadingModelIds?: string[];
+  catalogLoading?: boolean; catalogError?: string; onRetryCatalog?: () => void;
 }
 type OpenCard = 'duration' | 'ratio' | 'resolution' | null;
 const filesFromDrop=(e:React.DragEvent)=>Array.from(e.dataTransfer.files||[]);
@@ -65,6 +66,9 @@ export const CreatorPanel: React.FC<Props> = (p) => {
       onToggleFavorite={p.onToggleFavorite}
       unitPricesByModelId={p.unitPricesByModelId}
       priceLoadingModelIds={p.priceLoadingModelIds}
+      catalogLoading={p.catalogLoading}
+      catalogError={p.catalogError}
+      onRetryCatalog={p.onRetryCatalog}
       selectedCoverUrl={selectedCoverUrl}
     />}
     footer={<GeneratorFooter

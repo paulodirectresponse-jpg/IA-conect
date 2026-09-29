@@ -16,12 +16,15 @@ interface Props{
  favoriteModelIds?:string[];
  recentModelIds?:string[];
  onToggleFavorite?:(modelId:string)=>void;
+ catalogLoading?:boolean;
+ catalogError?:string;
+ onRetryCatalog?:()=>void;
 }
 
 export const UniversalModelPicker:React.FC<Props>=({
  models,selectedModelId,onSelect,loading=false,unitPricesByModelId,priceLoadingModelIds,
  autoResolvedModel,selectedCoverUrl,selectedCoverSources,
- favoriteModelIds,recentModelIds,onToggleFavorite,
+ favoriteModelIds,recentModelIds,onToggleFavorite,catalogLoading=false,catalogError,onRetryCatalog,
 })=>{
  const[internalFavorites,setInternalFavorites]=useState<string[]>([]),
   [internalRecent,setInternalRecent]=useState<string[]>([]);
@@ -44,7 +47,7 @@ export const UniversalModelPicker:React.FC<Props>=({
   if(onToggleFavorite)return onToggleFavorite(id);
   void workspaceService.toggleFavoriteModel(id).then(p=>setInternalFavorites(p.favorite_model_ids||[])).catch(()=>{});
  };
- return <div className={loading?'pointer-events-none opacity-60':''} aria-busy={loading||undefined}>
+ return <div className={loading?'pointer-events-none opacity-60':''} aria-busy={loading||catalogLoading||undefined}>
   <CompactModelPicker
    models={models}
    selectionMode={selectedModelId==='AUTO'?'AUTO':'MANUAL'}
@@ -56,6 +59,9 @@ export const UniversalModelPicker:React.FC<Props>=({
    favoriteModelIds={favorites}
    recentModelIds={recent}
    onToggleFavorite={toggle}
+   loading={catalogLoading}
+   catalogError={catalogError}
+   onRetryCatalog={onRetryCatalog}
    unitPricesByModelId={unitPricesByModelId}
    priceLoadingModelIds={priceLoadingModelIds}
    selectedCoverUrl={selectedCoverUrl}

@@ -12,6 +12,7 @@ export const AdminPromotions: React.FC = () => {
   const [models, setModels] = useState<ModelRegistryItem[]>([]);
   const [providers, setProviders] = useState<ProviderRegistryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
 
   // Form State
@@ -37,8 +38,11 @@ export const AdminPromotions: React.FC = () => {
       setPromotions(promos);
       setModels(mList);
       setProviders(pList);
+      setLoadError("");
     } catch (err) {
-      console.error('Falha ao listar promoções:', err);
+      const message=err instanceof Error?err.message:String(err||'Falha ao carregar promoções, modelos ou provedores oficiais.');
+      setLoadError(message);
+      console.error('Falha ao carregar dados da área de promoções:', err);
     } finally {
       setLoading(false);
     }
@@ -116,6 +120,8 @@ export const AdminPromotions: React.FC = () => {
           Nova Promoção
         </Button>
       </div>
+
+      {loadError&&<div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-rose-400/20 bg-rose-500/10 p-3 text-xs text-rose-200"><span>{loadError}</span><Button variant="secondary" size="sm" onClick={()=>void loadData()}>Tentar novamente</Button></div>}
 
       <Card id="admin-promotions-card">
         {loading ? (
