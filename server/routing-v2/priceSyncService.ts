@@ -11,6 +11,9 @@ import { isOfficialRoutingV2Provider } from './providerService.js';
 
 export interface RoutingV2PriceSyncRow{
   route_id:string;
+  model_id:string;
+  capability_id:string;
+  provider_model_identifier:string;
   provider_id:string;
   ok:boolean;
   status:string;
@@ -31,6 +34,8 @@ export interface RoutingV2PriceSyncResult{
   failed:number;
   rows:RoutingV2PriceSyncRow[];
 }
+
+type PendingRoutingV2PriceSyncRow=Omit<RoutingV2PriceSyncRow,'model_id'|'capability_id'|'provider_model_identifier'>;
 
 function referenceInput(config:RoutingV2BillingConfig){
   if(config.type==='PER_OUTPUT')return{number_of_outputs:1};
@@ -71,7 +76,7 @@ export const routingV2PriceSyncService={
     const batch=eligible.slice(cursor,cursor+limit);
     const providerCache=new Map<string,RoutingV2Provider|null>();
     const runtimeCache=new Map<string,Awaited<ReturnType<typeof providerRuntime>>>();
-    const rows:RoutingV2PriceSyncRow[]=[];
+    const rows:PendingRoutingV2PriceSyncRow[]=[];
 
     for(const route of batch){
       try{
@@ -159,13 +164,15 @@ export const routingV2PriceSyncService={
         rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:true,status:next.status,pricing_status:next.pricing_status,runtime_status:next.runtime_status,retail_price_credits:next.pricing_snapshot?.retail_price_credits||null});
       }catch(err:any){
         const provider=providerCache.get(route.provider_id)||null;
-        const next=reconcileRoutingV2Route({route,provider,pricing_status:'INVALID',runtime_status:route.runtime_status,now:checkedAt});
+        const runtimeStatus=runtimeCache.get(route.provider_id)?.runtime_status||provider?.health_status||route.runtime_status;
+        const next=reconcileRoutingV2Route({route,provider,pricing_status:'INVALID',runtime_status:runtimeStatus,now:checkedAt});
         await routingV2Repository.saveRoute(next).catch(()=>{});
         rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:false,status:next.status,pricing_status:next.pricing_status,runtime_status:next.runtime_status,retail_price_credits:next.pricing_snapshot?.retail_price_credits||null,error:String(err?.message||err)});
       }
     }
 
     const nextCursor=cursor+batch.length<eligible.length?cursor+batch.length:null;
+    const routesById=new Map(eligible.map(route=>[route.route_id,route]));
     return{
       checked_at:checkedAt,
       cursor,
@@ -175,7 +182,15 @@ export const routingV2PriceSyncService={
       processed:rows.length,
       updated:rows.filter(row=>row.ok).length,
       failed:rows.filter(row=>!row.ok).length,
-      rows,
+      rows:rows.map(row=>{
+        const route=routesById.get(row.route_id);
+        return{
+          ...row,
+          model_id:route?.model_id||'',
+          capability_id:route?.capability_id||'',
+          provider_model_identifier:route?.provider_model_identifier||'',
+        };
+      }),
     };
   },
 };
