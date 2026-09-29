@@ -5,12 +5,13 @@ import { RoutingV2BillingConfig, RoutingV2Provider, RoutingV2ProviderRoute } fro
 import { routingV2PricingSettingsService } from './pricingSettingsService.js';
 import { reconcileRoutingV2Route } from './routeReconciler.js';
 import { routingV2Repository } from './repository.js';
-import { providerHealthService } from './providerHealthService.js';
 import { getUsdBrlRate } from './fxRateService.js';
 import { isOfficialRoutingV2Provider } from './providerService.js';
 import { routingV2CapabilityMappingRepairService, RoutingV2MappingRepairRow } from './capabilityMappingRepairService.js';
 import { assertIdentifierMatchesCapability } from './capabilityMappingValidation.js';
 import { routingV2ProviderModelMigrationService, RoutingV2ProviderModelMigrationResult } from './providerModelMigrationService.js';
+import { checkProviderHealth } from './healthAdapter.js';
+import { canReuseRoutingV2PriceAfterTransientFailure, hasFreshRoutingV2ProviderHealth, shouldReuseRoutingV2PriceSnapshot } from './priceSyncPolicy.js';
 
 export interface RoutingV2PriceSyncRow{
   route_id:string;
@@ -62,14 +63,15 @@ function referenceInput(config:RoutingV2BillingConfig){
   return{};
 }
 
-async function providerRuntime(provider:RoutingV2Provider){
+async function providerRuntime(provider:RoutingV2Provider,checkedAt:string,healthFreshnessMinutes:number){
   if(!isOfficialRoutingV2Provider(provider.provider_id))return{adapter:null,runtime_status:'UNAVAILABLE' as const};
   const adapter=resolveRoutingV2ProviderAdapter(provider);
   if(!adapter||!adapter.isConfigured(provider))return{adapter:null,runtime_status:'UNAVAILABLE' as const};
   try{
-    // Use new health service with persistence, fallback to adapter health if needed
-    const healthResult=await providerHealthService.checkAndPersist(provider);
-    const health={status:healthResult.health_status as any,checked_at:healthResult.checked_at,message:healthResult.message};
+    const healthIsFresh=hasFreshRoutingV2ProviderHealth(provider,checkedAt,healthFreshnessMinutes);
+    const health=healthIsFresh
+      ?{status:provider.health_status,checked_at:provider.last_health_check_at||checkedAt}
+      :await checkProviderHealth(provider);
     return{adapter,runtime_status:health.status,health};
   }catch{
     return{adapter,runtime_status:'UNAVAILABLE' as const};
@@ -119,11 +121,14 @@ export const routingV2PriceSyncService={
 
         let runtime=runtimeCache.get(provider.provider_id);
         if(!runtime){
-          runtime=await providerRuntime(provider);
+          runtime=await providerRuntime(provider,checkedAt,settings.price_sync_interval_minutes);
           runtimeCache.set(provider.provider_id,runtime);
           const health=runtime.health;
           const nextProvider:RoutingV2Provider={...provider,health_status:runtime.runtime_status,last_health_check_at:health?.checked_at||checkedAt,updated_at:checkedAt};
-          if(runtime.adapter?.balance){
+          const balanceCheckedAt=Date.parse(provider.balance_updated_at||'');
+          const balanceAge=Date.parse(checkedAt)-balanceCheckedAt;
+          const balanceIsFresh=Number.isFinite(balanceCheckedAt)&&Number.isFinite(balanceAge)&&balanceAge>=0&&balanceAge<Math.max(1,settings.price_sync_interval_minutes)*60_000;
+          if(runtime.runtime_status==='HEALTHY'&&runtime.adapter?.balance&&!balanceIsFresh){
             try{
               const balance=await runtime.adapter.balance(provider);
               nextProvider.balance_amount=balance.amount;
@@ -140,6 +145,18 @@ export const routingV2PriceSyncService={
           const next=reconcileRoutingV2Route({route,provider,pricing_status:'INVALID',runtime_status:runtime.runtime_status,now:checkedAt});
           await routingV2Repository.saveRoute(next);
           rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:false,status:next.status,pricing_status:next.pricing_status,runtime_status:next.runtime_status,retail_price_credits:null,error:'Adapter V2 não oferece sincronização de preço.'});
+          continue;
+        }
+
+        if(shouldReuseRoutingV2PriceSnapshot(route,checkedAt,settings.price_sync_interval_minutes)){
+          const retained=reconcileRoutingV2Route({
+            route:{...route,runtime_status:runtime.runtime_status,last_runtime_check_at:checkedAt,
+              last_runtime_error:runtime.runtime_status==='HEALTHY'?null:(runtime.health?.message||`Runtime do provider ${runtime.runtime_status}; rota mantida fora de READY.`),
+              last_runtime_error_at:checkedAt,updated_at:checkedAt},
+            provider,pricing_status:route.pricing_status==='INVALID'?'CURRENT':route.pricing_status,runtime_status:runtime.runtime_status,now:checkedAt,
+          });
+          await routingV2Repository.saveRoute(retained);
+          rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:!route.last_sync_error,status:retained.status,pricing_status:retained.pricing_status,runtime_status:retained.runtime_status,retail_price_credits:retained.pricing_snapshot?.retail_price_credits||null,error:route.last_sync_error||null});
           continue;
         }
 
@@ -181,7 +198,7 @@ export const routingV2PriceSyncService={
           last_price_sync_at:checkedAt,
           last_runtime_check_at:checkedAt,
           last_sync_error:null,
-          last_sync_error_at:checkedAt,
+          last_sync_error_at:null,
           last_runtime_error:runtime.runtime_status==='HEALTHY'?null:(runtime.health?.message||`Runtime do provider ${runtime.runtime_status}; rota mantida fora de READY.`),
           last_runtime_error_at:checkedAt,
           updated_at:checkedAt,
@@ -194,7 +211,9 @@ export const routingV2PriceSyncService={
         const runtimeStatus=runtimeCache.get(route.provider_id)?.runtime_status||provider?.health_status||route.runtime_status;
         const errorMessage=String(err?.message||err);
         const runtimeMessage=runtimeCache.get(route.provider_id)?.health?.message;
-        const next=reconcileRoutingV2Route({route,provider,pricing_status:'INVALID',runtime_status:runtimeStatus,now:checkedAt});
+        const keepFreshPrice=canReuseRoutingV2PriceAfterTransientFailure(route,checkedAt,errorMessage);
+        const pricingStatus=keepFreshPrice?'CURRENT':'INVALID';
+        const next=reconcileRoutingV2Route({route,provider,pricing_status:pricingStatus,runtime_status:runtimeStatus,now:checkedAt});
         await routingV2Repository.saveRoute({...next,last_sync_error:errorMessage,last_sync_error_at:checkedAt,last_runtime_error:runtimeStatus==='HEALTHY'?null:(runtimeMessage||`Runtime do provider ${runtimeStatus}; rota mantida fora de READY.`),last_runtime_error_at:checkedAt}).catch(()=>{});
         rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:false,status:next.status,pricing_status:next.pricing_status,runtime_status:next.runtime_status,retail_price_credits:next.pricing_snapshot?.retail_price_credits||null,error:errorMessage});
       }
