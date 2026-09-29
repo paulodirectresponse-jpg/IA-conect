@@ -44,6 +44,14 @@ describe('unified catalog provider identity',()=>{
     expect(unifiedCatalogSearchScore('seedan 2.0',['Seedance 2.0 Fast / seedance-v2-0'])).not.toBeNull();
   });
 
+  it('keeps version searches ordered and prevents numeric matches across unrelated metadata fields',()=>{
+    expect(unifiedCatalogSearchScore('Seedance 2.0',['Seedance 2 Fast'])).not.toBeNull();
+    expect(unifiedCatalogSearchScore('Seedance 2.0',['Seedance 1 Pro','architecture v2','release 0'])).toBeNull();
+    expect(unifiedCatalogSearchScore('GPT Image 2.5',['GPT Image 2.5 Sunburst'])).not.toBeNull();
+    expect(unifiedCatalogSearchScore('GPT Image 2.5',['GPT Image 2 Sunburst 5'])).toBeNull();
+    expect(unifiedCatalogSearchScore('text to video',['Seedance 2.5','image-to-video','text-to-video'])).not.toBeNull();
+  });
+
   it('canonicalizes the same video family and variant from different provider identifiers',()=>{
     const atlas=canonicalizeUnifiedVideoCatalogIdentity('Image To Video','bytedance/seedance-v2-0-fast/i2v/1080p','ByteDance');
     const runware=canonicalizeUnifiedVideoCatalogIdentity('Seedance 2.0 Fast','bytedance:seedance-2-0-fast@1','ByteDance');

@@ -433,38 +433,38 @@ html[data-theme="light"] *::-webkit-scrollbar-thumb:hover{background:#aebdcd;bac
 .ia-shell[data-theme="light"] [class*="border-emerald-5"]{border-color:rgba(5,150,105,.18)!important}
 
 /* Selected states and subtle brand tint */
-.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.02\\],
-.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.03\\],
-.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.035\\],
-.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.04\\],
-.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.05\\]{
+.ia-shell[data-theme="light"] .bg-sky-300\/\[0\.02\],
+.ia-shell[data-theme="light"] .bg-sky-300\/\[0\.03\],
+.ia-shell[data-theme="light"] .bg-sky-300\/\[0\.035\],
+.ia-shell[data-theme="light"] .bg-sky-300\/\[0\.04\],
+.ia-shell[data-theme="light"] .bg-sky-300\/\[0\.05\]{
   background-color:rgba(14,165,233,.045)!important;
 }
-.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.06\\],
-.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.07\\],
-.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.08\\],
-.ia-shell[data-theme="light"] .bg-sky-400\\/10{
+.ia-shell[data-theme="light"] .bg-sky-300\/\[0\.06\],
+.ia-shell[data-theme="light"] .bg-sky-300\/\[0\.07\],
+.ia-shell[data-theme="light"] .bg-sky-300\/\[0\.08\],
+.ia-shell[data-theme="light"] .bg-sky-400\/10{
   background-color:rgba(14,165,233,.075)!important;
 }
-.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.09\\],
-.ia-shell[data-theme="light"] .bg-sky-300\\/10,
-.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.11\\],
-.ia-shell[data-theme="light"] .bg-sky-300\\/\\[0\\.12\\],
-.ia-shell[data-theme="light"] .bg-sky-400\\/\\[0\\.11\\]{
+.ia-shell[data-theme="light"] .bg-sky-300\/\[0\.09\],
+.ia-shell[data-theme="light"] .bg-sky-300\/10,
+.ia-shell[data-theme="light"] .bg-sky-300\/\[0\.11\],
+.ia-shell[data-theme="light"] .bg-sky-300\/\[0\.12\],
+.ia-shell[data-theme="light"] .bg-sky-400\/\[0\.11\]{
   background-color:rgba(14,165,233,.095)!important;
 }
-.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.07\\],
-.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.08\\],
-.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.09\\],
-.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.1\\],
-.ia-shell[data-theme="light"] .border-sky-400\\/15{
+.ia-shell[data-theme="light"] .border-sky-300\/\[0\.07\],
+.ia-shell[data-theme="light"] .border-sky-300\/\[0\.08\],
+.ia-shell[data-theme="light"] .border-sky-300\/\[0\.09\],
+.ia-shell[data-theme="light"] .border-sky-300\/\[0\.1\],
+.ia-shell[data-theme="light"] .border-sky-400\/15{
   border-color:rgba(2,132,199,.15)!important;
 }
-.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.11\\],
-.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.12\\],
-.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.15\\],
-.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.18\\],
-.ia-shell[data-theme="light"] .border-sky-300\\/\\[0\\.2\\]{
+.ia-shell[data-theme="light"] .border-sky-300\/\[0\.11\],
+.ia-shell[data-theme="light"] .border-sky-300\/\[0\.12\],
+.ia-shell[data-theme="light"] .border-sky-300\/\[0\.15\],
+.ia-shell[data-theme="light"] .border-sky-300\/\[0\.18\],
+.ia-shell[data-theme="light"] .border-sky-300\/\[0\.2\]{
   border-color:rgba(2,132,199,.20)!important;
 }
 .ia-shell[data-theme="light"] .ia-primary{

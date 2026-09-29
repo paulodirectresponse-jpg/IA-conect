@@ -164,7 +164,7 @@ describe('Routing Core V2 Admin',()=>{
     expect(routes).toContain('identity.display_name');
     expect(routes).toContain('isCatalogIdentityUsable(identity)');
     expect(routes).toContain("listAtlasCatalogModels()");
-    expect(routes).toContain("searchRunwareCatalogModels(runwareTerm,{offset:0,limit:100})");
+    expect(routes).toContain("searchRunwareCatalogModels(runwareQuery,{offset:0,limit:100})");
   });
 
   it('prioritizes canonical image models and hides generic endpoint noise only at presentation layer',()=>{
@@ -176,7 +176,7 @@ describe('Routing Core V2 Admin',()=>{
     expect(identity).toContain('GENERIC_ENDPOINT_PATTERN');
     expect(identity).toContain('reference[\\s/_-]*to[\\s/_-]*image');
     expect(routes).toContain("listAtlasCatalogModels()");
-    expect(routes).toContain("searchRunwareCatalogModels(runwareTerm,{offset:0,limit:100})");
+    expect(routes).toContain("searchRunwareCatalogModels(runwareQuery,{offset:0,limit:100})");
   });
 
   it('uses token-aware search before grouping and repairs existing model identity',()=>{
@@ -196,16 +196,17 @@ describe('Routing Core V2 Admin',()=>{
     expect(routes).toContain("[\\s\\/_-])(video|3d|audio");
     expect(routes).toContain("if(isTechnicalImageCatalogNoise(rawName,identifier,canonical))continue");
     expect(routes).toContain("listAtlasCatalogModels()");
-    expect(routes).toContain("searchRunwareCatalogModels(runwareTerm,{offset:0,limit:100})");
+    expect(routes).toContain("searchRunwareCatalogModels(runwareQuery,{offset:0,limit:100})");
   });
 
   it('keeps unified catalog within runtime budget and returns partial provider results',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     const catalog=read('server/routing-v2/providerCatalogService.ts');
-    expect(routes).toContain('const runwareTerm=queryTokens.sort');
+    expect(routes).toContain("const runwareQuery=query||'ai'");
     expect(routes).toContain("withTimeout");
     expect(routes).toContain("ms=6500");
-    expect(routes).toContain("searchRunwareCatalogModels(runwareTerm,{offset:0,limit:100})");
+    expect(routes).toContain("searchRunwareCatalogModels(runwareQuery,{offset:0,limit:100})");
+    expect(routes).toContain('const maxRows=500');
     expect(routes).toContain('firstPage.total_results');
     expect(routes).toContain('source_truncated:diagnostics.some');
     expect(routes).not.toContain('catalogSearchTerms(query)');
@@ -221,7 +222,7 @@ describe('Routing Core V2 Admin',()=>{
     expect(routes).toContain("provider.provider_id==='provider-atlas'");
     expect(routes).toContain('listAtlasCatalogModels()');
     expect(routes).toContain("provider.provider_id==='provider-runware'");
-    expect(routes).toContain('searchRunwareCatalogModels(runwareTerm,{offset:0,limit:100})');
+    expect(routes).toContain('searchRunwareCatalogModels(runwareQuery,{offset:0,limit:100})');
     expect(routes).toContain('provider_diagnostics');
     expect(view).toContain('catalogDiagnostics');
     expect(view).toContain('retorno(s) da API');
