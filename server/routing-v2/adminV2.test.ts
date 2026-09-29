@@ -27,8 +27,10 @@ describe('Routing Core V2 Admin',()=>{
 
   it('runs provider health probes only through an explicit POST action',()=>{
     const healthRoutes=read('server/routing-v2/adminHealthRoutes.ts');
+    const adminRoutes=read('server/routes/adminRoutingV2Routes.ts');
     const getStart=healthRoutes.indexOf("router.get('/providers/health'");
     const postStart=healthRoutes.indexOf("router.post('/providers/health/check'");
+    expect(adminRoutes).toContain("adminRoutingV2Router.use('/admin/routing-v2',...guard,routingV2HealthAdminRoutes)");
     expect(getStart).toBeGreaterThanOrEqual(0);
     expect(postStart).toBeGreaterThan(getStart);
     expect(healthRoutes.slice(getStart,postStart)).toContain('routingV2Repository.listProviders()');

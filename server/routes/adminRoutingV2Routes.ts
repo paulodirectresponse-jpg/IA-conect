@@ -27,7 +27,7 @@ import { canonicalizeUnifiedVideoCatalogIdentity, normalizeUnifiedCatalogDisplay
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
 
-adminRoutingV2Router.use(...guard,routingV2HealthAdminRoutes);
+adminRoutingV2Router.use('/admin/routing-v2',...guard,routingV2HealthAdminRoutes);
 
 adminRoutingV2Router.get('/admin/factory-reset/dry-run',...guard,async(_req,res)=>{try{return res.json({success:true,data:await factoryResetService.dryRun()});}catch(err){return error(res,err,'FACTORY_RESET_DRY_RUN_FAILED');}});
 adminRoutingV2Router.get('/admin/factory-reset/inventory',...guard,async(_req,res)=>{try{return res.json({success:true,data:await factoryResetService.inventory()});}catch(err){return error(res,err,'FACTORY_RESET_INVENTORY_FAILED');}});
