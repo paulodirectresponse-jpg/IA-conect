@@ -100,33 +100,39 @@ export function normalizeUnifiedCatalogSearch(value:string){
   return String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
 }
 
+function normalizeUnifiedCatalogSearchValue(value:string){
+  return normalizeUnifiedCatalogSearch(value)
+    .replace(/([a-z])(\d)/g,'$1 $2')
+    .replace(/\bv\s+(?=\d)/g,'')
+    .replace(/(\d+)\s+0(?=\s|$)/g,'$1');
+}
+
 /**
- * Scores a catalog item against a user query without substring collisions.
- * Exact tokens outrank prefixes, so a short query such as "wan" prefers WAN
- * over unrelated names such as Wang while still allowing useful autocomplete.
+ * Scores ordered query tokens within one provider field so unrelated metadata
+ * cannot combine to satisfy a versioned name such as "Seedance 2.0".
+ * Exact tokens outrank prefixes, while short queries still support autocomplete.
  */
 export function unifiedCatalogSearchScore(query:string,values:Array<string|null|undefined>){
-  const queryTokens=normalizeUnifiedCatalogSearch(query).split(' ').filter(Boolean);
+  const queryTokens=normalizeUnifiedCatalogSearchValue(query).split(' ').filter(Boolean);
   if(!queryTokens.length)return 0;
-  const candidateTokens=values
-    .filter((value):value is string=>typeof value==='string'&&Boolean(value.trim()))
-    .flatMap(value=>normalizeUnifiedCatalogSearch(value).split(' '))
-    .filter(Boolean);
-  if(!candidateTokens.length)return null;
-
-  let score=0;
-  for(const token of queryTokens){
-    if(candidateTokens.includes(token)){
-      score+=4;
-      continue;
+  let bestScore=0;
+  for(const value of values){
+    if(typeof value!=='string'||!value.trim())continue;
+    const candidateTokens=normalizeUnifiedCatalogSearchValue(value).split(' ').filter(Boolean);
+    for(let start=0;start<=candidateTokens.length-queryTokens.length;start++){
+      let score=0;
+      for(let offset=0;offset<queryTokens.length;offset++){
+        const queryToken=queryTokens[offset];
+        const candidateToken=candidateTokens[start+offset];
+        if(candidateToken===queryToken){score+=4;continue;}
+        if(queryToken.length>=2&&candidateToken.startsWith(queryToken)){score+=1;continue;}
+        score=0;
+        break;
+      }
+      bestScore=Math.max(bestScore,score);
     }
-    if(token.length>=2&&candidateTokens.some(candidate=>candidate.startsWith(token))){
-      score+=1;
-      continue;
-    }
-    return null;
   }
-  return score;
+  return bestScore||null;
 }
 
 export function normalizeUnifiedCatalogDisplayName(name:string,identifiers:string[],vendor=''){

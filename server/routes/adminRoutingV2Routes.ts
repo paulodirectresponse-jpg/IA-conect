@@ -23,7 +23,7 @@ import { CANONICAL_IMAGE_MODELS, normalizeImageModelText, resolveCanonicalImageM
 import { isCatalogIdentityUsable, parseCatalogModelIdentity } from '../routing-v2/imageCatalogIdentity.js';
 import { listAtlasCatalogModels, listWaveSpeedCatalogModels, searchRunwareCatalogModels } from '../routing-v2/providerCatalogService.js';
 import { providerHealthService } from '../routing-v2/providerHealthService.js';
-import { canonicalizeUnifiedVideoCatalogIdentity, normalizeUnifiedCatalogDisplayName, normalizeUnifiedCatalogSearch, providerIdentifierModelName, unifiedCatalogSearchScore } from '../routing-v2/unifiedCatalogIdentity.js';
+import { canonicalizeUnifiedVideoCatalogIdentity, normalizeUnifiedCatalogDisplayName, providerIdentifierModelName, unifiedCatalogSearchScore } from '../routing-v2/unifiedCatalogIdentity.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -172,8 +172,7 @@ function catalogSearchValues(row:any){
   const values=[
     row?.name,row?.provider_model_identifier,row?.vendor,
     metadata?.provider,metadata?.creator,metadata?.vendor,metadata?.aliases,
-    metadata?.tags,metadata?.capabilities,metadata?.category,metadata?.type,
-    metadata?.architecture,
+    metadata?.tags,metadata?.capabilities,
   ];
   const flatten=(value:any):string[]=>{
     if(value==null)return[];
@@ -222,8 +221,7 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
     const providerMap=new Map(allProviders.map(p=>[p.provider_id,p]));
     const providers=ROUTING_V2_CORE_PROVIDERS.map(({provider_id})=>providerMap.get(provider_id))
       .filter((p):p is NonNullable<typeof p>=>Boolean(p&&p.status!=='DISABLED'));
-    const queryTokens=normalizeUnifiedCatalogSearch(query).split(' ').filter(token=>/[a-z]/i.test(token));
-    const runwareTerm=queryTokens.sort((a,b)=>b.length-a.length)[0]||query||'ai';
+    const runwareQuery=query||'ai';
     const settled=await Promise.allSettled(providers.map(async provider=>{
       const rows:any[]=[];
       const seen=new Set<string>();
@@ -253,11 +251,11 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         return{provider,rows,returned_count:response.length,total_count:null,truncated:false,attempts:1,message:null};
       }
       if(provider.provider_id==='provider-runware'){
-        const firstPage=await withTimeout(searchRunwareCatalogModels(runwareTerm,{offset:0,limit:100}),'Runware');
-        const maxRows=300;
+        const firstPage=await withTimeout(searchRunwareCatalogModels(runwareQuery,{offset:0,limit:100}),'Runware');
+        const maxRows=500;
         const pageCount=Math.min(Math.ceil(firstPage.total_results/firstPage.limit),Math.ceil(maxRows/firstPage.limit));
         const additionalPages=await Promise.allSettled(Array.from({length:Math.max(0,pageCount-1)},(_,index)=>
-          withTimeout(searchRunwareCatalogModels(runwareTerm,{offset:(index+1)*firstPage.limit,limit:firstPage.limit}),'Runware'),
+          withTimeout(searchRunwareCatalogModels(runwareQuery,{offset:(index+1)*firstPage.limit,limit:firstPage.limit}),'Runware'),
         ));
         const successfulPages=additionalPages.filter((page):page is PromiseFulfilledResult<Awaited<ReturnType<typeof searchRunwareCatalogModels>>>=>page.status==='fulfilled').map(page=>page.value);
         const pageErrors=additionalPages.filter((page):page is PromiseRejectedResult=>page.status==='rejected');
