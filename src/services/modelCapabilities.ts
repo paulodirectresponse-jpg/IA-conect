@@ -108,6 +108,27 @@ export interface CompatibilityCheckResult {
   warnings: string[];
 }
 
+export function getAutoSelectionValidationErrors(input: {
+  error?: string | null;
+  loading: boolean;
+  resolvedModel: ModelRegistryItem | null;
+  prompt: string;
+  waitingForReferences: boolean;
+  hasModels: boolean;
+}): string[] {
+  if (input.error) return [input.error];
+  if (input.loading)
+    return ["Consultando modelos, rotas oficiais e saldo dos provedores..."];
+  if (!input.prompt.trim() || !input.hasModels) return [];
+  if (input.waitingForReferences)
+    return ["Aguarde o envio das referências terminar para cotar a rota."];
+  if (!input.resolvedModel)
+    return [
+      "O Auto Router não encontrou uma rota oficial disponível. Verifique o saldo do provedor ou escolha outro modelo.",
+    ];
+  return [];
+}
+
 export function validateConfiguration(
   model: ModelRegistryItem | null,
   config: {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { STUDIO_SEED_MODELS } from '../config/studioCatalog.js';
-import { adaptConfigurationToModel, getModelCapabilities, validateConfiguration } from './modelCapabilities.js';
+import { adaptConfigurationToModel, getAutoSelectionValidationErrors, getModelCapabilities, validateConfiguration } from './modelCapabilities.js';
 import { WorkspaceReference, Asset } from '../types/index.js';
 
 const model=(id:string)=>{
@@ -36,6 +36,24 @@ const ref=(id:string,type:Asset['type']):WorkspaceReference=>({
 });
 
 describe('model-driven video configuration',()=>{
+  it('shows the Auto Router failure instead of reporting a missing compatible model',()=>{
+    expect(getAutoSelectionValidationErrors({
+      error:'Nenhum provider oficial tem saldo suficiente para esta configuração no momento.',
+      loading:false,
+      resolvedModel:null,
+      prompt:'A video prompt',
+      waitingForReferences:false,
+      hasModels:true,
+    })).toEqual(['Nenhum provider oficial tem saldo suficiente para esta configuração no momento.']);
+    expect(getAutoSelectionValidationErrors({
+      loading:false,
+      resolvedModel:null,
+      prompt:'A video prompt',
+      waitingForReferences:false,
+      hasModels:true,
+    })[0]).toContain('saldo do provedor');
+  });
+
   it('treats missing operational evidence as unsupported',()=>{
     const caps=getModelCapabilities({model_id:'unknown',name:'Unknown'} as any);
     expect(caps.supported_modes).toEqual([]);

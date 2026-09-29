@@ -52,7 +52,7 @@ describe('Etapa 10 — final product QA guardrails',()=>{
     expect(service).toContain('return routingV2ExecutionService.start');
     expect(execution).toContain('creditWalletService');
     expect(execution).toMatch(/asset|generatedAsset/i);
-    expect(read('src/components/views/HistoryView.tsx')).toContain('universalGenerationClient.list()');
+    expect(read('src/components/views/HistoryView.tsx')).toMatch(/universalGenerationClient\s*\.list\(\)/);
   });
 
   it('keeps Library and Assets backed by the persistent asset layer',()=>{
@@ -96,9 +96,9 @@ describe('Etapa 10 — final product QA guardrails',()=>{
 
   it('keeps History media metadata valid for image and duration-based generations',()=>{
     const history=read('src/components/views/HistoryView.tsx');
-    expect(history).toContain('universalGenerationClient.list()');
-    expect(history).toContain('g.duration_seconds?');
-    expect(history).not.toContain('{g.duration_seconds}s ·');
+    expect(history).toMatch(/universalGenerationClient\s*\.list\(\)/);
+    expect(history).toMatch(/generation\.duration_seconds\s*\?/);
+    expect(history).not.toContain('{generation.duration_seconds}s ·');
   });
 
   it('keeps mobile QA guardrails present for shell, dashboard, library and stage 4 surfaces',()=>{
