@@ -63,6 +63,10 @@ describe('Routing Core V2 Part 4 — price sync and reconciliation',()=>{
     expect(source).toContain('Math.min(10');
     expect(source).toContain('eligible.slice(cursor,cursor+limit)');
     expect(source).toContain('adapter.getPrice');
+    expect(source).toContain('hasFreshRoutingV2ProviderHealth');
+    expect(source).toContain('shouldReuseRoutingV2PriceSnapshot');
+    expect(source).toContain("pricing_status:route.pricing_status==='INVALID'?'CURRENT':route.pricing_status");
+    expect(source).not.toContain('providerHealthService.checkAndPersist');
     expect(source).toContain('price.billing_config.type!==route.billing_type');
     expect(source).toContain('calculateRoutingV2Economics');
     expect(wrangler).toContain('"*/30 * * * *"');
