@@ -126,6 +126,15 @@ function storageRetryDelay(attempts:number){
   return Math.min(60*60*1000,15_000*Math.pow(2,Math.max(0,attempts-1)));
 }
 
+function safeProviderErrorMessage(error:any){
+  return String(error?.message||error||'Erro sem mensagem do provider')
+    .replace(/Bearer\s+[^\s,;]+/gi,'Bearer [REDACTED]')
+    .replace(/\b(authorization|api[_-]?key|token|secret|password)\b\s*[:=]\s*[^\s,;}]+/gi,'$1=[REDACTED]')
+    .replace(/https?:\/\/[^\s]+/gi,'[URL REDACTED]')
+    .replace(/[\r\n\t]+/g,' ')
+    .slice(0,500);
+}
+
 async function archiveAndComplete(generation:any,urls:string[]):Promise<Generation>{
   generation.media_storage_status='PENDING';
   generation.media_storage_attempts=Number(generation.media_storage_attempts||0)+1;
@@ -284,6 +293,15 @@ export const routingV2ExecutionService={
       await generationRepository.recordAttemptLog(attempt);
       return generation;
     }catch(error:any){
+      console.error('[RoutingV2ProviderSubmissionFailure]',JSON.stringify({
+        generation_id:generationId,
+        route_id:route.route_id,
+        model_id:route.model_id,
+        capability_id:route.capability_id,
+        provider_id:route.provider_id,
+        error_code:String(error?.code||'ROUTING_V2_SUBMIT_FAILED').slice(0,100),
+        error_message:safeProviderErrorMessage(error),
+      }));
       await creditWalletService.releaseForGeneration(input.user_id,generationId).catch(()=>{});
       generation.status='FAILED';
       generation.error_code=error?.code||'ROUTING_V2_SUBMIT_FAILED';
