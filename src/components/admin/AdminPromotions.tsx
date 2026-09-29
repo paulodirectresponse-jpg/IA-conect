@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Tag, Calendar, CheckCircle2, AlertCircle, Edit2 } from 'lucide-react';
 import { adminService } from '../../services/adminService.js';
-import { PromotionEntry, ModelRegistryItem, ProviderRegistryItem, DiscountType } from '../../types/index.js';
+import { routingV2AdminService } from '../../services/routingV2AdminService.js';
+import { PromotionEntry, ProviderRegistryItem, DiscountType } from '../../types/index.js';
 import { Card } from '../common/Card.js';
 import { Button } from '../common/Button.js';
 import { Badge } from '../common/Badge.js';
@@ -9,7 +10,7 @@ import { Modal } from '../common/Modal.js';
 
 export const AdminPromotions: React.FC = () => {
   const [promotions, setPromotions] = useState<PromotionEntry[]>([]);
-  const [models, setModels] = useState<ModelRegistryItem[]>([]);
+  const [models, setModels] = useState<Array<{ model_id: string; name: string }>>([]);
   const [providers, setProviders] = useState<ProviderRegistryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -32,11 +33,11 @@ export const AdminPromotions: React.FC = () => {
       setLoading(true);
       const [promos, mList, pList] = await Promise.all([
         adminService.listPromotions(),
-        adminService.listModels(),
+        routingV2AdminService.listModels(),
         adminService.listProviders(),
       ]);
       setPromotions(promos);
-      setModels(mList);
+      setModels(mList.filter((model) => model.status === 'ACTIVE').map(({ model_id, name }) => ({ model_id, name })));
       setProviders(pList);
       setLoadError("");
     } catch (err) {
