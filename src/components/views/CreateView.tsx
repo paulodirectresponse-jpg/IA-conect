@@ -20,6 +20,7 @@ import { useAuth } from "../../context/AuthContext.js";
 import {
   adaptConfigurationToModel,
   findCompatibleModels,
+  getAutoSelectionValidationErrors,
   getModelCapabilities,
   validateConfiguration,
 } from "../../services/modelCapabilities.js";
@@ -457,6 +458,23 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
   ]);
   const compatibility = useMemo(
     () => {
+      if (selectionMode === "AUTO") {
+        const autoErrors = getAutoSelectionValidationErrors({
+          error: autoQuote.error,
+          loading: autoQuote.loading,
+          resolvedModel: selectedModel,
+          prompt,
+          waitingForReferences: refsWithFrames.some(
+            (ref) =>
+              ref.asset_id.startsWith("local_") ||
+              ref.asset?.status === "UPLOADING",
+          ),
+          hasModels: models.length > 0,
+        });
+        if (autoErrors.length)
+          return { valid: false, errors: autoErrors, warnings: [] };
+        if (!selectedModel) return { valid: true, errors: [], warnings: [] };
+      }
       const result = validateConfiguration(selectedModel, {
         mode,
         duration_seconds: durationSeconds,
@@ -492,6 +510,9 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
       prompt,
       initialImage,
       endImage,
+      autoQuote.error,
+      autoQuote.loading,
+      models.length,
     ],
   );
   useEffect(() => {

@@ -8,6 +8,7 @@ import { billingControlService } from "../services/billingControlService.js";
 import { routingV2CatalogService } from "../routing-v2/catalogService.js";
 import { routingV2ExecutionService } from "../routing-v2/executionService.js";
 import { promptCompilerService } from "../services/promptCompilerService.js";
+import { publicGeneration } from "../services/publicGeneration.js";
 import { publicGenerationError } from "../services/publicGenerationError.js";
 import {
   capabilityUsesDuration,
@@ -47,59 +48,6 @@ function assertEditorReferenceInputs(capabilityId:string,types:string[],roles:st
   }
   if(["video-edit","video-extend"].includes(capabilityId)&&!source("VIDEO"))
     throw Object.assign(new Error("A ferramenta exige um vídeo de origem."),{code:"REFERENCE_REQUIRED"});
-}
-
-function publicGeneration(g: any) {
-  const publicFailure =
-    g.error_code || g.error_message
-      ? publicGenerationError(
-          { code: g.error_code, message: g.error_message },
-          "A geração não pôde ser concluída.",
-        )
-      : null;
-  return {
-    generation_id: g.generation_id,
-    user_id: g.user_id,
-    status: g.status,
-    model_id: g.model_id,
-    capability_id: g.capability_id,
-    requested_model_id: g.requested_model_id,
-    routing_mode: g.routing_mode,
-    provider_id: g.provider_id,
-    routing_v2_route_id: g.routing_v2_route_id,
-    mode: g.mode,
-    original_prompt: g.original_prompt,
-    compiled_prompt: g.compiled_prompt,
-    prompt_compiler_version: g.prompt_compiler_version,
-    negative_prompt: g.negative_prompt,
-    duration_seconds: g.duration_seconds,
-    resolution: g.resolution,
-    aspect_ratio: g.aspect_ratio,
-    number_of_outputs: g.number_of_outputs,
-    seed: g.seed,
-    motion_strength: g.motion_strength,
-    audio_enabled: g.audio_enabled,
-    model_variant: g.model_variant,
-    references: g.references,
-    retail_credit_price: g.retail_credit_price,
-    final_credit_cost: g.final_credit_cost,
-    client_request_id: g.client_request_id,
-    progress_percent: g.progress_percent,
-    result_asset_id: g.result_asset_id,
-    result_asset_ids: g.result_asset_ids,
-    result_url: g.result_url,
-    result_urls: g.result_urls,
-    thumbnail_url: g.thumbnail_url,
-    media_storage_status: g.media_storage_status,
-    error_code: publicFailure?.code ?? null,
-    error_message: publicFailure?.message ?? null,
-    attempt_count: g.attempt_count,
-    references_count: g.references_count,
-    created_at: g.created_at,
-    submitted_at: g.submitted_at,
-    completed_at: g.completed_at,
-    failed_at: g.failed_at,
-  };
 }
 
 async function buildGenerationQuote(
@@ -340,6 +288,8 @@ generationRouter.post(
           ? 402
           : err?.code === "NO_SAFE_PROVIDER_AVAILABLE"
             ? 503
+            : err?.code === "NO_FUNDED_ROUTE_AVAILABLE"
+              ? 503
             : 400;
       return res.status(status).json({ success: false, error });
     }
@@ -537,6 +487,8 @@ generationRouter.post(
             ? 409
             : err?.code === "NO_SAFE_PROVIDER_AVAILABLE"
               ? 503
+              : err?.code === "NO_FUNDED_ROUTE_AVAILABLE"
+                ? 503
               : 400;
       return res.status(status).json({ success: false, error });
     }

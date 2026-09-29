@@ -65,4 +65,22 @@ describe('PR-05 generated asset storage',()=>{
       userId:'user-1',assetId:'ast-1',sourceUrl:'https://provider.example/output',fallbackMime:'image/jpeg',fallbackExtension:'jpg',
     })).rejects.toMatchObject({code:'ASSET_STORAGE_UNAVAILABLE'});
   });
+
+  it('classifies Supabase quota restrictions without logging the response body',async()=>{
+    process.env.SUPABASE_URL='https://storage.example';
+    process.env.SUPABASE_SECRET_KEY='server-secret';
+    process.env.SUPABASE_BUCKET='assets';
+    const warning=vi.spyOn(console,'warn').mockImplementation(()=>{});
+    vi.spyOn(globalThis,'fetch')
+      .mockResolvedValueOnce(new Response(new Uint8Array([1]),{status:200,headers:{'content-type':'video/mp4'}}))
+      .mockResolvedValueOnce(new Response('{"message":"exceed_cached_egress_quota private-detail"}',{status:402}));
+
+    await expect(generatedAssetStorageService.archive({
+      userId:'user-1',assetId:'vid-1',sourceUrl:'https://provider.example/output',fallbackMime:'video/mp4',fallbackExtension:'mp4',
+    })).rejects.toMatchObject({code:'ASSET_STORAGE_QUOTA_RESTRICTED'});
+    expect(warning).toHaveBeenCalledWith('[GeneratedAssetArchiveFailed]',{
+      status:402,code:'ASSET_STORAGE_QUOTA_RESTRICTED',
+    });
+    expect(JSON.stringify(warning.mock.calls)).not.toContain('private-detail');
+  });
 });

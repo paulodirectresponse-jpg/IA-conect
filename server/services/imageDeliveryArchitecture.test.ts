@@ -58,7 +58,8 @@ describe('stage 6 image delivery architecture',()=>{
     expect(community).toContain('src={item.thumbnail_url||item.result_url}');
     expect(community).toContain('src={selected.result_url}');
     expect(dashboard).toContain('src={g.thumbnail_url||g.result_url!}');
-    expect(history).toContain('sources={[g.thumbnail_url,g.result_url,...(g.result_urls||[])]}');
+    expect(history).toContain('generation.pending_result_urls || []');
+    expect(history).toContain('generation.result_urls || []');
   });
 
   it('preserves provider thumbnails when a provider returns one',()=>{

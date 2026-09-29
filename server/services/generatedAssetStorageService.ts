@@ -95,8 +95,15 @@ export const generatedAssetStorageService={
     });
     if(!upload.ok){
       const body=await upload.text().catch(()=>'');
-      console.error('[GeneratedAssetArchive]',upload.status,body.slice(0,400));
-      throw Object.assign(new Error('Não foi possível arquivar o arquivo gerado.'),{code:'ASSET_ARCHIVE_UPLOAD_FAILED'});
+      const quotaRestricted=upload.status===402&&/exceed_cached_egress_quota|(?:quota|usage).*(?:restrict|exceed|limit)|(?:restrict|exceed|limit).*(?:quota|usage)/i.test(body);
+      const code=quotaRestricted?'ASSET_STORAGE_QUOTA_RESTRICTED':upload.status===402?'ASSET_STORAGE_RESTRICTED':'ASSET_ARCHIVE_UPLOAD_FAILED';
+      console.warn('[GeneratedAssetArchiveFailed]',{status:upload.status,code});
+      const message=quotaRestricted
+        ?'O armazenamento Supabase está bloqueado por limite de quota.'
+        :upload.status===402
+          ?'O armazenamento Supabase está temporariamente restrito.'
+          :'Não foi possível arquivar o arquivo gerado.';
+      throw Object.assign(new Error(message),{code});
     }
     const deliveryUrl=publicUrl(config.supabaseUrl,config.bucket,storagePath);
     if(!await verifyPublicAsset(deliveryUrl)){

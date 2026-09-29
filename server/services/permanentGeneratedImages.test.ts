@@ -17,15 +17,16 @@ describe('permanent generated image stage 1',()=>{
 
   it('keeps provider output private and retryable when durable storage is temporarily unavailable',()=>{
     const execution=read('server/routing-v2/executionService.ts');
-    const routes=read('server/routes/generationRoutes.ts');
+    const publicGeneration=read('server/services/publicGeneration.ts');
     const history=read('src/components/views/HistoryView.tsx');
     expect(execution).toContain('generation.provider_result_urls=urls');
     expect(execution).toContain('storageRetryDelay(attempts)');
     expect(execution).toContain('generation.media_storage_status=\'PENDING\'');
     expect(execution).toContain('generation.media_storage_status=\'READY\'');
-    expect(routes).toContain('media_storage_status: g.media_storage_status');
-    expect(routes).not.toContain('provider_result_urls:');
-    expect(history).toContain('Os créditos continuam reservados.');
+    expect(publicGeneration).toContain('media_storage_status: g.media_storage_status');
+    expect(publicGeneration).toContain('pending_result_urls: pendingResultUrls');
+    expect(publicGeneration).not.toContain('provider_result_urls:');
+    expect(history).toContain('Os ${credits(generation.retail_credit_price)} ficam reservados');
   });
 
   it('renders image assets through the shared resilient media component',()=>{

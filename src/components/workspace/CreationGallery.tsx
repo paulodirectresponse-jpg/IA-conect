@@ -291,7 +291,13 @@ export const CreationGallery: React.FC<Props> = ({
           groupAssets = [...(byGeneration.get(g.generation_id) || [])],
           urls = Array.from(
             new Set(
-              [...(g.result_urls || []), g.result_url]
+              [
+                ...(g.result_urls || []),
+                g.result_url,
+                ...(g.media_storage_status === "PENDING"
+                  ? g.pending_result_urls || []
+                  : []),
+              ]
                 .filter(Boolean)
                 .map(String),
             ),
@@ -540,6 +546,7 @@ export const CreationGallery: React.FC<Props> = ({
             {visibleGroups.map((group) => {
               const g = group.generation,
                 working = Boolean(g && isGenerationWorking(g.status)),
+                storagePending = g?.media_storage_status === "PENDING",
                 busy = Boolean(
                   g &&
                   (cancellingId === g.generation_id ||
@@ -564,11 +571,24 @@ export const CreationGallery: React.FC<Props> = ({
                           ? ` · ${g.duration_seconds}s`
                           : ""}
                         {working
-                          ? ` · ${busy ? "Cancelando..." : "Em processamento"}`
+                          ? ` · ${busy ? "Cancelando..." : storagePending ? "Salvando mídia" : "Em processamento"}`
                           : ""}
                       </p>
+                      {storagePending && (
+                        <p role="status" className="mt-1 max-w-3xl text-[9px] leading-relaxed text-amber-300">
+                          {g.media_storage_error_code === "ASSET_STORAGE_QUOTA_RESTRICTED"
+                            ? "ERRO DE ARMAZENAMENTO: Supabase recusou o upload por quota de egress excedida (HTTP 402; ASSET_STORAGE_QUOTA_RESTRICTED)."
+                            : g.media_storage_error_code
+                              ? `ERRO DE ARMAZENAMENTO: ${g.media_storage_error_code}.`
+                              : "O resultado ainda não foi salvo no armazenamento permanente."}{" "}
+                          {g.pending_result_urls?.length
+                            ? "A prévia abaixo usa URL temporária do provedor e pode expirar."
+                            : "O sistema continuará tentando arquivar o resultado automaticamente."}{" "}
+                          {`Seus ${Number(g.retail_credit_price || 0).toLocaleString("pt-BR")} créditos continuam reservados.`}
+                        </p>
+                      )}
                     </div>
-                    {g && working && !audioKind && !modelKind && (
+                    {g && working && !storagePending && !audioKind && !modelKind && (
                       <button
                         type="button"
                         disabled={busy}
@@ -686,6 +706,7 @@ export const CreationGallery: React.FC<Props> = ({
                                 {g &&
                                   !audioKind &&
                                   !modelKind &&
+                                  !storagePending &&
                                   onRestoreGeneration &&
                                   menuItem(
                                     "Gerar novamente",
@@ -693,6 +714,7 @@ export const CreationGallery: React.FC<Props> = ({
                                     <RotateCcw className="w-3.5 h-3.5" />,
                                   )}
                                 {asset.type === "IMAGE" &&
+                                  !storagePending &&
                                   onUseImageAsReference &&
                                   menuItem(
                                     "Usar como referência",
@@ -700,6 +722,7 @@ export const CreationGallery: React.FC<Props> = ({
                                     <ImageIcon className="w-3.5 h-3.5" />,
                                   )}
                                 {asset.type === "IMAGE" &&
+                                  !storagePending &&
                                   onEditImage &&
                                   menuItem(
                                     "Editar imagem",
@@ -707,6 +730,7 @@ export const CreationGallery: React.FC<Props> = ({
                                     <Edit3 className="w-3.5 h-3.5" />,
                                   )}
                                 {asset.type === "IMAGE" &&
+                                  !storagePending &&
                                   onCreateVideoFromImage &&
                                   menuItem(
                                     "Usar como frame inicial",
@@ -726,7 +750,9 @@ export const CreationGallery: React.FC<Props> = ({
                                     <Box className="w-3.5 h-3.5" />,
                                   )}
                                 {menuItem(
-                                  "Baixar",
+                                  storagePending && asset.asset_id.startsWith("runtime-")
+                                    ? "Baixar prévia temporária"
+                                    : "Baixar",
                                   () => download(asset),
                                   <Download className="w-3.5 h-3.5" />,
                                 )}
