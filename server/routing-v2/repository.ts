@@ -6,6 +6,7 @@ import {
   RoutingV2ProviderRoute,
   assertRoutingV2Route,
 } from './domain.js';
+import { withEffectiveModelControls } from './modelControls.js';
 
 function namespace(){
   const value=String(process.env.ROUTING_V2_NAMESPACE||'').trim().toLowerCase();
@@ -46,16 +47,17 @@ export const routingV2Repository={
 
   async getModel(modelId:string):Promise<RoutingV2Model|null>{
     const row=await firestoreAdminRest.get(`${names().models}/${safe(modelId)}`);
-    return row.exists?row.data as RoutingV2Model:null;
+    return row.exists?withEffectiveModelControls(row.data as RoutingV2Model):null;
   },
 
   async listModels():Promise<RoutingV2Model[]>{
-    return listCollection<RoutingV2Model>(names().models);
+    return (await listCollection<RoutingV2Model>(names().models)).map(withEffectiveModelControls);
   },
 
   async saveModel(model:RoutingV2Model){
-    await firestoreAdminRest.set(`${names().models}/${safe(model.model_id)}`,model);
-    return model;
+    const normalized=withEffectiveModelControls(model);
+    await firestoreAdminRest.set(`${names().models}/${safe(model.model_id)}`,normalized);
+    return normalized;
   },
 
   async getRoute(routeId:string):Promise<RoutingV2ProviderRoute|null>{
