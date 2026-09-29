@@ -11,6 +11,7 @@ import { Generation } from "../../types/index.js";
 import { universalGenerationClient } from "../../services/universalGenerationClient.js";
 import { assetService } from "../../services/assetService.js";
 import { ResilientImage } from "../common/ResilientImage.js";
+import { mediaStorageErrorMessage } from "../../utils/mediaStorageStatus.js";
 
 const credits = (value?: number) =>
   `${Math.max(0, Number(value || 0)).toLocaleString("pt-BR")} créditos`;
@@ -164,15 +165,11 @@ export const HistoryView: React.FC = () => {
                       role="status"
                       className="mt-1 max-w-3xl text-[10px] leading-relaxed text-amber-300"
                     >
-                      {generation.media_storage_error_code ===
-                      "ASSET_STORAGE_QUOTA_RESTRICTED"
-                        ? "ERRO: Supabase recusou o upload porque a quota de egress foi excedida (HTTP 402; ASSET_STORAGE_QUOTA_RESTRICTED)."
-                        : generation.media_storage_error_code
-                          ? `ERRO DE ARMAZENAMENTO: ${generation.media_storage_error_code}.`
-                          : "O resultado ainda não foi salvo no armazenamento permanente."}{" "}
+                      {`ERRO DE ARMAZENAMENTO: ${mediaStorageErrorMessage(generation.media_storage_error_code)}`}{" "}
                       {previewUrl
                         ? "A prévia depende de uma URL temporária do provedor e pode expirar."
-                        : "O sistema continuará tentando arquivar o resultado automaticamente."}{" "}
+                        : "Ainda não há uma prévia disponível."}{" "}
+                      O sistema continuará tentando arquivar o resultado automaticamente.{" "}
                       {`Os ${credits(generation.retail_credit_price)} ficam reservados até o salvamento terminar.`}
                     </p>
                   )}
