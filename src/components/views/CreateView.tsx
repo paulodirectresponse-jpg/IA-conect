@@ -35,6 +35,7 @@ import { ReferenceRulesModal } from "../workspace/ReferenceRulesModal.js";
 import { upsertGeneration } from "../../utils/generationCollection.js";
 import { MobileStudioLayout } from "../workspace/MobileStudioLayout.js";
 import { useBackendAutoQuote } from "../workspace/useBackendAutoQuote.js";
+import { resolveVideoCapability } from "../../services/videoCapabilityResolver.js";
 
 function localAliasFor(a: Asset, refs: WorkspaceReference[]) {
   const p = a.type === "VIDEO" ? "video" : a.type === "AUDIO" ? "audio" : "img",
@@ -54,18 +55,6 @@ function baseDurationFor(model: ModelRegistryItem) {
     .map(Number)
     .filter((v) => Number.isFinite(v) && v > 0);
   return Math.min(...values);
-}
-function videoCapabilityFor(
-  mode: string,
-  hasInitial: boolean,
-  hasEnd: boolean,
-) {
-  if (mode === "VIDEO_TO_VIDEO") return "video-edit";
-  if (mode === "IMAGE_TO_VIDEO" && hasInitial && hasEnd) return "last-frame";
-  if (mode === "IMAGE_TO_VIDEO" && hasInitial) return "first-frame";
-  if (mode === "IMAGE_TO_VIDEO" || mode === "REFERENCE_TO_VIDEO")
-    return "image-to-video";
-  return "text-to-video";
 }
 const terminal = (status: string) =>
   ["SUCCEEDED", "FAILED", "CANCELLED", "REFUNDED"].includes(status);
@@ -266,6 +255,26 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
       [selectionMode, manualModel, prompt, references, initialImage, endImage],
     ),
     mode = inferredIntent.mode;
+  const capabilitySources = selectionMode === "MANUAL" && manualModel
+    ? manualModel.capabilities_ready || []
+    : models.flatMap((model) => model.capabilities_ready || []);
+  const capabilityId = resolveVideoCapability(
+    mode,
+    Boolean(initialImage),
+    Boolean(endImage),
+    capabilitySources,
+  );
+  const modelsForCapability = useMemo(
+    () => models.filter((model) =>
+      !Array.isArray(model.capabilities_ready) || model.capabilities_ready.includes(capabilityId),
+    ),
+    [models, capabilityId],
+  );
+  const catalogErrorForCapability = catalogError || (
+    models.length > 0 && modelsForCapability.length === 0
+      ? "O catálogo carregou, mas não há rota READY compatível com esta operação."
+      : ""
+  );
   const counts = useMemo(() => {
     const r = { IMAGE: 0, VIDEO: 0, AUDIO: 0 };
     references.forEach((x) => {
@@ -275,7 +284,7 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
   }, [references]);
   const autoCompatibleModels = useMemo(
     () =>
-      findCompatibleModels(models, {
+      findCompatibleModels(modelsForCapability, {
         mode,
         imageCount: counts.IMAGE,
         videoCount: counts.VIDEO,
@@ -290,6 +299,8 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
       }),
     [
       models,
+      modelsForCapability,
+      capabilityId,
       mode,
       counts,
       initialImage,
@@ -331,7 +342,6 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
       });
     return out;
   }, [references, initialImage, endImage]);
-  const capabilityId = videoCapabilityFor(mode, Boolean(initialImage), Boolean(endImage));
   const autoQuote = useBackendAutoQuote(selectionMode === "AUTO" && !refsWithFrames.some(ref => ref.asset_id.startsWith("local_") || ref.asset?.status === "UPLOADING"), {
     model_id: "AUTO",
     capability_id: capabilityId,
@@ -446,8 +456,8 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
     refsWithFrames.length,
   ]);
   const compatibility = useMemo(
-    () =>
-      validateConfiguration(selectedModel, {
+    () => {
+      const result = validateConfiguration(selectedModel, {
         mode,
         duration_seconds: durationSeconds,
         resolution,
@@ -457,8 +467,21 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
         promptText: prompt,
         has_start_image: Boolean(initialImage),
         has_end_image: Boolean(endImage),
-      }),
+      });
+      if (
+        selectionMode === "MANUAL" &&
+        selectedModel &&
+        Array.isArray(selectedModel.capabilities_ready) &&
+        !selectedModel.capabilities_ready.includes(capabilityId)
+      ) {
+        const message = "Este modelo não tem rota READY para a operação escolhida.";
+        return { ...result, valid: false, errors: [...result.errors, message] };
+      }
+      return result;
+    },
     [
+      selectionMode,
+      capabilityId,
       selectedModel,
       mode,
       durationSeconds,
@@ -856,18 +879,15 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
       submittedAspectRatio = aspectRatio,
       submittedOutputs = numberOfOutputs,
       submittedSeed = seed === "" ? null : seed,
-      submittedMotion = motionStrength;
+      submittedMotion = motionStrength,
+      submittedCapabilityId = capabilityId;
     setValidating(true);
     try {
       const resolvedReferences =
         await assetService.resolveWorkspaceReferences(submittedReferences);
       const request = {
         model_id: selectionMode === "AUTO" ? "AUTO" : submittedModel.model_id,
-        capability_id: videoCapabilityFor(
-          submittedMode,
-          Boolean(initialImage),
-          Boolean(endImage),
-        ),
+        capability_id: submittedCapabilityId,
         prompt: submittedPrompt,
         negative_prompt: submittedNegativePrompt,
         references: resolvedReferences.map((ref) => ({
@@ -945,7 +965,7 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
         activeCount={mobileActiveCount}
         creator={
           <CreatorPanel
-            models={models}
+            models={modelsForCapability}
             selectionMode={selectionMode}
             selectedModelId={
               selectionMode === "AUTO"
@@ -961,7 +981,7 @@ export const CreateView: React.FC<Props> = ({ initialAsset, onEditImage }) => {
             favoriteModelIds={favoriteModelIds}
             recentModelIds={recentModelIds}
             catalogLoading={catalogLoading}
-            catalogError={catalogError}
+            catalogError={catalogErrorForCapability}
             onRetryCatalog={() => void loadVideoCatalog()}
             onToggleFavorite={async (id) => {
               const p = await workspaceService.toggleFavoriteModel(id);

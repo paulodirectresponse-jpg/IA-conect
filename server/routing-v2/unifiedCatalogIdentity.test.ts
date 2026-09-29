@@ -50,4 +50,12 @@ describe('unified catalog provider identity',()=>{
     expect(atlas?.catalog_key).toBe(runware?.catalog_key);
     expect(atlas?.display_name).toBe('Seedance 2 Fast');
   });
+
+  it('groups text, image and provider-root Seedance endpoints under one model family',()=>{
+    const text=canonicalizeUnifiedVideoCatalogIdentity('Text To Video','bytedance/seedance-2.0/text-to-video','ByteDance');
+    const image=canonicalizeUnifiedVideoCatalogIdentity('Image To Video','bytedance/seedance-2-0/image-to-video','ByteDance');
+    const root=canonicalizeUnifiedVideoCatalogIdentity('Seedance 2.0','bytedance:seedance-2-0@1','ByteDance');
+    expect(text?.catalog_key).toBe(image?.catalog_key);
+    expect(image?.catalog_key).toBe(root?.catalog_key);
+  });
 });
