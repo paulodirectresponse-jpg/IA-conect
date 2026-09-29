@@ -59,10 +59,14 @@ export const routingV2RouteService={
   },
 
   async listReady(modelId?:string,capabilityId?:CapabilityId){
-    return (await routingV2Repository.listRoutes()).filter(route=>{
+    const[routes,providers]=await Promise.all([routingV2Repository.listRoutes(),routingV2Repository.listProviders()]);
+    const providerById=new Map(providers.map(provider=>[provider.provider_id,provider]));
+    return routes.filter(route=>{
       if(modelId&&route.model_id!==modelId)return false;
       if(capabilityId&&route.capability_id!==capabilityId)return false;
       if(route.status!=='READY')return false;
+      const provider=providerById.get(route.provider_id);
+      if(!provider||provider.status!=='ACTIVE'||provider.health_status!=='HEALTHY')return false;
       try{assertRoutingV2Route(route);return true;}catch{return false;}
     });
   },

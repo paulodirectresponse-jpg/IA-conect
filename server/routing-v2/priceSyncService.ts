@@ -10,6 +10,7 @@ import { getUsdBrlRate } from './fxRateService.js';
 import { isOfficialRoutingV2Provider } from './providerService.js';
 import { routingV2CapabilityMappingRepairService, RoutingV2MappingRepairRow } from './capabilityMappingRepairService.js';
 import { assertIdentifierMatchesCapability } from './capabilityMappingValidation.js';
+import { routingV2ProviderModelMigrationService, RoutingV2ProviderModelMigrationResult } from './providerModelMigrationService.js';
 
 export interface RoutingV2PriceSyncRow{
   route_id:string;
@@ -35,6 +36,7 @@ export interface RoutingV2PriceSyncResult{
   updated:number;
   failed:number;
   mapping_repairs?:{examined:number;repaired:number;blocked:number;rows:RoutingV2MappingRepairRow[]}|null;
+  provider_migrations?:RoutingV2ProviderModelMigrationResult|null;
   rows:RoutingV2PriceSyncRow[];
 }
 
@@ -79,6 +81,7 @@ export const routingV2PriceSyncService={
     const checkedAt=new Date().toISOString();
     const cursor=Math.max(0,Math.floor(Number(input.cursor)||0));
     const limit=Math.min(10,Math.max(1,Math.floor(Number(input.limit)||5)));
+    const providerMigrations=cursor===0?await routingV2ProviderModelMigrationService.migrateDeprecatedRunwareModels():null;
     const mappingRepairs=cursor===0?await routingV2CapabilityMappingRepairService.repair():null;
     const[routes,models,settings]=await Promise.all([
       routingV2Repository.listRoutes(),
@@ -177,6 +180,10 @@ export const routingV2PriceSyncService={
           },
           last_price_sync_at:checkedAt,
           last_runtime_check_at:checkedAt,
+          last_sync_error:null,
+          last_sync_error_at:checkedAt,
+          last_runtime_error:runtime.runtime_status==='HEALTHY'?null:(runtime.health?.message||`Runtime do provider ${runtime.runtime_status}; rota mantida fora de READY.`),
+          last_runtime_error_at:checkedAt,
           updated_at:checkedAt,
         };
         const next=reconcileRoutingV2Route({route:priced,provider,now:checkedAt});
@@ -185,9 +192,11 @@ export const routingV2PriceSyncService={
       }catch(err:any){
         const provider=providerCache.get(route.provider_id)||null;
         const runtimeStatus=runtimeCache.get(route.provider_id)?.runtime_status||provider?.health_status||route.runtime_status;
+        const errorMessage=String(err?.message||err);
+        const runtimeMessage=runtimeCache.get(route.provider_id)?.health?.message;
         const next=reconcileRoutingV2Route({route,provider,pricing_status:'INVALID',runtime_status:runtimeStatus,now:checkedAt});
-        await routingV2Repository.saveRoute(next).catch(()=>{});
-        rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:false,status:next.status,pricing_status:next.pricing_status,runtime_status:next.runtime_status,retail_price_credits:next.pricing_snapshot?.retail_price_credits||null,error:String(err?.message||err)});
+        await routingV2Repository.saveRoute({...next,last_sync_error:errorMessage,last_sync_error_at:checkedAt,last_runtime_error:runtimeStatus==='HEALTHY'?null:(runtimeMessage||`Runtime do provider ${runtimeStatus}; rota mantida fora de READY.`),last_runtime_error_at:checkedAt}).catch(()=>{});
+        rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:false,status:next.status,pricing_status:next.pricing_status,runtime_status:next.runtime_status,retail_price_credits:next.pricing_snapshot?.retail_price_credits||null,error:errorMessage});
       }
     }
 
@@ -203,6 +212,7 @@ export const routingV2PriceSyncService={
       updated:rows.filter(row=>row.ok).length,
       failed:rows.filter(row=>!row.ok).length,
       mapping_repairs:mappingRepairs?{examined:mappingRepairs.examined,repaired:mappingRepairs.repaired,blocked:mappingRepairs.blocked,rows:mappingRepairs.rows}:null,
+      provider_migrations:providerMigrations,
       rows:rows.map(row=>{
         const route=routesById.get(row.route_id);
         return{

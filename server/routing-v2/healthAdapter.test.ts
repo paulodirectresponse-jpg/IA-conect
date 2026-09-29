@@ -2,9 +2,16 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { WaveSpeedHealthCheck } from './providers/wavespeedHealthCheck.js';
 import { AtlasHealthCheck } from './providers/atlasHealthCheck.js';
 import { RunwareHealthCheck } from './providers/runwareHealthCheck.js';
+import { checkProviderHealth } from './healthAdapter.js';
 import { RoutingV2Provider } from './domain.js';
 
 const originalFetch = global.fetch;
+
+afterEach(()=>{
+  global.fetch=originalFetch;
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
 
 const mockProvider: RoutingV2Provider = {
   provider_id: 'provider-wavespeed',
@@ -167,5 +174,27 @@ describe('RunwareHealthCheck', () => {
         method: 'POST',
       })
     );
+  });
+
+  it('uses the bounded official Runware modelSearch health probe',async()=>{
+    vi.stubEnv('RUNWARE_API_KEY','test-key');
+    const fetchMock=vi.fn(()=>Promise.resolve({status:200,json:()=>Promise.resolve({data:[{taskUUID:'health-check'}]})}));
+    global.fetch=fetchMock as any;
+    const result=await checkProviderHealth({...mockProvider,provider_id:'provider-runware'});
+
+    expect(result.status).toBe('HEALTHY');
+    expect(fetchMock).toHaveBeenCalledWith('https://api.runware.ai/v1',expect.objectContaining({
+      method:'POST',
+      headers:expect.objectContaining({Authorization:'Bearer test-key'}),
+      body:expect.stringContaining('"search":"FLUX"'),
+    }));
+  });
+
+  it('reports a Runware catalog throttle as DEGRADED with its cause',async()=>{
+    vi.stubEnv('RUNWARE_API_KEY','test-key');
+    global.fetch=vi.fn(()=>Promise.resolve({status:429,text:()=>Promise.resolve('rate limited')})) as any;
+    const result=await checkProviderHealth({...mockProvider,provider_id:'provider-runware'});
+    expect(result.status).toBe('DEGRADED');
+    expect(result.message).toContain('Rate limit');
   });
 });

@@ -42,7 +42,7 @@ export class RunwareHealthCheck extends BaseProviderHealthCheck {
             },
           ]),
         },
-        3000
+        5500
       );
 
       let status = this.interpretResponse(res.status, true);
@@ -64,7 +64,7 @@ export class RunwareHealthCheck extends BaseProviderHealthCheck {
         return {
           status: 'DEGRADED',
           checked_at: now(),
-          message: 'Runware timeout (3s)',
+          message: 'Runware timeout (5.5s)',
         };
       }
       return {

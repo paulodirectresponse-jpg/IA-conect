@@ -3,6 +3,7 @@ import { RoutingV2ProviderHealth } from './adapter.js';
 import { checkProviderHealth } from './healthAdapter.js';
 import { routingV2Repository } from './repository.js';
 import { isOfficialRoutingV2Provider } from './providerService.js';
+import { reconcileRoutingV2Route } from './routeReconciler.js';
 
 const now = () => new Date().toISOString();
 
@@ -32,6 +33,15 @@ export const providerHealthService = {
       };
 
       await routingV2Repository.saveProvider(updated);
+      const routes=(await routingV2Repository.listRoutes()).filter(route=>route.provider_id===provider.provider_id&&route.status!=='DISABLED');
+      await Promise.all(routes.map(route=>{
+        const runtimeError=health.status==='HEALTHY'?null:(health.message||`Runtime do provider ${health.status}; rota mantida fora de READY.`);
+        const next=reconcileRoutingV2Route({
+          route:{...route,last_runtime_check_at:checkedAt,last_runtime_error:runtimeError,last_runtime_error_at:checkedAt},
+          provider:updated,runtime_status:health.status,now:checkedAt,
+        });
+        return routingV2Repository.saveRoute(next);
+      }));
 
       return {
         provider_id: provider.provider_id,

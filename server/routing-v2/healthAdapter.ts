@@ -1,6 +1,6 @@
 import { RoutingV2Provider, RoutingV2RuntimeStatus } from './domain.js';
 import { RoutingV2ProviderHealth } from './adapter.js';
-import { listAtlasCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from './providerCatalogService.js';
+import { listAtlasCatalogModels, listWaveSpeedCatalogModels } from './providerCatalogService.js';
 
 export interface ProviderHealthCheck {
   readonly providerId: string;
@@ -85,8 +85,9 @@ export async function checkProviderHealth(
     }
     if(provider.provider_id==='provider-runware'){
       if(!process.env.RUNWARE_API_KEY?.trim())return{status:'UNAVAILABLE',checked_at:now(),message:'Runware API key ausente.'};
-      await listRunwareCatalogModels('image');
-      return{status:'HEALTHY',checked_at:now(),message:'Runware modelSearch respondeu com sucesso.'};
+      const check=getProviderHealthCheck(provider.provider_id);
+      if(!check)return{status:'UNKNOWN',checked_at:now(),message:'Health check oficial do Runware não foi carregado.'};
+      return await check.check(provider);
     }
   }catch(error:any){
     return{status:'UNAVAILABLE',checked_at:now(),message:String(error?.message||error)};

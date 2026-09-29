@@ -101,6 +101,11 @@ export interface RoutingV2ProviderRoute{
   priority:number;
   last_price_sync_at?:string|null;
   last_runtime_check_at?:string|null;
+  last_sync_error?:string|null;
+  last_sync_error_at?:string|null;
+  last_runtime_error?:string|null;
+  last_runtime_error_at?:string|null;
+  provider_migration_note?:string|null;
   mapping_repair_note?:string|null;
   created_at:string;
   updated_at:string;
