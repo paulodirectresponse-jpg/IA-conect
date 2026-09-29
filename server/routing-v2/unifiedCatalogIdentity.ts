@@ -101,10 +101,23 @@ export function normalizeUnifiedCatalogSearch(value:string){
 }
 
 function normalizeUnifiedCatalogSearchValue(value:string){
-  return normalizeUnifiedCatalogSearch(value)
-    .replace(/([a-z])(\d)/g,'$1 $2')
+  return String(value||'').toLowerCase()
+    .replace(/([a-z])(?=\d)/g,'$1 ')
+    .replace(/(\d)[-_](?=\d)/g,'$1.')
+    .replace(/[^a-z0-9.]+/g,' ')
     .replace(/\bv\s+(?=\d)/g,'')
-    .replace(/(\d+)\s+0(?=\s|$)/g,'$1');
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function catalogSearchTokenScore(queryToken:string,candidateToken:string){
+  if(queryToken===candidateToken)return 4;
+  const queryVersionZero=queryToken.match(/^(\d+)\.0$/);
+  if(queryVersionZero?.[1]===candidateToken)return 4;
+  const candidateVersionZero=candidateToken.match(/^(\d+)\.0$/);
+  if(candidateVersionZero?.[1]===queryToken)return 4;
+  if(/^\d+(?:\.\d+)*$/.test(queryToken))return 0;
+  return queryToken.length>=2&&candidateToken.startsWith(queryToken)?1:0;
 }
 
 /**
@@ -124,8 +137,8 @@ export function unifiedCatalogSearchScore(query:string,values:Array<string|null|
       for(let offset=0;offset<queryTokens.length;offset++){
         const queryToken=queryTokens[offset];
         const candidateToken=candidateTokens[start+offset];
-        if(candidateToken===queryToken){score+=4;continue;}
-        if(queryToken.length>=2&&candidateToken.startsWith(queryToken)){score+=1;continue;}
+        const tokenScore=catalogSearchTokenScore(queryToken,candidateToken);
+        if(tokenScore){score+=tokenScore;continue;}
         score=0;
         break;
       }
