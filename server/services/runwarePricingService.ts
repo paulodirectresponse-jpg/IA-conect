@@ -6,7 +6,7 @@ const PRICING_BASE='https://content.runware.ai/models/';
 const CACHE_TTL_MS=5*60_000;
 const REQUEST_TIMEOUT_MS=6_000;
 
-export interface RunwarePricingRate{amount:number;unit:string;label?:string;}
+export interface RunwarePricingRate{amount:number;unit:string;label?:string;after?:number;}
 export interface RunwarePricingMetadata{air?:string;status?:string;pricingRates?:RunwarePricingRate[];}
 export interface RunwarePriceDimensions{
   provider_model_identifier:string;capability_id:string;mode?:GenerationMode;resolution?:string;
@@ -64,22 +64,31 @@ function failUnquoted(identifier:string):never{
 function normalizedUnit(value:string){return String(value||'').toLowerCase().replace(/[^a-z]/g,'');}
 function normalizedResolution(value:string){
   const raw=String(value||'').toLowerCase().replace(/\s/g,'');
-  if(/\b4k\b|4096/.test(raw))return'4k';
-  if(/\b2k\b|2048/.test(raw))return'2k';
-  if(/1080/.test(raw))return'1080p';
-  if(/720/.test(raw))return'720p';
-  if(/480/.test(raw))return'480p';
-  if(/360/.test(raw))return'360p';
-  if(/\b1k\b|1024/.test(raw))return'1k';
-  if(/512/.test(raw))return'512';
+  const dimensions=raw.match(/(\d{3,5})x(\d{3,5})/);
+  if(dimensions)return Math.max(Number(dimensions[1]),Number(dimensions[2]));
+  const kilopixel=raw.match(/(\d+(?:\.\d+)?)k/);
+  if(kilopixel)return Math.round(Number(kilopixel[1])*1024);
+  const pixels=raw.match(/(\d{3,5})(?:p)?/);
+  if(pixels)return Number(pixels[1]);
   return null;
 }
 function isVideoMode(capability:string,mode?:GenerationMode){
   return capability.includes('video')||['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO','VIDEO_TO_VIDEO'].includes(String(mode||''));
 }
-function labelMatchesResolution(rate:RunwarePricingRate,resolution:string){
-  const labelResolution=normalizedResolution(rate.label||'');
-  return labelResolution===null||labelResolution===normalizedResolution(resolution);
+function selectResolutionTier(rates:RunwarePricingRate[],resolution:string){
+  const target=normalizedResolution(resolution);
+  const tiers=rates.map(rate=>({rate,resolution:normalizedResolution(rate.label||'')})).filter(row=>row.resolution!==null);
+  if(!tiers.length)return rates;
+  const exact=tiers.filter(row=>row.resolution===target);
+  if(exact.length)return exact.map(row=>row.rate);
+  if(target!==null){
+    // Some catalogs publish a physical tier name such as 1.5K for the API's
+    // logical 1K preset. Choosing the next published tier is conservative:
+    // we never quote a lower tier than the requested output.
+    const next=tiers.filter(row=>Number(row.resolution)>=target).sort((a,b)=>Number(a.resolution)-Number(b.resolution))[0];
+    if(next)return tiers.filter(row=>row.resolution===next.resolution).map(row=>row.rate);
+  }
+  throw pricingError('Runware não publicou preço para a resolução '+resolution+'.','RUNWARE_PRICE_RESOLUTION_UNAVAILABLE');
 }
 function rateAmount(rate:RunwarePricingRate){
   const amount=Number(rate.amount);
@@ -93,11 +102,7 @@ function selectOutputRate(rates:RunwarePricingRate[],dimensions:RunwarePriceDime
   let candidates=outputs;
   const referenceRates=outputs.filter(rate=>/reference|style image|input image/i.test(rate.label||''));
   if(referenceRates.length)candidates=hasReference?referenceRates:outputs.filter(rate=>!referenceRates.includes(rate));
-  const resolutionCandidates=candidates.filter(rate=>normalizedResolution(rate.label||'')!==null);
-  if(resolutionCandidates.length){
-    candidates=resolutionCandidates.filter(rate=>labelMatchesResolution(rate,String(dimensions.resolution||'1K')));
-    if(!candidates.length)throw pricingError('Runware não publicou preço para a resolução '+(dimensions.resolution||'1K')+'.','RUNWARE_PRICE_RESOLUTION_UNAVAILABLE');
-  }
+  candidates=selectResolutionTier(candidates,String(dimensions.resolution||'1K'));
   const requestedQuality=String(dimensions.pricing_options?.quality||dimensions.model_variant||'').toLowerCase();
   if(requestedQuality){
     const qualityMatch=candidates.filter(rate=>String(rate.label||'').toLowerCase().includes(requestedQuality));
@@ -113,15 +118,16 @@ function selectDurationRate(rates:RunwarePricingRate[],dimensions:RunwarePriceDi
   const secondRates=rates.filter(rate=>['durationsecond','durationseconds'].includes(normalizedUnit(rate.unit)));
   if(!secondRates.length)return null;
   const videoToVideo=['video-edit','video-extend'].includes(dimensions.capability_id)||Number(dimensions.video_reference_count||0)>0;
-  let candidates=secondRates.filter(rate=>videoToVideo
-    ?/video.?to.?video/i.test(rate.label||'')
-    :/(text.?\/.?image|text.?to.?video|image.?to.?video)/i.test(rate.label||''));
-  if(!candidates.length)candidates=secondRates;
-  const withResolution=candidates.filter(rate=>normalizedResolution(rate.label||'')!==null);
-  if(withResolution.length){
-    candidates=withResolution.filter(rate=>labelMatchesResolution(rate,String(dimensions.resolution||'720p')));
-    if(!candidates.length)throw pricingError('Runware não publicou preço para a resolução '+(dimensions.resolution||'720p')+'.','RUNWARE_PRICE_RESOLUTION_UNAVAILABLE');
+  const hasVideoToVideoTiers=secondRates.some(rate=>/video.?to.?video/i.test(rate.label||''));
+  let candidates=hasVideoToVideoTiers
+    ?secondRates.filter(rate=>/video.?to.?video/i.test(rate.label||'')===videoToVideo)
+    :secondRates;
+  if(!candidates.length)throw pricingError('Runware não publicou uma tarifa compatível com a operação '+dimensions.capability_id+'.','RUNWARE_PRICE_VIDEO_OPERATION_UNAVAILABLE');
+  if(!videoToVideo){
+    const textOrImageRates=candidates.filter(rate=>/(text.?\/.?image.?to.?video|text.?to.?video|image.?to.?video)/i.test(rate.label||''));
+    if(textOrImageRates.length)candidates=textOrImageRates;
   }
+  candidates=selectResolutionTier(candidates,String(dimensions.resolution||'720p'));
   if(candidates.length>1)throw pricingError('O catálogo Runware expõe várias tarifas de vídeo para estes parâmetros.','RUNWARE_PRICE_TIER_AMBIGUOUS');
   return candidates[0]||null;
 }
@@ -143,8 +149,8 @@ export function calculateRunwareCatalogPrice(metadata:RunwarePricingMetadata,dim
   let amount=rateAmount(selected)*(video?duration:outputs);
   if(!video){
     const images=Math.max(0,Math.ceil(Number(dimensions.image_reference_count)||0));
-    const imageFee=rates.filter(rate=>normalizedUnit(rate.unit)==='inputimage').reduce((sum,rate)=>sum+rateAmount(rate),0);
-    amount+=imageFee*images;
+    const imageFee=rates.filter(rate=>normalizedUnit(rate.unit)==='inputimage').reduce((sum,rate)=>sum+rateAmount(rate)*Math.max(0,images-Math.max(0,Number(rate.after)||0)),0);
+    amount+=imageFee;
   }
   if(!Number.isFinite(amount)||amount<=0)throw pricingError('Runware não retornou custo total positivo verificável.','RUNWARE_PRICE_RATE_INVALID');
   return{amount,unit:video?'durationSecond' as const:'output' as const,unit_price:rateAmount(selected),selected_rate:selected};

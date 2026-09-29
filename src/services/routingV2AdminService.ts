@@ -6,6 +6,12 @@ export type RoutingV2RuntimeStatus='UNKNOWN'|'HEALTHY'|'DEGRADED'|'UNAVAILABLE';
 export type RoutingV2RouteStatus='DISCOVERED'|'MAPPED'|'PRICED'|'READY'|'DEGRADED'|'DISABLED';
 export type RoutingV2PricingStatus='UNKNOWN'|'CURRENT'|'STALE'|'INVALID';
 export type RoutingV2BillingType='PER_GENERATION'|'PER_OUTPUT'|'PER_SECOND'|'PER_MINUTE'|'PER_CHARACTER'|'FIXED_MATRIX'|'CUSTOM_FORMULA';
+export type RoutingV2MappingSourceAdmin='PROVIDER_CATALOG_API'|'PROVIDER_DOCS'|'MANUAL_VERIFIED';
+export interface RoutingV2CreateRouteAdmin{
+  model_id:string;capability_id:string;provider_id:string;provider_model_identifier:string;
+  mapping_source:RoutingV2MappingSourceAdmin;mapping_source_reference:string;mapping_verified_at:string;
+  billing_config:any;priority?:number;
+}
 
 export interface RoutingV2ProviderAdmin{
   provider_id:string;name:string;slug:string;type:RoutingV2ProviderType;status:RoutingV2ProviderStatus;priority:number;adapter_id:string;
@@ -86,7 +92,7 @@ export const routingV2AdminService={
   disableModel:(id:string)=>post<RoutingV2ModelAdmin>(`/api/admin/routing-v2/models/${encodeURIComponent(id)}/disable`),
 
   listRoutes:()=>apiRequest<RoutingV2RouteAdmin[]>('/api/admin/routing-v2/routes'),
-  createRoute:(data:any)=>post<RoutingV2RouteAdmin>('/api/admin/routing-v2/routes',data),
+  createRoute:(data:RoutingV2CreateRouteAdmin)=>post<RoutingV2RouteAdmin>('/api/admin/routing-v2/routes',data),
   updateRoute:(id:string,data:any)=>patch<RoutingV2RouteAdmin>(`/api/admin/routing-v2/routes/${encodeURIComponent(id)}`,data),
   disableRoute:(id:string)=>post<RoutingV2RouteAdmin>(`/api/admin/routing-v2/routes/${encodeURIComponent(id)}/disable`),
 
