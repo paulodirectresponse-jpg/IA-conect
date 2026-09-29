@@ -23,11 +23,16 @@ export const routingV2AutoModelSelectionService = {
         routes.some((route) => route.model_id === model.model_id),
     );
     const priced = [];
+    const fundingFailures: Array<{ model_id: string; diagnostics?: unknown }> = [];
     for (const model of eligible) {
       try{
         const preview=await routingV2GenerationPricingService.preview({model_id:model.model_id,capability_id:input.capability_id,duration_seconds:input.duration_seconds,number_of_outputs:input.number_of_outputs,character_count:input.character_count,dimensions:input.dimensions});
         priced.push({model,preview});
-      }catch{/* A model without an authorized READY route price cannot participate in Auto. */}
+      }catch(error:any){
+        if(error?.code==='NO_FUNDED_ROUTE_AVAILABLE'){
+          fundingFailures.push({model_id:model.model_id,diagnostics:error.diagnostics});
+        }
+      }
     }
     priced.sort(
       (a, b) =>
@@ -35,6 +40,14 @@ export const routingV2AutoModelSelectionService = {
         b.preview.route.priority - a.preview.route.priority ||
         a.model.model_id.localeCompare(b.model.model_id),
     );
+    if (!priced[0]&&fundingFailures.length){
+      const diagnostics={capability_id:input.capability_id,models:fundingFailures};
+      console.error('[RoutingV2AutoNoFundedModel]',JSON.stringify(diagnostics));
+      throw Object.assign(
+        new Error('Nenhum modelo compatível tem uma rota oficial com saldo suficiente.'),
+        {code:'NO_FUNDED_ROUTE_AVAILABLE',diagnostics},
+      );
+    }
     if (!priced[0])
       throw Object.assign(
         new Error(

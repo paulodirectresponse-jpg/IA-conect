@@ -38,6 +38,13 @@ export function publicGenerationError(err:any,fallback='A geração não pôde s
     return {code,message:'O preço desta configuração foi atualizado. Revise o valor e tente novamente.'};
   }
 
+  if(code==='NO_FUNDED_ROUTE_AVAILABLE'){
+    return {
+      code:'PROVIDER_BALANCE_UNAVAILABLE',
+      message:'Nenhum provider oficial tem saldo suficiente para esta configuração no momento. Tente outro modelo ou aguarde a regularização do saldo.',
+    };
+  }
+
   if(TEMPORARY_CODES.has(code)||isProviderTechnicalCode(code)){
     return {
       code:'GENERATION_TEMPORARILY_UNAVAILABLE',

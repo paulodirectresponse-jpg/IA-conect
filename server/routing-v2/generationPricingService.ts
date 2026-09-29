@@ -4,6 +4,9 @@ import { calculateRoutingV2Economics } from './economicsEngine.js';
 import { RoutingV2ProviderRoute } from './domain.js';
 import { routingV2PricingSettingsService } from './pricingSettingsService.js';
 import { routingV2RouterService } from './routerService.js';
+import { providerFinanceService } from '../services/providerFinanceService.js';
+import { selectFundedRoutePreview } from './providerFunding.js';
+import type { RoutingV2PricingSettings } from './domain.js';
 
 export interface RoutingV2GenerationPricingInput{
   model_id:string;
@@ -31,13 +34,14 @@ export interface RoutingV2GenerationPricePreview{
 
 export async function calculateRoutingV2GenerationPrice(
   route:RoutingV2ProviderRoute,
-  input:RoutingV2BillingInput
+  input:RoutingV2BillingInput,
+  settingsOverride?:RoutingV2PricingSettings,
 ):Promise<RoutingV2GenerationPricePreview>{
   if(!route.pricing_snapshot)throw Object.assign(new Error('Route V2 não possui pricing snapshot.'),{code:'ROUTING_V2_PRICE_UNAVAILABLE'});
   if(['PER_SECOND','PER_MINUTE'].includes(route.billing_config.type)&&!(Number(input.duration_seconds)>0))throw Object.assign(new Error('Duração comprovada é obrigatória para este billing.'),{code:'ROUTING_V2_BILLING_INPUT_REQUIRED'});
   if(route.billing_config.type==='PER_CHARACTER'&&!(Number(input.character_count)>0))throw Object.assign(new Error('Quantidade de caracteres é obrigatória para este billing.'),{code:'ROUTING_V2_BILLING_INPUT_REQUIRED'});
   const billing=calculateRoutingV2ProviderCost(route.billing_config,input);
-  const settings=await routingV2PricingSettingsService.get();
+  const settings=settingsOverride||await routingV2PricingSettingsService.get();
   const fx=billing.currency==='USD'?Number(route.pricing_snapshot.fx_rate_usd_brl):undefined;
   const economics=calculateRoutingV2Economics({
     provider_cost:billing.amount,
@@ -67,11 +71,31 @@ export const routingV2GenerationPricingService={
       exclude_provider_ids:input.exclude_provider_ids,
       now:input.now,
     });
-    return calculateRoutingV2GenerationPrice(decision.selected,{
+
+    const [settings,snapshots]=await Promise.all([
+      routingV2PricingSettingsService.get(),
+      providerFinanceService.getAll(),
+    ]);
+    const billingInput={
       duration_seconds:input.duration_seconds,
       number_of_outputs:input.number_of_outputs,
       character_count:input.character_count,
       dimensions:input.dimensions,
-    });
+    };
+    const previews=await Promise.all(decision.candidates.map(({route})=>calculateRoutingV2GenerationPrice(route,billingInput,settings)));
+    const selection=selectFundedRoutePreview(previews,snapshots);
+    if(!selection.selected){
+      const diagnostics={
+        model_id:input.model_id,
+        capability_id:input.capability_id,
+        excluded_routes:selection.excluded,
+      };
+      console.error('[RoutingV2NoFundedRoute]',JSON.stringify(diagnostics));
+      throw Object.assign(new Error('Nenhuma rota oficial tem saldo suficiente para cobrir esta configuração.'),{
+        code:'NO_FUNDED_ROUTE_AVAILABLE',
+        diagnostics,
+      });
+    }
+    return selection.selected;
   },
 };

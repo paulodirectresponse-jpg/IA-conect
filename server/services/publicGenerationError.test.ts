@@ -28,4 +28,11 @@ describe('public generation errors',()=>{
     const result=publicGenerationError({code:'VALIDATION_ERROR',message:'Modelo e prompt são obrigatórios.'},'Falha');
     expect(result.message).toBe('Modelo e prompt são obrigatórios.');
   });
+
+  it('explains when no official provider balance covers the route',()=>{
+    expect(publicGenerationError({code:'NO_FUNDED_ROUTE_AVAILABLE'},'Falha')).toEqual({
+      code:'PROVIDER_BALANCE_UNAVAILABLE',
+      message:'Nenhum provider oficial tem saldo suficiente para esta configuração no momento. Tente outro modelo ou aguarde a regularização do saldo.',
+    });
+  });
 });
