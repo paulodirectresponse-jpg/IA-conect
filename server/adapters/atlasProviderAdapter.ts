@@ -72,8 +72,15 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
       if(params.mode==='IMAGE_TO_IMAGE'){
         const source=images.find(r=>r.role==='SOURCE')||images[0];
         if(!source)throw Object.assign(new Error('Imagem de origem obrigatória para edição na Atlas.'),{code:'REFERENCE_REQUIRED'});
-        out.image=source.provider_accessible_url;
-        if(images.length>1)out.images=images.map(r=>r.provider_accessible_url);
+        const imageUrls=images.map(r=>r.provider_accessible_url);
+        // Atlas documents FLUX.2 Pro Edit with a required `images` array.
+        // Sending only the generic singular `image` field makes its pricing
+        // evaluator fail before the route can become READY.
+        if(model==='black-forest-labs/flux-2-pro/edit')out.images=imageUrls;
+        else{
+          out.image=source.provider_accessible_url;
+          if(images.length>1)out.images=imageUrls;
+        }
       }
       return out;
     }

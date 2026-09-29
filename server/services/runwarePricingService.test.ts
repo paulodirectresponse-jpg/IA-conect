@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { calculateRoutingV2ProviderCost } from '../routing-v2/billingEngine.js';
-import { calculateRunwareCatalogPrice, clearRunwarePricingCacheForTests, fetchRunwarePricingMetadata } from './runwarePricingService.js';
+import { calculateRunwareCatalogPrice, clearRunwarePricingCacheForTests, fetchRunwarePricingMetadata, RunwarePricingRate } from './runwarePricingService.js';
 
-const metadata=(air:string,pricingRates:Array<{amount:number;unit:string;label?:string}>)=>({air,status:'live',pricingRates});
+const metadata=(air:string,pricingRates:RunwarePricingRate[])=>({air,status:'live',pricingRates});
 
 describe('Runware official pricing metadata',()=>{
   beforeEach(()=>{clearRunwarePricingCacheForTests();vi.unstubAllGlobals();});
@@ -15,6 +15,29 @@ describe('Runware official pricing metadata',()=>{
     ]),{provider_model_identifier:'bytedance:seedance@2.5',capability_id:'text-to-video',resolution:'720p',duration_seconds:5});
     expect(result.unit).toBe('durationSecond');
     expect(result.amount).toBeCloseTo(1.152);
+  });
+  it('keeps Seedance 2 text-to-video rates separate from video-to-video rates',()=>{
+    const result=calculateRunwareCatalogPrice(metadata('bytedance:seedance@2.0',[
+      {amount:.07,unit:'durationSecond',label:'480p'},
+      {amount:.16,unit:'durationSecond',label:'720p'},
+      {amount:.4,unit:'durationSecond',label:'1080p'},
+      {amount:.21942,unit:'durationSecond',label:'720p · video to video'},
+    ]),{provider_model_identifier:'bytedance:seedance@2.0',capability_id:'text-to-video',resolution:'720p',duration_seconds:5});
+    expect(result.amount).toBeCloseTo(.8);
+  });
+  it('selects the next published Runware output tier when a model labels 1K as 1.5K',()=>{
+    const result=calculateRunwareCatalogPrice(metadata('bytedance:seedream@5.0-pro',[
+      {amount:.04815,unit:'output',label:'1.5K'},
+      {amount:.0963,unit:'output',label:'2K'},
+      {amount:.00321,unit:'inputImage',after:1},
+    ]),{provider_model_identifier:'bytedance:seedream@5.0-pro',capability_id:'text-to-image',resolution:'1K',image_reference_count:1});
+    expect(result.amount).toBeCloseTo(.04815);
+    const withExtraReference=calculateRunwareCatalogPrice(metadata('bytedance:seedream@5.0-pro',[
+      {amount:.04815,unit:'output',label:'1.5K'},
+      {amount:.0963,unit:'output',label:'2K'},
+      {amount:.00321,unit:'inputImage',after:1},
+    ]),{provider_model_identifier:'bytedance:seedream@5.0-pro',capability_id:'image-to-image',resolution:'1K',image_reference_count:2});
+    expect(withExtraReference.amount).toBeCloseTo(.05136);
   });
   it('adds Nano Banana 2 input image fees to the selected output tier',()=>{
     const result=calculateRunwareCatalogPrice(metadata('google:4@3',[

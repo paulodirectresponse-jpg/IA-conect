@@ -36,3 +36,28 @@ describe('Atlas Gemini Omni video edit pricing payload',()=>{
     });
   });
 });
+
+describe('Atlas FLUX.2 Pro Edit pricing payload',()=>{
+  it('sends all source images in the documented images array',async()=>{
+    vi.stubEnv('ATLAS_API_KEY','test-key');
+    let payload:any;
+    vi.stubGlobal('fetch',vi.fn(async(_url:any,init:any)=>{
+      payload=JSON.parse(init.body);
+      return new Response(JSON.stringify({data:{price:.045,origin_price:.045,discount:100}}),{status:200,headers:{'Content-Type':'application/json'}});
+    }));
+    await new AtlasProviderAdapter().quoteCostUsd(params({
+      model_id:'flux-2-pro',mode:'IMAGE_TO_IMAGE',capability_id:'image-edit',
+      provider_model_identifier:'black-forest-labs/flux-2-pro/edit',prompt:'Edit the reference.',
+      references:[
+        {asset_id:'image-1',type:'IMAGE',category:'GENERIC',provider_accessible_url:'https://example.com/input-1.webp',storage_path:'pricing-probe://image-1',mime_type:'image/webp',role:'SOURCE'},
+        {asset_id:'image-2',type:'IMAGE',category:'GENERIC',provider_accessible_url:'https://example.com/input-2.webp',storage_path:'pricing-probe://image-2',mime_type:'image/webp',role:'REFERENCE'},
+      ],
+    }));
+    expect(payload).toEqual({
+      model:'black-forest-labs/flux-2-pro/edit',prompt:'Edit the reference.',
+      enable_sync_mode:false,enable_base64_output:false,
+      images:['https://example.com/input-1.webp','https://example.com/input-2.webp'],
+    });
+    expect(payload.image).toBeUndefined();
+  });
+});

@@ -68,6 +68,20 @@ describe('Routing Core V2 Admin',()=>{
     expect(admin).not.toContain('AdminPricing');
   });
 
+  it('creates manual routes with auditable mapping evidence and only the three official providers',()=>{
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+    const client=read('src/services/routingV2AdminService.ts');
+    const routeService=read('server/routing-v2/routeService.ts');
+    expect(view).toContain('mapping_source:rMappingSource');
+    expect(view).toContain('mapping_source_reference:rMappingReference.trim()');
+    expect(view).toContain('mapping_verified_at:new Date().toISOString()');
+    expect(view).toContain('aria-label="Referência verificável do mapping"');
+    expect(view).toContain("['provider-wavespeed','provider-atlas','provider-runware'].includes(p.provider_id)");
+    expect(client).toContain('interface RoutingV2CreateRouteAdmin');
+    expect(client).toContain('mapping_source_reference:string;mapping_verified_at:string');
+    expect(routeService).toContain("if(!input.mapping_source_reference?.trim()||!Number.isFinite(Date.parse(input.mapping_verified_at)))");
+  });
+
   it('allows the idempotent core provider bootstrap in production while keeping admin auth',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     expect(routes).toContain("post('/admin/routing-v2/providers/bootstrap-core',...guard");
