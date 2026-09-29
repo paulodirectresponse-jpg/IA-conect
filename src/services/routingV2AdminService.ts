@@ -52,6 +52,15 @@ export interface RoutingV2ProviderHealthCheckAdmin{
 export interface RoutingV2ProviderHealthCheckResponseAdmin{
   checked_at:string;results:RoutingV2ProviderHealthCheckAdmin[];
 }
+export interface RoutingV2PriceSyncRowAdmin{
+  route_id:string;model_id:string;capability_id:string;provider_model_identifier:string;provider_id:string;
+  ok:boolean;status:RoutingV2RouteStatus;pricing_status:RoutingV2PricingStatus;runtime_status:RoutingV2RuntimeStatus;
+  retail_price_credits:number|null;error?:string|null;
+}
+export interface RoutingV2OperationalizeResultAdmin{
+  checked_at:string;cursor:number;next_cursor:number|null;done:boolean;total_routes:number;processed:number;updated:number;failed:number;
+  rows:RoutingV2PriceSyncRowAdmin[];readiness:RoutingV2ReadinessAdmin|null;
+}
 
 const post=<T>(url:string,body:any={})=>apiRequest<T>(url,{method:'POST',body:JSON.stringify(body)});
 const patch=<T>(url:string,body:any)=>apiRequest<T>(url,{method:'PATCH',body:JSON.stringify(body)});
@@ -79,7 +88,7 @@ export const routingV2AdminService={
   getPricingSettings:()=>apiRequest<RoutingV2PricingSettingsAdmin>('/api/admin/routing-v2/pricing/settings'),
   savePricingSettings:(data:Partial<RoutingV2PricingSettingsAdmin>)=>post<RoutingV2PricingSettingsAdmin>('/api/admin/routing-v2/pricing/settings',data),
   syncPricing:(cursor=0,limit=10)=>post<any>('/api/admin/routing-v2/pricing/sync',{cursor,limit}),
-  operationalize:(cursor=0,limit=5)=>post<any>('/api/admin/routing-v2/operationalize',{cursor,limit}),
+  operationalize:(cursor=0,limit=5)=>post<RoutingV2OperationalizeResultAdmin>('/api/admin/routing-v2/operationalize',{cursor,limit}),
   getHealth:()=>apiRequest<RoutingV2HealthAdmin>('/api/admin/routing-v2/health'),
   checkProviderHealth:()=>post<RoutingV2ProviderHealthCheckResponseAdmin>('/api/admin/routing-v2/providers/health/check'),
   getReadiness:()=>apiRequest<RoutingV2ReadinessAdmin>('/api/admin/routing-v2/readiness'),

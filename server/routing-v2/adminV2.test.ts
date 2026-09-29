@@ -352,8 +352,22 @@ describe('Routing Core V2 Admin',()=>{
     expect(wrapper).toContain('ROUTING_V2_MAPPING_CAPABILITY_MISMATCH');
     expect(view).toContain('Ativar rotas agora');
     expect(view).toContain('Sincronizar e ativar rotas');
-    expect(client).toContain("operationalize:(cursor=0,limit=5)=>post<any>('/api/admin/routing-v2/operationalize',{cursor,limit})");
+    expect(client).toContain("operationalize:(cursor=0,limit=5)=>post<RoutingV2OperationalizeResultAdmin>('/api/admin/routing-v2/operationalize',{cursor,limit})");
     expect(view).toContain('operationalizeAll');
+  });
+
+  it('reports per-route operationalization failures and preserves fresh provider health when pricing fails',()=>{
+    const priceSync=read('server/routing-v2/priceSyncService.ts');
+    const client=read('src/services/routingV2AdminService.ts');
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+
+    expect(priceSync).toContain('runtimeCache.get(route.provider_id)?.runtime_status||provider?.health_status||route.runtime_status');
+    expect(priceSync).toContain('rows:rows.map(row=>');
+    expect(priceSync).toContain('provider_model_identifier:route?.provider_model_identifier||');
+    expect(client).toContain('interface RoutingV2PriceSyncRowAdmin');
+    expect(view).toContain('failures.push(...(r?.rows||[]).filter(row=>!row.ok))');
+    expect(view).toContain('Falhas detalhadas da última ativação');
+    expect(view).toContain('failure.error||');
   });
 
 
