@@ -430,4 +430,25 @@ describe('Routing Core V2 Admin',()=>{
     expect(routes).not.toContain('api_key');
     expect(routes).not.toContain('API_KEY');
   });
+
+  it('keeps provider probe responses, route sync errors, and model migrations visible',()=>{
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+    const priceSync=read('server/routing-v2/priceSyncService.ts');
+    const providerHealth=read('server/routing-v2/providerHealthService.ts');
+    const routeService=read('server/routing-v2/routeService.ts');
+    const domain=read('server/routing-v2/domain.ts');
+    expect(view).toContain('Resultado por provider');
+    expect(view).toContain('result.message||result.error');
+    expect(view).toContain('Falha no último sync');
+    expect(view).toContain('Falha no runtime');
+    expect(view).toContain('provider_migration_note');
+    expect(view).toContain('Auditoria de migração de identificadores');
+    expect(priceSync).toContain('last_sync_error:errorMessage');
+    expect(priceSync).toContain('provider_migrations:providerMigrations');
+    expect(providerHealth).toContain('last_runtime_error:runtimeError');
+    expect(routeService).toContain("provider.health_status!=='HEALTHY'");
+    expect(domain).toContain('last_sync_error?:string|null');
+    expect(domain).toContain('last_runtime_error?:string|null');
+    expect(domain).toContain('provider_migration_note?:string|null');
+  });
 });
