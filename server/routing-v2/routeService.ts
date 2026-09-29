@@ -7,6 +7,7 @@ import {
   routingV2RouteId,
 } from './domain.js';
 import { routingV2Repository } from './repository.js';
+import { assertIdentifierMatchesCapability } from './capabilityMappingValidation.js';
 
 const now=()=>new Date().toISOString();
 
@@ -72,6 +73,7 @@ export const routingV2RouteService={
     const identifier=String(input.provider_model_identifier||'').trim();
     if(!modelId||!providerId||!identifier)throw new Error('Model, provider e provider_model_identifier são obrigatórios.');
     if(!input.mapping_source_reference?.trim()||!Number.isFinite(Date.parse(input.mapping_verified_at)))throw new Error('Route V2 exige prova verificável do mapping.');
+    assertIdentifierMatchesCapability(identifier,input.capability_id);
     assertRoutingV2BillingConfig(input.billing_config);
     await validateRouteReferences({...input,model_id:modelId,provider_id:providerId,provider_model_identifier:identifier});
     const routeId=routingV2RouteId(modelId,input.capability_id,providerId,identifier);

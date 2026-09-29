@@ -1,5 +1,6 @@
 import { RoutingV2BillingConfig, RoutingV2Currency } from './domain.js';
 import { routingV2CustomFormulaRegistry } from './customFormulaRegistry.js';
+import './runwarePricingFormula.js';
 
 export interface RoutingV2BillingInput{
   duration_seconds?:number;

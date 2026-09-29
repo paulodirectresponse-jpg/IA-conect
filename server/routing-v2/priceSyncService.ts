@@ -8,6 +8,8 @@ import { routingV2Repository } from './repository.js';
 import { providerHealthService } from './providerHealthService.js';
 import { getUsdBrlRate } from './fxRateService.js';
 import { isOfficialRoutingV2Provider } from './providerService.js';
+import { routingV2CapabilityMappingRepairService, RoutingV2MappingRepairRow } from './capabilityMappingRepairService.js';
+import { assertIdentifierMatchesCapability } from './capabilityMappingValidation.js';
 
 export interface RoutingV2PriceSyncRow{
   route_id:string;
@@ -32,6 +34,7 @@ export interface RoutingV2PriceSyncResult{
   processed:number;
   updated:number;
   failed:number;
+  mapping_repairs?:{examined:number;repaired:number;blocked:number;rows:RoutingV2MappingRepairRow[]}|null;
   rows:RoutingV2PriceSyncRow[];
 }
 
@@ -43,6 +46,17 @@ function referenceInput(config:RoutingV2BillingConfig){
   if(config.type==='PER_MINUTE')return{duration_seconds:60};
   if(config.type==='PER_CHARACTER')return{character_count:config.characters_per_unit};
   if(config.type==='FIXED_MATRIX')return{dimensions:config.entries[0]?.match||{}};
+  if(config.type==='CUSTOM_FORMULA'&&config.formula_id==='runware-catalog-pricing-v1'){
+    return{
+      duration_seconds:Number(config.parameters?.default_duration_seconds||1),
+      number_of_outputs:1,
+      dimensions:{
+        resolution:String(config.parameters?.default_resolution||'1K'),
+        image_reference_count:Number(config.parameters?.default_image_reference_count||0),
+        video_reference_count:Number(config.parameters?.default_video_reference_count||0),
+      },
+    };
+  }
   return{};
 }
 
@@ -65,6 +79,7 @@ export const routingV2PriceSyncService={
     const checkedAt=new Date().toISOString();
     const cursor=Math.max(0,Math.floor(Number(input.cursor)||0));
     const limit=Math.min(10,Math.max(1,Math.floor(Number(input.limit)||5)));
+    const mappingRepairs=cursor===0?await routingV2CapabilityMappingRepairService.repair():null;
     const[routes,models,settings]=await Promise.all([
       routingV2Repository.listRoutes(),
       routingV2Repository.listModels(),
@@ -72,7 +87,7 @@ export const routingV2PriceSyncService={
     ]);
     const fxRate=Number.isFinite(Number(input.fx_rate_usd_brl))&&Number(input.fx_rate_usd_brl)>0?Number(input.fx_rate_usd_brl):await getUsdBrlRate();
     const activeModels=new Set(models.filter(model=>model.status==='ACTIVE').map(model=>model.model_id));
-    const eligible=routes.filter(route=>route.status!=='DISABLED'&&activeModels.has(route.model_id));
+    const eligible=routes.filter(route=>route.status!=='DISABLED'&&activeModels.has(route.model_id)).sort((a,b)=>a.route_id.localeCompare(b.route_id));
     const batch=eligible.slice(cursor,cursor+limit);
     const providerCache=new Map<string,RoutingV2Provider|null>();
     const runtimeCache=new Map<string,Awaited<ReturnType<typeof providerRuntime>>>();
@@ -80,6 +95,7 @@ export const routingV2PriceSyncService={
 
     for(const route of batch){
       try{
+        assertIdentifierMatchesCapability(route.provider_model_identifier,route.capability_id);
         let provider=providerCache.get(route.provider_id);
         if(provider===undefined){
           provider=await routingV2Repository.getProvider(route.provider_id);
@@ -126,6 +142,10 @@ export const routingV2PriceSyncService={
 
         const price=await adapter.getPrice(provider,route.provider_model_identifier,route.capability_id);
         if(!price.source_reference?.trim())throw new Error('Provider não retornou source_reference verificável para pricing.');
+        if(route.provider_id==='provider-runware'&&route.pricing_status!=='CURRENT'&&!route.pricing_snapshot){
+          route.billing_type=price.billing_config.type;
+          route.billing_config=price.billing_config;
+        }
         if(price.billing_config.type!==route.billing_type)throw new Error(`Billing type divergente: route=${route.billing_type}, provider=${price.billing_config.type}.`);
 
         const reference=calculateRoutingV2ProviderCost(price.billing_config,referenceInput(price.billing_config));
@@ -182,6 +202,7 @@ export const routingV2PriceSyncService={
       processed:rows.length,
       updated:rows.filter(row=>row.ok).length,
       failed:rows.filter(row=>!row.ok).length,
+      mapping_repairs:mappingRepairs?{examined:mappingRepairs.examined,repaired:mappingRepairs.repaired,blocked:mappingRepairs.blocked,rows:mappingRepairs.rows}:null,
       rows:rows.map(row=>{
         const route=routesById.get(row.route_id);
         return{

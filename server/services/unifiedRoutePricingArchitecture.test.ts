@@ -23,17 +23,20 @@ describe('unified route pricing engine',()=>{
   const refresh=read('server/services/providerPricingRefreshService.ts');
   const sync=read('server/services/pricingSyncService.ts');
   expect(sync).toContain('providerPricingRefreshService.refreshActiveRoutes()');
-  expect(refresh).toContain("new Set(['provider-wavespeed','provider-atlas'])");
+  expect(refresh).toContain("new Set(['provider-wavespeed','provider-atlas','provider-runware'])");
   expect(refresh).toContain('quoteCacheService.getOrQuote');
   expect(refresh).toContain('quote_mode:\'LIVE_PROVIDER\'');
  });
 
- it('normalizes only unambiguous Runware public pricing metadata',()=>{
+ it('normalizes Runware fixed output and duration rates and rejects token-only prequotes',()=>{
   const refresh=read('server/services/providerPricingRefreshService.ts');
-  expect(refresh).toContain('https://content.runware.ai/models/');
-  expect(refresh).toContain('pricingOverview');
-  expect(refresh).toContain('megapixel|token');
-  expect(refresh).toContain("quote_mode:'STATIC_RULE'");
+  const pricing=read('server/services/runwarePricingService.ts');
+  expect(pricing).toContain('https://content.runware.ai/models/');
+  expect(pricing).toContain('pricingRates');
+  expect(pricing).toContain('durationSecond');
+  expect(pricing).toContain('RUNWARE_PRICE_TOKEN_BASED');
+  expect(refresh).toContain('quoteCacheService.getOrQuote');
+  expect(refresh).not.toContain('strictOverviewRule');
  });
 
  it('uses character-based retail pricing for text to speech without per-text retail versions',()=>{

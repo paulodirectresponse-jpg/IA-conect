@@ -3,6 +3,9 @@ import { CapabilityId } from '../beta/capabilityRegistry.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { listAimlCatalogModels, listAtlasCatalogModels, listDeepInfraCatalogModels, listFalCatalogModels, listReplicateCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from './providerCatalogService.js';
 import { checkProviderHealth } from './healthAdapter.js';
+import { assertIdentifierMatchesCapability } from './capabilityMappingValidation.js';
+import { PRICING_PROBE_IMAGE_URL, PRICING_PROBE_VIDEO_URL } from '../services/providerPricingProbeAssets.js';
+import { getRunwareRoutingPrice } from '../services/runwarePricingService.js';
 
 // Compatibility wrapper used only for execution delegation while HYBRID is active.
 //
@@ -23,16 +26,6 @@ const catalogLists:Record<string,(query?:string)=>Promise<import('./adapter.js')
   'provider-aiml':query=>listAimlCatalogModels(query),
 };
 
-
-function assertIdentifierMatchesCapability(identifier:string,capabilityId:CapabilityId){
-  const value=String(identifier||'').toLowerCase();
-  if(capabilityId==='text-to-image'&&/(?:\/|\b)(edit|image-to-image|reference-to-image)(?:\/|$)/.test(value)){
-    throw Object.assign(new Error('Identifier de edição não pode ser usado como text-to-image.'),{code:'ROUTING_V2_MAPPING_CAPABILITY_MISMATCH'});
-  }
-  if(['image-edit','image-to-image'].includes(capabilityId)&&/(?:\/|\b)text-to-image(?:\/|$)/.test(value)){
-    throw Object.assign(new Error('Identifier text-to-image não pode ser usado como edição.'),{code:'ROUTING_V2_MAPPING_CAPABILITY_MISMATCH'});
-  }
-}
 
 export function createRoutingV2LegacyWrapperAdapter(providerId: string): RoutingV2ProviderAdapter | null {
   const legacy = providerRegistry.getAdapter(providerId);
@@ -69,6 +62,15 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
       }
       const mode=capabilityToGenerationMode(capabilityId);
       if(!mode)throw Object.assign(new Error('Capability sem modo de pricing compatível.'),{code:'ROUTING_V2_PRICE_MODE_UNAVAILABLE'});
+      const videoMode=['TEXT_TO_VIDEO','IMAGE_TO_VIDEO','REFERENCE_TO_VIDEO','VIDEO_TO_VIDEO'].includes(mode);
+      if(providerId==='provider-runware')return getRunwareRoutingPrice(providerModelIdentifier,capabilityId,videoMode?'720p':'1K');
+      const references=capabilityId==='image-to-video'||capabilityId==='first-frame'||capabilityId==='last-frame'
+        ?[{asset_id:'pricing-image-probe',alias:'pricing-image-probe',name:'Public pricing image',type:'IMAGE' as const,category:'GENERIC',provider_accessible_url:PRICING_PROBE_IMAGE_URL,storage_path:'pricing-probe://image',mime_type:'image/webp',slot_type:'INITIAL' as const,role:'SOURCE' as const}]
+        :['image-edit','image-to-image','inpaint-mask','background-remove-replace','outpaint','upscale','variations'].includes(capabilityId)
+          ?[{asset_id:'pricing-image-probe',alias:'pricing-image-probe',name:'Public pricing image',type:'IMAGE' as const,category:'GENERIC',provider_accessible_url:PRICING_PROBE_IMAGE_URL,storage_path:'pricing-probe://image',mime_type:'image/webp',slot_type:'GENERAL' as const,role:'SOURCE' as const}]
+          :capabilityId==='video-edit'||capabilityId==='video-extend'
+            ?[{asset_id:'pricing-video-probe',alias:'pricing-video-probe',name:'Public pricing video',type:'VIDEO' as const,category:'GENERIC',provider_accessible_url:PRICING_PROBE_VIDEO_URL,storage_path:'pricing-probe://video',mime_type:'video/mp4',slot_type:'GENERAL' as const,role:'SOURCE' as const}]
+            :[];
       const quote=await legacy.quoteCostUsd!({
         generation_id:'routing-v2-price-probe',
         user_id:'routing-v2-system',
@@ -78,12 +80,12 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
         provider_model_identifier:providerModelIdentifier,
         provider_runtime_options:{},
         prompt:'pricing estimate',
-        duration_seconds:1,
-        resolution:'1K',
-        aspect_ratio:'1:1',
+        duration_seconds:videoMode?5:1,
+        resolution:videoMode?'720p':'1K',
+        aspect_ratio:videoMode?'16:9':'1:1',
         number_of_outputs:1,
         pricing_options:{},
-        references:[],
+        references,
       } as any);
       const amount=Number(quote.effective_price_usd);
       if(!Number.isFinite(amount)||amount<=0)throw Object.assign(new Error('Provider não retornou preço positivo verificável.'),{code:'ROUTING_V2_PROVIDER_PRICE_INVALID'});

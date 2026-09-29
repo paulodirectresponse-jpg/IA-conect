@@ -42,12 +42,15 @@ describe('verified Stable launch pricing',()=>{
   it('restores authoritative pricing sync without reintroducing provider fan-out',()=>{
     const scan=read('server/services/providerModelScanService.ts');
     const pricing=read('server/services/providerPricingCatalogService.ts');
+    const runwarePricing=read('server/services/runwarePricingService.ts');
     expect(scan).toContain("providerId==='provider-wavespeed'");
     expect(scan).toContain("quote_mode:'LIVE_PROVIDER'");
     expect(scan).toContain('pricing_synced_count');
     expect(scan).toContain("providerId==='provider-runware'");
     expect(scan).toContain('https://content.runware.ai/models/');
-    expect(scan).toContain('Rotas com preço variável continuam bloqueadas até normalização determinística.');
+    expect(runwarePricing).toContain('pricingRates');
+    expect(runwarePricing).toContain('durationSecond');
+    expect(runwarePricing).toContain('RUNWARE_PRICE_TOKEN_BASED');
     expect(pricing).toContain('async saveMany');
     expect(pricing).toContain('const BATCH=100');
     expect(pricing).toContain("rule.quote_mode==='LIVE_PROVIDER'");

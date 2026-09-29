@@ -78,6 +78,12 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
       return out;
     }
 
+    if(params.capability_id==='video-edit'&&model.startsWith('google/gemini-omni-flash/')){
+      const source=videos.find(r=>r.role==='SOURCE')||videos[0];
+      if(!source)throw Object.assign(new Error('Vídeo de origem obrigatório para edição no Gemini Omni Flash.'),{code:'REFERENCE_REQUIRED'});
+      return{model,prompt,video:source.provider_accessible_url,resolution:'720p'};
+    }
+
     if(params.model_id==='minimax-h3'){
       const base:any={model,prompt,duration:params.duration_seconds,resolution:atlasResolution(params.model_id,params.resolution)};
       if(params.seed!==null&&params.seed!==undefined)base.seed=params.seed;
@@ -141,7 +147,10 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
         body:JSON.stringify(this.buildPayload(single)),
       });
       const text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}
-      if(!res.ok)throw Object.assign(new Error(body?.message||body?.error||`Atlas pricing HTTP ${res.status}`),{code:`ATLAS_PRICE_HTTP_${res.status}`});
+      if(!res.ok){
+        const detail=body?.data?.message||body?.data?.error?.message||body?.error?.message||body?.error||body?.message||body?.detail||text.trim().slice(0,400);
+        throw Object.assign(new Error(String(detail||('Atlas pricing HTTP '+res.status))),{code:'ATLAS_PRICE_HTTP_'+res.status});
+      }
       const data=body?.data??body;
       const unit=Number(data?.price);
       if(!Number.isFinite(unit)||unit<0)throw Object.assign(new Error('Atlas retornou preço inválido.'),{code:'PROVIDER_PRICE_INVALID'});

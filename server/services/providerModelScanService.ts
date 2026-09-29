@@ -244,7 +244,7 @@ async function buildScan(provider:ProviderRegistryItem,mappings:ProviderModelMap
     catch(err:any){pricingSyncError=err?.message||'Falha ao sincronizar preços do catálogo.';}
   }
   if(mode==='CURATED_REQUIRED')warnings.push('Este provider exige curadoria de endpoint. O scan reutiliza mappings aprovados; novos mappings exigem identificador explícito, schema/capability e preço verificados.');
-  if(providerId==='provider-runware')warnings.push(pricingMetadataCount?`Runware: ${pricingMetadataCount} metadata(s) de pricing carregada(s) do catálogo público oficial. Rotas com preço variável continuam bloqueadas até normalização determinística.`:'Runware: o Model Search não inclui preço e nenhuma metadata de pricing pôde ser resolvida neste scan.');
+  if(providerId==='provider-runware')warnings.push(pricingMetadataCount?'Runware: preços por saída e por segundo são normalizados pelo catálogo público; modelos com tarifa somente por tokens seguem sem pré-cotação exata.':'Runware: o Model Search não inclui preço e nenhuma metadata de pricing pôde ser resolvida neste scan.');
   if(pricingSyncedCount)warnings.push(`${pricingSyncedCount} preço(s) autoritativo(s) sincronizado(s) automaticamente.`);
   if(pricingSyncError)warnings.push(`Pricing sync: ${pricingSyncError}`);
   const candidates=allCandidates.slice(0,RAW_SAMPLE_LIMIT);

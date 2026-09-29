@@ -2,10 +2,11 @@ import { GenerationMode, ModelRegistryItem, ProviderModelMapping } from '../../s
 import { CapabilityId, capabilityIdsForModel } from '../beta/capabilityRegistry.js';
 import { ProviderGenerationParams, ProviderGenerationReference } from '../adapters/videoProviderAdapter.js';
 import { ProviderPricingUnit } from './providerPricingCatalogService.js';
+import { PRICING_PROBE_AUDIO_URL, PRICING_PROBE_IMAGE_URL, PRICING_PROBE_VIDEO_URL } from './providerPricingProbeAssets.js';
 
-const IMAGE_REF='https://storage.googleapis.com/ia-conect-pricing-probes/reference-image.png';
-const VIDEO_REF='https://storage.googleapis.com/ia-conect-pricing-probes/reference-video.mp4';
-const AUDIO_REF='https://storage.googleapis.com/ia-conect-pricing-probes/reference-audio.mp3';
+const IMAGE_REF=PRICING_PROBE_IMAGE_URL;
+const VIDEO_REF=PRICING_PROBE_VIDEO_URL;
+const AUDIO_REF=PRICING_PROBE_AUDIO_URL;
 
 export interface RoutePricingProfile{capability_id:CapabilityId;mode:GenerationMode;pricing_unit:ProviderPricingUnit;baseline_quantity:number;params:ProviderGenerationParams;}
 
