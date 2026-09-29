@@ -16,6 +16,7 @@ import { routingV2ModelBootstrapService } from '../routing-v2/modelBootstrapServ
 import { routingV2HealthAdminRoutes } from '../routing-v2/adminHealthRoutes.js';
 import '../routing-v2/health.init.js';
 import { routingV2RouteBootstrapService } from '../routing-v2/routeBootstrapService.js';
+import { filterCompatibleCapabilities } from '../routing-v2/capabilityMappingValidation.js';
 import { routingV2SmartRouter } from '../routing-v2/smartRouter.js';
 import { factoryResetService } from '../services/factoryResetService.js';
 import { CANONICAL_IMAGE_MODELS, normalizeImageModelText, resolveCanonicalImageModel } from '../routing-v2/imageCatalogCanonical.js';
@@ -155,6 +156,7 @@ function catalogKey(name:string,identifier:string,vendor=''){
   return strip(base)||strip(name)||strip(vendor);
 }
 function addCatalogProviderBinding(row:any,binding:any){
+  binding={...binding,capabilities:filterCompatibleCapabilities(String(binding?.provider_model_identifier||''),Array.isArray(binding?.capabilities)?binding.capabilities.map(String):[])};
   const key=`${String(binding?.provider_id||'').toLowerCase()}|${String(binding?.provider_model_identifier||'').trim().toLowerCase()}`;
   if(!key||key==='|')return;
   const existing=(row.providers||[]).find((provider:any)=>`${String(provider?.provider_id||'').toLowerCase()}|${String(provider?.provider_model_identifier||'').trim().toLowerCase()}`===key);
@@ -307,11 +309,12 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         if(isTechnicalImageCatalogNoise(rawName,identifier,canonical))continue;
         if(!canonical&&!isCatalogIdentityUsable(identity))continue;
         const imageCapabilities=inferImageCapabilities(row);
-        const resolvedCapabilities=imageCapabilities.length
+        const inferredCapabilities=imageCapabilities.length
           ? imageCapabilities
           : identity.capabilities.length
             ? identity.capabilities
             : (canonical?.default_capabilities||[]);
+        const resolvedCapabilities=filterCompatibleCapabilities(identifier,inferredCapabilities.map(String));
         if(!resolvedCapabilities.length)continue;
         const vendor=canonical?.vendor||detectedVendor;
         const key=canonical?.canonical_id||identity.canonical_key||catalogKey(rawName,identifier,vendor);

@@ -21,7 +21,7 @@ export interface RoutingV2RouteAdmin{
   route_id:string;model_id:string;capability_id:string;provider_id:string;provider_model_identifier:string;
   status:RoutingV2RouteStatus;pricing_status:RoutingV2PricingStatus;runtime_status:RoutingV2RuntimeStatus;
   billing_type:RoutingV2BillingType;billing_config:any;pricing_snapshot?:{provider_cost_reference:number;safe_cogs_brl:number|null;retail_price_credits:number|null;expected_margin_percent:number|null;fetched_at:string;valid_until:string}|null;
-  priority:number;last_price_sync_at?:string|null;last_runtime_check_at?:string|null;created_at:string;updated_at:string;
+  priority:number;last_price_sync_at?:string|null;last_runtime_check_at?:string|null;mapping_repair_note?:string|null;created_at:string;updated_at:string;
 }
 export interface RoutingV2CatalogModelAdmin{provider_model_identifier:string;name:string;vendor?:string|null;capabilities?:string[];metadata?:Record<string,unknown>;}
 export interface RoutingV2UnifiedCatalogProviderAdmin{provider_id:string;provider_name:string;provider_model_identifier:string;capabilities:string[];metadata?:Record<string,unknown>;}
@@ -57,8 +57,13 @@ export interface RoutingV2PriceSyncRowAdmin{
   ok:boolean;status:RoutingV2RouteStatus;pricing_status:RoutingV2PricingStatus;runtime_status:RoutingV2RuntimeStatus;
   retail_price_credits:number|null;error?:string|null;
 }
+export interface RoutingV2MappingRepairRowAdmin{
+  route_id:string;replacement_route_id?:string|null;model_id:string;capability_id:string;suggested_capability_id?:string|null;
+  provider_id:string;provider_model_identifier:string;result:'REPAIRED'|'BLOCKED';message:string;
+}
 export interface RoutingV2OperationalizeResultAdmin{
   checked_at:string;cursor:number;next_cursor:number|null;done:boolean;total_routes:number;processed:number;updated:number;failed:number;
+  mapping_repairs?:{examined:number;repaired:number;blocked:number;rows:RoutingV2MappingRepairRowAdmin[]}|null;
   rows:RoutingV2PriceSyncRowAdmin[];readiness:RoutingV2ReadinessAdmin|null;
 }
 

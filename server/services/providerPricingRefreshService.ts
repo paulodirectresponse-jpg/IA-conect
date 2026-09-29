@@ -5,24 +5,7 @@ import { providerRegistry } from '../adapters/providerRegistry.js';
 import { pricingCapabilities, routePricingProfile } from './routePricingProfileService.js';
 import { quoteCacheService } from './quoteCacheService.js';
 
-const LIVE_PROVIDERS=new Set(['provider-wavespeed','provider-atlas']);
-const timeoutMs=6000;
-async function getJson(url:string){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);try{const res=await fetch(url,{signal:controller.signal,headers:{Accept:'application/json'}});if(!res.ok)return null;return await res.json();}catch{return null;}finally{clearTimeout(timer);}}
-
-function strictOverviewRule(value:any):{unit:ProviderPricingUnit;unit_price_usd:number}|null{
-  const text=String(value?.pricingOverview||value?.pricing_overview||'').trim();
-  if(!text||/[~–—]|\bfrom\b|\bto\b|\bMP\b|megapixel|token/i.test(text))return null;
-  const m=text.match(/^\$\s*([0-9]+(?:\.[0-9]+)?)\s*\/\s*(image|output|request|second|sec|s|minute|min|1k\s*characters?|1000\s*characters?)$/i);
-  if(!m)return null;const price=Number(m[1]);if(!Number.isFinite(price)||price<0)return null;
-  const raw=m[2].toLowerCase();
-  if(raw==='image'||raw==='output')return{unit:'OUTPUT',unit_price_usd:price};
-  if(raw==='request')return{unit:'REQUEST',unit_price_usd:price};
-  if(raw==='second'||raw==='sec'||raw==='s')return{unit:'SECOND',unit_price_usd:price};
-  if(raw==='minute'||raw==='min')return{unit:'MINUTE',unit_price_usd:price};
-  if(raw.includes('character'))return{unit:'CHARACTER',unit_price_usd:price/1000};
-  return null;
-}
-
+const LIVE_PROVIDERS=new Set(['provider-wavespeed','provider-atlas','provider-runware']);
 function normalizeUnitPrice(total:number,unit:ProviderPricingUnit,quantity:number){return quantity>0&&['CHARACTER','SECOND','MINUTE'].includes(unit)?total/quantity:total;}
 
 export interface PricingRefreshSummary{checked:number;updated:number;failed:number;skipped:number;errors:Array<{provider_id:string;model_id:string;capability_id:string;error:string}>;}
@@ -46,10 +29,6 @@ export const providerPricingRefreshService={
       if(LIVE_PROVIDERS.has(providerId)&&adapter?.quoteCostUsd&&adapter.supports(model.model_id,profile.mode,mapping.provider_model_identifier)){
        const quote=await quoteCacheService.getOrQuote(adapter,{userId:'pricing-sync',model_id:model.model_id,mode:profile.mode,capability_id:capabilityId,provider_model_identifier:mapping.provider_model_identifier,prompt:profile.params.prompt,duration_seconds:profile.params.duration_seconds,resolution:profile.params.resolution,aspect_ratio:profile.params.aspect_ratio,number_of_outputs:1,audio_enabled:profile.params.audio_enabled,model_variant:profile.params.model_variant,pricing_options:profile.params.pricing_options,provider_references:profile.params.references},true);const total=Number(quote.provider_cost_usd);
        if(Number.isFinite(total)&&total>=0)rule={provider_id:providerId,provider_model_identifier:mapping.provider_model_identifier,capability_id:capabilityId,unit:profile.pricing_unit,unit_price_usd:normalizeUnitPrice(total,profile.pricing_unit,profile.baseline_quantity),minimum_usd:null,verified:true,source:'LIVE_CATALOG',quote_mode:'LIVE_PROVIDER',base_price_usd:total,verified_at:new Date().toISOString()};
-      }else if(providerId==='provider-runware'){
-       const metadata=await getJson('https://content.runware.ai/models/'+encodeURIComponent(mapping.provider_model_identifier)+'/pricing');
-       const normalized=strictOverviewRule(metadata);
-       if(normalized)rule={provider_id:providerId,provider_model_identifier:mapping.provider_model_identifier,capability_id:capabilityId,unit:normalized.unit,unit_price_usd:normalized.unit_price_usd,minimum_usd:null,verified:true,source:'LIVE_CATALOG',quote_mode:'STATIC_RULE',base_price_usd:null,verified_at:new Date().toISOString()};
       }
       if(rule){await providerPricingCatalogService.save(rule);summary.updated++;}else summary.skipped++;
      }catch(err:any){summary.failed++;summary.errors.push({provider_id:String(mapping.provider_id),model_id:model.model_id,capability_id:capabilityId,error:err?.message||'Falha ao atualizar preço.'});}

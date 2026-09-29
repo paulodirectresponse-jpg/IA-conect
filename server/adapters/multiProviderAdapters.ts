@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { GenerationMode } from '../../src/types/index.js';
 import { ProviderGenerationParams, ProviderJobResult, ProviderJobStatusResult, VideoProviderAdapter } from './videoProviderAdapter.js';
 import { providerPricingCatalogService } from '../services/providerPricingCatalogService.js';
+import { quoteRunwareCatalogPrice } from '../services/runwarePricingService.js';
 
 const timeoutMs=45_000;
 const imageModes=new Set<GenerationMode>(['TEXT_TO_IMAGE','IMAGE_TO_IMAGE']);
@@ -74,6 +75,7 @@ export class RunwareProviderAdapter extends CatalogPricedAdapter{
   readonly providerId='provider-runware';readonly name='Runware';
   private get key(){return process.env.RUNWARE_API_KEY?.trim();}private get url(){return base(process.env.RUNWARE_BASE_URL,'https://api.runware.ai/v1');}
   isConfigured(){return Boolean(this.key);}
+  quoteCostUsd(params:ProviderGenerationParams){return quoteRunwareCatalogPrice(params);}
   private headers(){return{Authorization:`Bearer ${this.key}`,'Content-Type':'application/json'};}
   async submitGeneration(params:ProviderGenerationParams):Promise<ProviderJobResult>{
     if(!this.key)throw Object.assign(new Error('Runware não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});

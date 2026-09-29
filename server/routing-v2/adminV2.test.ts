@@ -334,6 +334,7 @@ describe('Routing Core V2 Admin',()=>{
     const priceSync=read('server/routing-v2/priceSyncService.ts');
     const resolver=read('server/routing-v2/adapterResolver.ts');
     const health=read('server/routing-v2/healthAdapter.ts');
+    const capabilityValidation=read('server/routing-v2/capabilityMappingValidation.ts');
     const fx=read('server/routing-v2/fxRateService.ts');
     const wrapper=read('server/routing-v2/legacyWrapperAdapter.ts');
     const view=read('src/components/admin/AdminRoutingV2.tsx');
@@ -349,7 +350,8 @@ describe('Routing Core V2 Admin',()=>{
     expect(health).toContain("provider.provider_id==='provider-runware'");
     expect(fx).toContain('olinda.bcb.gov.br');
     expect(wrapper).toContain('PROVIDER_CATALOG_API');
-    expect(wrapper).toContain('ROUTING_V2_MAPPING_CAPABILITY_MISMATCH');
+    expect(wrapper).toContain('assertIdentifierMatchesCapability');
+    expect(capabilityValidation).toContain('ROUTING_V2_MAPPING_CAPABILITY_MISMATCH');
     expect(view).toContain('Ativar rotas agora');
     expect(view).toContain('Sincronizar e ativar rotas');
     expect(client).toContain("operationalize:(cursor=0,limit=5)=>post<RoutingV2OperationalizeResultAdmin>('/api/admin/routing-v2/operationalize',{cursor,limit})");
