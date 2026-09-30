@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { ProviderModelMapping, ProviderRegistryItem } from '../../src/types/index.js';
 import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
 import { catalogRepository } from '../repositories/catalogRepository.js';
-import { providerCatalogService } from './providerCatalogService.js';
+import { PROVIDER_DEFINITIONS, providerCatalogService } from './providerCatalogService.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { curatedModelMatchService, ProviderModelMatchProposal } from './curatedModelMatchService.js';
 import { providerPricingCatalogService } from './providerPricingCatalogService.js';
@@ -279,5 +279,9 @@ export const providerModelScanService={
     }
     return out;
   },
-  async latest(){const rows=await firestoreAdminRest.runQuery({from:[{collectionId:'provider_scan_latest'}],limit:50}).catch(()=>[] as any[]);return rows.map((r:any)=>r.data as ProviderScanResult);},
+  async latest(){
+    const rows=await firestoreAdminRest.runQuery({from:[{collectionId:'provider_scan_latest'}],limit:50}).catch(()=>[] as any[]);
+    const officialIds=new Set(PROVIDER_DEFINITIONS.map(provider=>provider.provider_id));
+    return rows.map((r:any)=>r.data as ProviderScanResult).filter(result=>officialIds.has(result.provider_id));
+  },
 };

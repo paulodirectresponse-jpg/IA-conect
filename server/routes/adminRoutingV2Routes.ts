@@ -453,6 +453,7 @@ adminRoutingV2Router.get('/admin/routing-v2/routes',...guard,async(req,res)=>{
     const modelId=String(req.query.model_id||'').trim();
     const capability=String(req.query.capability_id||'').trim();
     let rows=providerId?await routingV2RouteService.listByProvider(providerId):await routingV2RouteService.list();
+    rows=rows.filter(row=>isOfficialRoutingV2Provider(row.provider_id));
     if(modelId)rows=rows.filter(row=>row.model_id===modelId);
     if(capability)rows=rows.filter(row=>row.capability_id===capability);
     return res.json({success:true,data:rows});

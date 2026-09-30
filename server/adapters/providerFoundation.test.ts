@@ -12,7 +12,7 @@ const original=Object.fromEntries(envKeys.map(key=>[key,process.env[key]]));
 afterEach(()=>{for(const key of envKeys){const value=original[key];if(value===undefined)delete process.env[key];else process.env[key]=value;}});
 
 describe('multi-provider foundation',()=>{
-  it('registers Atlas, WaveSpeed and every new provider in the central registry',()=>{
+  it('keeps legacy adapters available internally while only the three official providers are catalogued',()=>{
     const ids=providerRegistry.listAdapters().map(adapter=>adapter.providerId);
     expect(new Set(ids).size).toBe(9);
     expect(ids).toEqual(expect.arrayContaining([
@@ -20,10 +20,10 @@ describe('multi-provider foundation',()=>{
     ]));
   });
 
-  it('keeps provider catalog and adapter registry aligned',()=>{
+  it('keeps the catalog limited to the official providers that have registered adapters',()=>{
     const catalogIds=PROVIDER_DEFINITIONS.map(provider=>provider.provider_id).sort();
-    const adapterIds=providerRegistry.listAdapters().map(adapter=>adapter.providerId).sort();
-    expect(adapterIds).toEqual(catalogIds);
+    expect(catalogIds).toEqual(['provider-atlas','provider-runware','provider-wavespeed']);
+    for(const providerId of catalogIds)expect(providerRegistry.getAdapter(providerId)).not.toBeNull();
   });
 
   it('does not consider a new provider configured without its server secret',()=>{

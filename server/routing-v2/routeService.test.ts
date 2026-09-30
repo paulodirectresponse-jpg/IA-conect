@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RoutingV2Provider, RoutingV2ProviderRoute } from './domain.js';
 
 const repositoryMocks=vi.hoisted(()=>(
-  {routes:[] as RoutingV2ProviderRoute[],providers:[] as RoutingV2Provider[],listRoutes:vi.fn(),listProviders:vi.fn()}
+  {routes:[] as RoutingV2ProviderRoute[],providers:[] as RoutingV2Provider[],listRoutes:vi.fn(),listProviders:vi.fn(),getModel:vi.fn(),getProvider:vi.fn(),saveRoute:vi.fn()}
 ));
-vi.mock('./repository.js',()=>({routingV2Repository:{listRoutes:repositoryMocks.listRoutes,listProviders:repositoryMocks.listProviders}}));
+vi.mock('./repository.js',()=>({routingV2Repository:{listRoutes:repositoryMocks.listRoutes,listProviders:repositoryMocks.listProviders,getModel:repositoryMocks.getModel,getProvider:repositoryMocks.getProvider,saveRoute:repositoryMocks.saveRoute}}));
 
 const checkedAt='2026-09-29T12:00:00.000Z';
 const route=(providerId:string):RoutingV2ProviderRoute=>({
@@ -22,15 +22,26 @@ const provider=(id:string,health:RoutingV2Provider['health_status'],status:Routi
 describe('Routing V2 ready route health gate',()=>{
   beforeEach(()=>{
     vi.clearAllMocks();
-    repositoryMocks.routes=[route('provider-healthy'),route('provider-unavailable'),route('provider-disabled'),route('provider-degraded')];
-    repositoryMocks.providers=[provider('provider-healthy','HEALTHY'),provider('provider-unavailable','UNAVAILABLE'),provider('provider-disabled','HEALTHY','DISABLED'),provider('provider-degraded','HEALTHY','DEGRADED')];
+    repositoryMocks.routes=[route('provider-wavespeed'),route('provider-atlas'),route('provider-runware'),route('provider-fal')];
+    repositoryMocks.providers=[provider('provider-wavespeed','HEALTHY'),provider('provider-atlas','UNAVAILABLE'),provider('provider-runware','HEALTHY'),provider('provider-fal','HEALTHY')];
     repositoryMocks.listRoutes.mockImplementation(async()=>repositoryMocks.routes);
     repositoryMocks.listProviders.mockImplementation(async()=>repositoryMocks.providers);
   });
 
-  it('returns only READY routes whose provider is active and currently healthy',async()=>{
+  it('returns only READY routes for official providers whose runtime is currently healthy',async()=>{
     const {routingV2RouteService}=await import('./routeService.js');
     const ready=await routingV2RouteService.listReady();
-    expect(ready.map(row=>row.provider_id)).toEqual(['provider-healthy']);
+    expect(ready.map(row=>row.provider_id)).toEqual(['provider-wavespeed','provider-runware']);
+  });
+
+  it('rejects route creation for a legacy non-official provider',async()=>{
+    const {routingV2RouteService}=await import('./routeService.js');
+    await expect(routingV2RouteService.create({
+      model_id:'model-video',capability_id:'text-to-video',provider_id:'provider-fal',provider_model_identifier:'fal-ai/model',
+      mapping_source:'PROVIDER_DOCS',mapping_source_reference:'https://example.test/model',mapping_verified_at:checkedAt,
+      billing_config:{type:'PER_SECOND',currency:'USD',price_per_second:0.1},
+    })).rejects.toThrow('Somente WaveSpeed AI, Atlas Cloud e Runware podem receber novas rotas.');
+    expect(repositoryMocks.getModel).not.toHaveBeenCalled();
+    expect(repositoryMocks.getProvider).not.toHaveBeenCalled();
   });
 });
