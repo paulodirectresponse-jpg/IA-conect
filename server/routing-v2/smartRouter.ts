@@ -1,6 +1,9 @@
 import { RoutingV2ProviderRoute } from './domain.js';
 import { routingV2Repository } from './repository.js';
-import { routingV2RouterService, routingV2Candidate } from './routerService.js';
+import { routingV2RouterService } from './routerService.js';
+import { routingV2RouteService } from './routeService.js';
+import { isOfficialRoutingV2Provider } from './providerService.js';
+import { effectiveRoutingV2RouteStatus } from './routeAvailability.js';
 import { CapabilityId } from '../beta/capabilityRegistry.js';
 
 export interface SmartRouterSelectionCriteria {
@@ -31,24 +34,34 @@ export const routingV2SmartRouter = {
   },
 
   async listReadyRoutes(): Promise<RoutingV2ProviderRoute[]> {
-    const allRoutes = await routingV2Repository.listRoutes();
-    const now=new Date().toISOString();return allRoutes.filter(route=>Boolean(routingV2Candidate(route,now)));
+    return routingV2RouteService.listReady();
   },
 
   async getReadinessStatus() {
-    const allRoutes = await routingV2Repository.listRoutes();
+    const[allRoutes,providers,models,readyRoutes]=await Promise.all([
+      routingV2Repository.listRoutes(),
+      routingV2Repository.listProviders(),
+      routingV2Repository.listModels(),
+      routingV2RouteService.listReady(),
+    ]);
+    const officialRoutes=allRoutes.filter(route=>isOfficialRoutingV2Provider(route.provider_id));
+    const providerById=new Map(providers.filter(provider=>isOfficialRoutingV2Provider(provider.provider_id)).map(provider=>[provider.provider_id,provider]));
+    const activeModelIds=new Set(models.filter(model=>model.status==='ACTIVE').map(model=>model.model_id));
+    const readyIds=new Set(readyRoutes.filter(route=>activeModelIds.has(route.model_id)).map(route=>route.route_id));
     const byStatus = new Map<string, number>();
 
-    for (const route of allRoutes) {
-      byStatus.set(route.status, (byStatus.get(route.status) || 0) + 1);
+    for (const route of officialRoutes) {
+      const provider=providerById.get(route.provider_id);
+      const status=effectiveRoutingV2RouteStatus({route,provider:provider||null,modelActive:activeModelIds.has(route.model_id),routable:readyIds.has(route.route_id)});
+      byStatus.set(status, (byStatus.get(status) || 0) + 1);
     }
 
     return {
-      total_routes: allRoutes.length,
-      ready: byStatus.get('READY') || 0,
+      total_routes: officialRoutes.length,
+      ready: readyIds.size,
       by_status: Object.fromEntries(byStatus),
-      ready_routes: allRoutes
-        .filter(r => Boolean(routingV2Candidate(r,new Date().toISOString())))
+      ready_routes: officialRoutes
+        .filter(route=>readyIds.has(route.route_id))
         .map(r => ({
           route_id: r.route_id,
           model_id: r.model_id,
