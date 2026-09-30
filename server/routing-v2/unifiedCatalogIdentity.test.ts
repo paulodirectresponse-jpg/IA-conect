@@ -85,4 +85,16 @@ describe('unified catalog provider identity',()=>{
     expect(miniMulti?.catalog_key).toBe(miniRoot?.catalog_key);
     expect(fast?.catalog_key).not.toBe(miniRoot?.catalog_key);
   });
+
+  it('merges talking-avatar task endpoints into their underlying video model family',()=>{
+    const seedanceRoot=canonicalizeUnifiedVideoCatalogIdentity('Seedance 2.5','bytedance:seedance-2.5@1','ByteDance');
+    const seedanceTask=canonicalizeUnifiedVideoCatalogIdentity('Talking Avatar','bytedance/seedance-2.5/talking-avatar','ByteDance');
+    const seedanceNamedTask=canonicalizeUnifiedVideoCatalogIdentity('Seedance 2.5 Talking Avatar','bytedance/seedance-2.5/talking-avatar','ByteDance');
+    const veoRoot=canonicalizeUnifiedVideoCatalogIdentity('Veo 3.1','google/veo-3.1/text-to-video','Google');
+    const veoTask=canonicalizeUnifiedVideoCatalogIdentity('Talking Avatar','google/veo-3.1/talking-avatar','Google');
+
+    expect(seedanceTask?.catalog_key).toBe(seedanceRoot?.catalog_key);
+    expect(seedanceNamedTask?.catalog_key).toBe(seedanceRoot?.catalog_key);
+    expect(veoTask?.catalog_key).toBe(veoRoot?.catalog_key);
+  });
 });
