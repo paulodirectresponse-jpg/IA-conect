@@ -58,6 +58,7 @@ export interface RoutingV2GenerationStatus{
   provider_job_id:string;
   status:'QUEUED'|'PROCESSING'|'SUCCEEDED'|'FAILED';
   progress_percent?:number|null;
+  provider_cost_usd?:number|null;
   result_urls?:string[];
   error_code?:string|null;
   error_message?:string|null;

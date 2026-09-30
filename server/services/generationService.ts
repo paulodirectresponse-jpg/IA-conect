@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { Generation, GenerationMode, GenerationAttemptLog, AssetType, Asset } from '../../src/types/index.js';
 import { generationRepository } from '../repositories/generationRepository.js';
+import { normalizeProviderCostUsd, saveRunwareProviderCost } from '../repositories/providerCostTelemetryRepository.js';
 import { smartRouterService, RoutingCandidate } from './smartRouterService.js';
 import { creditWalletService } from './creditWalletService.js';
 import { creditPricingService } from './creditPricingService.js';
@@ -201,6 +202,11 @@ export const generationService={
   let status;
   try{status=await adapter.checkStatus(g.provider_job_id);}
   catch(err:any){console.warn('[GenerationPoll]',g.generation_id,err?.message);return generation;}
+  if(g.provider_id==='provider-runware'&&status.status==='SUCCEEDED'){
+    const cost=normalizeProviderCostUsd(status.provider_cost_usd);
+    if(cost===null)console.error('[RunwareCostMissing]',JSON.stringify({generation_id:g.generation_id,provider_job_id:g.provider_job_id}));
+    else try{await saveRunwareProviderCost(g.generation_id,cost);}catch(error:any){console.error('[RunwareCostLedgerFailure]',JSON.stringify({generation_id:g.generation_id,code:String(error?.code||'PROVIDER_COST_LEDGER_FAILED'),message:String(error?.message||error).slice(0,200)}));}
+  }
   if(status.status==='QUEUED'||status.status==='PROCESSING'){
     g.status=status.status;
     g.progress_percent=status.progress_percent??g.progress_percent;

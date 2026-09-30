@@ -3,6 +3,7 @@ import { AssetType, Generation, GenerationAttemptLog } from '../../src/types/ind
 import { CapabilityId } from '../beta/capabilityRegistry.js';
 import { assetRepository, generatedAssetId } from '../repositories/assetRepository.js';
 import { generationRepository } from '../repositories/generationRepository.js';
+import { normalizeProviderCostUsd, saveRunwareProviderCost } from '../repositories/providerCostTelemetryRepository.js';
 import { creditWalletService } from '../services/creditWalletService.js';
 import { generatedAssetStorageService } from '../services/generatedAssetStorageService.js';
 import { assetReferenceResolver } from '../services/assetReferenceResolver.js';
@@ -373,6 +374,11 @@ export const routingV2ExecutionService={
     if(!adapter?.checkGeneration)throw Object.assign(new Error('Adapter V2 não possui consulta de status.'),{code:'ROUTING_V2_STATUS_UNAVAILABLE'});
 
     const status=await adapter.checkGeneration(provider,String(generation.provider_job_id||''));
+    if(provider.provider_id==='provider-runware'&&status.status==='SUCCEEDED'){
+      const cost=normalizeProviderCostUsd(status.provider_cost_usd);
+      if(cost===null)console.error('[RunwareCostMissing]',JSON.stringify({generation_id:generationId,provider_job_id:generation.provider_job_id}));
+      else try{await saveRunwareProviderCost(generationId,cost);}catch(error:any){console.error('[RunwareCostLedgerFailure]',JSON.stringify({generation_id:generationId,code:String(error?.code||'PROVIDER_COST_LEDGER_FAILED'),message:String(error?.message||error).slice(0,200)}));}
+    }
     generation.progress_percent=status.progress_percent??generation.progress_percent??0;
     if(status.status==='QUEUED'||status.status==='PROCESSING'){
       generation.status=status.status;

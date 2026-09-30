@@ -178,6 +178,7 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
         provider_job_id: result.provider_job_id,
         status: result.status,
         progress_percent: result.progress_percent,
+        ...(provider.provider_id==='provider-runware'&&result.provider_cost_usd!==undefined?{provider_cost_usd:result.provider_cost_usd}:{}),
         result_urls: (result.result_urls || result.result_image_urls || [result.result_video_url]).filter(Boolean) as string[],
         error_code: result.error_code || null,
         error_message: result.error_message || null,
