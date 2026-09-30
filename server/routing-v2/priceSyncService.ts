@@ -12,7 +12,7 @@ import { routingV2CapabilityMappingRepairService, RoutingV2MappingRepairRow } fr
 import { assertIdentifierMatchesCapability } from './capabilityMappingValidation.js';
 import { routingV2ProviderModelMigrationService, RoutingV2ProviderModelMigrationResult } from './providerModelMigrationService.js';
 import { checkProviderHealth } from './healthAdapter.js';
-import { canReuseRoutingV2PriceAfterTransientFailure, hasFreshRoutingV2ProviderHealth, shouldReuseRoutingV2PriceSnapshot } from './priceSyncPolicy.js';
+import { canReuseRoutingV2PriceAfterTransientFailure, hasFreshRoutingV2ProviderHealth, shouldReuseRoutingV2PriceSnapshot, shouldSkipRoutingV2PriceRefresh } from './priceSyncPolicy.js';
 
 export interface RoutingV2PriceSyncRow{
   route_id:string;
@@ -172,6 +172,18 @@ export const routingV2PriceSyncService={
           });
           await routingV2Repository.saveRoute(retained);
           rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:!route.last_sync_error,status:retained.status,pricing_status:retained.pricing_status,runtime_status:retained.runtime_status,retail_price_credits:retained.pricing_snapshot?.retail_price_credits||null,error:route.last_sync_error||null});
+          continue;
+        }
+
+        if(shouldSkipRoutingV2PriceRefresh(route,checkedAt,settings.price_sync_interval_minutes)){
+          const retained=reconcileRoutingV2Route({
+            route:{...route,runtime_status:runtime.runtime_status,last_runtime_check_at:checkedAt,
+              last_runtime_error:runtime.runtime_status==='HEALTHY'?null:(runtime.health?.message||`Runtime do provider ${runtime.runtime_status}; rota mantida fora de READY.`),
+              last_runtime_error_at:checkedAt,updated_at:checkedAt},
+            provider,pricing_status:'CURRENT',runtime_status:runtime.runtime_status,now:checkedAt,
+          });
+          await routingV2Repository.saveRoute(retained);
+          rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:true,status:retained.status,pricing_status:retained.pricing_status,runtime_status:retained.runtime_status,retail_price_credits:retained.pricing_snapshot?.retail_price_credits||null});
           continue;
         }
 

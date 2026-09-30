@@ -32,7 +32,16 @@ describe('Atlas Gemini Omni video edit pricing payload',()=>{
     vi.stubEnv('ATLAS_API_KEY','test-key');
     vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({data:{message:'video field is required'}}),{status:400})));
     await expect(new AtlasProviderAdapter().quoteCostUsd(params())).rejects.toMatchObject({
-      code:'ATLAS_PRICE_HTTP_400',message:'video field is required',
+      code:'ATLAS_PRICE_HTTP_400',http_status:400,message:'Atlas pricing HTTP 400 · video field is required',
+    });
+  });
+
+  it('preserves Cloudflare rate-limit diagnostics for Atlas pricing failures',async()=>{
+    vi.stubEnv('ATLAS_API_KEY','test-key');
+    vi.stubGlobal('fetch',vi.fn(async()=>new Response('error code: 1015',{status:403,headers:{'cf-ray':'ray-123','retry-after':'60'}})));
+    await expect(new AtlasProviderAdapter().quoteCostUsd(params())).rejects.toMatchObject({
+      code:'ATLAS_PRICE_HTTP_403',http_status:403,cf_ray:'ray-123',retry_after:'60',
+      message:'Atlas pricing HTTP 403 · cf-ray ray-123 · Retry-After 60 · error code: 1015',
     });
   });
 });

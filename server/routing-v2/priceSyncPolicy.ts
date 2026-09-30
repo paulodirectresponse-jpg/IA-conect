@@ -42,3 +42,12 @@ export function shouldReuseRoutingV2PriceSnapshot(route:RoutingV2ProviderRoute,n
   return Number.isFinite(quoteAt)&&Number.isFinite(errorAt)&&Number.isFinite(current)
     &&errorAt>=quoteAt&&errorAt<=current&&current-errorAt<retryAfter;
 }
+
+export function shouldSkipRoutingV2PriceRefresh(route:RoutingV2ProviderRoute,now:string,refreshIntervalMinutes:number){
+  if(route.pricing_status!=='CURRENT'||route.last_sync_error)return false;
+  if(!hasFreshRoutingV2PriceSnapshot(route,now))return false;
+  const quoteAt=Date.parse(route.pricing_snapshot!.fetched_at),current=Date.parse(now);
+  const refreshInterval=Math.max(1,refreshIntervalMinutes)*60_000;
+  return Number.isFinite(quoteAt)&&Number.isFinite(current)
+    &&quoteAt<=current&&current-quoteAt<refreshInterval;
+}
