@@ -184,7 +184,7 @@ describe('AtlasHealthCheck', () => {
     vi.stubEnv('ATLAS_API_KEY', 'test-key');
     global.fetch = vi.fn(() => Promise.resolve({
       status: 200,
-      json: () => Promise.resolve({ available: {} }),
+      json: () => Promise.resolve({ available: { value: ' ' } }),
     })) as any;
 
     const result = await check.check({ ...mockProvider, provider_id: 'provider-atlas' });

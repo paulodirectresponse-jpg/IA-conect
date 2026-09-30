@@ -38,7 +38,10 @@ export class AtlasHealthCheck extends BaseProviderHealthCheck {
       let message = this.buildMessage(res.status);
       if(status==='HEALTHY'){
         const body:any=await res.json().catch(()=>null);
-        const balance=Number(body?.available?.value??body?.data?.balance??body?.balance);
+        const rawBalance=body?.available?.value??body?.data?.balance??body?.balance;
+        const balance=typeof rawBalance==='number'
+          ?rawBalance
+          :typeof rawBalance==='string'&&rawBalance.trim()?Number(rawBalance):Number.NaN;
         if(!Number.isFinite(balance)){status='DEGRADED';message='Atlas respondeu sem saldo válido.';}
       }
 
