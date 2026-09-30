@@ -330,6 +330,7 @@ describe('Routing Core V2 Admin',()=>{
   it('groups route and pricing administration by logical model without changing router semantics',()=>{
     const view=read('src/components/admin/AdminRoutingV2.tsx');
     const router=read('server/routing-v2/routerService.ts');
+    const candidate=read('server/routing-v2/routeCandidate.ts');
     expect(view).toContain('routeGroups');
     expect(view).toContain('groupedRoutesView');
     expect(view).toContain('Melhor READY');
@@ -337,9 +338,9 @@ describe('Routing Core V2 Admin',()=>{
     expect(view).toContain('capability(s)');
     expect(view).toContain('groupedRoutesView(false)');
     expect(view).toContain('groupedRoutesView(true)');
-    expect(router).toContain("route.status!=='READY'");
-    expect(router).toContain("route.pricing_status!=='CURRENT'");
-    expect(router).toContain("route.runtime_status!=='HEALTHY'");
+    expect(candidate).toContain("route.status!=='READY'");
+    expect(candidate).toContain("route.pricing_status!=='CURRENT'");
+    expect(candidate).toContain("route.runtime_status!=='HEALTHY'");
     expect(router).toContain('a.safe_cogs_brl-b.safe_cogs_brl||b.priority-a.priority');
     expect(router).toContain("strategy:'LOWEST_SAFE_COGS'");
   });

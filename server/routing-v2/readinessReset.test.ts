@@ -8,7 +8,8 @@ describe('Routing Core V2 greenfield readiness and reset',()=>{
   it('derives cutover readiness only from active V2 models and V2 READY routes',()=>{
     const source=read('server/routing-v2/readinessService.ts');
     expect(source).toContain("model.status==='ACTIVE'");
-    expect(source).toContain('routingV2Candidate(route,currentTime)');
+    expect(source).toContain('routingV2RouteService.listReady()');
+    expect(source).toContain('isOfficialRoutingV2Provider(route.provider_id)');
     expect(source).toContain('required_model_capabilities');
     expect(source).not.toContain('catalogRepository');
     expect(source).not.toContain('providerPricingCatalogService');

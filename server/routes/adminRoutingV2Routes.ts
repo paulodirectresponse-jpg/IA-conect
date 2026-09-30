@@ -24,6 +24,7 @@ import { isCatalogIdentityUsable, parseCatalogModelIdentity } from '../routing-v
 import { listAtlasCatalogModels, listWaveSpeedCatalogModels, searchRunwareCatalogModels } from '../routing-v2/providerCatalogService.js';
 import { providerHealthService } from '../routing-v2/providerHealthService.js';
 import { canonicalizeUnifiedVideoCatalogIdentity, normalizeUnifiedCatalogDisplayName, providerIdentifierModelName, unifiedCatalogSearchScore } from '../routing-v2/unifiedCatalogIdentity.js';
+import { effectiveRoutingV2RouteStatus } from '../routing-v2/routeAvailability.js';
 
 export const adminRoutingV2Router=Router();
 const guard=[requireAuth,requireAdmin] as const;
@@ -452,10 +453,19 @@ adminRoutingV2Router.get('/admin/routing-v2/routes',...guard,async(req,res)=>{
     const providerId=String(req.query.provider_id||'').trim();
     const modelId=String(req.query.model_id||'').trim();
     const capability=String(req.query.capability_id||'').trim();
+    const[providers,models,routableRoutes]=await Promise.all([
+      routingV2ProviderService.list(),
+      routingV2Repository.listModels(),
+      routingV2RouteService.listReady(),
+    ]);
     let rows=providerId?await routingV2RouteService.listByProvider(providerId):await routingV2RouteService.list();
+    const providerById=new Map(providers.map(provider=>[provider.provider_id,provider]));
+    const activeModelIds=new Set(models.filter(model=>model.status==='ACTIVE').map(model=>model.model_id));
+    const routableIds=new Set(routableRoutes.map(route=>route.route_id));
     rows=rows.filter(row=>isOfficialRoutingV2Provider(row.provider_id));
     if(modelId)rows=rows.filter(row=>row.model_id===modelId);
     if(capability)rows=rows.filter(row=>row.capability_id===capability);
+    rows=rows.map(route=>({...route,status:effectiveRoutingV2RouteStatus({route,provider:providerById.get(route.provider_id)||null,modelActive:activeModelIds.has(route.model_id),routable:routableIds.has(route.route_id)})}));
     return res.json({success:true,data:rows});
   }catch(err){return error(res,err);}
 });
@@ -506,17 +516,23 @@ adminRoutingV2Router.post('/admin/routing-v2/pricing/sync',...guard,async(req,re
 });
 adminRoutingV2Router.get('/admin/routing-v2/health',...guard,async(_req,res)=>{
   try{
-    const[providers,models,routes,settings]=await Promise.all([
-      routingV2Repository.listProviders(),routingV2Repository.listModels(),routingV2Repository.listRoutes(),routingV2PricingSettingsService.get(),
+    const[providers,models,routes,settings,routableRoutes]=await Promise.all([
+      routingV2ProviderService.list(),routingV2Repository.listModels(),routingV2Repository.listRoutes(),routingV2PricingSettingsService.get(),routingV2RouteService.listReady(),
     ]);
-    const ready=routes.filter(r=>r.status==='READY').length;
-    const degraded=routes.filter(r=>r.status==='DEGRADED').length;
-    const stale=routes.filter(r=>r.pricing_status==='STALE').length;
+    const officialRoutes=routes.filter(route=>isOfficialRoutingV2Provider(route.provider_id));
+    const providerById=new Map(providers.map(provider=>[provider.provider_id,provider]));
+    const activeModelIds=new Set(models.filter(model=>model.status==='ACTIVE').map(model=>model.model_id));
+    const routableIds=new Set(routableRoutes.map(route=>route.route_id));
+    const effectiveStatuses=officialRoutes.map(route=>({route,status:effectiveRoutingV2RouteStatus({route,provider:providerById.get(route.provider_id)||null,modelActive:activeModelIds.has(route.model_id),routable:routableIds.has(route.route_id)})}));
+    const ready=effectiveStatuses.filter(row=>row.status==='READY').length;
+    const degraded=effectiveStatuses.filter(row=>row.status==='DEGRADED').length;
+    const checkedAt=new Date().toISOString();
+    const stale=officialRoutes.filter(route=>route.pricing_status==='STALE'||(route.status==='READY'&&!routableIds.has(route.route_id)&&Date.parse(route.pricing_snapshot?.valid_until||'')<=Date.parse(checkedAt))).length;
     return res.json({success:true,data:{
-      checked_at:new Date().toISOString(),
+      checked_at:checkedAt,
       providers:{total:providers.length,active:providers.filter(p=>p.status==='ACTIVE').length,healthy:providers.filter(p=>p.health_status==='HEALTHY').length,rows:providers},
       models:{total:models.length,active:models.filter(m=>m.status==='ACTIVE').length},
-      routes:{total:routes.length,ready,degraded,stale,disabled:routes.filter(r=>r.status==='DISABLED').length},
+      routes:{total:officialRoutes.length,ready,degraded,stale,disabled:effectiveStatuses.filter(row=>row.status==='DISABLED').length},
       pricing:{price_sync_interval_minutes:settings.price_sync_interval_minutes,price_freshness_ttl_minutes:settings.price_freshness_ttl_minutes},
     }});
   }catch(err){return error(res,err,'ROUTING_V2_HEALTH_FAILED');}
