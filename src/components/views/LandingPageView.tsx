@@ -1,4 +1,4 @@
-import React,{useState}from'react';
+import React from'react';
 import{useReducedMotion}from'motion/react';
 import{ArrowRight,BookOpen,Image as ImageIcon,Layers3,Sparkles,Video,Wallet,Zap}from'lucide-react';
 import{BrandMark}from'../common/BrandMark.js';
@@ -6,8 +6,6 @@ import{ViewportImage}from'../common/ViewportImage.js';
 import{ModelShowcase,ShowcaseItem}from'../workspace/ModelShowcase.js';
 
 interface Props{onLogin:()=>void;onStart:()=>void;}
-const media=(key:string)=>`https://hzjyhhenajbjxkwkmzdg.supabase.co/functions/v1/showcase-media?key=${key}`;
-
 type GalleryItem={key:string;label:string;ratio:number;fallback:string};
 const galleryRows:GalleryItem[][]=[
  [{key:'product',label:'Produto & publicidade',ratio:5/4,fallback:'/starter-ideas/product-premium.svg'},{key:'character',label:'Personagens realistas',ratio:4/5,fallback:'/starter-ideas/character.svg'},{key:'cgi',label:'CGI surreal',ratio:16/9,fallback:'/starter-ideas/cgi-concept.svg'},{key:'architecture',label:'Arquitetura & interiores',ratio:16/9,fallback:'/starter-ideas/architecture.svg'}],
@@ -15,10 +13,9 @@ const galleryRows:GalleryItem[][]=[
 ];
 
 const GalleryCard:React.FC<{item:GalleryItem}>=({item})=>{
- const[failed,setFailed]=useState(false);
  return <figure className="ia-landing-gallery-card group relative min-w-0 overflow-hidden" style={{aspectRatio:item.ratio}}>
- <ViewportImage src={failed?item.fallback:media(item.key)} alt={failed?`Prévia ilustrativa: ${item.label}`:item.label} onError={()=>setFailed(true)} decoding="async" className="absolute inset-0 h-full w-full object-cover"/>
- {failed&&<span className="ia-landing-gallery-fallback">Prévia ilustrativa</span>}
+ <ViewportImage src={item.fallback} alt={`Prévia ilustrativa: ${item.label}`} decoding="async" className="absolute inset-0 h-full w-full object-cover"/>
+ <span className="ia-landing-gallery-fallback">Prévia ilustrativa</span>
  <figcaption className="absolute inset-x-0 bottom-0 px-3.5 pb-3.5 pt-14"><p className="text-[11px] font-semibold text-white">{item.label}</p></figcaption>
 </figure>;
 };

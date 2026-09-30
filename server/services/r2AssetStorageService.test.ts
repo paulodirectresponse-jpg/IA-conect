@@ -1,5 +1,5 @@
 import {afterEach,describe,expect,it} from 'vitest';
-import {configureR2AssetBucket,parseAssetByteRange,R2AssetBucketPort,r2AssetStorageService} from './r2AssetStorageService.js';
+import {configureR2AssetBucket,parseAssetByteRange,publicAssetKeyFromPath,publicAssetUrl,R2AssetBucketPort,r2AssetStorageService} from './r2AssetStorageService.js';
 
 function makeBucket(){
   const files=new Map<string,Uint8Array>();
@@ -75,6 +75,14 @@ describe('R2 asset storage',()=>{
     const {bucket}=makeBucket();
     configureR2AssetBucket(bucket);
     await expect(r2AssetStorageService.head('../private.png')).rejects.toMatchObject({code:'ASSET_STORAGE_PATH_INVALID'});
+  });
+
+  it('serves only allowlisted public showcase files through the Worker media route',()=>{
+    expect(publicAssetUrl('showcase/Kling.mp4','https://iaconnect.ia.br')).toBe('https://iaconnect.ia.br/api/assets/media/showcase/Kling.mp4');
+    expect(publicAssetUrl('showcase/Omni flash.mp4','https://iaconnect.ia.br')).toBe('https://iaconnect.ia.br/api/assets/media/showcase/Omni%20flash.mp4');
+    expect(publicAssetKeyFromPath('/api/assets/media/showcase/Omni%20flash.mp4')).toBe('showcase/Omni flash.mp4');
+    expect(publicAssetKeyFromPath('/api/assets/media/showcase/private.mp4')).toBeNull();
+    expect(()=>publicAssetUrl('showcase/private.mp4','https://iaconnect.ia.br')).toThrow('Caminho inválido para armazenamento de asset.');
   });
 
   it('removes the temporary health probe after confirming R2 write and read',async()=>{

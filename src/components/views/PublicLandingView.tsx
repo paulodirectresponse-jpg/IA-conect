@@ -1,10 +1,9 @@
 import React,{useEffect,useRef,useState}from'react';
+import { showcaseVideoUrl } from '../../utils/showcaseMedia.js';
 
 interface Props{onLogin:()=>void;onStart:()=>void;includeShell?:boolean;}
 
-const storage='https://hzjyhhenajbjxkwkmzdg.supabase.co/storage/v1/object/public/ia-conect-assets/showcase';
-const video=(name:string)=>`${storage}/${encodeURIComponent(name)}`;
-const media=(key:string)=>`https://hzjyhhenajbjxkwkmzdg.supabase.co/functions/v1/showcase-media?key=${key}`;
+const video=showcaseVideoUrl;
 
 const models=[
  {name:'Kling 3.0',file:'Kling.mp4',poster:'/model-covers/kling-3-0.webp',headline:'Personagens, acting e movimento cinematográfico',description:'Movimento natural, direção de câmera e takes com acabamento cinematográfico.'},
@@ -44,11 +43,10 @@ const DeferredVideo:React.FC<{src:string;className?:string;poster?:string;name:s
 };
 
 const GalleryPreview:React.FC<{item:(typeof gallery)[number]}>=({item})=>{
- const[failed,setFailed]=useState(false);
  const{ref,ready}=useNearViewport<HTMLImageElement>();
  return <>
-  <img ref={ref} src={ready?(failed?item.fallback:media(item.key)):undefined} alt={failed?`Prévia ilustrativa: ${item.label}`:item.label} decoding="async" onError={()=>setFailed(true)}/>
-  {failed&&<span className="public-gallery-fallback">Prévia ilustrativa</span>}
+  <img ref={ref} src={ready?item.fallback:undefined} alt={`Prévia ilustrativa: ${item.label}`} decoding="async"/>
+  {ready&&<span className="public-gallery-fallback">Prévia ilustrativa</span>}
  </>;
 };
 

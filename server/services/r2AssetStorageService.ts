@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { isShowcaseVideoFile } from '../../src/utils/showcaseMedia.js';
 
 const MAX_ARCHIVE_BYTES=50*1024*1024;
 const MAX_UPLOAD_BYTES=50*1024*1024;
@@ -46,6 +47,10 @@ function bucket(){
 
 function safePath(value:string){
   const normalized=String(value||'').replace(/^\/+|\/+$/g,'');
+  if(normalized.startsWith('showcase/')){
+    const fileName=normalized.slice('showcase/'.length);
+    if(isShowcaseVideoFile(fileName))return normalized;
+  }
   if(!/^users\/[A-Za-z0-9_-]{1,128}\/assets\/[A-Za-z0-9_-]{1,128}\/[A-Za-z0-9._-]{1,128}$/.test(normalized)){
     throw Object.assign(new Error('Caminho inválido para armazenamento de asset.'),{code:'ASSET_STORAGE_PATH_INVALID'});
   }
