@@ -69,8 +69,16 @@ describe('Routing Core V2 Part 4 — price sync and reconciliation',()=>{
     expect(source).not.toContain('providerHealthService.checkAndPersist');
     expect(source).toContain('price.billing_config.type!==route.billing_type');
     expect(source).toContain('calculateRoutingV2Economics');
-    expect(wrangler).toContain('"*/30 * * * *"');
+    expect(wrangler).toContain('"*/2 * * * *"');
+    expect(wrangler).toContain('"15,45 * * * *"');
     expect(worker).toContain('routingV2ScheduledSyncService.run');
+    expect(worker).toContain("controller.cron==='*/2 * * * *'");
+    expect(worker).toContain("controller.cron==='15,45 * * * *'");
+    expect(worker).toContain("Cron não reconhecido");
+    expect(worker).not.toContain('ctx.waitUntil');
+    expect(worker).toContain('if(v2.failed>0)');
+    expect(worker).toContain('RoutingV2PriceSyncFailures');
+    expect(worker).toContain('throw error;');
     expect(scheduled).toContain('getPriceSyncCursor');
     expect(scheduled).toContain('savePriceSyncCursor');
   });

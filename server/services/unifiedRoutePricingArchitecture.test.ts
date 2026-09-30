@@ -4,11 +4,18 @@ import {describe,expect,it} from 'vitest';
 const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
 
 describe('unified route pricing engine',()=>{
- it('keeps the Cloudflare pricing cron at thirty minutes',()=>{
+ it('separates the V2 price cursor from the legacy thirty-minute pricing sync',()=>{
   const wrangler=read('wrangler.jsonc');
   const worker=read('worker/index.ts');
-  expect(wrangler).toContain('*/30 * * * *');
+  expect(wrangler).toContain('"*/2 * * * *"');
+  expect(wrangler).toContain('"15,45 * * * *"');
+  expect(worker).toContain("controller.cron==='*/2 * * * *'");
+  expect(worker).toContain("controller.cron==='15,45 * * * *'");
   expect(worker).toContain('pricingSyncService.runHourlySync()');
+  expect(worker).not.toContain('ctx.waitUntil');
+  expect(worker).toContain('if(v2.failed>0)');
+  expect(worker).toContain('PricingSyncFailures');
+  expect(worker).toContain('throw error;');
  });
 
  it('prices active mappings by capability and provider model identifier',()=>{
