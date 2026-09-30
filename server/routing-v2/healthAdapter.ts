@@ -1,6 +1,5 @@
 import { RoutingV2Provider, RoutingV2RuntimeStatus } from './domain.js';
 import { RoutingV2ProviderHealth } from './adapter.js';
-import { listAtlasCatalogModels, listWaveSpeedCatalogModels } from './providerCatalogService.js';
 
 export interface ProviderHealthCheck {
   readonly providerId: string;
@@ -72,26 +71,6 @@ export function getProviderHealthCheck(providerId: string): ProviderHealthCheck 
 export async function checkProviderHealth(
   provider: RoutingV2Provider
 ): Promise<RoutingV2ProviderHealth> {
-  try{
-    if(provider.provider_id==='provider-wavespeed'){
-      if(!process.env.WAVESPEED_API_KEY?.trim())return{status:'UNAVAILABLE',checked_at:now(),message:'WaveSpeed API key ausente.'};
-      await listWaveSpeedCatalogModels('');
-      return{status:'HEALTHY',checked_at:now(),message:'WaveSpeed catalog API respondeu com sucesso.'};
-    }
-    if(provider.provider_id==='provider-atlas'){
-      if(!process.env.ATLAS_API_KEY?.trim())return{status:'UNAVAILABLE',checked_at:now(),message:'Atlas API key ausente.'};
-      await listAtlasCatalogModels();
-      return{status:'HEALTHY',checked_at:now(),message:'Atlas catalog API respondeu com sucesso.'};
-    }
-    if(provider.provider_id==='provider-runware'){
-      if(!process.env.RUNWARE_API_KEY?.trim())return{status:'UNAVAILABLE',checked_at:now(),message:'Runware API key ausente.'};
-      const check=getProviderHealthCheck(provider.provider_id);
-      if(!check)return{status:'UNKNOWN',checked_at:now(),message:'Health check oficial do Runware não foi carregado.'};
-      return await check.check(provider);
-    }
-  }catch(error:any){
-    return{status:'UNAVAILABLE',checked_at:now(),message:String(error?.message||error)};
-  }
   const check = getProviderHealthCheck(provider.provider_id);
   if (!check) {
     return {

@@ -366,9 +366,9 @@ describe('Routing Core V2 Admin',()=>{
     expect(priceSync).toContain('resolveRoutingV2ProviderAdapter(provider)');
     expect(priceSync).toContain('await getUsdBrlRate()');
     expect(resolver).toContain("['provider-wavespeed','provider-atlas','provider-runware']");
-    expect(health).toContain("provider.provider_id==='provider-wavespeed'");
-    expect(health).toContain("provider.provider_id==='provider-atlas'");
-    expect(health).toContain("provider.provider_id==='provider-runware'");
+    expect(health).toContain('const check = getProviderHealthCheck(provider.provider_id)');
+    expect(health).not.toContain('listAtlasCatalogModels');
+    expect(health).not.toContain('listWaveSpeedCatalogModels');
     expect(fx).toContain('olinda.bcb.gov.br');
     expect(wrapper).toContain('PROVIDER_CATALOG_API');
     expect(wrapper).toContain('assertIdentifierMatchesCapability');
