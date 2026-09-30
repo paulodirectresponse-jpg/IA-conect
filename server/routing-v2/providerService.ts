@@ -62,13 +62,14 @@ export const isOfficialRoutingV2Provider=(providerId:string)=>officialProviderId
 
 export const routingV2ProviderService={
   async list(){
-    return (await routingV2Repository.listProviders()).map(provider=>({
+    return (await routingV2Repository.listProviders()).filter(provider=>isOfficialRoutingV2Provider(provider.provider_id)).map(provider=>({
       ...provider,
       is_configured:Boolean(resolveAdapter(provider.adapter_id)?.isConfigured(provider)),
     }));
   },
 
   async get(providerId:string){
+    if(!isOfficialRoutingV2Provider(providerId))return null;
     return routingV2Repository.getProvider(providerId);
   },
 

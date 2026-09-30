@@ -65,8 +65,24 @@ describe('unified catalog provider identity',()=>{
   it('groups text, image and provider-root Seedance endpoints under one model family',()=>{
     const text=canonicalizeUnifiedVideoCatalogIdentity('Text To Video','bytedance/seedance-2.0/text-to-video','ByteDance');
     const image=canonicalizeUnifiedVideoCatalogIdentity('Image To Video','bytedance/seedance-2-0/image-to-video','ByteDance');
+    const multiReference=canonicalizeUnifiedVideoCatalogIdentity('Multi Reference To Video','bytedance/seedance-2-0/multi-reference-to-video','ByteDance');
+    const reference2d=canonicalizeUnifiedVideoCatalogIdentity('2D Reference To Video','bytedance/seedance-2-0/2d-reference-to-video','ByteDance');
+    const videoToVideo=canonicalizeUnifiedVideoCatalogIdentity('Video To Video','bytedance/seedance-2-0/video-to-video','ByteDance');
     const root=canonicalizeUnifiedVideoCatalogIdentity('Seedance 2.0','bytedance:seedance-2-0@1','ByteDance');
     expect(text?.catalog_key).toBe(image?.catalog_key);
     expect(image?.catalog_key).toBe(root?.catalog_key);
+    expect(multiReference?.catalog_key).toBe(root?.catalog_key);
+    expect(reference2d?.catalog_key).toBe(root?.catalog_key);
+    expect(videoToVideo?.catalog_key).toBe(root?.catalog_key);
+  });
+
+  it('keeps model variants distinct while merging every endpoint for the same variant',()=>{
+    const miniRoot=canonicalizeUnifiedVideoCatalogIdentity('Seedance 2 Mini','bytedance/seedance-2-mini@1','ByteDance');
+    const miniImage=canonicalizeUnifiedVideoCatalogIdentity('Image To Video','bytedance/seedance-2-mini/image-to-video','ByteDance');
+    const miniMulti=canonicalizeUnifiedVideoCatalogIdentity('Multi Reference To Video','bytedance/seedance-2-mini/multi-reference-to-video','ByteDance');
+    const fast=canonicalizeUnifiedVideoCatalogIdentity('Seedance 2 Fast','bytedance/seedance-2-fast@1','ByteDance');
+    expect(miniImage?.catalog_key).toBe(miniRoot?.catalog_key);
+    expect(miniMulti?.catalog_key).toBe(miniRoot?.catalog_key);
+    expect(fast?.catalog_key).not.toBe(miniRoot?.catalog_key);
   });
 });

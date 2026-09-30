@@ -21,12 +21,6 @@ export const PROVIDER_DEFINITIONS:ProviderRegistryItem[]=[
   {provider_id:'provider-wavespeed',name:'WaveSpeed AI',slug:'wavespeed',status:'ACTIVE',priority:110,is_configured:false,created_at:now(),updated_at:now()},
   {provider_id:'provider-atlas',name:'Atlas Cloud',slug:'atlas',status:'ACTIVE',priority:100,is_configured:false,created_at:now(),updated_at:now()},
   {provider_id:'provider-runware',name:'Runware',slug:'runware',status:'ACTIVE',priority:95,is_configured:false,created_at:now(),updated_at:now()},
-  {provider_id:'provider-fal',name:'fal.ai',slug:'fal',status:'ACTIVE',priority:90,is_configured:false,created_at:now(),updated_at:now()},
-  {provider_id:'provider-deepinfra',name:'DeepInfra',slug:'deepinfra',status:'ACTIVE',priority:85,is_configured:false,created_at:now(),updated_at:now()},
-  {provider_id:'provider-replicate',name:'Replicate',slug:'replicate',status:'ACTIVE',priority:80,is_configured:false,created_at:now(),updated_at:now()},
-  {provider_id:'provider-aiml',name:'AI/ML API',slug:'aiml',status:'ACTIVE',priority:75,is_configured:false,created_at:now(),updated_at:now()},
-  {provider_id:'provider-piapi',name:'PiAPI',slug:'piapi',status:'ACTIVE',priority:70,is_configured:false,created_at:now(),updated_at:now()},
-  {provider_id:'provider-kie',name:'Kie.ai',slug:'kie',status:'ACTIVE',priority:65,is_configured:false,created_at:now(),updated_at:now()},
 ];
 
 const definitionById=new Map(PROVIDER_DEFINITIONS.map(item=>[item.provider_id,item]));
@@ -34,13 +28,10 @@ const modelSeedById=new Map(CURATED_CANONICAL_MODELS.map(item=>[item.model_id,it
 
 function mergeProviders(existing:ProviderRegistryItem[]){
   const stored=new Map(existing.map(item=>[String(item.provider_id),item]));
-  const canonical=PROVIDER_DEFINITIONS.map(definition=>{
+  return PROVIDER_DEFINITIONS.map(definition=>{
     const override=stored.get(definition.provider_id);
     return override?{...definition,...override,provider_id:definition.provider_id}:definition;
   });
-  const known=new Set(PROVIDER_DEFINITIONS.map(item=>item.provider_id));
-  const custom=existing.filter(item=>!known.has(String(item.provider_id)));
-  return [...canonical,...custom];
 }
 
 async function listProviders(){
@@ -49,16 +40,18 @@ async function listProviders(){
 }
 
 async function getProvider(providerId:string){
+  const definition=definitionById.get(providerId);
+  if(!definition)return null;
   const existing=await catalogRepository.getProvider(providerId);
-  if(existing)return existing;
-  return definitionById.get(providerId)||null;
+  if(existing)return{...definition,...existing,provider_id:definition.provider_id};
+  return definition;
 }
 
 async function ensureProviderRecord(providerId:string){
-  const existing=await catalogRepository.getProvider(providerId);
-  if(existing)return existing;
   const definition=definitionById.get(providerId);
   if(!definition)return null;
+  const existing=await catalogRepository.getProvider(providerId);
+  if(existing)return existing;
   return catalogRepository.saveProvider({...definition,created_at:now(),updated_at:now()});
 }
 
