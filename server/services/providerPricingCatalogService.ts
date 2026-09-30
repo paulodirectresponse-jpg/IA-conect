@@ -1,5 +1,6 @@
 import { ProviderCostQuote, ProviderGenerationParams } from '../adapters/videoProviderAdapter.js';
 import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
+import { isOfficialProviderCatalogId } from './providerCatalogService.js';
 
 export type ProviderPricingUnit='REQUEST'|'OUTPUT'|'SECOND'|'MINUTE'|'CHARACTER';
 
@@ -24,12 +25,20 @@ const safe=(value:string)=>encodeURIComponent(value);
 const cache=new Map<string,{expiresAt:number;value:ProviderPricingRule|null}>();
 const TTL_MS=60_000;
 
+function assertOfficialProviderId(providerId:string){
+  const id=String(providerId||'').trim();
+  if(!isOfficialProviderCatalogId(id))throw Object.assign(new Error('Somente WaveSpeed AI, Atlas Cloud e Runware podem ter preços configurados.'),{code:'PROVIDER_NOT_OFFICIAL'});
+  return id;
+}
+
 function pricingId(providerId:string,model:string,capability?:string){
   return `${providerId}__${model}__${capability||'default'}`;
 }
 
 async function readRule(providerId:string,model:string,capability?:string):Promise<ProviderPricingRule|null>{
-  const ids=[pricingId(providerId,model,capability),pricingId(providerId,model)];
+  const officialProviderId=String(providerId||'').trim();
+  if(!isOfficialProviderCatalogId(officialProviderId))return null;
+  const ids=[pricingId(officialProviderId,model,capability),pricingId(officialProviderId,model)];
   for(const id of ids){
     const hit=cache.get(id);
     if(hit&&hit.expiresAt>Date.now()){if(hit.value)return hit.value;continue;}
@@ -55,9 +64,10 @@ export const providerPricingCatalogService={
   async get(providerId:string,model:string,capability?:string){return readRule(providerId,model,capability);},
   async getVerified(providerId:string,model:string,capability?:string){const rule=await readRule(providerId,model,capability);return rule?.verified?rule:null;},
   async quote(providerId:string,params:ProviderGenerationParams):Promise<ProviderCostQuote>{
+    const officialProviderId=assertOfficialProviderId(providerId);
     const model=String(params.provider_model_identifier||'').trim();
     if(!model)throw Object.assign(new Error('Mapping do provider não possui identificador de modelo.'),{code:'PROVIDER_MAPPING_INVALID'});
-    const rule=await readRule(providerId,model,String(params.capability_id||''));
+    const rule=await readRule(officialProviderId,model,String(params.capability_id||''));
     if(!rule||!rule.verified)throw Object.assign(new Error('Preço do provider ainda não foi verificado para este modelo/capability.'),{code:'PROVIDER_PRICE_UNVERIFIED'});
     if(rule.quote_mode==='LIVE_PROVIDER')throw Object.assign(new Error('Esta rota exige cotação ao vivo pelo adapter do provider.'),{code:'PROVIDER_LIVE_QUOTE_REQUIRED'});
     const resolution=String(params.resolution||'');
@@ -68,16 +78,18 @@ export const providerPricingCatalogService={
     return{effective_price_usd:effective,estimated:rule.source!=='LIVE_CATALOG',source:rule.source==='MANUAL_VERIFIED'?'MANUAL':'CATALOG'};
   },
   async save(rule:Omit<ProviderPricingRule,'pricing_id'|'updated_at'>){
-    const id=pricingId(rule.provider_id,rule.provider_model_identifier,String(rule.capability_id||''));
-    const next:ProviderPricingRule={...rule,pricing_id:id,updated_at:new Date().toISOString()};
+    const providerId=assertOfficialProviderId(rule.provider_id);
+    const id=pricingId(providerId,rule.provider_model_identifier,String(rule.capability_id||''));
+    const next:ProviderPricingRule={...rule,provider_id:providerId,pricing_id:id,updated_at:new Date().toISOString()};
     await firestoreAdminRest.set(`provider_pricing/${safe(id)}`,next);
     cache.delete(id);
     return next;
   },
   async saveMany(rules:Array<Omit<ProviderPricingRule,'pricing_id'|'updated_at'>>){
     if(!rules.length)return[] as ProviderPricingRule[];
+    const normalizedRules=rules.map(rule=>({...rule,provider_id:assertOfficialProviderId(rule.provider_id)}));
     const timestamp=new Date().toISOString();
-    const rows=rules.map(rule=>{
+    const rows=normalizedRules.map(rule=>{
       const id=pricingId(rule.provider_id,rule.provider_model_identifier,String(rule.capability_id||''));
       return{...rule,pricing_id:id,updated_at:timestamp} as ProviderPricingRule;
     });
@@ -93,7 +105,7 @@ export const providerPricingCatalogService={
   },
   async list(limit=500){
     const rows=await firestoreAdminRest.runQuery({from:[{collectionId:'provider_pricing'}],limit}).catch(()=>[] as any[]);
-    return rows.map((row:any)=>row.data as ProviderPricingRule);
+    return rows.map((row:any)=>row.data as ProviderPricingRule).filter((rule:ProviderPricingRule)=>isOfficialProviderCatalogId(rule.provider_id));
   },
   clearCache(){cache.clear();},
 };

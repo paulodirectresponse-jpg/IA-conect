@@ -3,12 +3,12 @@ import {
   RoutingV2BillingConfig,
   RoutingV2ProviderRoute,
   assertRoutingV2BillingConfig,
-  assertRoutingV2Route,
   routingV2RouteId,
 } from './domain.js';
 import { routingV2Repository } from './repository.js';
 import { assertIdentifierMatchesCapability } from './capabilityMappingValidation.js';
 import { isOfficialRoutingV2Provider } from './providerService.js';
+import { routingV2Candidate } from './routeCandidate.js';
 
 const now=()=>new Date().toISOString();
 
@@ -61,8 +61,10 @@ export const routingV2RouteService={
   },
 
   async listReady(modelId?:string,capabilityId?:CapabilityId){
-    const[routes,providers]=await Promise.all([routingV2Repository.listRoutes(),routingV2Repository.listProviders()]);
+    const[routes,providers,models]=await Promise.all([routingV2Repository.listRoutes(),routingV2Repository.listProviders(),routingV2Repository.listModels()]);
     const providerById=new Map(providers.map(provider=>[provider.provider_id,provider]));
+    const modelById=new Map(models.map(model=>[model.model_id,model]));
+    const now=new Date().toISOString();
     return routes.filter(route=>{
       if(modelId&&route.model_id!==modelId)return false;
       if(capabilityId&&route.capability_id!==capabilityId)return false;
@@ -70,7 +72,9 @@ export const routingV2RouteService={
       if(!isOfficialRoutingV2Provider(route.provider_id))return false;
       const provider=providerById.get(route.provider_id);
       if(!provider||provider.status!=='ACTIVE'||provider.health_status!=='HEALTHY')return false;
-      try{assertRoutingV2Route(route);return true;}catch{return false;}
+      const model=modelById.get(route.model_id);
+      if(!model||model.status!=='ACTIVE'||!model.capabilities.includes(route.capability_id))return false;
+      return Boolean(routingV2Candidate(route,now));
     });
   },
 
