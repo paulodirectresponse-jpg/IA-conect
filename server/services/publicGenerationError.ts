@@ -45,6 +45,10 @@ export function publicGenerationError(err:any,fallback='A geração não pôde s
     };
   }
 
+  if(code==='ASSET_STORAGE_UNAVAILABLE'){
+    return{code,message:'Gerações que produzem arquivos estão pausadas porque o armazenamento não passou na verificação. Nenhum crédito foi reservado.'};
+  }
+
   if(TEMPORARY_CODES.has(code)||isProviderTechnicalCode(code)){
     return {
       code:'GENERATION_TEMPORARILY_UNAVAILABLE',

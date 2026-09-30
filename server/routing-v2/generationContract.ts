@@ -1,5 +1,5 @@
 import type { GenerationMode } from "../../src/types/index.js";
-import { isCapabilityId, type CapabilityId } from "../beta/capabilityRegistry.js";
+import { getCapabilityDefinition, isCapabilityId, type CapabilityId } from "../beta/capabilityRegistry.js";
 
 const MODE_BY_CAPABILITY: Record<CapabilityId, GenerationMode> = {
   "text-to-image": "TEXT_TO_IMAGE",
@@ -54,6 +54,7 @@ const DURATION_CAPABILITIES = new Set<CapabilityId>([
   "sound-effects",
   "music",
 ]);
+const FILE_OUTPUT_MEDIA_TYPES = new Set(["IMAGE", "VIDEO", "AUDIO", "MODEL_3D"]);
 
 export function generationModeForCapability(capabilityId: CapabilityId): GenerationMode {
   return MODE_BY_CAPABILITY[capabilityId];
@@ -61,6 +62,10 @@ export function generationModeForCapability(capabilityId: CapabilityId): Generat
 
 export function capabilityUsesDuration(capabilityId: CapabilityId): boolean {
   return DURATION_CAPABILITIES.has(capabilityId);
+}
+
+export function capabilityProducesFileOutput(capabilityId: CapabilityId): boolean {
+  return Boolean(getCapabilityDefinition(capabilityId)?.outputs.some((output) => FILE_OUTPUT_MEDIA_TYPES.has(output)));
 }
 
 export function resolveGenerationCapability(input: {

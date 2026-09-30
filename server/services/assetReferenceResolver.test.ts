@@ -85,4 +85,32 @@ describe('storage diagnostics',()=>{
     };
     await expect(assetReferenceResolver.getProviderAccessibleUrl(asset)).resolves.toBe('https://iaconnect.ia.br/api/assets/media/users/user-1/assets/ast-1/original.png');
   });
+
+  it('marks a failed R2 write as failed and does not claim that a read was attempted',async()=>{
+    const bucket=fakeBucket();
+    configureR2AssetBucket({
+      ...bucket,
+      async put(){throw Object.assign(new Error('write denied'),{code:'R2_WRITE_DENIED'});},
+    });
+
+    const result=await assetReferenceResolver.runStorageDiagnostic();
+
+    expect(result.write_test).toBe('FAIL');
+    expect(result.read_test).toBe('SKIPPED');
+    expect(result.details?.error).toBe('R2_WRITE_DENIED');
+  });
+
+  it('keeps a confirmed R2 write separate from a failed read',async()=>{
+    const bucket=fakeBucket();
+    configureR2AssetBucket({
+      ...bucket,
+      async get(){throw Object.assign(new Error('read denied'),{code:'R2_READ_DENIED'});},
+    });
+
+    const result=await assetReferenceResolver.runStorageDiagnostic();
+
+    expect(result.write_test).toBe('PASS');
+    expect(result.read_test).toBe('FAIL');
+    expect(result.details?.error).toBe('R2_READ_DENIED');
+  });
 });

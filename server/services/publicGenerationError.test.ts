@@ -35,4 +35,11 @@ describe('public generation errors',()=>{
       message:'Nenhum provider oficial tem saldo suficiente para esta configuração no momento. Tente outro modelo ou aguarde a regularização do saldo.',
     });
   });
+
+  it('explains that file generation is paused without storage and credits were not reserved',()=>{
+    expect(publicGenerationError({code:'ASSET_STORAGE_UNAVAILABLE'},'Falha')).toEqual({
+      code:'ASSET_STORAGE_UNAVAILABLE',
+      message:'Gerações que produzem arquivos estão pausadas porque o armazenamento não passou na verificação. Nenhum crédito foi reservado.',
+    });
+  });
 });

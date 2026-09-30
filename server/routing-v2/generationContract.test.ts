@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  capabilityProducesFileOutput,
   capabilityUsesDuration,
   generationModeForCapability,
   positiveOptionalInteger,
@@ -29,6 +30,18 @@ describe("Routing V2 universal generation contract", () => {
     expect(capabilityUsesDuration("image-edit")).toBe(false);
     expect(capabilityUsesDuration("text-to-video")).toBe(true);
     expect(capabilityUsesDuration("music")).toBe(true);
+  });
+
+  it("requires durable storage only for capabilities that produce files", () => {
+    expect(capabilityProducesFileOutput("text-to-image")).toBe(true);
+    expect(capabilityProducesFileOutput("text-to-video")).toBe(true);
+    expect(capabilityProducesFileOutput("text-to-speech")).toBe(true);
+    expect(capabilityProducesFileOutput("music")).toBe(true);
+    expect(capabilityProducesFileOutput("text-to-3d")).toBe(true);
+    expect(capabilityProducesFileOutput("dubbing")).toBe(true);
+    expect(capabilityProducesFileOutput("transcription")).toBe(false);
+    expect(capabilityProducesFileOutput("subtitles")).toBe(false);
+    expect(capabilityProducesFileOutput("authorized-voice-clone")).toBe(false);
   });
 
   it("accepts only positive integer duration values", () => {

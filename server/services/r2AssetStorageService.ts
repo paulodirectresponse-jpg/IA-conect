@@ -138,15 +138,20 @@ export const r2AssetStorageService={
     const probeKey=`users/system/assets/storage-health/probe-${globalThis.crypto.randomUUID()}.txt`;
     const expected='ia-conect-r2-health-probe-v1';
     const bytes=new TextEncoder().encode(expected);
+    let diagnosticStage:'WRITE'|'READ'='WRITE';
     try{
       await bucket().put(probeKey,bytes,{httpMetadata:{contentType:'text/plain; charset=utf-8',cacheControl:'no-store'}});
       const stored=await bucket().head(probeKey);
       if(!stored||stored.size!==bytes.byteLength)throw Object.assign(new Error('R2 não confirmou a gravação do teste.'),{code:'R2_WRITE_NOT_CONFIRMED'});
+      diagnosticStage='READ';
       const object=await bucket().get(probeKey);
       if(!object)throw Object.assign(new Error('R2 não confirmou a leitura do teste.'),{code:'R2_READ_NOT_CONFIRMED'});
       const text=await new Response(object.body).text();
       if(text!==expected)throw Object.assign(new Error('O conteúdo lido do teste R2 não corresponde.'),{code:'R2_READ_MISMATCH'});
       return{key:probeKey,size:bytes.byteLength};
+    }catch(error:any){
+      const diagnosticError=error instanceof Error?error:new Error('Falha desconhecida no diagnóstico do R2.');
+      throw Object.assign(diagnosticError,{diagnostic_stage:diagnosticStage});
     }finally{
       try{await bucket().delete(probeKey);}
       catch(error:any){console.error('[R2ProbeCleanupFailed]',JSON.stringify({code:String(error?.code||'R2_PROBE_DELETE_FAILED')}));}

@@ -123,8 +123,9 @@ export const assetReferenceResolver={
         readTest='PASS';
         bucketAccessible=true;
       }catch(error:any){
-        writeTest='FAIL';
-        readTest='FAIL';
+        const diagnosticStage=error?.diagnostic_stage==='READ'?'READ':'WRITE';
+        writeTest=diagnosticStage==='READ'?'PASS':'FAIL';
+        readTest=diagnosticStage==='READ'?'FAIL':'SKIPPED';
         diagnosticError=String(error?.code||'R2_STORAGE_CHECK_FAILED');
         console.error('[R2StorageDiagnostic]',JSON.stringify({code:diagnosticError}));
       }
@@ -132,8 +133,10 @@ export const assetReferenceResolver={
     const legacy=await checkLegacySupabase();
     const message=!hasR2AssetBucket()
       ?'Cloudflare R2 não está configurado; novos uploads e arquivamentos não podem ser confirmados.'
-      :readTest!=='PASS'
-        ?'O bucket Cloudflare R2 está configurado, mas o teste real de gravação e leitura falhou.'
+      :writeTest!=='PASS'
+        ?'A gravação de teste no Cloudflare R2 falhou; a leitura não foi executada.'
+        :readTest!=='PASS'
+          ?'A gravação de teste no Cloudflare R2 passou, mas a leitura ou a validação do conteúdo falhou.'
         :legacy.available===false&&legacy.error?.startsWith('LEGACY_SUPABASE_READ_HTTP_')
           ?'Cloudflare R2 está gravando e lendo. O Storage Supabase legado continua inacessível; arquivos antigos ainda não recuperados permanecem indisponíveis.'
           :legacy.available===true

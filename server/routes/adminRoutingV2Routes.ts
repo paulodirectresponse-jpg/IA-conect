@@ -24,6 +24,7 @@ import { isCatalogIdentityUsable, parseCatalogModelIdentity } from '../routing-v
 import { listAtlasCatalogModels, listWaveSpeedCatalogModels, searchRunwareCatalogModels } from '../routing-v2/providerCatalogService.js';
 import { providerHealthService } from '../routing-v2/providerHealthService.js';
 import { canonicalizeUnifiedVideoCatalogIdentity, normalizeUnifiedCatalogDisplayName, providerIdentifierModelName, unifiedCatalogSearchScore } from '../routing-v2/unifiedCatalogIdentity.js';
+import { mergeUnifiedCatalogDuplicates } from '../routing-v2/unifiedCatalogDeduplication.js';
 import { effectiveRoutingV2RouteStatus } from '../routing-v2/routeAvailability.js';
 
 export const adminRoutingV2Router=Router();
@@ -335,8 +336,10 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
     });
     const normalizedRows=Array.from(grouped.values())
       .map((row:any)=>({...row,name:normalizeUnifiedCatalogDisplayName(row.name,row.providers.map((p:any)=>p.provider_model_identifier),row.vendor)}));
-    const bestSearchScore=query&&normalizedRows.length?Math.max(...normalizedRows.map((row:any)=>row._unified_search_score||0)):0;
-    const filteredRows=normalizedRows.filter((row:any)=>!query||(row._unified_search_score||0)===bestSearchScore);
+    const deduplicated=mergeUnifiedCatalogDuplicates(normalizedRows);
+    const uniqueRows=deduplicated.rows;
+    const bestSearchScore=query&&uniqueRows.length?Math.max(...uniqueRows.map((row:any)=>row._unified_search_score||0)):0;
+    const filteredRows=uniqueRows.filter((row:any)=>!query||(row._unified_search_score||0)===bestSearchScore);
     const canonicalRows=filteredRows.filter((row:any)=>CANONICAL_IMAGE_IDS.has(row.catalog_key));
     const rows=filteredRows
       .filter((row:any)=>CANONICAL_IMAGE_IDS.has(row.catalog_key)||!isGenericGroupedCatalogNoise(row,canonicalRows))
@@ -355,7 +358,7 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
     }
     const diagnostics=providerDiagnostics.map(row=>({...row,matched_count:providerMatchedCounts.get(row.provider_id)?.size||0,catalog_count:providerCatalogCounts.get(row.provider_id)?.size||0}));
     const pageRows=rows.slice(offset,offset+limit).map((row:any)=>{const{_unified_search_score,...publicRow}=row;return publicRow;});
-    return res.json({success:true,data:{rows:pageRows,query,total_count:rows.length,offset,limit,has_more:offset+pageRows.length<rows.length,source_truncated:diagnostics.some(row=>row.truncated),failures,provider_diagnostics:diagnostics}});
+    return res.json({success:true,data:{rows:pageRows,query,total_count:rows.length,offset,limit,has_more:offset+pageRows.length<rows.length,source_truncated:diagnostics.some(row=>row.truncated),duplicate_rows_merged:deduplicated.merged_count,failures,provider_diagnostics:diagnostics}});
   }catch(err){return error(res,err,'ROUTING_V2_UNIFIED_CATALOG_FAILED');}
 });
 

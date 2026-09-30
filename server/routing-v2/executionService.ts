@@ -5,12 +5,13 @@ import { assetRepository, generatedAssetId } from '../repositories/assetReposito
 import { generationRepository } from '../repositories/generationRepository.js';
 import { creditWalletService } from '../services/creditWalletService.js';
 import { generatedAssetStorageService } from '../services/generatedAssetStorageService.js';
+import { assetReferenceResolver } from '../services/assetReferenceResolver.js';
 import { routingV2AdapterRegistry } from './adapterRegistry.js';
 import { routingV2GenerationPricingService } from './generationPricingService.js';
 import { routingV2Repository } from './repository.js';
 import { ensureRoutingV2LegacyAdapter } from './legacyAdapterBridge.js';
 import { createRoutingV2LegacyWrapperAdapter } from './legacyWrapperAdapter.js';
-import { generationModeForCapability } from './generationContract.js';
+import { capabilityProducesFileOutput, generationModeForCapability } from './generationContract.js';
 
 export interface RoutingV2ExecutionReference{
   url:string;
@@ -185,6 +186,22 @@ export const routingV2ExecutionService={
     const clientRequestId=input.client_request_id||crypto.randomUUID();
     const existing=await generationRepository.findByClientRequest(input.user_id,clientRequestId);
     if(existing)return existing;
+
+    if(capabilityProducesFileOutput(input.capability_id)){
+      const storage=await assetReferenceResolver.runStorageDiagnostic();
+      if(!storage.is_configured||storage.write_test!=='PASS'||storage.read_test!=='PASS'){
+        console.warn('[GenerationStartStorageUnavailable]',JSON.stringify({
+          capability_id:input.capability_id,
+          write_test:storage.write_test,
+          read_test:storage.read_test,
+          error:storage.details?.error||null,
+        }));
+        throw Object.assign(new Error('O armazenamento de arquivos está indisponível. Nenhum crédito foi reservado e nenhuma geração foi enviada ao provider.'),{
+          code:'ASSET_STORAGE_UNAVAILABLE',
+          status:503,
+        });
+      }
+    }
 
     const preview=await this.preview(input);
     const authorized=Number(input.authorized_credit_price);
