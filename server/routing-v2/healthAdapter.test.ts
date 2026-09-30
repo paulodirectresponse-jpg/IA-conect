@@ -134,17 +134,63 @@ describe('AtlasHealthCheck', () => {
     (global.fetch as any) = vi.fn(() =>
       Promise.resolve({
         status: 200,
-        text: () => Promise.resolve('{}'),
+        json: () => Promise.resolve({ available: { value: '12.34' } }),
       })
     );
 
     const atlasProvider = { ...mockProvider, provider_id: 'provider-atlas' };
-    await check.check(atlasProvider);
+    const result = await check.check(atlasProvider);
 
+    expect(result.status).toBe('HEALTHY');
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('custom.atlas.ai'),
-      expect.any(Object)
+      'https://custom.atlas.ai/public/v1/balance',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ Authorization: 'Bearer test-key' }),
+      })
     );
+  });
+
+  it('accepts the current Atlas balance response shape with a zero balance', async () => {
+    vi.stubEnv('ATLAS_API_KEY', 'test-key');
+    global.fetch = vi.fn(() => Promise.resolve({
+      status: 200,
+      json: () => Promise.resolve({ available: { value: '0' } }),
+    })) as any;
+
+    const result = await check.check({ ...mockProvider, provider_id: 'provider-atlas' });
+
+    expect(result.status).toBe('HEALTHY');
+  });
+
+  it('reports Atlas authentication failures as unavailable through the shared health service', async () => {
+    vi.stubEnv('ATLAS_API_KEY', 'invalid-key');
+    global.fetch = vi.fn(() => Promise.resolve({ status: 401, text: () => Promise.resolve('{}') })) as any;
+
+    const result = await checkProviderHealth({ ...mockProvider, provider_id: 'provider-atlas' });
+
+    expect(result.status).toBe('UNAVAILABLE');
+    expect(result.message).toContain('inválida ou expirada');
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.atlascloud.ai/public/v1/balance',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ Authorization: 'Bearer invalid-key' }),
+      })
+    );
+  });
+
+  it('reports malformed successful Atlas responses as degraded', async () => {
+    vi.stubEnv('ATLAS_API_KEY', 'test-key');
+    global.fetch = vi.fn(() => Promise.resolve({
+      status: 200,
+      json: () => Promise.resolve({ available: {} }),
+    })) as any;
+
+    const result = await check.check({ ...mockProvider, provider_id: 'provider-atlas' });
+
+    expect(result.status).toBe('DEGRADED');
+    expect(result.message).toContain('saldo válido');
   });
 });
 
