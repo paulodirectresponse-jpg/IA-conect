@@ -2,11 +2,18 @@ import { CapabilityId } from '../beta/capabilityRegistry.js';
 import { RoutingV2BillingConfig, RoutingV2ProviderRoute, routingV2RouteId } from './domain.js';
 import { isOfficialRoutingV2Provider } from './providerService.js';
 import { routingV2Repository } from './repository.js';
+import { resolveRoutingV2ProviderAdapter } from './adapterResolver.js';
+import { routingV2RouteService } from './routeService.js';
 
 const OLD_GEMINI_OMNI_FLASH='google:gemini@omni-flash';
 const GEMINI_OMNI_FLASH_11='google:gemini@omni-flash-1.1';
 const GEMINI_OMNI_FLASH_DOCS='https://runware.ai/docs/models/google-gemini-omni-flash-1-1';
 const GEMINI_CAPABILITIES=new Set<CapabilityId>(['image-to-video','text-to-video']);
+const ATLAS_GPT_IMAGE_2_MODEL='gpt-image-2';
+const ATLAS_GPT_IMAGE_2_CAPABILITY:CapabilityId='text-to-image';
+const ATLAS_GPT_IMAGE_2_OLD='openai/gpt-image-2';
+const ATLAS_GPT_IMAGE_2_TEXT_TO_IMAGE='openai/gpt-image-2/text-to-image';
+const ATLAS_GPT_IMAGE_2_DOCS='https://www.atlascloud.ai/models/openai/gpt-image-2/text-to-image';
 const now=()=>new Date().toISOString();
 
 export interface RoutingV2ProviderModelMigrationRow{
@@ -103,6 +110,73 @@ export const routingV2ProviderModelMigrationService={
       await routingV2Repository.saveRoute(archived);
       routeById.set(route.route_id,archived);
       rows.push({route_id:route.route_id,replacement_route_id:replacementRouteId,model_id:route.model_id,capability_id:route.capability_id,provider_id:route.provider_id,previous_identifier:route.provider_model_identifier,replacement_identifier:GEMINI_OMNI_FLASH_11,result:'MIGRATED',message:migrationNote});
+    }
+
+    const atlasModel=modelById.get(ATLAS_GPT_IMAGE_2_MODEL);
+    const atlasProvider=providerById.get('provider-atlas');
+    const atlasOldRoutes=routes.filter(route=>route.model_id===ATLAS_GPT_IMAGE_2_MODEL&&route.capability_id===ATLAS_GPT_IMAGE_2_CAPABILITY&&route.provider_id==='provider-atlas'&&route.provider_model_identifier===ATLAS_GPT_IMAGE_2_OLD);
+    const atlasReplacementRouteId=routingV2RouteId(ATLAS_GPT_IMAGE_2_MODEL,ATLAS_GPT_IMAGE_2_CAPABILITY,'provider-atlas',ATLAS_GPT_IMAGE_2_TEXT_TO_IMAGE);
+    let atlasReplacement=routeById.get(atlasReplacementRouteId)||await routingV2Repository.getRoute(atlasReplacementRouteId);
+    let atlasMigrationAllowed=true;
+    let createdAtlasReplacement=false;
+    const shouldEnsureAtlasRoute=Boolean(atlasModel&&atlasModel.status==='ACTIVE'&&atlasModel.capabilities.includes(ATLAS_GPT_IMAGE_2_CAPABILITY));
+    if(shouldEnsureAtlasRoute){
+      const blocked=async(message:string)=>{
+        atlasMigrationAllowed=false;
+        for(const route of atlasOldRoutes){
+          if(route.status!=='DISABLED')await routingV2Repository.saveRoute({
+            ...route,status:'DEGRADED',pricing_status:'INVALID',last_sync_error:message,last_sync_error_at:checkedAt,updated_at:checkedAt,
+          });
+          rows.push({route_id:route.route_id,replacement_route_id:atlasReplacementRouteId,model_id:route.model_id,capability_id:route.capability_id,provider_id:route.provider_id,previous_identifier:route.provider_model_identifier,replacement_identifier:ATLAS_GPT_IMAGE_2_TEXT_TO_IMAGE,result:'BLOCKED',message});
+        }
+        if(!atlasOldRoutes.length)rows.push({route_id:atlasReplacementRouteId,replacement_route_id:atlasReplacementRouteId,model_id:ATLAS_GPT_IMAGE_2_MODEL,capability_id:ATLAS_GPT_IMAGE_2_CAPABILITY,provider_id:'provider-atlas',previous_identifier:'',replacement_identifier:ATLAS_GPT_IMAGE_2_TEXT_TO_IMAGE,result:'BLOCKED',message});
+      };
+
+      if(!atlasProvider||!isOfficialRoutingV2Provider('provider-atlas')||atlasProvider.status==='DISABLED'){
+        await blocked('Migração bloqueada: Atlas não está ativo como provider oficial.');
+      }else if(atlasReplacement?.status==='DISABLED'){
+        await blocked(`Migração bloqueada: a rota Atlas substituta ${atlasReplacementRouteId} já está desativada.`);
+      }else if(!atlasReplacement&&atlasOldRoutes.some(route=>route.status==='DISABLED')){
+        await blocked('Migração bloqueada: a rota Atlas anterior foi desativada; nenhuma rota substituta será reativada automaticamente.');
+      }else if(!atlasReplacement){
+        try{
+          const adapter=resolveRoutingV2ProviderAdapter(atlasProvider!);
+          if(!adapter?.listModels||!adapter.isConfigured(atlasProvider!))throw new Error('Atlas não está configurado para validar o catálogo oficial.');
+          const catalog=await adapter.listModels(atlasProvider!);
+          if(!catalog.some(model=>model.provider_model_identifier===ATLAS_GPT_IMAGE_2_TEXT_TO_IMAGE))throw new Error('Atlas não publicou o endpoint oficial GPT Image 2 Text-to-Image no catálogo autenticado.');
+          const created=await routingV2RouteService.create({
+            model_id:ATLAS_GPT_IMAGE_2_MODEL,
+            capability_id:ATLAS_GPT_IMAGE_2_CAPABILITY,
+            provider_id:'provider-atlas',
+            provider_model_identifier:ATLAS_GPT_IMAGE_2_TEXT_TO_IMAGE,
+            mapping_source:'PROVIDER_DOCS',
+            mapping_source_reference:ATLAS_GPT_IMAGE_2_DOCS,
+            mapping_verified_at:checkedAt,
+            billing_config:{type:'PER_GENERATION',currency:'USD',price_per_generation:0},
+            priority:atlasOldRoutes[0]?.priority||atlasProvider!.priority,
+          });
+          atlasReplacement=created;
+          createdAtlasReplacement=true;
+          routeById.set(created.route_id,created);
+          routes.push(created);
+        }catch(error:any){
+          await blocked(`Migração Atlas não concluída: ${String(error?.message||error)}`);
+        }
+      }
+
+      if(atlasMigrationAllowed&&atlasReplacement&&atlasReplacement.status!=='DISABLED'){
+        const note=`Endpoint Atlas corrigido de ${ATLAS_GPT_IMAGE_2_OLD} para ${ATLAS_GPT_IMAGE_2_TEXT_TO_IMAGE}, conforme catálogo e documentação oficiais. A substituta requer sincronização de preço antes de ficar READY.`;
+        for(const route of atlasOldRoutes){
+          if(route.status==='DISABLED')continue;
+          const archived={...route,status:'DISABLED' as const,pricing_status:'INVALID' as const,last_sync_error:`Rota substituída por endpoint Atlas documentado: ${ATLAS_GPT_IMAGE_2_TEXT_TO_IMAGE}.`,last_sync_error_at:checkedAt,provider_migration_note:`Rota arquivada por mapping Atlas incorreto. ${note}`,updated_at:checkedAt};
+          await routingV2Repository.saveRoute(archived);
+          routeById.set(route.route_id,archived);
+          rows.push({route_id:route.route_id,replacement_route_id:atlasReplacement.route_id,model_id:route.model_id,capability_id:route.capability_id,provider_id:route.provider_id,previous_identifier:route.provider_model_identifier,replacement_identifier:ATLAS_GPT_IMAGE_2_TEXT_TO_IMAGE,result:'MIGRATED',message:note});
+        }
+        if(createdAtlasReplacement&&!atlasOldRoutes.length){
+          rows.push({route_id:atlasReplacement.route_id,replacement_route_id:atlasReplacement.route_id,model_id:ATLAS_GPT_IMAGE_2_MODEL,capability_id:ATLAS_GPT_IMAGE_2_CAPABILITY,provider_id:'provider-atlas',previous_identifier:'',replacement_identifier:ATLAS_GPT_IMAGE_2_TEXT_TO_IMAGE,result:'MIGRATED',message:`Rota Atlas GPT Image 2 Text-to-Image criada com identifier confirmado no catálogo oficial. ${note}`});
+        }
+      }
     }
 
     return{checked_at:checkedAt,examined:rows.length,migrated:rows.filter(row=>row.result==='MIGRATED').length,blocked:rows.filter(row=>row.result==='BLOCKED').length,rows};

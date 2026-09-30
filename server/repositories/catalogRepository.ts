@@ -70,8 +70,8 @@ export const PROVIDER_CATALOG:ProviderRegistryItem[]=[
   {provider_id:'provider-wavespeed',name:'WaveSpeed AI',slug:'wavespeed',status:'ACTIVE',priority:110,is_configured:false,created_at:now(),updated_at:now()},
   {provider_id:'provider-atlas',name:'Atlas Cloud',slug:'atlas',status:'ACTIVE',priority:100,is_configured:false,created_at:now(),updated_at:now()},
 ];
-const mapping=(id:string,model_id:string,provider_id:string,provider_model_identifier:string):ProviderModelMapping=>({
-  mapping_id:id,model_id,provider_id,provider_model_identifier,status:'ACTIVE',updated_at:now(),
+const mapping=(id:string,model_id:string,provider_id:string,provider_model_identifier:string,capabilities?:string[]):ProviderModelMapping=>({
+  mapping_id:id,model_id,provider_id,provider_model_identifier,status:'ACTIVE',...(capabilities?{capabilities}:{}),updated_at:now(),
 });
 export const MODEL_MAPPINGS:ProviderModelMapping[]=[
   mapping('map-video-studio-v1-wave','video-studio-v1','provider-wavespeed','alibaba/wan-3.0-prime'),
@@ -104,7 +104,8 @@ export const MODEL_MAPPINGS:ProviderModelMapping[]=[
   mapping('map-banana-pro-atlas','nano-banana-pro-image','provider-atlas','google/nano-banana-pro'),
   mapping('map-banana2-atlas','nano-banana-2-image','provider-atlas','google/nano-banana-2'),
   mapping('map-seed5-atlas','seedream-5-pro-image','provider-atlas','bytedance/seedream-v5.0-pro'),
-  mapping('map-gptimg2-atlas','gpt-image-2','provider-atlas','openai/gpt-image-2'),
+  mapping('map-gptimg2-atlas','gpt-image-2','provider-atlas','openai/gpt-image-2/text-to-image',['text-to-image']),
+  mapping('map-gptimg2-atlas-edit','gpt-image-2','provider-atlas','openai/gpt-image-2/edit',['image-edit','image-to-image']),
 ];
 const FEATURE_FLAG_SEED:FeatureFlag[]=[...INITIAL_FEATURE_FLAGS,...BETA_FEATURE_FLAGS].map((flag)=>({...flag,updated_at:now()}));
 
@@ -308,8 +309,16 @@ export const catalogRepository={
   },
 
   async listMappings(){
-    const rows=await cachedRows<ProviderModelMapping>('provider_models',()=>ensureSeed<ProviderModelMapping>('provider_models','mapping_id',MODEL_MAPPINGS));
-    return rows.map(row=>({...row,model_id:canonicalModelId(row.model_id)}));
+    const seeded=await cachedRows<ProviderModelMapping>('provider_models',()=>ensureSeed<ProviderModelMapping>('provider_models','mapping_id',MODEL_MAPPINGS));
+    const rows=seeded.map(row=>({...row,model_id:canonicalModelId(row.model_id)}));
+    const legacyAtlas=rows.find(row=>row.mapping_id==='map-gptimg2-atlas'&&row.model_id==='gpt-image-2'&&row.provider_id==='provider-atlas'&&row.provider_model_identifier==='openai/gpt-image-2');
+    if(legacyAtlas){
+      const migrated={...legacyAtlas,provider_model_identifier:'openai/gpt-image-2/text-to-image',capabilities:['text-to-image'],updated_at:now()};
+      await save('provider_models',migrated.mapping_id,migrated);
+      rows[rows.indexOf(legacyAtlas)]=migrated;
+      catalogCache.set('provider_models',{expiresAt:Date.now()+CATALOG_CACHE_TTL_MS,value:rows});
+    }
+    return rows;
   },
   async saveMapping(value:ProviderModelMapping){
     const saved=await save('provider_models',value.mapping_id,{...value,model_id:canonicalModelId(value.model_id)});
