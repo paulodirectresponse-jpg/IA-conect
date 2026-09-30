@@ -29,8 +29,6 @@ function candidatesFor(index:number,g:any,asset:any){
     providerUrls[index],
     index===0?g.result_url:null,
     index===0?g.thumbnail_url:null,
-    ...resultUrls,
-    ...providerUrls,
   ]);
 }
 function recoveryError(error:unknown,fallback='ASSET_RECOVERY_FAILED'):RecoveryError{

@@ -71,4 +71,35 @@ describe('legacy image recovery diagnostics',()=>{
       result_url:createParams.public_url,
     }));
   });
+
+  it('does not reuse another output URL when one recovery source is unavailable',async()=>{
+    const firstUrl='https://provider.example/result-1?temporary-token=first';
+    const secondUrl='https://provider.example/result-2?temporary-token=second';
+    vi.mocked(generationRepository.listUserGenerationsPage).mockResolvedValue([{
+      ...makeGeneration(),number_of_outputs:2,result_url:firstUrl,result_urls:[firstUrl,secondUrl],provider_result_urls:[firstUrl,secondUrl],
+    }]);
+    vi.mocked(assetRepository.getAsset).mockResolvedValue(null);
+    vi.mocked(assetRepository.createAsset).mockImplementation(async(params:any)=>(
+      {...params,alias:params.alias||'recovered',created_at:new Date().toISOString(),updated_at:new Date().toISOString()} as any
+    ));
+    vi.mocked(generatedAssetStorageService.archive).mockImplementation(async(params:any)=>{
+      if(params.sourceUrl===secondUrl)throw Object.assign(new Error('expired source'),{code:'ASSET_ARCHIVE_FETCH_FAILED',status:404});
+      return{
+        storage_path:'users/user-1/assets/ast_gen-1_0/generated.jpg',
+        public_url:'https://iaconnect.ia.br/api/assets/media/users/user-1/assets/ast_gen-1_0/generated.jpg',
+        mime_type:'image/jpeg',size_bytes:12,
+      };
+    });
+    vi.mocked(generationRepository.saveGeneration).mockResolvedValue(undefined as never);
+
+    const result=await legacyImageRecoveryService.runBatch({userId:'user-1',limit:1});
+
+    expect(vi.mocked(generatedAssetStorageService.archive).mock.calls.map(([params])=>params.sourceUrl)).toEqual([firstUrl,secondUrl]);
+    expect(result).toMatchObject({recovered:1,unavailable:1,details:[{outcome:'PARTIAL'}]});
+    expect(generationRepository.saveGeneration).toHaveBeenCalledWith(expect.objectContaining({
+      media_recovery_status:'PARTIAL',
+      result_asset_ids:['ast_gen-1_0'],
+      result_urls:['https://iaconnect.ia.br/api/assets/media/users/user-1/assets/ast_gen-1_0/generated.jpg'],
+    }));
+  });
 });
