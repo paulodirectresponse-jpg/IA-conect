@@ -2,6 +2,7 @@ import { resolveRoutingV2ProviderAdapter } from './adapterResolver.js';
 import { calculateRoutingV2ProviderCost } from './billingEngine.js';
 import { calculateRoutingV2Economics } from './economicsEngine.js';
 import { RoutingV2BillingConfig, RoutingV2Provider, RoutingV2ProviderRoute } from './domain.js';
+import { CapabilityId } from '../beta/capabilityRegistry.js';
 import { routingV2PricingSettingsService } from './pricingSettingsService.js';
 import { reconcileRoutingV2Route } from './routeReconciler.js';
 import { routingV2Repository } from './repository.js';
@@ -78,6 +79,18 @@ async function providerRuntime(provider:RoutingV2Provider,checkedAt:string,healt
   }
 }
 
+export function assertOperationalRouteSupported(
+  adapter:NonNullable<Awaited<ReturnType<typeof providerRuntime>>['adapter']>,
+  provider:RoutingV2Provider,
+  route:RoutingV2ProviderRoute,
+){
+  if(!adapter.supportsRoute)return;
+  if(adapter.supportsRoute(provider,route.model_id,route.capability_id as CapabilityId,route.provider_model_identifier))return;
+  throw Object.assign(new Error(`Rota incompatível: ${provider.name} não aceita ${route.capability_id} para ${route.provider_model_identifier}.`),{
+    code:'ROUTING_V2_PROVIDER_ROUTE_UNSUPPORTED',
+  });
+}
+
 export const routingV2PriceSyncService={
   async runBatch(input:{cursor?:number;limit?:number;fx_rate_usd_brl?:number}={}):Promise<RoutingV2PriceSyncResult>{
     const checkedAt=new Date().toISOString();
@@ -147,6 +160,8 @@ export const routingV2PriceSyncService={
           rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:false,status:next.status,pricing_status:next.pricing_status,runtime_status:next.runtime_status,retail_price_credits:null,error:'Adapter V2 não oferece sincronização de preço.'});
           continue;
         }
+
+        assertOperationalRouteSupported(adapter,provider,route);
 
         if(shouldReuseRoutingV2PriceSnapshot(route,checkedAt,settings.price_sync_interval_minutes)){
           const retained=reconcileRoutingV2Route({

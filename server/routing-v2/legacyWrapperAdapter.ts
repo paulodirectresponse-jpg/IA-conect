@@ -1,5 +1,6 @@
 import { RoutingV2ProviderAdapter } from './adapter.js';
 import { CapabilityId } from '../beta/capabilityRegistry.js';
+import { GenerationMode } from '../../src/types/index.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { listAimlCatalogModels, listAtlasCatalogModels, listDeepInfraCatalogModels, listFalCatalogModels, listReplicateCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from './providerCatalogService.js';
 import { checkProviderHealth } from './healthAdapter.js';
@@ -36,6 +37,11 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
     provider_id: providerId,
 
     isConfigured: () => legacy.isConfigured(),
+
+    supportsRoute: (_provider, modelId, capabilityId, providerModelIdentifier) => {
+      const mode = capabilityToGenerationMode(capabilityId);
+      return Boolean(mode && legacy.supports(modelId, mode, providerModelIdentifier));
+    },
 
     listModels: catalogLists[providerId]
       ? async (_provider,query) => catalogLists[providerId](query)
@@ -75,7 +81,7 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
         generation_id:'routing-v2-price-probe',
         user_id:'routing-v2-system',
         model_id:providerModelIdentifier,
-        mode:mode as any,
+        mode,
         capability_id:capabilityId,
         provider_model_identifier:providerModelIdentifier,
         provider_runtime_options:{},
@@ -142,7 +148,7 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
         })),
       };
 
-      if (!legacy2.supports(input.model_id, mode as any, input.provider_model_identifier)) {
+      if (!legacy2.supports(input.model_id, mode, input.provider_model_identifier)) {
         throw Object.assign(new Error('Route not supported by legacy adapter'), {
           code: 'ROUTING_V2_LEGACY_ROUTE_UNSUPPORTED',
         });
@@ -181,8 +187,8 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
   };
 }
 
-function capabilityToGenerationMode(capabilityId: CapabilityId): string | null {
-  const map: Record<CapabilityId, string> = {
+function capabilityToGenerationMode(capabilityId: CapabilityId): GenerationMode | null {
+  const map: Record<CapabilityId, GenerationMode> = {
     'text-to-image': 'TEXT_TO_IMAGE',
     'image-to-image': 'IMAGE_TO_IMAGE',
     'image-edit': 'IMAGE_TO_IMAGE',
