@@ -39,13 +39,19 @@ router.post('/providers/health/check', async (_req, res) => {
   }
 });
 
-// GET /admin/routing-v2/providers/:id/health - check específico de um provider
+// GET /admin/routing-v2/providers/:id/health - ler o último health persistido
 router.get('/providers/:id/health', async (req, res) => {
   try {
-    const result = await providerHealthService.checkByProviderId(req.params.id);
-    res.json(result);
+    const result = await providerHealthService.getLastHealth(req.params.id);
+    if (!result) return res.status(404).json({ error: `Provider ${req.params.id} não encontrado` });
+    res.json({
+      provider_id: result.provider_id,
+      provider_name: result.provider_name,
+      health_status: result.status,
+      checked_at: result.checked_at,
+    });
   } catch (error: any) {
-    res.status(400).json({
+    res.status(500).json({
       error: String(error?.message || error),
     });
   }

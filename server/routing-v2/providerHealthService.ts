@@ -80,6 +80,8 @@ export const providerHealthService = {
   },
 
   async getLastHealth(providerId: string): Promise<{
+    provider_id: string;
+    provider_name: string;
     status: string;
     checked_at: string;
   } | null> {
@@ -87,6 +89,8 @@ export const providerHealthService = {
     if (!provider) return null;
 
     return {
+      provider_id: provider.provider_id,
+      provider_name: provider.name,
       status: provider.health_status,
       checked_at: provider.last_health_check_at || '',
     };
