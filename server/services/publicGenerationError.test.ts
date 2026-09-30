@@ -42,4 +42,17 @@ describe('public generation errors',()=>{
       message:'Gerações que produzem arquivos estão pausadas porque o armazenamento não passou na verificação. Nenhum crédito foi reservado.',
     });
   });
+
+  it('explains unavailable compatible models and unsupported generation controls',()=>{
+    expect(publicGenerationError({code:'AUTO_NO_READY_MODEL'},'Falha').message).toContain('Nenhum modelo compatível');
+    expect(publicGenerationError({code:'NO_READY_ROUTE_V2'},'Falha').message).toContain('rota pronta');
+    expect(publicGenerationError({code:'ROUTING_V2_PRICE_UNAVAILABLE'},'Falha').message).toContain('preço válido');
+    expect(publicGenerationError({code:'MODEL_CONTROLS_UNSUPPORTED',message:'A proporção não é compatível.'},'Falha').message).toBe('A proporção não é compatível.');
+  });
+
+  it('reports operational generation pauses without leaking provider economics',()=>{
+    const message=publicGenerationError({code:'PROVIDER_EXECUTION_DISABLED'},'Falha').message;
+    expect(message).toContain('temporariamente pausada');
+    expect(message.toLowerCase()).not.toMatch(/cogs|margem|custo/);
+  });
 });

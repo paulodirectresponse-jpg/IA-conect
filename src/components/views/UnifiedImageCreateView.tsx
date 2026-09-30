@@ -94,6 +94,9 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
     [unitPricesByModelId, setUnitPricesByModelId] = useState<
       Record<string, number | null>
     >({}),
+    [priceErrorsByModelId, setPriceErrorsByModelId] = useState<
+      Record<string, string>
+    >({}),
     [priceLoadingModelIds, setPriceLoadingModelIds] = useState<string[]>([]),
     [uploadBusy, setUploadBusy] = useState(false),
     [modelAdjustmentNotice, setModelAdjustmentNotice] = useState("");
@@ -279,6 +282,11 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
           ...models.map((m) => getModelCapabilities(m).max_reference_images),
         )
       : activeCaps?.max_reference_images || 0;
+  const quoteError=selectionMode==="AUTO"
+    ?autoQuote.error
+    :activeModel
+      ?priceErrorsByModelId[activeModel.model_id]||(!selectedCompatible?"A configuração atual não é compatível com este modelo. Ajuste as opções ou escolha outro modelo.":null)
+      :null;
   const unitPrice = activeModel
       ? (unitPricesByModelId[activeModel.model_id] ?? null)
       : null,
@@ -310,6 +318,11 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
       }
     });
     setUnitPricesByModelId(baseline);
+    setPriceErrorsByModelId((current)=>{
+      const next={...current};
+      for(const model of models)delete next[model.model_id];
+      return next;
+    });
     setPriceLoadingModelIds(missing.map((m) => m.model_id));
     if (!missing.length) return;
     const timer = window.setTimeout(async () => {
@@ -318,8 +331,12 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
       try {
         pricedReferences =
           await assetService.resolveWorkspaceReferences(references);
-      } catch {
-        if (seq === quoteSeq.current) setPriceLoadingModelIds([]);
+      } catch (error) {
+        if (seq === quoteSeq.current) {
+          const message=error instanceof Error?error.message:"Não foi possível preparar as referências para calcular o preço.";
+          setPriceErrorsByModelId(Object.fromEntries(missing.map(model=>[model.model_id,message])));
+          setPriceLoadingModelIds([]);
+        }
         return;
       }
       const requests = missing.map((model) => ({
@@ -337,26 +354,36 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
       }));
       try {
         const batch = await universalGenerationClient.quoteBatch(requests);
+        const nextErrors:Record<string,string>={},reported=new Set<string>();
         for (const item of batch.items) {
           const model = missing.find((m) => m.model_id === item.key),
             d: any = item.pricing;
+          reported.add(item.key);
           if (!model || !item.ok || !d) {
             next[item.key] = null;
+            if(model)nextErrors[model.model_id]=item.error?.message||"Não foi possível confirmar o preço deste modelo.";
             continue;
           }
           const unit = Number(d.unit_credit_price ?? d.retail_credit_price);
           if (!Number.isFinite(unit) || unit <= 0) {
             next[model.model_id] = null;
+            nextErrors[model.model_id]="O servidor não retornou um preço válido para este modelo.";
             continue;
           }
           const key = `${model.model_id}|${mode}|${resolution}|${aspectRatio}|${references.length}`;
           quoteCache.current.set(key, unit);
           next[model.model_id] = unit;
         }
-      } catch {
+        for(const model of missing)if(!reported.has(model.model_id))nextErrors[model.model_id]="O servidor não retornou uma cotação para este modelo.";
+        if(seq===quoteSeq.current)setPriceErrorsByModelId(nextErrors);
+      } catch (error) {
         missing.forEach((model) => {
           next[model.model_id] = null;
         });
+        if(seq===quoteSeq.current){
+          const message=error instanceof Error?error.message:"Não foi possível consultar o preço dos modelos.";
+          setPriceErrorsByModelId(Object.fromEntries(missing.map(model=>[model.model_id,message])));
+        }
       }
       if (seq !== quoteSeq.current) return;
       setUnitPricesByModelId(next);
@@ -699,7 +726,7 @@ export const UnifiedImageCreateView: React.FC<Props> = ({
             generating={submitting}
             priceLoading={quoteLoading}
             onGenerate={generate}
-            error={error || (selectionMode === "AUTO" ? autoQuote.error || "" : "")}
+            error={error || quoteError || ""}
             modelAdjustmentNotice={modelAdjustmentNotice}
             unitPricesByModelId={unitPricesByModelId}
             priceLoadingModelIds={priceLoadingModelIds}

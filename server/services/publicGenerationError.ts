@@ -49,6 +49,17 @@ export function publicGenerationError(err:any,fallback='A geração não pôde s
     return{code,message:'Gerações que produzem arquivos estão pausadas porque o armazenamento não passou na verificação. Nenhum crédito foi reservado.'};
   }
 
+  if(code==='AUTO_NO_READY_MODEL')return{code,message:'Nenhum modelo compatível está disponível para esta configuração. Ajuste as opções ou escolha outro modelo.'};
+  if(code==='NO_READY_ROUTE_V2')return{code,message:'Este modelo não tem uma rota pronta para a configuração solicitada. Escolha outro modelo ou ajuste as opções.'};
+  if(code==='ROUTING_V2_PRICE_UNAVAILABLE')return{code,message:'A rota deste modelo está sem um preço válido agora. Escolha outro modelo ou tente novamente mais tarde.'};
+  if(code==='ROUTING_V2_BILLING_INPUT_REQUIRED')return{code,message:'Faltam opções necessárias para calcular o preço desta geração.'};
+  if(code==='MODEL_NOT_FOUND')return{code,message:'O modelo selecionado não está mais disponível. Atualize o catálogo e tente novamente.'};
+  if(code==='MODEL_CAPABILITY_UNSUPPORTED')return{code,message:'Este modelo não oferece o tipo de geração selecionado. Escolha outro modelo.'};
+  if(code==='MODEL_CONTROLS_UNSUPPORTED')return{code,message:String(err?.message||'As opções selecionadas não são compatíveis com este modelo.')};
+  if(code==='CREDIT_BILLING_DISABLED')return{code,message:'A cobrança por créditos está temporariamente indisponível. Nenhum crédito foi reservado.'};
+  if(code==='NEW_GENERATIONS_DISABLED')return{code,message:'Novas gerações estão temporariamente pausadas. Nenhum crédito foi reservado.'};
+  if(code==='PROVIDER_EXECUTION_DISABLED')return{code,message:'A execução nos provedores está temporariamente pausada. Nenhum crédito foi reservado.'};
+
   if(TEMPORARY_CODES.has(code)||isProviderTechnicalCode(code)){
     return {
       code:'GENERATION_TEMPORARILY_UNAVAILABLE',
