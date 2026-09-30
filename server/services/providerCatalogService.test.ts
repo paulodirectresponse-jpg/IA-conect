@@ -37,6 +37,31 @@ describe('providerCatalogService Worker-safe reads',()=>{
     expect(mocks.saveModel).not.toHaveBeenCalled();
   });
 
+  it('exposes only the three official providers even when legacy providers remain stored',async()=>{
+    const stored=(provider_id:string,status='ACTIVE')=>({
+      provider_id,name:provider_id,slug:provider_id,status,priority:50,is_configured:true,
+      created_at:'2026-01-01T00:00:00.000Z',updated_at:'2026-01-01T00:00:00.000Z',
+    });
+    mocks.listProviders.mockResolvedValue([
+      stored('provider-wavespeed','INACTIVE') as any,
+      stored('provider-fal') as any,
+      stored('provider-custom') as any,
+    ]);
+
+    const providers=await providerCatalogService.listProviders();
+
+    expect(PROVIDER_DEFINITIONS.map(provider=>provider.provider_id)).toEqual([
+      'provider-wavespeed','provider-atlas','provider-runware',
+    ]);
+    expect(providers.map(provider=>provider.provider_id)).toEqual([
+      'provider-wavespeed','provider-atlas','provider-runware',
+    ]);
+    expect(providers[0].status).toBe('INACTIVE');
+    expect(await providerCatalogService.getProvider('provider-fal')).toBeNull();
+    expect(await providerCatalogService.ensureProviderRecord('provider-custom')).toBeNull();
+    expect(mocks.saveProvider).not.toHaveBeenCalled();
+  });
+
   it('persists only one curated model when explicitly requested',async()=>{
     const model=await providerCatalogService.ensureCuratedModel('veo-3-1');
 

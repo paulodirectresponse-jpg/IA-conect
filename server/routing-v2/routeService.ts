@@ -8,6 +8,7 @@ import {
 } from './domain.js';
 import { routingV2Repository } from './repository.js';
 import { assertIdentifierMatchesCapability } from './capabilityMappingValidation.js';
+import { isOfficialRoutingV2Provider } from './providerService.js';
 
 const now=()=>new Date().toISOString();
 
@@ -29,6 +30,7 @@ export interface UpdateRoutingV2RouteInput{
 }
 
 async function validateRouteReferences(input:CreateRoutingV2RouteInput){
+  if(!isOfficialRoutingV2Provider(input.provider_id))throw new Error('Somente WaveSpeed AI, Atlas Cloud e Runware podem receber novas rotas.');
   const[model,provider]=await Promise.all([
     routingV2Repository.getModel(input.model_id),
     routingV2Repository.getProvider(input.provider_id),
@@ -65,6 +67,7 @@ export const routingV2RouteService={
       if(modelId&&route.model_id!==modelId)return false;
       if(capabilityId&&route.capability_id!==capabilityId)return false;
       if(route.status!=='READY')return false;
+      if(!isOfficialRoutingV2Provider(route.provider_id))return false;
       const provider=providerById.get(route.provider_id);
       if(!provider||provider.status!=='ACTIVE'||provider.health_status!=='HEALTHY')return false;
       try{assertRoutingV2Route(route);return true;}catch{return false;}
