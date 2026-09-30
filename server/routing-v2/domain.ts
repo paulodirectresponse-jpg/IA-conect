@@ -28,6 +28,9 @@ export interface RoutingV2Provider{
   balance_updated_at?:string|null;
   health_status:RoutingV2RuntimeStatus;
   last_health_check_at?:string|null;
+  price_sync_cooldown_until?:string|null;
+  price_sync_cooldown_error?:string|null;
+  price_sync_cooldown_failures?:number;
   created_at:string;
   updated_at:string;
 }

@@ -6,6 +6,44 @@ export function isTransientRoutingV2PriceFailure(message:string|null|undefined){
   return Boolean(message&&TRANSIENT_PRICE_FAILURE.test(message));
 }
 
+const PRICE_RATE_LIMIT_FAILURE=/\b(?:1015|429)\b|rate[\s_-]?limit/i;
+const MAX_PRICE_SYNC_COOLDOWN_MS=15*60_000;
+
+export function isRoutingV2PriceRateLimited(message:string|null|undefined){
+  return Boolean(message&&PRICE_RATE_LIMIT_FAILURE.test(message));
+}
+
+export function routingV2PriceSyncCooldownUntil(
+  provider:Pick<RoutingV2Provider,'price_sync_cooldown_failures'>,
+  now:string,
+  failure:string,
+){
+  if(!isRoutingV2PriceRateLimited(failure))return null;
+  const current=Date.parse(now);
+  if(!Number.isFinite(current))return null;
+  const failures=Math.max(0,Math.floor(Number(provider.price_sync_cooldown_failures)||0));
+  const backoff=Math.min(MAX_PRICE_SYNC_COOLDOWN_MS,60_000*2**Math.min(failures,4));
+  const retryAfter=failure.match(/\bRetry-After\s+(.+?)(?=\s·|$)/i)?.[1]?.trim();
+  let retryAt:number|null=null;
+  if(retryAfter){
+    const seconds=Number(retryAfter);
+    if(Number.isFinite(seconds)&&seconds>0)retryAt=current+seconds*1000;
+    else{
+      const date=Date.parse(retryAfter);
+      if(Number.isFinite(date)&&date>current)retryAt=date;
+    }
+  }
+  return new Date(Math.max(current+backoff,retryAt||0)).toISOString();
+}
+
+export function isRoutingV2PriceSyncCoolingDown(
+  provider:Pick<RoutingV2Provider,'price_sync_cooldown_until'>,
+  now:string,
+){
+  const until=Date.parse(provider.price_sync_cooldown_until||''),current=Date.parse(now);
+  return Number.isFinite(until)&&Number.isFinite(current)&&until>current;
+}
+
 export function hasFreshRoutingV2ProviderHealth(provider:Pick<RoutingV2Provider,'health_status'|'last_health_check_at'>,now:string,maxAgeMinutes:number){
   const checkedAt=Date.parse(provider.last_health_check_at||''),current=Date.parse(now),maxAge=Math.max(1,maxAgeMinutes)*60_000;
   return provider.health_status!=='UNKNOWN'&&Number.isFinite(checkedAt)&&Number.isFinite(current)

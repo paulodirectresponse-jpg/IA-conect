@@ -12,7 +12,7 @@ import { routingV2CapabilityMappingRepairService, RoutingV2MappingRepairRow } fr
 import { assertIdentifierMatchesCapability } from './capabilityMappingValidation.js';
 import { routingV2ProviderModelMigrationService, RoutingV2ProviderModelMigrationResult } from './providerModelMigrationService.js';
 import { checkProviderHealth } from './healthAdapter.js';
-import { canReuseRoutingV2PriceAfterTransientFailure, hasFreshRoutingV2ProviderHealth, shouldReuseRoutingV2PriceSnapshot, shouldSkipRoutingV2PriceRefresh } from './priceSyncPolicy.js';
+import { canReuseRoutingV2PriceAfterTransientFailure, hasFreshRoutingV2PriceSnapshot, hasFreshRoutingV2ProviderHealth, isRoutingV2PriceSyncCoolingDown, routingV2PriceSyncCooldownUntil, shouldReuseRoutingV2PriceSnapshot, shouldSkipRoutingV2PriceRefresh } from './priceSyncPolicy.js';
 
 export interface RoutingV2PriceSyncRow{
   route_id:string;
@@ -187,7 +187,33 @@ export const routingV2PriceSyncService={
           continue;
         }
 
+        if(isRoutingV2PriceSyncCoolingDown(provider,checkedAt)){
+          const cooldownUntil=provider.price_sync_cooldown_until!;
+          const cooldownError=provider.price_sync_cooldown_error||'O provider está temporariamente limitado para consulta de preços.';
+          const errorMessage=`${cooldownError} · novas consultas pausadas até ${cooldownUntil}.`;
+          const pricingStatus=hasFreshRoutingV2PriceSnapshot(route,checkedAt)
+            ?'CURRENT'
+            :route.pricing_snapshot?'STALE':'INVALID';
+          const paused=reconcileRoutingV2Route({
+            route:{...route,last_sync_error:errorMessage,last_sync_error_at:checkedAt},
+            provider,pricing_status:pricingStatus,runtime_status:runtime.runtime_status,now:checkedAt,
+          });
+          await routingV2Repository.saveRoute(paused);
+          rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:false,status:paused.status,pricing_status:paused.pricing_status,runtime_status:paused.runtime_status,retail_price_credits:paused.pricing_snapshot?.retail_price_credits||null,error:errorMessage});
+          continue;
+        }
+
         const price=await adapter.getPrice(provider,route.provider_model_identifier,route.capability_id);
+        if(provider.price_sync_cooldown_until||Number(provider.price_sync_cooldown_failures||0)>0){
+          provider=await routingV2Repository.saveProvider({
+            ...provider,
+            price_sync_cooldown_until:null,
+            price_sync_cooldown_error:null,
+            price_sync_cooldown_failures:0,
+            updated_at:checkedAt,
+          });
+          providerCache.set(provider.provider_id,provider);
+        }
         if(!price.source_reference?.trim())throw new Error('Provider não retornou source_reference verificável para pricing.');
         if(route.provider_id==='provider-runware'&&route.pricing_status!=='CURRENT'&&!route.pricing_snapshot){
           route.billing_type=price.billing_config.type;
@@ -234,10 +260,22 @@ export const routingV2PriceSyncService={
         await routingV2Repository.saveRoute(next);
         rows.push({route_id:route.route_id,provider_id:route.provider_id,ok:true,status:next.status,pricing_status:next.pricing_status,runtime_status:next.runtime_status,retail_price_credits:next.pricing_snapshot?.retail_price_credits||null});
       }catch(err:any){
-        const provider=providerCache.get(route.provider_id)||null;
+        let provider=providerCache.get(route.provider_id)||null;
         const runtimeStatus=runtimeCache.get(route.provider_id)?.runtime_status||provider?.health_status||route.runtime_status;
         const errorMessage=String(err?.message||err);
         const runtimeMessage=runtimeCache.get(route.provider_id)?.health?.message;
+        const cooldownUntil=provider?routingV2PriceSyncCooldownUntil(provider,checkedAt,errorMessage):null;
+        if(provider&&cooldownUntil){
+          provider={
+            ...provider,
+            price_sync_cooldown_until:cooldownUntil,
+            price_sync_cooldown_error:errorMessage,
+            price_sync_cooldown_failures:Math.max(0,Math.floor(Number(provider.price_sync_cooldown_failures)||0))+1,
+            updated_at:checkedAt,
+          };
+          providerCache.set(provider.provider_id,provider);
+          await routingV2Repository.saveProvider(provider).catch(()=>{});
+        }
         const keepFreshPrice=canReuseRoutingV2PriceAfterTransientFailure(route,checkedAt,errorMessage);
         const pricingStatus=keepFreshPrice?'CURRENT':'INVALID';
         const next=reconcileRoutingV2Route({route,provider,pricing_status:pricingStatus,runtime_status:runtimeStatus,now:checkedAt});
