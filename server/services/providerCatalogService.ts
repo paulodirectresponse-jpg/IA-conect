@@ -26,6 +26,8 @@ export const PROVIDER_DEFINITIONS:ProviderRegistryItem[]=[
 const definitionById=new Map(PROVIDER_DEFINITIONS.map(item=>[item.provider_id,item]));
 const modelSeedById=new Map(CURATED_CANONICAL_MODELS.map(item=>[item.model_id,item]));
 
+export const isOfficialProviderCatalogId=(providerId:string)=>definitionById.has(String(providerId||'').trim());
+
 function mergeProviders(existing:ProviderRegistryItem[]){
   const stored=new Map(existing.map(item=>[String(item.provider_id),item]));
   return PROVIDER_DEFINITIONS.map(definition=>{
