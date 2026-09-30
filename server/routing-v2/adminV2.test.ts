@@ -30,12 +30,17 @@ describe('Routing Core V2 Admin',()=>{
     const adminRoutes=read('server/routes/adminRoutingV2Routes.ts');
     const getStart=healthRoutes.indexOf("router.get('/providers/health'");
     const postStart=healthRoutes.indexOf("router.post('/providers/health/check'");
+    const getOneStart=healthRoutes.indexOf("router.get('/providers/:id/health'");
+    const postOneStart=healthRoutes.indexOf("router.post('/providers/:id/health/check'");
     expect(adminRoutes).toContain("adminRoutingV2Router.use('/admin/routing-v2',...guard,routingV2HealthAdminRoutes)");
     expect(getStart).toBeGreaterThanOrEqual(0);
     expect(postStart).toBeGreaterThan(getStart);
     expect(healthRoutes.slice(getStart,postStart)).toContain('routingV2Repository.listProviders()');
     expect(healthRoutes.slice(getStart,postStart)).not.toContain('checkAllCore()');
     expect(healthRoutes.slice(postStart)).toContain('providerHealthService.checkAllCore()');
+    expect(healthRoutes.slice(getOneStart,postOneStart)).toContain('providerHealthService.getLastHealth');
+    expect(healthRoutes.slice(getOneStart,postOneStart)).not.toContain('checkByProviderId');
+    expect(healthRoutes.slice(postOneStart)).toContain('providerHealthService.checkByProviderId');
     expect(read('src/services/routingV2AdminService.ts')).toContain("'/api/admin/routing-v2/providers/health/check'");
   });
 

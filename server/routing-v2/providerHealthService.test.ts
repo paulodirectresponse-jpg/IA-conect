@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RoutingV2Provider, RoutingV2ProviderRoute } from './domain.js';
 
 const mocks=vi.hoisted(()=>(
-  {routes:[] as RoutingV2ProviderRoute[],listRoutes:vi.fn(),saveProvider:vi.fn(),saveRoute:vi.fn(),checkProviderHealth:vi.fn()}
+  {routes:[] as RoutingV2ProviderRoute[],listRoutes:vi.fn(),getProvider:vi.fn(),saveProvider:vi.fn(),saveRoute:vi.fn(),checkProviderHealth:vi.fn()}
 ));
-vi.mock('./repository.js',()=>({routingV2Repository:{listRoutes:mocks.listRoutes,saveProvider:mocks.saveProvider,saveRoute:mocks.saveRoute}}));
+vi.mock('./repository.js',()=>({routingV2Repository:{listRoutes:mocks.listRoutes,getProvider:mocks.getProvider,saveProvider:mocks.saveProvider,saveRoute:mocks.saveRoute}}));
 vi.mock('./healthAdapter.js',()=>({checkProviderHealth:mocks.checkProviderHealth}));
 
 const checkedAt='2026-09-29T12:00:00.000Z';
-const provider:RoutingV2Provider={provider_id:'provider-runware',name:'Runware',slug:'runware',type:'AGGREGATOR',status:'ACTIVE',priority:95,adapter_id:'wrapper:provider-runware',supports_catalog_sync:true,supports_pricing_sync:true,supports_balance:false,health_status:'HEALTHY',created_at:checkedAt,updated_at:checkedAt};
+const provider:RoutingV2Provider={provider_id:'provider-runware',name:'Runware',slug:'runware',type:'AGGREGATOR',status:'ACTIVE',priority:95,adapter_id:'wrapper:provider-runware',supports_catalog_sync:true,supports_pricing_sync:true,supports_balance:false,health_status:'HEALTHY',last_health_check_at:checkedAt,created_at:checkedAt,updated_at:checkedAt};
 const route=():RoutingV2ProviderRoute=>({
   route_id:'route-ready',model_id:'model-video',capability_id:'text-to-video',provider_id:'provider-runware',provider_model_identifier:'example/video',
   mapping_source:'PROVIDER_DOCS',mapping_source_reference:'https://example.test/model',mapping_verified_at:checkedAt,
@@ -20,6 +20,7 @@ const route=():RoutingV2ProviderRoute=>({
 describe('Routing V2 provider health propagation',()=>{
   beforeEach(()=>{
     vi.clearAllMocks();
+    mocks.getProvider.mockResolvedValue(provider);
     mocks.routes=[route()];
     mocks.listRoutes.mockImplementation(async()=>mocks.routes);
     mocks.saveProvider.mockImplementation(async(value:RoutingV2Provider)=>value);
@@ -39,5 +40,13 @@ describe('Routing V2 provider health propagation',()=>{
     const {providerHealthService}=await import('./providerHealthService.js');
     await providerHealthService.checkAndPersist(provider);
     expect(mocks.routes[0]).toMatchObject({status:'READY',runtime_status:'HEALTHY',last_runtime_error:null});
+  });
+
+  it('reads the last provider health without issuing a live probe',async()=>{
+    const {providerHealthService}=await import('./providerHealthService.js');
+    const result=await providerHealthService.getLastHealth(provider.provider_id);
+
+    expect(result).toEqual({provider_id:provider.provider_id,provider_name:provider.name,status:provider.health_status,checked_at:checkedAt});
+    expect(mocks.checkProviderHealth).not.toHaveBeenCalled();
   });
 });
