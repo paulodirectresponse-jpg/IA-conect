@@ -1,6 +1,6 @@
 import { RoutingV2Provider, RoutingV2ProviderRoute } from './domain.js';
 
-const TRANSIENT_PRICE_FAILURE=/\b1015\b|\b429\b|rate[\s_-]?limit|temporar|timeout|timed out|\b50[234]\b|gateway/i;
+const TRANSIENT_PRICE_FAILURE=/\b1015\b|\b429\b|rate[\s_-]?limit|temporar|timeout|timed out|abort(?:ed|error|ing)?|\b50[234]\b|gateway/i;
 
 export function isTransientRoutingV2PriceFailure(message:string|null|undefined){
   return Boolean(message&&TRANSIENT_PRICE_FAILURE.test(message));

@@ -31,6 +31,11 @@ const catalogLists:Record<string,(query?:string)=>Promise<import('./adapter.js')
 export function createRoutingV2LegacyWrapperAdapter(providerId: string): RoutingV2ProviderAdapter | null {
   const legacy = providerRegistry.getAdapter(providerId);
   if (!legacy) return null;
+  // A price-sync batch reuses this adapter for every route belonging to the
+  // provider. Load WaveSpeed's full catalog once for that batch instead of
+  // issuing the same remote request once per route.
+  let waveSpeedCatalogPromise:ReturnType<typeof listWaveSpeedCatalogModels>|null=null;
+  const waveSpeedCatalog=()=>waveSpeedCatalogPromise||(waveSpeedCatalogPromise=listWaveSpeedCatalogModels());
 
   return {
     adapter_id: `wrapper:${providerId}`,
@@ -54,7 +59,7 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
     getPrice: legacy.quoteCostUsd ? async (_provider, providerModelIdentifier, capabilityId) => {
       assertIdentifierMatchesCapability(providerModelIdentifier,capabilityId);
       if(providerId==='provider-wavespeed'){
-        const rows=await listWaveSpeedCatalogModels(providerModelIdentifier);
+        const rows=await waveSpeedCatalog();
         const exact=rows.find(row=>row.provider_model_identifier===providerModelIdentifier);
         const basePrice=Number((exact?.metadata as any)?.base_price);
         if(Number.isFinite(basePrice)&&basePrice>0){

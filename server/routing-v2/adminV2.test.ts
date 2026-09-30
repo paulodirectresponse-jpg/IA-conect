@@ -227,7 +227,9 @@ describe('Routing Core V2 Admin',()=>{
     expect(routes).toContain('firstPage.total_results');
     expect(routes).toContain('source_truncated:diagnostics.some');
     expect(routes).not.toContain('catalogSearchTerms(query)');
-    expect(catalog).toContain("controller.abort(),5500");
+    expect(catalog).toContain("Number(options.timeoutMs)||5500");
+    expect(catalog).toContain("timeoutMs:15_000");
+    expect(routes).toContain("withTimeout(listWaveSpeedCatalogModels(),'WaveSpeed',16_000)");
   });
 
   it('fetches WaveSpeed Atlas and Runware directly in unified catalog and exposes diagnostics',()=>{

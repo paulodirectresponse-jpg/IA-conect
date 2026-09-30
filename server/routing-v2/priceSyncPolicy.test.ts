@@ -46,6 +46,13 @@ describe('Routing V2 price-sync resilience policy',()=>{
     expect(shouldReuseRoutingV2PriceSnapshot(value,'2026-09-29T20:00:00.000Z',30)).toBe(false);
   });
 
+  it('keeps a fresh quote usable after a local AbortError while leaving the failure visible',()=>{
+    const value=route({pricing_status:'INVALID',status:'DEGRADED',last_sync_error:'The operation was aborted',last_sync_error_at:'2026-09-29T19:30:00.000Z'});
+    expect(isTransientRoutingV2PriceFailure(value.last_sync_error)).toBe(true);
+    expect(shouldReuseRoutingV2PriceSnapshot(value,now,30)).toBe(true);
+    expect(canReuseRoutingV2PriceAfterTransientFailure(value,now,value.last_sync_error)).toBe(true);
+  });
+
   it('applies a persistent, progressive cooldown after provider rate limiting',()=>{
     const first=routingV2PriceSyncCooldownUntil({price_sync_cooldown_failures:0},now,'Atlas pricing HTTP 1015');
     const second=routingV2PriceSyncCooldownUntil({price_sync_cooldown_failures:1},now,'Atlas pricing HTTP 429');

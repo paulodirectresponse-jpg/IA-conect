@@ -270,7 +270,7 @@ adminRoutingV2Router.get('/admin/routing-v2/catalog-unified',...guard,async(req,
         return{provider,rows,returned_count:returnedCount,total_count:firstPage.total_results,truncated,attempts:responses.length+pageErrors.length,message};
       }
       if(provider.provider_id==='provider-wavespeed'){
-        const response=await withTimeout(listWaveSpeedCatalogModels(),'WaveSpeed');
+        const response=await withTimeout(listWaveSpeedCatalogModels(),'WaveSpeed',16_000);
         pushRows(response);
         return{provider,rows,returned_count:response.length,total_count:null,truncated:false,attempts:1,message:null};
       }

@@ -104,4 +104,36 @@ describe('Routing V2 price-sync provider cooldown',()=>{
     expect(result.rows).toHaveLength(2);
     expect(result.rows[1].error).toContain('Atlas pricing HTTP 429');
   });
+
+  it('preserves a fresh ready price when a provider request is locally aborted and records the failure',async()=>{
+    const quoteFetchedAt='2026-09-30T05:40:00.000Z';
+    const existing=route('route-1',{
+      status:'READY',
+      pricing_status:'CURRENT',
+      pricing_snapshot:{
+        billing_config:{type:'PER_SECOND',currency:'USD',price_per_second:0.1},
+        source:'PROVIDER_QUOTE_API',
+        source_reference:'https://wavespeed.ai/pricing',
+        provider_cost_reference:0.1,
+        safe_cogs_brl:0.6,
+        retail_price_credits:100,
+        expected_margin_percent:55,
+        fx_rate_usd_brl:5.4,
+        fetched_at:quoteFetchedAt,
+        valid_until:'2026-09-30T07:40:00.000Z',
+      },
+      last_price_sync_at:quoteFetchedAt,
+    });
+    mocks.repository.listRoutes.mockResolvedValue([existing]);
+    mocks.adapter.getPrice.mockRejectedValue(Object.assign(new Error('The operation was aborted'),{name:'AbortError'}));
+
+    const result=await routingV2PriceSyncService.runBatch({cursor:0,limit:1,fx_rate_usd_brl:5.4});
+
+    expect(result.rows[0]).toMatchObject({ok:false,status:'READY',pricing_status:'CURRENT',retail_price_credits:100,error:'The operation was aborted'});
+    expect(mocks.repository.saveRoute).toHaveBeenCalledWith(expect.objectContaining({
+      status:'READY',
+      pricing_status:'CURRENT',
+      last_sync_error:'The operation was aborted',
+    }));
+  });
 });

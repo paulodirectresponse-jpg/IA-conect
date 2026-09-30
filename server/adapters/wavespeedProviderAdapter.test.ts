@@ -27,6 +27,7 @@ describe('WaveSpeed image batches',()=>{
   });
 
   afterEach(()=>{
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     if(originalKey===undefined)delete process.env.WAVESPEED_API_KEY;
@@ -87,5 +88,23 @@ describe('WaveSpeed image batches',()=>{
     expect(status.status).toBe('PROCESSING');
     expect(status.progress_percent).toBe(70);
     expect(status.result_urls).toBeUndefined();
+  });
+
+  it('reports an explicit timeout when the WaveSpeed price API stalls',async()=>{
+    vi.useFakeTimers();
+    const fetchMock=vi.fn((_url:any,init:any)=>new Promise((_resolve,reject)=>{
+      init.signal.addEventListener('abort',()=>reject(Object.assign(new Error('The operation was aborted'),{name:'AbortError'})),{once:true});
+    }));
+    vi.stubGlobal('fetch',fetchMock);
+
+    const request=new WaveSpeedProviderAdapter().quoteCostUsd(params);
+    const rejection=expect(request).rejects.toMatchObject({
+      code:'WAVESPEED_PRICE_TIMEOUT',
+      message:'WaveSpeed price quote timed out after 30000ms.',
+    });
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    await rejection;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
