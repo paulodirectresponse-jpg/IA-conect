@@ -26,6 +26,7 @@ export class RunwareHealthCheck extends BaseProviderHealthCheck {
 
     try {
       // Official Model Search task; read-only and validates response semantics.
+      const taskUUID=crypto.randomUUID();
       const res = await this.fetchWithTimeout(
         baseUrl,
         {
@@ -37,7 +38,7 @@ export class RunwareHealthCheck extends BaseProviderHealthCheck {
           body: JSON.stringify([
             {
               taskType: 'modelSearch',
-              taskUUID: crypto.randomUUID(),
+              taskUUID,
               search:'FLUX',limit:1,
             },
           ]),
@@ -51,7 +52,10 @@ export class RunwareHealthCheck extends BaseProviderHealthCheck {
         const body:any=await res.json().catch(()=>null);
         const errors=Array.isArray(body?.errors)?body.errors:[];
         const data=Array.isArray(body?.data)?body.data:[];
-        if(errors.length||!data.length){status='DEGRADED';message=errors[0]?.message||'Runware respondeu sem catálogo válido.';}
+        const envelope=data.find((item:any)=>item?.taskUUID===taskUUID)||data[0];
+        const results=Array.isArray(envelope?.results)?envelope.results:[];
+        const hasValidModel=results.some((row:any)=>String(row?.air||row?.model||row?.id||'').trim());
+        if(errors.length||!hasValidModel){status='DEGRADED';message=errors[0]?.message||'Runware respondeu sem modelos válidos para a busca FLUX.';}
       }
 
       return {

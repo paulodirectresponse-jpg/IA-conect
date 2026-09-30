@@ -7,7 +7,13 @@ export function mediaStorageErrorMessage(code?: string | null): string {
     case "ASSET_ARCHIVE_UPLOAD_FAILED":
       return "O armazenamento recusou o upload; esta tentativa não registrou a causa exata (ASSET_ARCHIVE_UPLOAD_FAILED).";
     case "ASSET_STORAGE_UNAVAILABLE":
-      return "O armazenamento oficial não está configurado ou está indisponível (ASSET_STORAGE_UNAVAILABLE).";
+      return "O armazenamento de arquivos Cloudflare R2 não está configurado ou está indisponível (ASSET_STORAGE_UNAVAILABLE).";
+    case "ASSET_STORAGE_OBJECT_MISSING":
+      return "O registro existe, mas o objeto correspondente não foi encontrado no armazenamento (ASSET_STORAGE_OBJECT_MISSING).";
+    case "LEGACY_ASSET_STORAGE_UNAVAILABLE":
+      return "O arquivo antigo no Storage Supabase não está acessível e ainda não foi recuperado (LEGACY_ASSET_STORAGE_UNAVAILABLE).";
+    case "ASSET_ARCHIVE_SOURCE_TIMEOUT":
+      return "O provedor não entregou o arquivo a tempo para recuperação (ASSET_ARCHIVE_SOURCE_TIMEOUT).";
     case "ASSET_ARCHIVE_FETCH_FAILED":
       return "Não foi possível recuperar o arquivo na URL fornecida pelo provedor (ASSET_ARCHIVE_FETCH_FAILED).";
     case "ASSET_ARCHIVE_TOO_LARGE":

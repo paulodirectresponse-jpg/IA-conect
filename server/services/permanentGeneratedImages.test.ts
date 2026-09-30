@@ -7,12 +7,12 @@ const read=(file:string)=>fs.readFileSync(path.join(process.cwd(),file),'utf8');
 describe('permanent generated image stage 1',()=>{
   it('does not finalize generated output from a provider URL alone',()=>{
     const execution=read('server/routing-v2/executionService.ts');
-    const storage=read('server/services/generatedAssetStorageService.ts');
+    const storage=read('server/services/r2AssetStorageService.ts');
     expect(execution).toContain('generatedAssetStorageService.archive');
     expect(execution).toContain('media_metadata?.archived===true');
     expect(execution).toContain('assetRepository.updateAsset');
     expect(storage).toContain('ASSET_ARCHIVE_NOT_VISIBLE');
-    expect(storage).toContain("method:'HEAD'");
+    expect(storage).toContain('bucket().head(key)');
   });
 
   it('keeps provider output private and retryable when durable storage is temporarily unavailable',()=>{

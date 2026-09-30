@@ -1,5 +1,6 @@
 import { RoutingV2ProviderAdapter } from './adapter.js';
 import { CapabilityId } from '../beta/capabilityRegistry.js';
+import { GenerationMode } from '../../src/types/index.js';
 import { providerRegistry } from '../adapters/providerRegistry.js';
 import { listAimlCatalogModels, listAtlasCatalogModels, listDeepInfraCatalogModels, listFalCatalogModels, listReplicateCatalogModels, listRunwareCatalogModels, listWaveSpeedCatalogModels } from './providerCatalogService.js';
 import { checkProviderHealth } from './healthAdapter.js';
@@ -30,12 +31,22 @@ const catalogLists:Record<string,(query?:string)=>Promise<import('./adapter.js')
 export function createRoutingV2LegacyWrapperAdapter(providerId: string): RoutingV2ProviderAdapter | null {
   const legacy = providerRegistry.getAdapter(providerId);
   if (!legacy) return null;
+  // A price-sync batch reuses this adapter for every route belonging to the
+  // provider. Load WaveSpeed's full catalog once for that batch instead of
+  // issuing the same remote request once per route.
+  let waveSpeedCatalogPromise:ReturnType<typeof listWaveSpeedCatalogModels>|null=null;
+  const waveSpeedCatalog=()=>waveSpeedCatalogPromise||(waveSpeedCatalogPromise=listWaveSpeedCatalogModels());
 
   return {
     adapter_id: `wrapper:${providerId}`,
     provider_id: providerId,
 
     isConfigured: () => legacy.isConfigured(),
+
+    supportsRoute: (_provider, modelId, capabilityId, providerModelIdentifier) => {
+      const mode = capabilityToGenerationMode(capabilityId);
+      return Boolean(mode && legacy.supports(modelId, mode, providerModelIdentifier));
+    },
 
     listModels: catalogLists[providerId]
       ? async (_provider,query) => catalogLists[providerId](query)
@@ -48,7 +59,7 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
     getPrice: legacy.quoteCostUsd ? async (_provider, providerModelIdentifier, capabilityId) => {
       assertIdentifierMatchesCapability(providerModelIdentifier,capabilityId);
       if(providerId==='provider-wavespeed'){
-        const rows=await listWaveSpeedCatalogModels(providerModelIdentifier);
+        const rows=await waveSpeedCatalog();
         const exact=rows.find(row=>row.provider_model_identifier===providerModelIdentifier);
         const basePrice=Number((exact?.metadata as any)?.base_price);
         if(Number.isFinite(basePrice)&&basePrice>0){
@@ -75,7 +86,7 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
         generation_id:'routing-v2-price-probe',
         user_id:'routing-v2-system',
         model_id:providerModelIdentifier,
-        mode:mode as any,
+        mode,
         capability_id:capabilityId,
         provider_model_identifier:providerModelIdentifier,
         provider_runtime_options:{},
@@ -142,7 +153,7 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
         })),
       };
 
-      if (!legacy2.supports(input.model_id, mode as any, input.provider_model_identifier)) {
+      if (!legacy2.supports(input.model_id, mode, input.provider_model_identifier)) {
         throw Object.assign(new Error('Route not supported by legacy adapter'), {
           code: 'ROUTING_V2_LEGACY_ROUTE_UNSUPPORTED',
         });
@@ -167,6 +178,7 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
         provider_job_id: result.provider_job_id,
         status: result.status,
         progress_percent: result.progress_percent,
+        ...(provider.provider_id==='provider-runware'&&result.provider_cost_usd!==undefined?{provider_cost_usd:result.provider_cost_usd}:{}),
         result_urls: (result.result_urls || result.result_image_urls || [result.result_video_url]).filter(Boolean) as string[],
         error_code: result.error_code || null,
         error_message: result.error_message || null,
@@ -181,8 +193,8 @@ export function createRoutingV2LegacyWrapperAdapter(providerId: string): Routing
   };
 }
 
-function capabilityToGenerationMode(capabilityId: CapabilityId): string | null {
-  const map: Record<CapabilityId, string> = {
+function capabilityToGenerationMode(capabilityId: CapabilityId): GenerationMode | null {
+  const map: Record<CapabilityId, GenerationMode> = {
     'text-to-image': 'TEXT_TO_IMAGE',
     'image-to-image': 'IMAGE_TO_IMAGE',
     'image-edit': 'IMAGE_TO_IMAGE',

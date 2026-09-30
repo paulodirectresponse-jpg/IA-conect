@@ -19,11 +19,28 @@ export interface BetaCapabilityModel {
   supported_aspect_ratios?:string[];
 }
 
+function isRecord(value:unknown):value is Record<string,unknown>{
+  return typeof value==='object'&&value!==null;
+}
+
+function isCapabilityModel(value:unknown):value is BetaCapabilityModel{
+  return isRecord(value)
+    &&typeof value.model_id==='string'
+    &&typeof value.name==='string'
+    &&typeof value.category==='string'
+    &&Array.isArray(value.capabilities);
+}
+
 export async function fetchBetaCapabilities(idToken:string):Promise<BetaCapabilityModel[]>{
   const response=await fetch('/api/beta/capabilities',{headers:{Authorization:`Bearer ${idToken}`}});
-  const payload=await response.json().catch(()=>null);
-  if(!response.ok||!payload?.success)throw new Error(payload?.error?.message||'Não foi possível carregar as capabilities Beta.');
-  return Array.isArray(payload.data?.models)?payload.data.models:[];
+  const payload:unknown=await response.json().catch(()=>null);
+  const root=isRecord(payload)?payload:null;
+  const error=root&&isRecord(root.error)?root.error:null;
+  if(!response.ok||root?.success!==true){
+    throw new Error(typeof error?.message==='string'?error.message:'Não foi possível carregar as capabilities Beta.');
+  }
+  const data=isRecord(root.data)?root.data:null;
+  return Array.isArray(data?.models)?data.models.filter(isCapabilityModel):[];
 }
 
 export function supportsBetaCapability(model:BetaCapabilityModel|undefined,capabilityId:string){

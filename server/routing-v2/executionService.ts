@@ -3,14 +3,16 @@ import { AssetType, Generation, GenerationAttemptLog } from '../../src/types/ind
 import { CapabilityId } from '../beta/capabilityRegistry.js';
 import { assetRepository, generatedAssetId } from '../repositories/assetRepository.js';
 import { generationRepository } from '../repositories/generationRepository.js';
+import { normalizeProviderCostUsd, saveRunwareProviderCost } from '../repositories/providerCostTelemetryRepository.js';
 import { creditWalletService } from '../services/creditWalletService.js';
 import { generatedAssetStorageService } from '../services/generatedAssetStorageService.js';
+import { assetReferenceResolver } from '../services/assetReferenceResolver.js';
 import { routingV2AdapterRegistry } from './adapterRegistry.js';
 import { routingV2GenerationPricingService } from './generationPricingService.js';
 import { routingV2Repository } from './repository.js';
 import { ensureRoutingV2LegacyAdapter } from './legacyAdapterBridge.js';
 import { createRoutingV2LegacyWrapperAdapter } from './legacyWrapperAdapter.js';
-import { generationModeForCapability } from './generationContract.js';
+import { capabilityProducesFileOutput, generationModeForCapability } from './generationContract.js';
 
 export interface RoutingV2ExecutionReference{
   url:string;
@@ -186,6 +188,22 @@ export const routingV2ExecutionService={
     const existing=await generationRepository.findByClientRequest(input.user_id,clientRequestId);
     if(existing)return existing;
 
+    if(capabilityProducesFileOutput(input.capability_id)){
+      const storage=await assetReferenceResolver.runStorageDiagnostic();
+      if(!storage.is_configured||storage.write_test!=='PASS'||storage.read_test!=='PASS'){
+        console.warn('[GenerationStartStorageUnavailable]',JSON.stringify({
+          capability_id:input.capability_id,
+          write_test:storage.write_test,
+          read_test:storage.read_test,
+          error:storage.details?.error||null,
+        }));
+        throw Object.assign(new Error('O armazenamento de arquivos está indisponível. Nenhum crédito foi reservado e nenhuma geração foi enviada ao provider.'),{
+          code:'ASSET_STORAGE_UNAVAILABLE',
+          status:503,
+        });
+      }
+    }
+
     const preview=await this.preview(input);
     const authorized=Number(input.authorized_credit_price);
     const pricingId=`routing-v2:${preview.route.route_id}:${preview.pricing_fetched_at}`;
@@ -356,6 +374,11 @@ export const routingV2ExecutionService={
     if(!adapter?.checkGeneration)throw Object.assign(new Error('Adapter V2 não possui consulta de status.'),{code:'ROUTING_V2_STATUS_UNAVAILABLE'});
 
     const status=await adapter.checkGeneration(provider,String(generation.provider_job_id||''));
+    if(provider.provider_id==='provider-runware'&&status.status==='SUCCEEDED'){
+      const cost=normalizeProviderCostUsd(status.provider_cost_usd);
+      if(cost===null)console.error('[RunwareCostMissing]',JSON.stringify({generation_id:generationId,provider_job_id:generation.provider_job_id}));
+      else try{await saveRunwareProviderCost(generationId,cost);}catch(error:any){console.error('[RunwareCostLedgerFailure]',JSON.stringify({generation_id:generationId,code:String(error?.code||'PROVIDER_COST_LEDGER_FAILED'),message:String(error?.message||error).slice(0,200)}));}
+    }
     generation.progress_percent=status.progress_percent??generation.progress_percent??0;
     if(status.status==='QUEUED'||status.status==='PROCESSING'){
       generation.status=status.status;

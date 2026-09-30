@@ -96,16 +96,17 @@ export const runtimeDependencyHealthService={
 
     try{
       const storage=await assetReferenceResolver.runStorageDiagnostic();
-      const available=storage.is_configured&&storage.signed_url_test==='PASS';
+      const available=storage.is_configured&&storage.read_test==='PASS';
       checks.push({
         key:'storage',
         status:!storage.is_configured?'ERROR':available?'OK':'DEGRADED',
         code:!storage.is_configured?'MISSING_BINDING':available?'SIGNED_READ_CONFIRMED':storage.details?.error||'STORAGE_READ_UNVERIFIED',
         detail:storage.message,
-        metadata:{signed_url_test:storage.signed_url_test,bucket_accessible:Boolean(storage.details?.bucket_accessible),write_test:storage.write_test},
+        metadata:{read_test:storage.read_test,bucket_accessible:Boolean(storage.details?.bucket_accessible),write_test:storage.write_test,legacy_storage_available:storage.details?.legacy_storage_available??null,legacy_storage_error:storage.details?.legacy_storage_error||null},
       });
-    }catch{
-      checks.push({key:'storage',status:'ERROR',code:'STORAGE_DIAGNOSTIC_FAILED',detail:'Não foi possível validar o acesso de leitura ao Storage.'});
+    }catch(error:any){
+      const code=String(error?.code||'STORAGE_DIAGNOSTIC_FAILED');
+      checks.push({key:'storage',status:'ERROR',code,detail:'Não foi possível validar o acesso de gravação e leitura ao Storage.'});
     }
 
     const packs=packCatalogService.list();

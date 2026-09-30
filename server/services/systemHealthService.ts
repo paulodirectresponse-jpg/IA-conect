@@ -11,6 +11,8 @@ export interface SystemHealthCheck{
   label:string;
   status:SystemHealthStatus;
   detail:string;
+  code?:string;
+  metadata?:Record<string,string|number|boolean|null>;
 }
 
 export const systemHealthService={
@@ -80,11 +82,13 @@ export const systemHealthService={
       checks.push({
         key:'storage',
         label:'Assets',
-        status:!storage.is_configured?'ERROR':storage.signed_url_test==='PASS'?'OK':'DEGRADED',
+        status:!storage.is_configured?'ERROR':storage.read_test==='PASS'?'OK':'DEGRADED',
         detail:storage.message,
+        metadata:{write_test:storage.write_test,read_test:storage.read_test,legacy_storage_available:storage.details?.legacy_storage_available??null,legacy_storage_error:storage.details?.legacy_storage_error||null},
       });
-    }catch{
-      checks.push({key:'storage',label:'Assets',status:'ERROR',detail:'Não foi possível validar o armazenamento de assets.'});
+    }catch(error:any){
+      const code=String(error?.code||'STORAGE_DIAGNOSTIC_FAILED');
+      checks.push({key:'storage',label:'Assets',status:'ERROR',code,detail:'Não foi possível validar o armazenamento de assets.'});
     }
 
     try{

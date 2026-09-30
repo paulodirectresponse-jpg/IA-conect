@@ -94,7 +94,9 @@ export class RunwareProviderAdapter extends CatalogPricedAdapter{
     if(!this.key)throw Object.assign(new Error('Runware não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});
     const body=await requestJson(this.url,{method:'POST',headers:this.headers(),body:JSON.stringify([{taskType:'getResponse',taskUUID:id}])});
     const err=body?.errors?.[0];if(err)return{provider_job_id:id,status:'FAILED',error_code:String(err.code||''),error_message:String(err.message||'Falha na Runware.')};
-    const data=body?.data?.find?.((item:any)=>item?.taskUUID===id)||body?.data?.[0]||{};return result(id,String(data.status||'processing'),data);
+    const data=body?.data?.find?.((item:any)=>item?.taskUUID===id)||body?.data?.[0]||{};const parsed=result(id,String(data.status||'processing'),data);
+    const cost=Number(data?.cost);if(parsed.status==='SUCCEEDED'&&data?.cost!==null&&data?.cost!==undefined&&Number.isFinite(cost)&&cost>=0)parsed.provider_cost_usd=cost;
+    return parsed;
   }
 }
 

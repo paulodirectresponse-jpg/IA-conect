@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { listAimlCatalogModels, listDeepInfraCatalogModels, listFalCatalogModels, listReplicateCatalogModels, searchRunwareCatalogModels } from './providerCatalogService.js';
+import { listAimlCatalogModels, listDeepInfraCatalogModels, listFalCatalogModels, listReplicateCatalogModels, listWaveSpeedCatalogModels, searchRunwareCatalogModels } from './providerCatalogService.js';
 
 function mockJson(body:any,status=200){
   vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})));
@@ -7,7 +7,7 @@ function mockJson(body:any,status=200){
 }
 
 describe('live read-only provider model catalogs',()=>{
-  afterEach(()=>{vi.unstubAllEnvs();vi.restoreAllMocks();});
+  afterEach(()=>{vi.useRealTimers();vi.unstubAllEnvs();vi.restoreAllMocks();});
 
   it('queries the fal.ai model search with its documented Key authorization header',async()=>{
     vi.stubEnv('FAL_API_KEY','fal-test-key');
@@ -52,5 +52,24 @@ describe('live read-only provider model catalogs',()=>{
     expect(page).toMatchObject({total_results:245,offset:100,limit:50});
     expect(page.rows[0]).toMatchObject({provider_model_identifier:'bytedance:seedance-2-0@1',capabilities:['image-to-video'],metadata:{source:'featured',tags:['video']}});
     expect(fetchMock).toHaveBeenCalledWith('https://api.runware.ai/v1',expect.objectContaining({headers:{Authorization:'Bearer runware-test-key','Content-Type':'application/json'}}));
+  });
+
+  it('reports a clear bounded timeout when the WaveSpeed catalog does not answer',async()=>{
+    vi.stubEnv('WAVESPEED_API_KEY','wavespeed-test-key');
+    vi.useFakeTimers();
+    const fetchMock=vi.fn((_url:any,init:any)=>new Promise((_resolve,reject)=>{
+      init.signal.addEventListener('abort',()=>reject(Object.assign(new Error('The operation was aborted'),{name:'AbortError'})),{once:true});
+    }));
+    vi.stubGlobal('fetch',fetchMock);
+
+    const request=listWaveSpeedCatalogModels();
+    const rejection=expect(request).rejects.toMatchObject({
+      code:'WAVESPEED_CATALOG_TIMEOUT',
+      message:'WaveSpeed catalog request timed out after 15000ms.',
+    });
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    await rejection;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

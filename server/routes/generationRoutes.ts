@@ -483,6 +483,8 @@ generationRouter.post(
       const status =
         err?.code === "CREDIT_INSUFFICIENT_FUNDS"
           ? 402
+          : err?.code === "ASSET_STORAGE_UNAVAILABLE"
+            ? 503
           : err?.code === "PRICE_CHANGED_REQUOTE_REQUIRED"
             ? 409
             : err?.code === "NO_SAFE_PROVIDER_AVAILABLE"

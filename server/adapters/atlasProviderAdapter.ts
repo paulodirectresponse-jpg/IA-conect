@@ -155,8 +155,17 @@ export class AtlasProviderAdapter implements VideoProviderAdapter {
       });
       const text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}
       if(!res.ok){
-        const detail=body?.data?.message||body?.data?.error?.message||body?.error?.message||body?.error||body?.message||body?.detail||text.trim().slice(0,400);
-        throw Object.assign(new Error(String(detail||('Atlas pricing HTTP '+res.status))),{code:'ATLAS_PRICE_HTTP_'+res.status});
+        const rawDetail=body?.data?.message||body?.data?.error?.message||body?.error?.message||body?.error||body?.message||body?.detail||text;
+        const detail=String(rawDetail||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,280);
+        const providerCode=body?.data?.error?.code??body?.data?.code??body?.error?.code??body?.error_code??body?.code;
+        const cfRay=res.headers.get('cf-ray');
+        const retryAfter=res.headers.get('retry-after');
+        const diagnostics=[`Atlas pricing HTTP ${res.status}`];
+        if(providerCode!==undefined&&providerCode!==null)diagnostics.push(`provider code ${String(providerCode).slice(0,80)}`);
+        if(cfRay)diagnostics.push(`cf-ray ${cfRay.slice(0,100)}`);
+        if(retryAfter)diagnostics.push(`Retry-After ${retryAfter.slice(0,40)}`);
+        if(detail)diagnostics.push(detail);
+        throw Object.assign(new Error(diagnostics.join(' · ')),{code:'ATLAS_PRICE_HTTP_'+res.status,http_status:res.status,provider_code:providerCode??null,cf_ray:cfRay||null,retry_after:retryAfter||null});
       }
       const data=body?.data??body;
       const unit=Number(data?.price);

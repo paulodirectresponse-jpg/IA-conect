@@ -53,6 +53,7 @@ export interface ProviderJobStatusResult {
   provider_job_id: string;
   status: 'QUEUED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';
   progress_percent?: number;
+  provider_cost_usd?: number;
   result_video_url?: string;
   result_image_urls?: string[];
   result_urls?: string[];

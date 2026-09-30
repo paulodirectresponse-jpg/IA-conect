@@ -12,9 +12,12 @@ function asArray(value:any):any[]{
   return [];
 }
 
-async function readJson(url:string,init?:RequestInit){
+async function readJson(url:string,init?:RequestInit,options:{timeoutMs?:number;timeoutCode?:string;timeoutLabel?:string}={}){
+  const timeoutMs=Math.max(1,Math.trunc(Number(options.timeoutMs)||5500));
+  const timeoutCode=options.timeoutCode||'ROUTING_V2_CATALOG_TIMEOUT';
+  const timeoutLabel=options.timeoutLabel||'Provider catalog';
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),5500);
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{
     const response=await fetch(url,{...init,signal:controller.signal});
     const text=await response.text();
@@ -26,6 +29,11 @@ async function readJson(url:string,init?:RequestInit){
       throw Object.assign(new Error(message),{code:`ROUTING_V2_CATALOG_HTTP_${response.status}`});
     }
     return body;
+  }catch(error:any){
+    if(controller.signal.aborted||error?.name==='AbortError'){
+      throw Object.assign(new Error(`${timeoutLabel} request timed out after ${timeoutMs}ms.`),{code:timeoutCode});
+    }
+    throw error;
   }finally{
     clearTimeout(timer);
   }
@@ -173,7 +181,7 @@ export async function listWaveSpeedCatalogModels(query=''):Promise<RoutingV2Cata
   const base=trimWaveSpeedBase(process.env.WAVESPEED_BASE_URL);
   const body=await readJson(`${base}/api/v3/models`,{
     headers:{Authorization:`Bearer ${apiKey}`},
-  });
+  },{timeoutMs:15_000,timeoutCode:'WAVESPEED_CATALOG_TIMEOUT',timeoutLabel:'WaveSpeed catalog'});
   const q=clean(query).toLowerCase();
   const rows=asArray(body);
   return rows.map((row:any)=>{

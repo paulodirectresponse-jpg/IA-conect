@@ -105,11 +105,15 @@ async function userAssets(userId:string):Promise<Asset[]> {
 }
 
 export const assetRepository={
-  async findArchivedStorageProbeAsset():Promise<Asset|null> {
+  async findLegacyStorageProbeAsset():Promise<Asset|null> {
     const rows=await firestoreAdminRest.runQuery({from:[{collectionId:'assets'}],limit:500});
     return rows
       .map((row:any)=>row.data as Asset)
-      .filter((asset)=>!asset.deleted_at&&asset.status==='READY'&&asset.media_metadata?.archived===true&&Boolean(asset.storage_path)&&!String(asset.storage_path).startsWith('provider://'))
+      .filter((asset)=>{
+        if(asset.deleted_at||asset.status!=='READY'||!asset.storage_path||String(asset.storage_path).startsWith('provider://'))return false;
+        if(!asset.public_url)return true;
+        try{return new URL(asset.public_url).hostname.endsWith('.supabase.co');}catch{return false;}
+      })
       .sort((a,b)=>Date.parse(b.updated_at||b.created_at)-Date.parse(a.updated_at||a.created_at))[0]||null;
   },
 
@@ -203,7 +207,7 @@ export const assetRepository={
     return asset;
   },
 
-  async updateAsset(assetId:string,userId:string,updates:{name?:string;alias?:string;category?:AssetCategory;status?:AssetStatus;public_url?:string;thumbnail_url?:string;preview_url?:string|null;preview_mime_type?:string|null;width?:number|null;height?:number|null;duration_seconds?:number|null;storage_path?:string;thumbnail_storage_path?:string;source_job_id?:string|null;derived_from_asset_id?:string|null;media_metadata?:Record<string,string|number|boolean|null>}):Promise<Asset> {
+  async updateAsset(assetId:string,userId:string,updates:{name?:string;alias?:string;category?:AssetCategory;status?:AssetStatus;public_url?:string;thumbnail_url?:string;preview_url?:string|null;preview_mime_type?:string|null;mime_type?:string;size_bytes?:number;width?:number|null;height?:number|null;duration_seconds?:number|null;storage_path?:string;thumbnail_storage_path?:string;source_job_id?:string|null;derived_from_asset_id?:string|null;media_metadata?:Record<string,string|number|boolean|null>}):Promise<Asset> {
     const existing=await this.getAsset(assetId,userId);
     if(!existing)throw new Error('Asset não encontrado ou sem permissão.');
     const nextUpdates={...updates};

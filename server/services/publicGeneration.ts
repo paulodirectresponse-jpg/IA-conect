@@ -58,7 +58,7 @@ export function publicGeneration(g: any) {
     result_url: storagePending ? null : g.result_url,
     result_urls: storagePending ? [] : g.result_urls,
     pending_result_urls: pendingResultUrls,
-    thumbnail_url: g.thumbnail_url,
+    thumbnail_url: storagePending ? null : g.thumbnail_url,
     media_storage_status: g.media_storage_status,
     media_storage_error_code: storageErrorCode,
     error_code: publicFailure?.code ?? null,

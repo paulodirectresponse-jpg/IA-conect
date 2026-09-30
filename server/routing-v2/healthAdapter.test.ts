@@ -224,7 +224,10 @@ describe('RunwareHealthCheck', () => {
 
   it('uses the bounded official Runware modelSearch health probe',async()=>{
     vi.stubEnv('RUNWARE_API_KEY','test-key');
-    const fetchMock=vi.fn(()=>Promise.resolve({status:200,json:()=>Promise.resolve({data:[{taskUUID:'health-check'}]})}));
+    const fetchMock=vi.fn((_url:any,init:any)=>{
+      const request=JSON.parse(init.body)[0];
+      return Promise.resolve({status:200,json:()=>Promise.resolve({data:[{taskUUID:request.taskUUID,results:[{air:'runware:flux-test@1'}]}]})});
+    });
     global.fetch=fetchMock as any;
     const result=await checkProviderHealth({...mockProvider,provider_id:'provider-runware'});
 
@@ -234,6 +237,18 @@ describe('RunwareHealthCheck', () => {
       headers:expect.objectContaining({Authorization:'Bearer test-key'}),
       body:expect.stringContaining('"search":"FLUX"'),
     }));
+  });
+
+  it('does not report Runware healthy for an empty or malformed modelSearch result',async()=>{
+    vi.stubEnv('RUNWARE_API_KEY','test-key');
+    const fetchMock=vi.fn((_url:any,init:any)=>{
+      const request=JSON.parse(init.body)[0];
+      return Promise.resolve({status:200,json:()=>Promise.resolve({data:[{taskUUID:request.taskUUID,results:[]}]})});
+    });
+    global.fetch=fetchMock as any;
+    const result=await checkProviderHealth({...mockProvider,provider_id:'provider-runware'});
+    expect(result.status).toBe('DEGRADED');
+    expect(result.message).toContain('sem modelos válidos');
   });
 
   it('reports a Runware catalog throttle as DEGRADED with its cause',async()=>{

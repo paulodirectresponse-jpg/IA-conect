@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient.js';
+import { auth } from '../config/firebase.js';
 import { Asset, AssetType, AssetCategory, WorkspaceReference } from '../types/index.js';
 import { ASSET_UPLOAD_LIMITS } from '../config/constants.js';
 
@@ -28,20 +29,9 @@ export interface OptimisticImageUploadHandle {
   cancel:()=>void;
 }
 
-interface SignedUploadResponse {
-  asset_id:string;
-  type:AssetType;
-  storage_path:string;
-  signed_url:string;
-  token:string;
-  public_url:string;
-  bucket:string;
-}
-
 interface UploadTarget {
   storage_path:string;
-  signed_url:string;
-  token:string;
+  upload_url:string;
   public_url:string;
 }
 
@@ -52,9 +42,20 @@ interface UploadTicketResponse {
   bucket:string;
 }
 
-const IMMUTABLE_CACHE_SECONDS=31536000;
+export interface AssetRecoveryError {code:string;http_status?:number}
+export interface AssetRecoveryBatch {
+  cursor:number;
+  next_cursor:number|null;
+  done:boolean;
+  recovered:number;
+  unavailable:number;
+  failed:number;
+  processed:number;
+  details:Array<{generation_id:string;outcome:string;errors:AssetRecoveryError[]}>;
+}
+
 const pendingUploads=new Map<string,Promise<Asset>>();
-let legacyRecoveryPromise:Promise<{cursor:number;next_cursor:number|null;done:boolean;recovered:number;unavailable:number;processed:number}>|null=null;
+let legacyRecoveryPromise:Promise<AssetRecoveryBatch>|null=null;
 
 export function sanitizeAlias(v:string){
   return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]/g,'_').replace(/^_+|_+$/g,'').replace(/_+/g,'_');
@@ -73,18 +74,23 @@ function emitUploadEvent(name:string,detail:any){
   if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent(name,{detail}));
 }
 
-function uploadToSignedUrl(
+async function uploadToStorageUrl(
   url:string,
   body:Blob,
-  filename:string,
   onProgress?:(percent:number)=>void,
   onTaskReady?:(task:{cancel:()=>void})=>void,
   timeoutMs=120000,
 ){
+  await auth.authStateReady();
+  const user=auth.currentUser;
+  if(!user)throw new Error('Sua sessão expirou. Entre novamente para enviar arquivos.');
+  const idToken=await user.getIdToken();
   return new Promise<void>((resolve,reject)=>{
     const xhr=new XMLHttpRequest();
     xhr.open('PUT',url,true);
     xhr.timeout=timeoutMs;
+    xhr.setRequestHeader('Authorization',`Bearer ${idToken}`);
+    xhr.setRequestHeader('Content-Type',body.type||'application/octet-stream');
     xhr.upload.onprogress=(event)=>{
       if(event.lengthComputable){
         const pct=Math.round((event.loaded/event.total)*100);
@@ -96,13 +102,16 @@ function uploadToSignedUrl(
     xhr.onabort=()=>reject(new Error('Envio cancelado.'));
     xhr.onload=()=>{
       if(xhr.status>=200&&xhr.status<300)resolve();
-      else reject(new Error(`O armazenamento recusou o envio (${xhr.status}).`));
+      else{
+        let detail:any={};
+        try{detail=JSON.parse(xhr.responseText||'{}');}catch{}
+        const code=String(detail?.error?.code||'ASSET_UPLOAD_FAILED');
+        const message=String(detail?.error?.message||`O armazenamento recusou o envio (${xhr.status}).`);
+        reject(Object.assign(new Error(`${message} [${code}]`),{code,status:xhr.status}));
+      }
     };
-    const form=new FormData();
-    form.append('cacheControl',String(IMMUTABLE_CACHE_SECONDS));
-    form.append('',body,filename);
     onTaskReady?.({cancel:()=>xhr.abort()});
-    xhr.send(form);
+    xhr.send(body);
   });
 }
 
@@ -201,9 +210,9 @@ function createOptimisticImageUpload(params:UploadAssetParams,gate?:Promise<void
       const registerTask=(task:{cancel:()=>void})=>{activeTasks.add(task);onTaskReady?.({cancel:()=>task.cancel()});};
 
       await Promise.all([
-        uploadToSignedUrl(ticket.original.signed_url,file,file.name,(pct)=>{originalProgress=pct;updateCombined();},registerTask,timeoutMs),
+        uploadToStorageUrl(ticket.original.upload_url,file,(pct)=>{originalProgress=pct;updateCombined();},registerTask,timeoutMs),
         ticket.thumbnail
-          ? uploadToSignedUrl(ticket.thumbnail.signed_url,metadata.thumbnail,'thumbnail.webp',(pct)=>{thumbnailProgress=pct;updateCombined();},registerTask,timeoutMs)
+          ? uploadToStorageUrl(ticket.thumbnail.upload_url,metadata.thumbnail,(pct)=>{thumbnailProgress=pct;updateCombined();},registerTask,timeoutMs)
           : Promise.resolve(),
       ]);
       if(cancelled)throw new Error('Envio cancelado.');
@@ -300,42 +309,26 @@ async function legacyUpload(params:UploadAssetParams,type:AssetType):Promise<Ass
   const {file,name,alias,category,onProgress,onTaskReady,timeoutMs=120000}=params;
   const effectiveCategory:AssetCategory=category||(type==='AUDIO'?'AUDIO_REFERENCE':type==='MODEL_3D'?'GENERIC':'PRODUCT');
   onProgress?.(5);
-  const signed=await apiRequest<SignedUploadResponse>('/api/assets/signed-upload',{
+  const ticket=await apiRequest<UploadTicketResponse>('/api/assets/upload-ticket',{
     method:'POST',
-    body:JSON.stringify({filename:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size}),
+    body:JSON.stringify({filename:file.name,name:(name||fileDisplayName(file)).trim(),alias:alias?sanitizeAlias(alias):undefined,category:effectiveCategory,mime_type:file.type||'application/octet-stream',size_bytes:file.size}),
   });
-
-  await uploadToSignedUrl(
-    signed.signed_url,
-    file,
-    file.name,
-    (pct)=>onProgress?.(5+(pct*0.90)),
-    onTaskReady,
-    timeoutMs,
-  );
-
-  const asset=await apiRequest<Asset>('/api/assets',{
+  const metadata=type==='IMAGE'?await imageMetadataAndThumbnail(file):null;
+  const uploads=[uploadToStorageUrl(ticket.original.upload_url,file,(pct)=>onProgress?.(5+(pct*0.82)),onTaskReady,timeoutMs)];
+  if(ticket.thumbnail&&metadata)uploads.push(uploadToStorageUrl(ticket.thumbnail.upload_url,metadata.thumbnail,(pct)=>onProgress?.(5+(pct*0.82)),onTaskReady,timeoutMs));
+  await Promise.all(uploads);
+  const asset=await apiRequest<Asset>(`/api/assets/${encodeURIComponent(ticket.asset.asset_id)}/complete`,{
     method:'POST',
-    body:JSON.stringify({
-      asset_id:signed.asset_id,
-      name:(name||file.name).trim(),
-      alias:alias?sanitizeAlias(alias):undefined,
-      category:effectiveCategory,
-      mime_type:file.type||'application/octet-stream',
-      size_bytes:file.size,
-      filename:file.name,
-      storage_path:signed.storage_path,
-      public_url:signed.public_url,
-    }),
+    body:JSON.stringify(metadata?{width:metadata.width,height:metadata.height}:{}),
   });
   onProgress?.(100);
   return asset;
 }
 
 export const assetService={
-  recoverLegacyGeneratedHistory(cursor=0,limit=5):Promise<{cursor:number;next_cursor:number|null;done:boolean;recovered:number;unavailable:number;processed:number}>{
+  recoverLegacyGeneratedHistory(cursor=0,limit=5):Promise<AssetRecoveryBatch>{
     if(legacyRecoveryPromise)return legacyRecoveryPromise;
-    legacyRecoveryPromise=apiRequest<{cursor:number;next_cursor:number|null;done:boolean;processed:number;recovered:number;unavailable:number}>('/api/assets/recover-generated',{
+    legacyRecoveryPromise=apiRequest<AssetRecoveryBatch>('/api/assets/recover-generated',{
       method:'POST',
       body:JSON.stringify({cursor,limit:Math.min(5,Math.max(1,limit))}),
     }).finally(()=>{legacyRecoveryPromise=null;});

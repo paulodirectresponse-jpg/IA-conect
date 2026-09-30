@@ -58,6 +58,7 @@ export interface RoutingV2GenerationStatus{
   provider_job_id:string;
   status:'QUEUED'|'PROCESSING'|'SUCCEEDED'|'FAILED';
   progress_percent?:number|null;
+  provider_cost_usd?:number|null;
   result_urls?:string[];
   error_code?:string|null;
   error_message?:string|null;
@@ -67,6 +68,7 @@ export interface RoutingV2ProviderAdapter{
   readonly adapter_id:string;
   readonly provider_id:string;
   isConfigured(provider:RoutingV2Provider):boolean;
+  supportsRoute?(provider:RoutingV2Provider,modelId:string,capabilityId:CapabilityId,providerModelIdentifier:string):boolean;
   health(provider:RoutingV2Provider):Promise<RoutingV2ProviderHealth>;
   balance?(provider:RoutingV2Provider):Promise<RoutingV2ProviderBalance>;
   listModels?(provider:RoutingV2Provider,query?:string):Promise<RoutingV2CatalogModel[]>;

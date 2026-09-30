@@ -194,6 +194,18 @@ describe('Routing Core V2 Admin',()=>{
     expect(models).toContain('async updateIdentity');
   });
 
+  it('consolidates final catalog rows by normalized display identity and reports merged entries',()=>{
+    const routes=read('server/routes/adminRoutingV2Routes.ts');
+    const deduplication=read('server/routing-v2/unifiedCatalogDeduplication.ts');
+    const view=read('src/components/admin/AdminRoutingV2.tsx');
+    expect(routes).toContain('mergeUnifiedCatalogDuplicates(normalizedRows)');
+    expect(routes).toContain('duplicate_rows_merged:deduplicated.merged_count');
+    expect(deduplication).toContain('.replace(/(\\d+)\\.0\\b/g, "$1")');
+    expect(deduplication).toContain('mergeBindings(previous.providers || [], row.providers || [])');
+    expect(view).toContain('catalogDuplicatesMerged>0');
+    expect(view).toContain('entrada(s) equivalente(s) agrupada(s)');
+  });
+
   it('cleans technical image catalog noise without changing provider discovery',()=>{
     const routes=read('server/routes/adminRoutingV2Routes.ts');
     expect(routes).toContain("isTechnicalImageCatalogNoise");
@@ -215,7 +227,9 @@ describe('Routing Core V2 Admin',()=>{
     expect(routes).toContain('firstPage.total_results');
     expect(routes).toContain('source_truncated:diagnostics.some');
     expect(routes).not.toContain('catalogSearchTerms(query)');
-    expect(catalog).toContain("controller.abort(),5500");
+    expect(catalog).toContain("Number(options.timeoutMs)||5500");
+    expect(catalog).toContain("timeoutMs:15_000");
+    expect(routes).toContain("withTimeout(listWaveSpeedCatalogModels(),'WaveSpeed',16_000)");
   });
 
   it('fetches WaveSpeed Atlas and Runware directly in unified catalog and exposes diagnostics',()=>{

@@ -1,8 +1,6 @@
 import React,{useState}from 'react';
 import { ArrowRight,Play } from 'lucide-react';
-
-const SHOWCASE_STORAGE_BASE='https://hzjyhhenajbjxkwkmzdg.supabase.co/storage/v1/object/public/ia-conect-assets/showcase';
-export const showcaseVideo=(fileName:string)=>`${SHOWCASE_STORAGE_BASE}/${encodeURIComponent(fileName)}`;
+import { showcaseVideoUrl } from '../../utils/showcaseMedia.js';
 export interface ShowcaseItem {
   modelId:string;
   name:string;
@@ -17,11 +15,11 @@ export interface ShowcaseItem {
 }
 
 export const SHOWCASE_MODELS:ShowcaseItem[]=[
-  {modelId:'kling-3-0',name:'Kling 3.0',mode:'VIDEO',videoSrc:showcaseVideo('Kling.mp4'),posterSrc:'/model-covers/kling-3-0.webp',sourceLabel:'IA Connect showcase',headline:'Personagens, acting e movimento cinematográfico',description:'Movimento natural, direção de câmera e takes com acabamento cinematográfico.',badges:['cinematográfico','personagens','vídeo'],availableInStudio:true},
-  {modelId:'google-omni-flash',name:'Omni Flash',mode:'VIDEO',videoSrc:showcaseVideo('Omni flash.mp4'),posterSrc:'/model-covers/google-omni-flash.webp',sourceLabel:'IA Connect showcase',headline:'Vídeo multimodal com velocidade e qualidade',description:'Transforme texto, imagem e referências em um fluxo de criação multimodal.',badges:['multimodal','áudio','vídeo'],availableInStudio:true},
-  {modelId:'seedance-2-5',name:'Seedance 2.5',mode:'VIDEO',videoSrc:showcaseVideo('Seedance 2.5.mp4'),posterSrc:'/model-covers/seedance-2-5.webp',sourceLabel:'IA Connect showcase',headline:'Cenas longas e consistência visual',description:'Geração cinematográfica multimodal com áudio nativo e referências densas.',badges:['consistência','cenas','vídeo'],availableInStudio:true},
-  {modelId:'wan-3-0',name:'WAN 3.0',mode:'VIDEO',videoSrc:showcaseVideo('Wan 3.0.mp4'),posterSrc:'/model-covers/wan-3-0.webp',sourceLabel:'IA Connect showcase',headline:'Realismo cinematográfico e referências',description:'Vídeo all-in-one com ótimo custo-benefício, áudio e referências.',badges:['realismo','referências','vídeo'],availableInStudio:true},
-  {modelId:'wan-3-0-prime',name:'WAN 3.0 Prime',mode:'VIDEO',videoSrc:showcaseVideo('Wan 3.0 prime.mp4'),posterSrc:'/model-covers/wan-3-0-prime.webp',sourceLabel:'IA Connect showcase',headline:'Qualidade premium para takes finais',description:'Modelo premium all-in-one com áudio nativo, referências multimodais e até 30s.',badges:['premium','referências','vídeo'],availableInStudio:true},
+  {modelId:'kling-3-0',name:'Kling 3.0',mode:'VIDEO',videoSrc:showcaseVideoUrl('Kling.mp4'),posterSrc:'/model-covers/kling-3-0.webp',sourceLabel:'IA Connect showcase',headline:'Personagens, acting e movimento cinematográfico',description:'Movimento natural, direção de câmera e takes com acabamento cinematográfico.',badges:['cinematográfico','personagens','vídeo'],availableInStudio:true},
+  {modelId:'google-omni-flash',name:'Omni Flash',mode:'VIDEO',videoSrc:showcaseVideoUrl('Omni flash.mp4'),posterSrc:'/model-covers/google-omni-flash.webp',sourceLabel:'IA Connect showcase',headline:'Vídeo multimodal com velocidade e qualidade',description:'Transforme texto, imagem e referências em um fluxo de criação multimodal.',badges:['multimodal','áudio','vídeo'],availableInStudio:true},
+  {modelId:'seedance-2-5',name:'Seedance 2.5',mode:'VIDEO',videoSrc:showcaseVideoUrl('Seedance 2.5.mp4'),posterSrc:'/model-covers/seedance-2-5.webp',sourceLabel:'IA Connect showcase',headline:'Cenas longas e consistência visual',description:'Geração cinematográfica multimodal com áudio nativo e referências densas.',badges:['consistência','cenas','vídeo'],availableInStudio:true},
+  {modelId:'wan-3-0',name:'WAN 3.0',mode:'VIDEO',videoSrc:showcaseVideoUrl('Wan 3.0.mp4'),posterSrc:'/model-covers/wan-3-0.webp',sourceLabel:'IA Connect showcase',headline:'Realismo cinematográfico e referências',description:'Vídeo all-in-one com ótimo custo-benefício, áudio e referências.',badges:['realismo','referências','vídeo'],availableInStudio:true},
+  {modelId:'wan-3-0-prime',name:'WAN 3.0 Prime',mode:'VIDEO',videoSrc:showcaseVideoUrl('Wan 3.0 prime.mp4'),posterSrc:'/model-covers/wan-3-0-prime.webp',sourceLabel:'IA Connect showcase',headline:'Qualidade premium para takes finais',description:'Modelo premium all-in-one com áudio nativo, referências multimodais e até 30s.',badges:['premium','referências','vídeo'],availableInStudio:true},
 ];
 
 const OnDemandPreview:React.FC<{item:ShowcaseItem}>=({item})=>{

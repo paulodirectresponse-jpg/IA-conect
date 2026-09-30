@@ -20,11 +20,12 @@ describe('PR-05 Universal Assets architecture',()=>{
     expect(repo).toContain('includeUniversal?:boolean');
   });
 
-  it('requires Beta generated outputs to be archived outside Firestore before READY registration',()=>{
+  it('requires every generated output to be archived outside Firestore before READY registration',()=>{
     const generation=read('server/services/generationService.ts');
-    expect(generation).toContain('strictArchive=Boolean(generation.source_job_id)');
     expect(generation).toContain('generatedAssetStorageService.archive');
-    expect(generation).toContain("storage_path:storagePath");
+    expect(generation).toContain('async function archiveGeneratedOutputs');
+    expect(generation).toContain("g.media_storage_status='PENDING'");
+    expect(generation).toContain('return archiveGeneratedOutputs(g,savedProviderUrls)');
     expect(generation).not.toMatch(/base64.*createAsset|createAsset.*base64/i);
   });
 
@@ -47,10 +48,10 @@ describe('PR-05 Universal Assets architecture',()=>{
   });
 
   it('does not store generated binary payloads inside Firestore documents',()=>{
-    const storage=read('server/services/generatedAssetStorageService.ts');
+    const storage=read('server/services/r2AssetStorageService.ts');
     const repo=read('server/repositories/assetRepository.ts');
-    expect(storage).toContain('/storage/v1/object/');
-    expect(storage).toContain('body:buffer');
+    expect(storage).toContain('bucket().put(key,limited');
+    expect(storage).toContain('bucket().head(key)');
     expect(repo).not.toMatch(/binary_data|file_bytes|base64_data/);
   });
 });

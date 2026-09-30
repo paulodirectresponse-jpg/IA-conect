@@ -1,86 +1,93 @@
-import { afterEach,describe,expect,it,vi } from 'vitest';
-import { generatedAssetStorageService } from './generatedAssetStorageService.js';
+import {afterEach,describe,expect,it,vi} from 'vitest';
+import {configureR2AssetBucket,R2AssetBucketPort} from './r2AssetStorageService.js';
+import {generatedAssetStorageService} from './generatedAssetStorageService.js';
 
-const previous={
-  SUPABASE_URL:process.env.SUPABASE_URL,
-  SUPABASE_SECRET_KEY:process.env.SUPABASE_SECRET_KEY,
-  SUPABASE_BUCKET:process.env.SUPABASE_BUCKET,
-};
+function fakeBucket(options:{confirmWrites?:boolean}={}) :R2AssetBucketPort{
+  const files=new Map<string,Uint8Array>();
+  const headers=new Map<string,{contentType?:string;cacheControl?:string}>();
+  const metadata=(key:string)=>({
+    writeHttpMetadata(target:Headers){
+      const value=headers.get(key);
+      if(value?.contentType)target.set('content-type',value.contentType);
+      if(value?.cacheControl)target.set('cache-control',value.cacheControl);
+    },
+    httpEtag:`etag-${key}`,
+  });
+  return{
+    async put(key,value,options){
+      headers.set(key,options?.httpMetadata||{});
+      if(value instanceof ReadableStream){
+        const chunks:Uint8Array[]=[];
+        const reader=value.getReader();
+        while(true){const part=await reader.read();if(part.done)break;chunks.push(part.value);}
+        const size=chunks.reduce((sum,chunk)=>sum+chunk.byteLength,0);
+        const bytes=new Uint8Array(size);let offset=0;
+        for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+        files.set(key,bytes);
+      }else if(value instanceof ArrayBuffer)files.set(key,new Uint8Array(value));
+      else files.set(key,value);
+    },
+    async head(key){
+      if(options.confirmWrites===false)return null;
+      const bytes=files.get(key);
+      return bytes?{...metadata(key),size:bytes.byteLength}:null;
+    },
+    async get(key){const bytes=files.get(key);return bytes?{...metadata(key),size:bytes.byteLength,body:new Response(bytes).body!}:null;},
+    async delete(key){files.delete(key);},
+  };
+}
 
 afterEach(()=>{
   vi.restoreAllMocks();
-  if(previous.SUPABASE_URL===undefined)delete process.env.SUPABASE_URL;else process.env.SUPABASE_URL=previous.SUPABASE_URL;
-  if(previous.SUPABASE_SECRET_KEY===undefined)delete process.env.SUPABASE_SECRET_KEY;else process.env.SUPABASE_SECRET_KEY=previous.SUPABASE_SECRET_KEY;
-  if(previous.SUPABASE_BUCKET===undefined)delete process.env.SUPABASE_BUCKET;else process.env.SUPABASE_BUCKET=previous.SUPABASE_BUCKET;
+  configureR2AssetBucket(null);
 });
 
-describe('PR-05 generated asset storage',()=>{
-  it('archives provider output into a user-owned deterministic storage path',async()=>{
-    process.env.SUPABASE_URL='https://storage.example';
-    process.env.SUPABASE_SECRET_KEY='server-secret';
-    process.env.SUPABASE_BUCKET='assets';
-
-    const fetchMock=vi.spyOn(globalThis,'fetch');
-    fetchMock
-      .mockResolvedValueOnce(new Response(new Uint8Array([1,2,3]),{status:200,headers:{'content-type':'image/png','content-length':'3'}}))
-      .mockResolvedValueOnce(new Response('{}',{status:200}))
-      .mockResolvedValueOnce(new Response(null,{status:200}));
+describe('generated asset archival in Cloudflare R2',()=>{
+  it('streams provider output to a confirmed user-owned object and returns the app media URL',async()=>{
+    configureR2AssetBucket(fakeBucket());
+    const fetchMock=vi.spyOn(globalThis,'fetch').mockResolvedValueOnce(new Response(new Uint8Array([1,2,3]),{
+      status:200,
+      headers:{'content-type':'image/png','content-length':'3'},
+    }));
 
     const archived=await generatedAssetStorageService.archive({
-      userId:'user-1',
-      assetId:'ast-1',
-      sourceUrl:'https://provider.example/output',
-      fallbackMime:'image/jpeg',
-      fallbackExtension:'jpg',
+      userId:'user-1',assetId:'ast-1',sourceUrl:'https://provider.example/output',fallbackMime:'image/jpeg',fallbackExtension:'jpg',
     });
 
-    expect(archived.storage_path).toBe('users/user-1/assets/ast-1/generated.png');
-    expect(archived.public_url).toBe('https://storage.example/storage/v1/object/public/assets/users/user-1/assets/ast-1/generated.png');
-    expect(archived.size_bytes).toBe(3);
-    const uploadCall=fetchMock.mock.calls[1];
-    expect(String(uploadCall[0])).toContain('/storage/v1/object/assets/users/user-1/assets/ast-1/generated.png');
-    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({method:'HEAD'});
-    expect(JSON.stringify(archived)).not.toContain('server-secret');
+    expect(archived).toMatchObject({
+      storage_path:'users/user-1/assets/ast-1/generated.png',
+      public_url:'https://iaconnect.ia.br/api/assets/media/users/user-1/assets/ast-1/generated.png',
+      mime_type:'image/png',
+      size_bytes:3,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toBe('https://provider.example/output');
+    expect(JSON.stringify(archived)).not.toContain('provider.example');
   });
 
-  it('does not publish an archived asset until its durable delivery URL is readable',async()=>{
-    process.env.SUPABASE_URL='https://storage.example';
-    process.env.SUPABASE_SECRET_KEY='server-secret';
-    process.env.SUPABASE_BUCKET='assets';
-    vi.spyOn(globalThis,'fetch')
-      .mockResolvedValueOnce(new Response(new Uint8Array([1]),{status:200,headers:{'content-type':'image/png'}}))
-      .mockResolvedValueOnce(new Response('{}',{status:200}))
-      .mockResolvedValue(new Response(null,{status:404}));
+  it('refuses to publish an object when R2 cannot confirm the written bytes',async()=>{
+    configureR2AssetBucket(fakeBucket({confirmWrites:false}));
+    vi.spyOn(globalThis,'fetch').mockResolvedValueOnce(new Response(new Uint8Array([1]),{
+      status:200,headers:{'content-type':'image/png'},
+    }));
     await expect(generatedAssetStorageService.archive({
       userId:'user-1',assetId:'ast-1',sourceUrl:'https://provider.example/output',fallbackMime:'image/jpeg',fallbackExtension:'jpg',
     })).rejects.toMatchObject({code:'ASSET_ARCHIVE_NOT_VISIBLE'});
   });
 
-  it('fails safely when official storage is unavailable',async()=>{
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SECRET_KEY;
-    process.env.SUPABASE_BUCKET='assets';
-    vi.spyOn(globalThis,'fetch').mockResolvedValueOnce(new Response(new Uint8Array([1]),{status:200,headers:{'content-type':'image/png'}}));
+  it('fails explicitly when the R2 bucket binding is unavailable without fetching provider data',async()=>{
+    const fetchMock=vi.spyOn(globalThis,'fetch');
     await expect(generatedAssetStorageService.archive({
       userId:'user-1',assetId:'ast-1',sourceUrl:'https://provider.example/output',fallbackMime:'image/jpeg',fallbackExtension:'jpg',
     })).rejects.toMatchObject({code:'ASSET_STORAGE_UNAVAILABLE'});
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('classifies Supabase quota restrictions without logging the response body',async()=>{
-    process.env.SUPABASE_URL='https://storage.example';
-    process.env.SUPABASE_SECRET_KEY='server-secret';
-    process.env.SUPABASE_BUCKET='assets';
-    const warning=vi.spyOn(console,'warn').mockImplementation(()=>{});
-    vi.spyOn(globalThis,'fetch')
-      .mockResolvedValueOnce(new Response(new Uint8Array([1]),{status:200,headers:{'content-type':'video/mp4'}}))
-      .mockResolvedValueOnce(new Response('{"message":"exceed_cached_egress_quota private-detail"}',{status:402}));
-
+  it('returns the upstream HTTP status code without exposing the response body',async()=>{
+    configureR2AssetBucket(fakeBucket());
+    vi.spyOn(globalThis,'fetch').mockResolvedValueOnce(new Response('private provider response',{status:402}));
     await expect(generatedAssetStorageService.archive({
       userId:'user-1',assetId:'vid-1',sourceUrl:'https://provider.example/output',fallbackMime:'video/mp4',fallbackExtension:'mp4',
-    })).rejects.toMatchObject({code:'ASSET_STORAGE_QUOTA_RESTRICTED'});
-    expect(warning).toHaveBeenCalledWith('[GeneratedAssetArchiveFailed]',{
-      status:402,code:'ASSET_STORAGE_QUOTA_RESTRICTED',
-    });
-    expect(JSON.stringify(warning.mock.calls)).not.toContain('private-detail');
+    })).rejects.toMatchObject({code:'ASSET_ARCHIVE_FETCH_FAILED',status:402});
   });
 });

@@ -28,6 +28,7 @@ const IMAGE_ENDPOINTS: Record<string, Partial<Record<GenerationMode, string>>> =
 
 function videoSuffix(mode:GenerationMode,capabilityId?:string){if(mode==='TEXT_TO_VIDEO')return'text-to-video';if(mode==='IMAGE_TO_VIDEO')return'image-to-video';if(mode==='REFERENCE_TO_VIDEO'){if(capabilityId==='video-edit')return'video-edit';if(capabilityId==='video-extend')return'video-extend';return'reference-to-video';}return null;}
 const VIDEO_OPERATION_SUFFIXES=['text-to-video','image-to-video','reference-to-video','video-edit','video-extend'];
+const WAVESPEED_PRICE_TIMEOUT_MS=30_000;
 function normalizeVideoIdentifier(identifier:string,suffix:string){const clean=String(identifier||'').replace(/\/+$/,'');const current=VIDEO_OPERATION_SUFFIXES.find(op=>clean.endsWith('/'+op));if(current)return current===suffix?clean:clean.slice(0,-current.length)+suffix;return clean+'/'+suffix;}
 function base(value:string|undefined){return(value||'https://api.wavespeed.ai').replace(/\/+$/,'').replace(/\/api\/v3$/,'');}
 function audioEnabled(params:ProviderGenerationParams){return params.audio_enabled!==false;}
@@ -158,7 +159,27 @@ export class WaveSpeedProviderAdapter implements VideoProviderAdapter {
     const out:any={prompt,resolution:params.resolution,aspect_ratio:params.aspect_ratio,duration:params.duration_seconds};if(params.negative_prompt?.trim())out.negative_prompt=params.negative_prompt.trim();if(params.seed!==null&&params.seed!==undefined)out.seed=params.seed;if(params.mode==='IMAGE_TO_VIDEO'){const initial=images.find(r=>r.slot_type==='INITIAL')||images[0];if(!initial)throw Object.assign(new Error('Imagem inicial obrigatória.'),{code:'REFERENCE_REQUIRED'});out.image=initial.provider_accessible_url;const end=images.find(r=>r.slot_type==='END');if(end)out.last_image=end.provider_accessible_url;}else if(params.mode==='REFERENCE_TO_VIDEO'){const source=videos.find(r=>r.role==='SOURCE')||videos[0];if(['video-extend','video-edit'].includes(capability)&&!source)throw Object.assign(new Error('Vídeo de origem obrigatório.'),{code:'REFERENCE_REQUIRED'});out.reference_images=images.map(r=>r.provider_accessible_url);out.reference_videos=source?[source.provider_accessible_url]:videos.map(r=>r.provider_accessible_url);out.reference_audios=audios.map(r=>r.provider_accessible_url);if(capability==='video-extend')out.prompt=params.prompt?.trim()||'Continue the source video naturally while preserving continuity, subjects, camera and motion.';}if(providerFamily.startsWith('alibaba/wan-3.0')){out.enable_prompt_expansion=false;out.enable_audio=audioEnabled(params);}if(providerFamily.includes('seedance-2.5')||providerFamily.includes('seedance-2.0'))out.generate_audio=audioEnabled(params);return out;
   }
   private payload(params:ProviderGenerationParams){if(isAudioMode(params.mode))return this.audioPayload(params);if(isThreeDMode(params.mode))return this.threeDPayload(params);return params.mode==='TEXT_TO_IMAGE'||params.mode==='IMAGE_TO_IMAGE'?this.imagePayload(params):this.videoPayload(params);}
-  async quoteCostUsd(params:ProviderGenerationParams):Promise<ProviderCostQuote>{if(!this.apiKey)throw Object.assign(new Error('WaveSpeed não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});const model=this.modelName(params.model_id,params.mode,params.provider_model_identifier,String(params.capability_id||'')),single={...params,number_of_outputs:1},controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);try{const res=await fetch(`${this.baseUrl}/api/v3/model/price`,{method:'POST',signal:controller.signal,headers:{Authorization:`Bearer ${this.apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({model_id:model,inputs:this.payload(single)})});const text=await res.text();let body:any={};try{body=JSON.parse(text);}catch{}if(!res.ok)throw Object.assign(new Error(body?.message||body?.error||`WaveSpeed pricing HTTP ${res.status}`),{code:`WAVESPEED_PRICE_HTTP_${res.status}`});const data=body?.data??body,unit=Number(data?.discounted_price??data?.price);if(!Number.isFinite(unit)||unit<0)throw Object.assign(new Error('WaveSpeed retornou preço inválido.'),{code:'PROVIDER_PRICE_INVALID'});return{effective_price_usd:unit*Math.max(1,params.number_of_outputs),list_price_usd:Number.isFinite(Number(data?.price))?Number(data.price)*Math.max(1,params.number_of_outputs):null,discount_rate:Number.isFinite(Number(data?.discount_rate))?Number(data.discount_rate):null,estimated:false,source:'LIVE_API'};}finally{clearTimeout(timer);}}
+  async quoteCostUsd(params:ProviderGenerationParams):Promise<ProviderCostQuote>{
+    if(!this.apiKey)throw Object.assign(new Error('WaveSpeed não configurada.'),{code:'PROVIDER_NOT_CONFIGURED'});
+    const model=this.modelName(params.model_id,params.mode,params.provider_model_identifier,String(params.capability_id||''));
+    const single={...params,number_of_outputs:1};
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),WAVESPEED_PRICE_TIMEOUT_MS);
+    try{
+      const res=await fetch(`${this.baseUrl}/api/v3/model/price`,{method:'POST',signal:controller.signal,headers:{Authorization:`Bearer ${this.apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({model_id:model,inputs:this.payload(single)})});
+      const text=await res.text();
+      let body:any={};try{body=JSON.parse(text);}catch{}
+      if(!res.ok)throw Object.assign(new Error(body?.message||body?.error||`WaveSpeed pricing HTTP ${res.status}`),{code:`WAVESPEED_PRICE_HTTP_${res.status}`});
+      const data=body?.data??body,unit=Number(data?.discounted_price??data?.price);
+      if(!Number.isFinite(unit)||unit<0)throw Object.assign(new Error('WaveSpeed retornou preço inválido.'),{code:'PROVIDER_PRICE_INVALID'});
+      return{effective_price_usd:unit*Math.max(1,params.number_of_outputs),list_price_usd:Number.isFinite(Number(data?.price))?Number(data.price)*Math.max(1,params.number_of_outputs):null,discount_rate:Number.isFinite(Number(data?.discount_rate))?Number(data.discount_rate):null,estimated:false,source:'LIVE_API'};
+    }catch(error:any){
+      if(controller.signal.aborted||error?.name==='AbortError'){
+        throw Object.assign(new Error(`WaveSpeed price quote timed out after ${WAVESPEED_PRICE_TIMEOUT_MS}ms.`),{code:'WAVESPEED_PRICE_TIMEOUT'});
+      }
+      throw error;
+    }finally{clearTimeout(timer);}
+  }
   private encodeBatchJobIds(ids:string[]){return ids.length===1?ids[0]:`batch:${Buffer.from(JSON.stringify(ids),'utf8').toString('base64url')}`;}
   private decodeBatchJobIds(id:string){if(!id.startsWith('batch:'))return[id];try{const decoded=JSON.parse(Buffer.from(id.slice(6),'base64url').toString('utf8'));return Array.isArray(decoded)&&decoded.every(v=>typeof v==='string'&&v)?decoded:[id];}catch{return[id];}}
   private async submitSingle(params:ProviderGenerationParams){
