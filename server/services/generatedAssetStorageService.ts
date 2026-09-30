@@ -1,114 +1,14 @@
-import path from 'path';
+import { r2AssetStorageService } from './r2AssetStorageService.js';
 
-const MAX_ARCHIVE_BYTES=50*1024*1024;
-
-function storageConfig(){
-  const supabaseUrl=String(process.env.SUPABASE_URL||'').replace(/\/+$/,'');
-  const secretKey=String(process.env.SUPABASE_SECRET_KEY||'').trim();
-  const bucket=String(process.env.SUPABASE_BUCKET||'ia-conect-assets').trim();
-  if(!supabaseUrl||!secretKey||!bucket){
-    throw Object.assign(new Error('Armazenamento oficial indisponível.'),{code:'ASSET_STORAGE_UNAVAILABLE'});
-  }
-  return{supabaseUrl,secretKey,bucket};
-}
-
-function encoded(value:string){return value.split('/').map(encodeURIComponent).join('/');}
-function publicUrl(base:string,bucket:string,storagePath:string){
-  return `${base}/storage/v1/object/public/${encodeURIComponent(bucket)}/${encoded(storagePath)}`;
-}
-
-function cleanMime(value:string|undefined,fallback:string){
-  const mime=String(value||'').split(';')[0].trim().toLowerCase();
-  return mime&&mime!=='application/octet-stream'?mime:fallback;
-}
-
-function extensionFor(mime:string,sourceUrl:string,fallback:string){
-  const byMime:Record<string,string>={
-    'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/avif':'avif',
-    'video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov',
-    'audio/mpeg':'mp3','audio/wav':'wav','audio/x-wav':'wav','audio/mp4':'m4a','audio/aac':'aac',
-    'model/gltf-binary':'glb','model/gltf+json':'gltf','model/obj':'obj',
-  };
-  if(byMime[mime])return byMime[mime];
-  try{
-    const ext=path.extname(new URL(sourceUrl).pathname).replace('.','').toLowerCase().replace(/[^a-z0-9]/g,'');
-    if(ext&&ext.length<=8)return ext;
-  }catch{}
-  return fallback;
-}
-
-export interface ArchivedGeneratedAsset {
+export interface ArchivedGeneratedAsset{
   storage_path:string;
   public_url:string;
   mime_type:string;
   size_bytes:number;
 }
 
-async function verifyPublicAsset(url:string){
-  for(let attempt=0;attempt<4;attempt++){
-    try{const response=await fetch(url,{method:'HEAD',redirect:'follow'});if(response.ok)return true;}catch{}
-    if(attempt<3)await new Promise(resolve=>setTimeout(resolve,200*(attempt+1)));
-  }
-  return false;
-}
-
 export const generatedAssetStorageService={
-  async archive(params:{
-    userId:string;
-    assetId:string;
-    sourceUrl:string;
-    fallbackMime:string;
-    fallbackExtension:string;
-  }):Promise<ArchivedGeneratedAsset>{
-    if(!/^https:\/\//i.test(params.sourceUrl)){
-      throw Object.assign(new Error('URL de saída inválida para arquivamento.'),{code:'ASSET_ARCHIVE_SOURCE_INVALID'});
-    }
-    const response=await fetch(params.sourceUrl,{redirect:'follow'});
-    if(!response.ok){
-      throw Object.assign(new Error('Não foi possível recuperar o arquivo gerado.'),{code:'ASSET_ARCHIVE_FETCH_FAILED'});
-    }
-    const announced=Number(response.headers.get('content-length')||0);
-    if(announced>MAX_ARCHIVE_BYTES){
-      throw Object.assign(new Error('O arquivo gerado excede o limite de arquivamento atual.'),{code:'ASSET_ARCHIVE_TOO_LARGE'});
-    }
-    const buffer=Buffer.from(await response.arrayBuffer());
-    if(buffer.byteLength<=0)throw Object.assign(new Error('O arquivo gerado está vazio.'),{code:'ASSET_ARCHIVE_EMPTY'});
-    if(buffer.byteLength>MAX_ARCHIVE_BYTES){
-      throw Object.assign(new Error('O arquivo gerado excede o limite de arquivamento atual.'),{code:'ASSET_ARCHIVE_TOO_LARGE'});
-    }
-
-    const mime=cleanMime(response.headers.get('content-type')||undefined,params.fallbackMime);
-    const ext=extensionFor(mime,params.sourceUrl,params.fallbackExtension);
-    const storagePath=`users/${params.userId}/assets/${params.assetId}/generated.${ext}`;
-    const config=storageConfig();
-    const target=`${config.supabaseUrl}/storage/v1/object/${encodeURIComponent(config.bucket)}/${encoded(storagePath)}`;
-    const upload=await fetch(target,{
-      method:'POST',
-      headers:{
-        Authorization:`Bearer ${config.secretKey}`,
-        apikey:config.secretKey,
-        'Content-Type':mime,
-        'Cache-Control':'public, max-age=31536000, immutable',
-        'x-upsert':'true',
-      },
-      body:buffer,
-    });
-    if(!upload.ok){
-      const body=await upload.text().catch(()=>'');
-      const quotaRestricted=upload.status===402&&/exceed_cached_egress_quota|(?:quota|usage).*(?:restrict|exceed|limit)|(?:restrict|exceed|limit).*(?:quota|usage)/i.test(body);
-      const code=quotaRestricted?'ASSET_STORAGE_QUOTA_RESTRICTED':upload.status===402?'ASSET_STORAGE_RESTRICTED':'ASSET_ARCHIVE_UPLOAD_FAILED';
-      console.warn('[GeneratedAssetArchiveFailed]',{status:upload.status,code});
-      const message=quotaRestricted
-        ?'O armazenamento Supabase está bloqueado por limite de quota.'
-        :upload.status===402
-          ?'O armazenamento Supabase está temporariamente restrito.'
-          :'Não foi possível arquivar o arquivo gerado.';
-      throw Object.assign(new Error(message),{code});
-    }
-    const deliveryUrl=publicUrl(config.supabaseUrl,config.bucket,storagePath);
-    if(!await verifyPublicAsset(deliveryUrl)){
-      throw Object.assign(new Error('O arquivo foi enviado, mas ainda não está disponível para leitura pública.'),{code:'ASSET_ARCHIVE_NOT_VISIBLE'});
-    }
-    return{storage_path:storagePath,public_url:deliveryUrl,mime_type:mime,size_bytes:buffer.byteLength};
+  archive(params:{userId:string;assetId:string;sourceUrl:string;fallbackMime:string;fallbackExtension:string}):Promise<ArchivedGeneratedAsset>{
+    return r2AssetStorageService.archive(params);
   },
 };

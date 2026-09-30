@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { Generation, GenerationMode, GenerationAttemptLog, AssetType } from '../../src/types/index.js';
+import { Generation, GenerationMode, GenerationAttemptLog, AssetType, Asset } from '../../src/types/index.js';
 import { generationRepository } from '../repositories/generationRepository.js';
 import { smartRouterService, RoutingCandidate } from './smartRouterService.js';
 import { creditWalletService } from './creditWalletService.js';
@@ -11,6 +11,7 @@ import { firestoreAdminRest } from '../repositories/firestoreAdminRest.js';
 import { generationExecutionEconomics } from './generationEconomicsPolicy.js';
 import { routingV2CatalogService } from '../routing-v2/catalogService.js';
 import { generatedAssetStorageService } from './generatedAssetStorageService.js';
+import { r2AssetStorageService } from './r2AssetStorageService.js';
 import { audioVoiceService } from '../beta/audio/audioVoiceService.js';
 import { routingV2ExecutionService } from '../routing-v2/executionService.js';
 import { validateModelCompatibility } from '../routing-v2/modelCompatibilityService.js';
@@ -22,6 +23,7 @@ const IMAGE_MODEL_IDS=new Set(['nano-banana-pro-image','nano-banana-2-image','na
 function isImageMode(mode?:GenerationMode){return mode==='TEXT_TO_IMAGE'||mode==='IMAGE_TO_IMAGE';}
 function isAudioMode(mode?:GenerationMode){return ['TEXT_TO_SPEECH','TEXT_TO_AUDIO','AUDIO_TO_TEXT','MEDIA_TO_TEXT','AUDIO_TO_AUDIO','MEDIA_DUBBING'].includes(String(mode));}
 function isThreeDMode(mode?:GenerationMode){return ['TEXT_TO_3D','IMAGE_TO_3D','MULTI_IMAGE_TO_3D'].includes(String(mode));}
+function outputAssetType(generation:Generation):AssetType{return generation.output_asset_type||(isImageMode(generation.mode)?'IMAGE':isAudioMode(generation.mode)?'AUDIO':isThreeDMode(generation.mode)?'MODEL_3D':'VIDEO');}
 const EDITOR_CAPABILITIES=new Set(['image-edit','inpaint-mask','background-remove-replace','outpaint','upscale','variations','video-extend','video-edit']);
 const PROMPT_OPTIONAL_EDITOR_CAPABILITIES=new Set(['upscale','variations','video-extend']);
 function assertEditorReferenceInputs(capabilityId:string,refs:any[]){
@@ -39,41 +41,102 @@ function terminal(status:string){return['SUCCEEDED','FAILED','CANCELLED','REFUND
 const ECONOMICS_IMMUTABLE_FIELDS=['generation_id','retail_pricing_id','retail_pricing_version','pricing_signature_hash','pricing_policy_id','requested_model_id','selected_model_id','routing_mode','authorized_credit_price','credit_lot_allocations','authorized_net_backing_micros','max_allowed_cogs_cents','quoted_at','started_at'] as const;
 async function saveEconomics(generationId:string,data:any){const path=`generation_economics/${encodeURIComponent(generationId)}`;try{const existing=await firestoreAdminRest.get(path),previous=existing.exists?(existing.data as Record<string,any>):{},next={...previous,...data,generation_id:generationId};if(existing.exists)for(const key of ECONOMICS_IMMUTABLE_FIELDS)if(previous[key]!==undefined)next[key]=previous[key];next.updated_at=new Date().toISOString();await firestoreAdminRest.set(path,next);}catch(err:any){console.warn('[EconomicsSnapshot]',err?.message||err);}}
 async function registerGeneratedAssets(generation:Generation,urls:string[]){
- const mediaType:AssetType=(generation.output_asset_type as AssetType)|| (isImageMode(generation.mode)?'IMAGE':'VIDEO');
- const created=[];
- const strictArchive=Boolean(generation.source_job_id);
+ const mediaType=outputAssetType(generation);
+ const created:Asset[]=[];
  for(let i=0;i<urls.length;i++){
   const url=urls[i];if(!url)continue;
   const assetId=generatedAssetId(generation.generation_id,i);
   const existing=await assetRepository.getAsset(assetId,generation.user_id);
-  if(existing){created.push(existing);continue;}
-  try{
-   const fallbackMime=mediaType==='IMAGE'?'image/jpeg':mediaType==='AUDIO'?'audio/mpeg':mediaType==='MODEL_3D'?'model/gltf-binary':'video/mp4';
-   const archived=strictArchive?await generatedAssetStorageService.archive({
-    userId:generation.user_id,assetId,sourceUrl:url,fallbackMime,fallbackExtension:mediaType==='IMAGE'?'jpg':mediaType==='AUDIO'?'mp3':mediaType==='MODEL_3D'?'glb':'mp4',
-   }):null;
-   const publicUrl=archived?.public_url||url;
-   const storagePath=archived?.storage_path||`provider://${generation.provider_id}/${generation.provider_job_id||generation.generation_id}/${i+1}`;
-   const providerPreview=mediaType==='IMAGE'?(i===0&&generation.thumbnail_url?generation.thumbnail_url:url):(generation.thumbnail_url||url);
-   const previewUrl=strictArchive&&mediaType==='IMAGE'&&!generation.thumbnail_url?publicUrl:providerPreview;
-   created.push(await assetRepository.createAsset({
-    asset_id:generatedAssetId(generation.generation_id,i),owner_user_id:generation.user_id,type:mediaType,category:'GENERIC',
+  if(existing?.media_metadata?.archived===true&&existing.storage_path&&!String(existing.storage_path).startsWith('provider://')&&await r2AssetStorageService.exists(existing.storage_path)){
+   created.push(existing);
+   continue;
+  }
+  const fallbackMime=mediaType==='IMAGE'?'image/jpeg':mediaType==='AUDIO'?'audio/mpeg':mediaType==='MODEL_3D'?'model/gltf-binary':'video/mp4';
+  const archived=await generatedAssetStorageService.archive({
+   userId:generation.user_id,assetId,sourceUrl:url,fallbackMime,fallbackExtension:mediaType==='IMAGE'?'jpg':mediaType==='AUDIO'?'mp3':mediaType==='MODEL_3D'?'glb':'mp4',
+  });
+  const publicUrl=archived.public_url;
+  const assetFields={
+    storage_path:archived.storage_path,
+    public_url:publicUrl,
+    thumbnail_url:mediaType==='IMAGE'?publicUrl:undefined,
+    preview_url:mediaType==='IMAGE'||mediaType==='AUDIO'?publicUrl:null,
+    preview_mime_type:archived.mime_type,
+    mime_type:archived.mime_type,
+    size_bytes:archived.size_bytes,
+    status:'READY' as const,
+    media_metadata:{...(existing?.media_metadata||{}),archived:true,output_index:i},
+  };
+  if(existing){
+   created.push(await assetRepository.updateAsset(assetId,generation.user_id,assetFields));
+   continue;
+  }
+  created.push(await assetRepository.createAsset({
+    asset_id:assetId,owner_user_id:generation.user_id,type:mediaType,category:'GENERIC',
     name:mediaType==='IMAGE'?`Imagem gerada ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`:mediaType==='AUDIO'?`Áudio gerado ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`:mediaType==='MODEL_3D'?`Modelo 3D ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`:`Vídeo gerado ${generation.generation_id.slice(-6)}${urls.length>1?` ${i+1}`:''}`,
     alias:`${mediaType==='IMAGE'?'generated_image':mediaType==='AUDIO'?'generated_audio':mediaType==='MODEL_3D'?'generated_3d':'generated_video'}_${generation.generation_id.slice(-6)}${urls.length>1?`_${i+1}`:''}`,
-    storage_path:storagePath,public_url:publicUrl,thumbnail_url:mediaType==='IMAGE'?previewUrl:undefined,preview_url:mediaType==='AUDIO'?publicUrl:previewUrl,
-    preview_mime_type:(mediaType==='IMAGE'||mediaType==='AUDIO')?(archived?.mime_type||fallbackMime):null,
-    mime_type:archived?.mime_type||fallbackMime,size_bytes:archived?.size_bytes||0,status:'READY',
+    ...assetFields,
     origin:generation.derived_from_asset_id?'DERIVED':'GENERATED',source_generation_id:generation.generation_id,source_job_id:generation.source_job_id||null,
     derived_from_asset_id:generation.derived_from_asset_id||null,source_output_index:i,
     source_model_id:generation.model_id,source_provider_id:generation.provider_id,
-    media_metadata:{archived:Boolean(archived),output_index:i},
-   }));
-  }catch(err:any){
-   console.warn('[GeneratedAssetRegister]',generation.generation_id,err?.message||err);
-   if(strictArchive)throw err;
-  }
+  }));
  }
  return created;
+}
+function storageRetryDelay(attempts:number){return Math.min(60*60*1000,15_000*Math.pow(2,Math.max(0,attempts-1)));}
+function safeStorageFailureCode(error:any){
+ const raw=String(error?.code||'ASSET_ARCHIVE_FAILED');
+ const code=/^ASSET_[A-Z0-9_]{1,60}$/.test(raw)?raw:'ASSET_ARCHIVE_FAILED';
+ const status=Number(error?.status);
+ return Number.isInteger(status)&&status>=100&&status<=599?`${code}_HTTP_${status}`:code;
+}
+async function finalizeGeneratedGeneration(g:any):Promise<Generation>{
+ if(g.capability_id==='authorized-voice-clone'){
+  const voice=await audioVoiceService.captureClone({userId:g.user_id,generationId:g.generation_id,providerId:g.provider_id,sourceAssetId:g.references?.[0]?.asset_id||null,label:g.audio_metadata?.voice_label||'Minha voz',consentAt:g.audio_metadata?.voice_clone_consent_at||g.started_at||new Date().toISOString(),resultStructured:g.result_structured,resultText:g.result_text,providerVoiceIdFallback:audioVoiceService.providerCloneId(g.generation_id)});
+  g.result_text=null;g.result_structured={voice};
+ }
+ await creditWalletService.captureForGeneration(g.user_id,g.generation_id);
+ g.provider_result_urls=[];
+ g.provider_result_thumbnail_url=null;
+ if(g.media_storage_status==='PENDING'){
+  g.media_storage_status='READY';
+  g.media_storage_error_code=null;
+ }
+ g.final_credit_cost=g.retail_credit_price||0;
+ g.status='SUCCEEDED';
+ g.progress_percent=100;
+ g.completed_at=new Date().toISOString();
+ g.final_cogs_cents=Number(g.incurred_cogs_cents||0);
+ const backingCents=Math.floor(Number(g.authorized_net_backing_micros||0)/10000),realized=backingCents>0?100*(1-g.final_cogs_cents/backingCents):null;
+ g.realized_margin_percent=realized;
+ await saveEconomics(g.generation_id,{provider_attempts:economicAttempts(g),incurred_cogs_cents:g.final_cogs_cents,final_cogs_cents:g.final_cogs_cents,remaining_cogs_budget_cents:Math.max(0,Number(g.max_allowed_cogs_cents||0)-g.final_cogs_cents),realized_margin_percent:realized,delivered_at:g.completed_at});
+ return generationRepository.saveGeneration(g);
+}
+async function archiveGeneratedOutputs(g:any,urls:string[]):Promise<Generation>{
+ g.media_storage_status='PENDING';
+ g.media_storage_attempts=Number(g.media_storage_attempts||0)+1;
+ g.media_storage_last_attempt_at=new Date().toISOString();
+ g.status='PROCESSING';
+ g.progress_percent=95;
+ await generationRepository.saveGeneration(g);
+ let assets:Asset[];
+ try{
+  assets=await registerGeneratedAssets(g,urls);
+  if(!assets.length||assets.length!==urls.length)throw Object.assign(new Error('Nem todos os resultados foram arquivados no armazenamento permanente.'),{code:'ASSET_ARCHIVE_INCOMPLETE'});
+ }catch(error:any){
+  g.media_storage_status='PENDING';
+  g.media_storage_error_code=safeStorageFailureCode(error);
+  console.error('[GeneratedAssetArchivePending]',JSON.stringify({generation_id:g.generation_id,attempts:g.media_storage_attempts,code:g.media_storage_error_code}));
+  await generationRepository.saveGeneration(g);
+  return g as Generation;
+ }
+ g.result_asset_ids=assets.map(asset=>asset.asset_id);
+ g.result_asset_id=assets[0]?.asset_id||null;
+ g.result_urls=assets.map(asset=>asset.public_url||'').filter(Boolean);
+ g.result_url=g.result_urls[0]||null;
+ g.thumbnail_url=assets[0]?.type==='IMAGE'?g.result_url:null;
+ await generationRepository.saveGeneration(g);
+ return finalizeGeneratedGeneration(g);
 }
 function committedOnSubmit(policy:string){return policy!=='CHARGE_ON_SUCCESS';}
 function refsFromGeneration(g:any):GenerationReferenceInput[]{return (g.references||[]).map((r:any)=>({asset_id:r.asset_id,slot_type:(r.slot_type||'GENERAL') as any,alias:r.alias,role:r.role}));}
@@ -124,7 +187,25 @@ export const generationService={
  async refreshGenerationState(generation:Generation):Promise<Generation>{
   if(terminal(generation.status))return generation;
   if((generation as any).routing_core_version==='V2')return routingV2ExecutionService.refresh(generation.generation_id,generation.user_id);
-  if(!generation.provider_job_id)return generation;const g:any=generation,adapter=providerRegistry.getAdapter(g.provider_id);if(!adapter||!adapter.isConfigured())return generation;let status;try{status=await adapter.checkStatus(g.provider_job_id);}catch(err:any){console.warn('[GenerationPoll]',g.generation_id,err?.message);return generation;}if(status.status==='QUEUED'||status.status==='PROCESSING'){g.status=status.status;g.progress_percent=status.progress_percent??g.progress_percent;return generationRepository.saveGeneration(g);}
+  const g:any=generation;
+  const savedProviderUrls=Array.isArray(g.provider_result_urls)?g.provider_result_urls.filter((url:any)=>/^https:\/\//i.test(String(url||''))):[];
+  if(savedProviderUrls.length){
+    const attempts=Number(g.media_storage_attempts||0);
+    const lastAttempt=Date.parse(String(g.media_storage_last_attempt_at||''));
+    if(Number.isFinite(lastAttempt)&&lastAttempt>0&&Date.now()-lastAttempt<storageRetryDelay(attempts))return generation;
+    return archiveGeneratedOutputs(g,savedProviderUrls);
+  }
+  if(!generation.provider_job_id)return generation;
+  const adapter=providerRegistry.getAdapter(g.provider_id);
+  if(!adapter||!adapter.isConfigured())return generation;
+  let status;
+  try{status=await adapter.checkStatus(g.provider_job_id);}
+  catch(err:any){console.warn('[GenerationPoll]',g.generation_id,err?.message);return generation;}
+  if(status.status==='QUEUED'||status.status==='PROCESSING'){
+    g.status=status.status;
+    g.progress_percent=status.progress_percent??g.progress_percent;
+    return generationRepository.saveGeneration(g);
+  }
   if(status.status==='FAILED'){
     try{g.status='ROUTING';g.progress_percent=0;await generationRepository.saveGeneration(g);return await routeAndSubmit(g,process.env.APP_URL);}catch(err:any){return failAndRelease(g,status.error_code||err?.code||'PROVIDER_GENERATION_FAILED',status.error_message||err?.message||'A geração falhou e não havia fallback disponível.');}
   }
@@ -133,14 +214,25 @@ export const generationService={
   if(g.output_asset_type==='MODEL_3D'&&outputs.length){const model=outputs.find((url:string)=>/\.(glb|gltf|obj|fbx|usdz|stl)(?:\?|$)/i.test(url));outputs=model?[model]:[outputs[0]];}
   const hasStructured=Boolean(status.result_text||status.result_structured)||g.capability_id==='authorized-voice-clone';
   if(!outputs.length&&!hasStructured){try{g.status='ROUTING';await generationRepository.saveGeneration(g);return await routeAndSubmit(g,process.env.APP_URL);}catch(err:any){return failAndRelease(g,err?.code||'DELIVERY_FAILED','A geração terminou sem resultado recuperável e não havia fallback disponível.');}}
-  if(outputs.length){g.result_url=outputs[0];g.thumbnail_url=status.thumbnail_url||outputs[0]||null;if(g.output_asset_type==='AUDIO'||g.output_asset_type==='MODEL_3D')g.thumbnail_url=null;g.result_urls=outputs;const assets=await registerGeneratedAssets(g,outputs);if(assets[0])g.result_asset_id=assets[0].asset_id;g.result_asset_ids=assets.map(a=>a.asset_id);}
   g.result_text=status.result_text||null;g.result_structured=status.result_structured||null;
-  if(g.capability_id==='authorized-voice-clone'){
-    const voice=await audioVoiceService.captureClone({userId:g.user_id,generationId:g.generation_id,providerId:g.provider_id,sourceAssetId:g.references?.[0]?.asset_id||null,label:g.audio_metadata?.voice_label||'Minha voz',consentAt:g.audio_metadata?.voice_clone_consent_at||g.started_at||new Date().toISOString(),resultStructured:status.result_structured,resultText:status.result_text,providerVoiceIdFallback:audioVoiceService.providerCloneId(g.generation_id)});
-    g.result_text=null;g.result_structured={voice};
+  if(outputs.length){
+    g.provider_result_urls=outputs;
+    g.provider_result_thumbnail_url=status.thumbnail_url||null;
+    g.media_storage_status='PENDING';
+    g.media_storage_error_code=null;
+    g.media_storage_attempts=0;
+    g.media_storage_last_attempt_at=null;
+    g.result_url=null;
+    g.result_urls=[];
+    g.result_asset_id=null;
+    g.result_asset_ids=[];
+    g.thumbnail_url=null;
+    g.status='PROCESSING';
+    g.progress_percent=95;
+    await generationRepository.saveGeneration(g);
+    return archiveGeneratedOutputs(g,outputs);
   }
-  await creditWalletService.captureForGeneration(g.user_id,g.generation_id);g.final_credit_cost=g.retail_credit_price||0;
-  g.status='SUCCEEDED';g.progress_percent=100;g.completed_at=new Date().toISOString();g.final_cogs_cents=Number(g.incurred_cogs_cents||0);const backingCents=Math.floor(Number(g.authorized_net_backing_micros||0)/10000),realized=backingCents>0?100*(1-g.final_cogs_cents/backingCents):null;g.realized_margin_percent=realized;await saveEconomics(g.generation_id,{provider_attempts:economicAttempts(g),incurred_cogs_cents:g.final_cogs_cents,final_cogs_cents:g.final_cogs_cents,remaining_cogs_budget_cents:Math.max(0,Number(g.max_allowed_cogs_cents||0)-g.final_cogs_cents),realized_margin_percent:realized,delivered_at:g.completed_at});return generationRepository.saveGeneration(g);
+  return finalizeGeneratedGeneration(g);
  },
  async getGeneration(id:string,userId:string){const g=await generationRepository.getGeneration(id);if(!g||g.user_id!==userId)return null;return this.refreshGenerationState(g);},
  async getGenerations(ids:string[],userId:string){const rows=await generationRepository.getGenerations(ids);const owned=rows.filter(g=>g.user_id===userId);return Promise.all(owned.map(g=>terminal(g.status)?g:this.refreshGenerationState(g)));},

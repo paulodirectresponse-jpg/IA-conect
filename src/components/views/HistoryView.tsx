@@ -33,7 +33,8 @@ export const HistoryView: React.FC = () => {
     [recoveryCursor, setRecoveryCursor] = useState(0),
     [recoveryDone, setRecoveryDone] = useState(false),
     [recovering, setRecovering] = useState(false),
-    [recoveryMessage, setRecoveryMessage] = useState("");
+    [recoveryMessage, setRecoveryMessage] = useState(""),
+    [recoveryHasErrors, setRecoveryHasErrors] = useState(false);
   const load = () =>
     universalGenerationClient
       .list()
@@ -46,19 +47,27 @@ export const HistoryView: React.FC = () => {
   const recover = async () => {
     setRecovering(true);
     setRecoveryMessage("");
+    setRecoveryHasErrors(false);
     try {
       const result = await assetService.recoverLegacyGeneratedHistory(
         recoveryCursor,
         5,
       );
       setRecoveryCursor(result.next_cursor ?? recoveryCursor);
-      setRecoveryDone(result.done);
+      setRecoveryDone(result.done&&result.failed===0);
+      const failures=result.details.flatMap(detail=>detail.errors.map(item=>`${detail.generation_id}: ${item.code}${item.http_status?` (HTTP ${item.http_status})`:''}`));
+      const errorLines=Array.from(new Set(failures));
+      setRecoveryHasErrors(result.failed>0||result.unavailable>0||errorLines.length>0);
       setRecoveryMessage(
-        `${result.recovered} imagem(ns) recuperada(s) · ${result.unavailable} indisponível(is) · ${result.processed} registro(s) verificado(s).`,
+        `${result.recovered} imagem(ns) recuperada(s) · ${result.unavailable} indisponível(is) · ${result.failed} falha(s) · ${result.processed} registro(s) verificado(s).${errorLines.length?` Erros: ${errorLines.slice(0,10).join('; ')}${errorLines.length>10?`; e mais ${errorLines.length-10}`:''}.`:''}`,
       );
       await load();
     } catch (err: any) {
-      setRecoveryMessage(err?.message || "A recuperação não foi concluída.");
+      const code=String(err?.code||'GENERATED_ASSET_RECOVERY_FAILED');
+      const httpStatus=Number(err?.status);
+      const reason=String(err?.details?.reason_code||err?.details?.details?.storage?.details?.error||'');
+      setRecoveryHasErrors(true);
+      setRecoveryMessage(`${err?.message||"A recuperação não foi concluída."} Código: ${code}${Number.isInteger(httpStatus)?` (HTTP ${httpStatus})`:''}${reason?` · detalhe: ${reason}`:''}.`);
     } finally {
       setRecovering(false);
     }
@@ -91,8 +100,8 @@ export const HistoryView: React.FC = () => {
       </header>
       {recoveryMessage && (
         <p
-          role="status"
-          className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-[10px] text-zinc-400"
+          role={recoveryHasErrors?"alert":"status"}
+          className={`rounded-xl border px-3 py-2 text-[10px] ${recoveryHasErrors?'border-amber-400/20 bg-amber-500/[0.07] text-amber-200':'border-white/[0.07] bg-white/[0.03] text-zinc-400'}`}
         >
           {recoveryMessage}
         </p>

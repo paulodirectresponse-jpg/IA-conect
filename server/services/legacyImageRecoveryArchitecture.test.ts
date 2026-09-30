@@ -15,16 +15,17 @@ describe('legacy image recovery stage 2',()=>{
 
   it('rewrites generation outputs to recovered permanent assets',()=>{
     const service=read('server/services/legacyImageRecoveryService.ts');
-    expect(service).toContain('anyG.result_asset_ids=assetIds');
-    expect(service).toContain('anyG.result_url=urls[0]||null');
-    expect(service).toContain('anyG.thumbnail_url=urls[0]');
-    expect(service).toContain("media_recovery_status");
+    expect(service).toContain('g.result_asset_ids=assetIds');
+    expect(service).toContain('g.result_url=urls[0]||null');
+    expect(service).toContain('g.thumbnail_url=urls[0]||g.thumbnail_url||null');
+    expect(service).toContain('g.media_recovery_status=');
   });
 
   it('marks truly unrecoverable media without deleting historical records',()=>{
     const service=read('server/services/legacyImageRecoveryService.ts');
     expect(service).toContain("recovery_status:'UNAVAILABLE'");
-    expect(service).toContain("media_recovery_status='UNAVAILABLE'");
+    expect(service).toContain("recovery_status:'UNAVAILABLE'");
+    expect(service).toContain('media_recovery_error_codes');
     expect(service).not.toContain('softDeleteAsset');
   });
 
@@ -52,7 +53,7 @@ describe('legacy image recovery stage 2',()=>{
     const routes=read('server/routes/assetRoutes.ts');
     expect(routes).toContain("assetRouter.post('/assets/recover-generated', requireAuth");
     expect(routes).toContain('userId:req.user!.uid');
-    expect(routes).toContain("storage.signed_url_test!=='PASS'");
-    expect(routes.indexOf("storage.signed_url_test!=='PASS'")).toBeLessThan(routes.indexOf('legacyImageRecoveryService.runBatch'));
+    expect(routes).toContain("storage.read_test!=='PASS'");
+    expect(routes.indexOf("storage.read_test!=='PASS'")).toBeLessThan(routes.indexOf('legacyImageRecoveryService.runBatch'));
   });
 });

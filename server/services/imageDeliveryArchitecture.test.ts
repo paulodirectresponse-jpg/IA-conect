@@ -62,9 +62,13 @@ describe('stage 6 image delivery architecture',()=>{
     expect(history).toContain('generation.result_urls || []');
   });
 
-  it('preserves provider thumbnails when a provider returns one',()=>{
+  it('does not expose temporary provider thumbnails before permanent storage succeeds',()=>{
     const generation=read('server/services/generationService.ts');
-    expect(generation).toContain('g.thumbnail_url=status.thumbnail_url||outputs[0]||null');
-    expect(generation).toContain("i===0&&generation.thumbnail_url?generation.thumbnail_url:url");
+    const publicGeneration=read('server/services/publicGeneration.ts');
+    expect(generation).toContain('g.provider_result_thumbnail_url=status.thumbnail_url||null');
+    expect(generation).toContain('g.thumbnail_url=null');
+    expect(generation).toContain("g.thumbnail_url=assets[0]?.type==='IMAGE'?g.result_url:null");
+    expect(publicGeneration).toContain('thumbnail_url: storagePending ? null : g.thumbnail_url');
+    expect(publicGeneration).not.toContain('provider_result_thumbnail_url:');
   });
 });

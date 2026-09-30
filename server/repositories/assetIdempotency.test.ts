@@ -116,7 +116,8 @@ describe('generated asset architecture guardrails',()=>{
   it('generation service always registers a deterministic output identity',async()=>{
     const fs=await import('node:fs');
     const source=fs.readFileSync('server/services/generationService.ts','utf8');
-    expect(source).toContain('asset_id:generatedAssetId(generation.generation_id,i)');
+    expect(source).toContain('const assetId=generatedAssetId(generation.generation_id,i)');
+    expect(source).toContain('asset_id:assetId');
     expect(source).toContain('source_output_index:i');
   });
 

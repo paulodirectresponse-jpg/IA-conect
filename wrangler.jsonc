@@ -18,6 +18,12 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*", "/health"]
   },
+  "r2_buckets": [
+    {
+      "binding": "IA_CONNECT_ASSETS",
+      "bucket_name": "ia-conect-assets"
+    }
+  ],
   "triggers": {
     "crons": ["*/2 * * * *", "15,45 * * * *"]
   },

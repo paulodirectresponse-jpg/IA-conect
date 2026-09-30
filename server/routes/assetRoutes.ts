@@ -1,13 +1,15 @@
-import { Router } from 'express';
+import { Router, type Response as ExpressResponse } from 'express';
 import path from 'path';
+import { Readable } from 'node:stream';
 import crypto from 'crypto';
 import { requireAuth, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { assetRepository } from '../repositories/assetRepository.js';
 import { assetService } from '../services/assetService.js';
 import { ASSET_UPLOAD_LIMITS } from '../../src/config/constants.js';
-import { AssetType } from '../../src/types/index.js';
+import { AssetCategory, AssetType } from '../../src/types/index.js';
 import { legacyImageRecoveryService } from '../services/legacyImageRecoveryService.js';
 import { assetReferenceResolver } from '../services/assetReferenceResolver.js';
+import { hasR2AssetBucket, parseAssetByteRange, publicAssetKeyFromPath, publicAssetUrl, r2AssetStorageService } from '../services/r2AssetStorageService.js';
 
 export const assetRouter = Router();
 
@@ -19,54 +21,96 @@ function classify(mime: string, filename: string): AssetType {
   return 'IMAGE';
 }
 
-function storageConfig() {
-  const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/+$/, '');
-  const secretKey = String(process.env.SUPABASE_SECRET_KEY || '').trim();
-  const bucket = String(process.env.SUPABASE_BUCKET || 'ia-conect-assets').trim();
-  if (!supabaseUrl || !secretKey || !bucket) throw new Error('SUPABASE_NOT_CONFIGURED');
-  return { supabaseUrl, secretKey, bucket };
+function uploadTarget(assetId:string,kind:'original'|'thumbnail',storagePath:string){
+  return{
+    storage_path:storagePath,
+    upload_url:`/api/assets/${encodeURIComponent(assetId)}/content?kind=${kind}`,
+    public_url:publicAssetUrl(storagePath),
+  };
 }
 
-function encodedStoragePath(storagePath:string) {
-  return storagePath.split('/').map(encodeURIComponent).join('/');
-}
-
-function publicStorageUrl(supabaseUrl:string,bucket:string,storagePath:string) {
-  return `${supabaseUrl}/storage/v1/object/public/${encodeURIComponent(bucket)}/${encodedStoragePath(storagePath)}`;
-}
-
-async function signUploadPath(config:ReturnType<typeof storageConfig>,storagePath:string) {
-  const encodedBucket = encodeURIComponent(config.bucket);
-  const encodedPath = encodedStoragePath(storagePath);
-  const response = await fetch(`${config.supabaseUrl}/storage/v1/object/upload/sign/${encodedBucket}/${encodedPath}`, {
-    method:'POST',
-    headers:{Authorization:`Bearer ${config.secretKey}`,apikey:config.secretKey,'Content-Type':'application/json'},
-    body:'{}',
+async function reserveAssetUpload(params:{userId:string;filename:string;name?:string;alias?:string;category?:AssetCategory;mime:string;size:number}){
+  if(!hasR2AssetBucket())throw Object.assign(new Error('Cloudflare R2 não está configurado.'),{code:'ASSET_STORAGE_UNAVAILABLE'});
+  const validation=assetService.validateUpload({mime_type:params.mime,size_bytes:params.size,filename:params.filename});
+  const assetId=`ast_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  const safeExt=String(validation.extension||'bin').replace(/[^a-zA-Z0-9]/g,'').toLowerCase()||'bin';
+  const storagePath=`users/${params.userId}/assets/${assetId}/original.${safeExt}`;
+  const thumbnailStoragePath=validation.type==='IMAGE'?`users/${params.userId}/assets/${assetId}/thumbnail.webp`:undefined;
+  const asset=await assetService.reserveUpload({
+    userId:params.userId,
+    assetId,
+    name:params.name||params.filename,
+    alias:params.alias,
+    category:params.category,
+    mime_type:params.mime,
+    size_bytes:params.size,
+    filename:params.filename,
+    storage_path:storagePath,
+    thumbnail_storage_path:thumbnailStoragePath,
+    public_url:publicAssetUrl(storagePath),
+    thumbnail_url:thumbnailStoragePath?publicAssetUrl(thumbnailStoragePath):publicAssetUrl(storagePath),
   });
-  const responseText = await response.text();
-  let signedData:any = {};
-  try { signedData = JSON.parse(responseText); } catch {}
-  if (!response.ok) {
-    console.error('[SupabaseSignedUpload]', response.status, responseText);
-    throw new Error('SUPABASE_SIGN_FAILED');
-  }
-  const relativeUrl = String(signedData?.url || '');
-  if (!relativeUrl) throw new Error('SUPABASE_INVALID_RESPONSE');
-  const signedUrl = relativeUrl.startsWith('http') ? relativeUrl : `${config.supabaseUrl}/storage/v1${relativeUrl}`;
-  let token = '';
-  try { token = new URL(signedUrl).searchParams.get('token') || ''; } catch {}
-  return { signed_url:signedUrl, token };
+  return{
+    asset,
+    original:uploadTarget(assetId,'original',storagePath),
+    thumbnail:thumbnailStoragePath?uploadTarget(assetId,'thumbnail',thumbnailStoragePath):null,
+    bucket:'ia-conect-assets',
+  };
 }
 
-async function publicObjectExists(url:string) {
-  for (let attempt=0; attempt<2; attempt++) {
-    try {
-      const response = await fetch(url, { method:'HEAD', redirect:'follow' });
-      if (response.ok) return true;
-    } catch {}
-    if (attempt === 0) await new Promise((resolve)=>setTimeout(resolve,150));
+async function pipeWebStreamToResponse(stream:ReadableStream<Uint8Array>,res:ExpressResponse){
+  await stream.pipeTo(new WritableStream<Uint8Array>({
+    async write(chunk){
+      if(res.destroyed)throw new Error('CLIENT_DISCONNECTED');
+      if(res.write(Buffer.from(chunk)))return;
+      await new Promise<void>((resolve,reject)=>{
+        const onDrain=()=>{cleanup();resolve();};
+        const onError=(error:Error)=>{cleanup();reject(error);};
+        const cleanup=()=>{res.off('drain',onDrain);res.off('error',onError);};
+        res.once('drain',onDrain);
+        res.once('error',onError);
+      });
+    },
+    close(){res.end();},
+    abort(reason){if(!res.destroyed)res.destroy(reason instanceof Error?reason:undefined);},
+  }));
+}
+
+async function publicMediaResponse(req:AuthenticatedRequest,res:ExpressResponse){
+  const key=publicAssetKeyFromPath(req.originalUrl.split('?')[0]);
+  if(!key)return res.status(404).end();
+  try{
+    const metadata=await r2AssetStorageService.head(key);
+    if(!metadata)return res.status(404).end();
+    const headers=new Headers();
+    metadata.writeHttpMetadata(headers);
+    headers.set('etag',metadata.httpEtag);
+    headers.set('content-length',String(metadata.size));
+    headers.set('accept-ranges','bytes');
+    headers.set('x-content-type-options','nosniff');
+    if(!headers.has('cache-control'))headers.set('cache-control','public, max-age=31536000, immutable');
+    if(req.method==='HEAD')return res.status(200).set(Object.fromEntries(headers)).end();
+    const range=parseAssetByteRange(req.get('range')||null,metadata.size);
+    if(range==='UNSATISFIABLE'){
+      headers.set('content-range',`bytes */${metadata.size}`);
+      headers.set('content-length','0');
+      return res.status(416).set(Object.fromEntries(headers)).end();
+    }
+    const object=await r2AssetStorageService.get(key,range||undefined);
+    if(!object)return res.status(404).end();
+    object.writeHttpMetadata(headers);
+    headers.set('etag',object.httpEtag);
+    headers.set('content-length',String(range?range.length:metadata.size));
+    if(range)headers.set('content-range',range.contentRange);
+    if(!headers.has('cache-control'))headers.set('cache-control','public, max-age=31536000, immutable');
+    res.status(range?206:200).set(Object.fromEntries(headers));
+    await pipeWebStreamToResponse(object.body,res);
+    return undefined;
+  }catch(error:any){
+    console.error('[R2AssetReadFailed]',JSON.stringify({code:String(error?.code||'R2_READ_FAILED')}));
+    if(res.headersSent){res.destroy();return undefined;}
+    return res.status(503).json({success:false,error:{code:'ASSET_STORAGE_UNAVAILABLE',reason_code:String(error?.code||'R2_READ_FAILED'),message:'O arquivo não pôde ser lido do armazenamento.'}});
   }
-  return false;
 }
 
 assetRouter.post('/assets/upload-ticket', requireAuth, async (req:AuthenticatedRequest,res) => {
@@ -81,62 +125,68 @@ assetRouter.post('/assets/upload-ticket', requireAuth, async (req:AuthenticatedR
 
     if (!size || size<=0) return res.status(400).json({success:false,error:{code:'EMPTY_FILE',message:'Arquivo vazio ou inválido.'}});
 
-    const validation=assetService.validateUpload({mime_type:mime,size_bytes:size,filename});
-    const config=storageConfig();
-    const assetId=`ast_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-    const safeExt=String(validation.extension||'bin').replace(/[^a-zA-Z0-9]/g,'').toLowerCase()||'bin';
-    const storagePath=`users/${uid}/assets/${assetId}/original.${safeExt}`;
-    const thumbnailStoragePath=validation.type==='IMAGE'?`users/${uid}/assets/${assetId}/thumbnail.webp`:undefined;
-
-    const [originalSigned,thumbnailSigned]=await Promise.all([
-      signUploadPath(config,storagePath),
-      thumbnailStoragePath?signUploadPath(config,thumbnailStoragePath):Promise.resolve(null),
-    ]);
-
-    const publicUrl=publicStorageUrl(config.supabaseUrl,config.bucket,storagePath);
-    const thumbnailUrl=thumbnailStoragePath?publicStorageUrl(config.supabaseUrl,config.bucket,thumbnailStoragePath):publicUrl;
-    const asset=await assetService.reserveUpload({
-      userId:uid,
-      assetId,
-      name,
-      alias,
-      category,
-      mime_type:mime,
-      size_bytes:size,
-      filename,
-      storage_path:storagePath,
-      thumbnail_storage_path:thumbnailStoragePath,
-      public_url:publicUrl,
-      thumbnail_url:thumbnailUrl,
-    });
-
-    return res.json({success:true,data:{
-      asset,
-      original:{storage_path:storagePath,public_url:publicUrl,...originalSigned},
-      thumbnail:thumbnailStoragePath&&thumbnailSigned?{storage_path:thumbnailStoragePath,public_url:thumbnailUrl,...thumbnailSigned}:null,
-      bucket:config.bucket,
-    }});
+    const data=await reserveAssetUpload({userId:uid,filename,name,alias,category,mime,size});
+    return res.json({success:true,data});
   } catch (err:any) {
-    const message=String(err?.message||err);
-    if (message==='SUPABASE_NOT_CONFIGURED') return res.status(503).json({success:false,error:{code:'SUPABASE_NOT_CONFIGURED',message:'Armazenamento temporariamente indisponível.'}});
-    if (message==='SUPABASE_SIGN_FAILED'||message==='SUPABASE_INVALID_RESPONSE') return res.status(502).json({success:false,error:{code:message,message:'Não foi possível preparar o envio agora.'}});
-    if (/excede|não suportado/i.test(message)) return res.status(400).json({success:false,error:{code:'UPLOAD_VALIDATION_ERROR',message}});
-    console.error('[UploadTicket]',message);
-    return res.status(500).json({success:false,error:{code:'UPLOAD_TICKET_FAILED',message:'Não foi possível preparar o envio.'}});
+    const code=String(err?.code||(/excede|não suportado/i.test(String(err?.message||''))?'UPLOAD_VALIDATION_ERROR':'UPLOAD_TICKET_FAILED'));
+    const status=code==='ASSET_STORAGE_UNAVAILABLE'?503:code==='UPLOAD_VALIDATION_ERROR'?400:502;
+    console.error('[UploadTicketFailed]',JSON.stringify({code,status}));
+    return res.status(status).json({success:false,error:{code,message:code==='ASSET_STORAGE_UNAVAILABLE'?'O armazenamento de arquivos está indisponível.':String(err?.message||'Não foi possível preparar o envio.')}});
   }
 });
+
+assetRouter.put('/assets/:assetId/content', requireAuth, async (req:AuthenticatedRequest,res) => {
+  const uid=req.user!.uid;
+  const assetId=String(req.params.assetId||'');
+  const kind=String(req.query.kind||'original');
+  try{
+    if(!hasR2AssetBucket())return res.status(503).json({success:false,error:{code:'ASSET_STORAGE_UNAVAILABLE',message:'O armazenamento de arquivos está indisponível.'}});
+    if(kind!=='original'&&kind!=='thumbnail')return res.status(400).json({success:false,error:{code:'UPLOAD_PART_INVALID',message:'Parte do upload inválida.'}});
+    const asset=await assetRepository.getAsset(assetId,uid);
+    if(!asset)return res.status(404).json({success:false,error:{code:'ASSET_NOT_FOUND',message:'Arquivo não encontrado.'}});
+    if(asset.status!=='UPLOADING')return res.status(409).json({success:false,error:{code:'INVALID_UPLOAD_STATE',message:'O arquivo não está em envio.'}});
+    const storagePath=kind==='thumbnail'?asset.thumbnail_storage_path:asset.storage_path;
+    if(!storagePath||kind==='thumbnail'&&asset.type!=='IMAGE')return res.status(400).json({success:false,error:{code:'UPLOAD_PART_INVALID',message:'Parte do upload inválida.'}});
+    const maxBytes=kind==='thumbnail'?5*1024*1024:ASSET_UPLOAD_LIMITS[asset.type].max_bytes;
+    const expectedMime=(kind==='thumbnail'?'image/webp':asset.mime_type||'application/octet-stream').split(';')[0].toLowerCase();
+    const requestMime=String(req.get('content-type')||'application/octet-stream').split(';')[0].toLowerCase();
+    if(requestMime!=='application/octet-stream'&&requestMime!==expectedMime)return res.status(415).json({success:false,error:{code:'UPLOAD_MIME_MISMATCH',message:'O tipo do arquivo enviado não corresponde ao arquivo reservado.'}});
+    const contentLength=Number(req.get('content-length')||0);
+    if(!Number.isSafeInteger(contentLength)||contentLength<=0||contentLength>maxBytes)return res.status(contentLength>maxBytes?413:400).json({success:false,error:{code:contentLength>maxBytes?'FILE_TOO_LARGE':'EMPTY_FILE',message:'Tamanho do arquivo inválido.'}});
+    if(kind==='original'&&contentLength!==asset.size_bytes)return res.status(400).json({success:false,error:{code:'UPLOAD_SIZE_MISMATCH',message:'O tamanho do arquivo não corresponde ao ticket de envio.'}});
+    const stored=await r2AssetStorageService.putUploadedStream({
+      storagePath,
+      stream:Readable.toWeb(req),
+      mimeType:expectedMime,
+      expectedBytes:contentLength,
+      maxBytes,
+    });
+    return res.json({success:true,data:{storage_path:stored.storage_path,size_bytes:stored.size_bytes}});
+  }catch(error:any){
+    const code=String(error?.code||'R2_UPLOAD_FAILED');
+    const status=code==='ASSET_STORAGE_UNAVAILABLE'?503:code==='ASSET_ARCHIVE_TOO_LARGE'?413:code==='ASSET_UPLOAD_SIZE_MISMATCH'?400:502;
+    console.error('[R2AssetUploadFailed]',JSON.stringify({asset_id:assetId,kind,code,status}));
+    return res.status(status).json({success:false,error:{code,message:code==='ASSET_STORAGE_UNAVAILABLE'?'O armazenamento de arquivos está indisponível.':'O arquivo não foi confirmado no armazenamento; tente novamente.'}});
+  }
+});
+
+assetRouter.get('/assets/media/*', (req:AuthenticatedRequest,res)=>publicMediaResponse(req,res));
+assetRouter.head('/assets/media/*', (req:AuthenticatedRequest,res)=>publicMediaResponse(req,res));
 
 assetRouter.post('/assets/:assetId/complete', requireAuth, async (req:AuthenticatedRequest,res) => {
   const uid=req.user!.uid;
   try {
     const asset=await assetRepository.getAsset(req.params.assetId,uid);
     if(!asset)return res.status(404).json({success:false,error:{code:'ASSET_NOT_FOUND',message:'Arquivo não encontrado.'}});
-    if(asset.status==='READY')return res.json({success:true,data:asset});
+    if(asset.status==='READY'){
+      if(await r2AssetStorageService.exists(asset.storage_path))return res.json({success:true,data:asset});
+      return res.status(409).json({success:false,error:{code:'ASSET_STORAGE_OBJECT_MISSING',message:'O registro existe, mas o arquivo não está disponível no armazenamento.'}});
+    }
     if(asset.status!=='UPLOADING')return res.status(409).json({success:false,error:{code:'INVALID_UPLOAD_STATE',message:'O arquivo não está em envio.'}});
 
     const [originalReady,thumbnailReady]=await Promise.all([
-      asset.public_url?publicObjectExists(asset.public_url):Promise.resolve(false),
-      asset.type==='IMAGE'?(asset.thumbnail_url?publicObjectExists(asset.thumbnail_url):Promise.resolve(false)):Promise.resolve(true),
+      r2AssetStorageService.exists(asset.storage_path),
+      asset.thumbnail_storage_path?r2AssetStorageService.exists(asset.thumbnail_storage_path):Promise.resolve(true),
     ]);
     if(!originalReady||!thumbnailReady){
       return res.status(409).json({success:false,error:{code:'UPLOAD_NOT_VISIBLE',message:'O armazenamento ainda não confirmou todos os arquivos enviados.'}});
@@ -151,8 +201,9 @@ assetRouter.post('/assets/:assetId/complete', requireAuth, async (req:Authentica
     });
     return res.json({success:true,data:completed});
   } catch(err:any){
-    console.error('[CompleteUpload]',err?.message||err);
-    return res.status(400).json({success:false,error:{code:'UPLOAD_COMPLETE_FAILED',message:err?.message||'Não foi possível finalizar o envio.'}});
+    const code=String(err?.code||'UPLOAD_COMPLETE_FAILED');
+    console.error('[CompleteUploadFailed]',JSON.stringify({code}));
+    return res.status(code==='ASSET_STORAGE_UNAVAILABLE'?503:502).json({success:false,error:{code,message:'Não foi possível confirmar o arquivo no armazenamento.'}});
   }
 });
 
@@ -171,18 +222,12 @@ assetRouter.post('/assets/signed-upload', requireAuth, async (req: Authenticated
       return res.status(413).json({success:false,error:{code:'FILE_TOO_LARGE',message:'O arquivo excede o limite máximo permitido.'}});
     }
 
-    const config=storageConfig();
-    const assetId = `ast_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-    const ext = path.extname(filename).replace(/[^.a-zA-Z0-9]/g, '').toLowerCase();
-    const storagePath = `users/${uid}/assets/${assetId}/original${ext}`;
-    const signed=await signUploadPath(config,storagePath);
-    const publicUrl=publicStorageUrl(config.supabaseUrl,config.bucket,storagePath);
-
-    return res.json({success:true,data:{asset_id:assetId,type,storage_path:storagePath,...signed,public_url:publicUrl,bucket:config.bucket}});
+    const data=await reserveAssetUpload({userId:uid,filename,name:filename,mime,size});
+    return res.json({success:true,data:{asset_id:data.asset.asset_id,type,storage_path:data.original.storage_path,signed_url:data.original.upload_url,upload_url:data.original.upload_url,public_url:data.original.public_url,bucket:data.bucket}});
   } catch (err:any) {
-    console.error('[SupabaseSignedUpload]', err?.message || err);
-    const code=err?.message==='SUPABASE_NOT_CONFIGURED'?'SUPABASE_NOT_CONFIGURED':'SIGNED_UPLOAD_FAILED';
-    const status=code==='SUPABASE_NOT_CONFIGURED'?503:500;
+    const code=String(err?.code||'SIGNED_UPLOAD_FAILED');
+    console.error('[LegacyUploadTicketFailed]',JSON.stringify({code}));
+    const status=code==='ASSET_STORAGE_UNAVAILABLE'?503:400;
     return res.status(status).json({success:false,error:{code,message:'Não foi possível preparar o upload.'}});
   }
 });
@@ -190,16 +235,18 @@ assetRouter.post('/assets/signed-upload', requireAuth, async (req: Authenticated
 assetRouter.post('/assets/recover-generated', requireAuth, async (req:AuthenticatedRequest,res) => {
   try{
     const storage=await assetReferenceResolver.runStorageDiagnostic();
-    if(!storage.is_configured||storage.signed_url_test!=='PASS'){
-      return res.status(503).json({success:false,error:{code:'ASSET_STORAGE_UNAVAILABLE',message:'A recuperação está pausada até o armazenamento confirmar leitura. Nenhum registro foi alterado.'}});
+    if(!storage.is_configured||storage.read_test!=='PASS'){
+      return res.status(503).json({success:false,error:{code:'ASSET_STORAGE_UNAVAILABLE',message:'A recuperação está pausada até o armazenamento confirmar gravação e leitura. Nenhum registro foi alterado.',details:{storage}}});
     }
     const cursor=Math.max(0,Math.floor(Number(req.body?.cursor)||0));
     const limit=Math.min(5,Math.max(1,Math.floor(Number(req.body?.limit)||3)));
     const data=await legacyImageRecoveryService.runBatch({userId:req.user!.uid,cursor,limit});
     return res.json({success:true,data});
   }catch(err:any){
-    console.error('[RecoverGeneratedAssets]',err?.message||err);
-    return res.status(500).json({success:false,error:{code:'GENERATED_ASSET_RECOVERY_FAILED',message:'Não foi possível recuperar o histórico de imagens agora.'}});
+    const code=String(err?.code||'GENERATED_ASSET_RECOVERY_FAILED');
+    const httpStatus=Number(err?.status);
+    console.error('[RecoverGeneratedAssets]',JSON.stringify({code,...(Number.isInteger(httpStatus)?{http_status:httpStatus}:{})}));
+    return res.status(500).json({success:false,error:{code:'GENERATED_ASSET_RECOVERY_FAILED',reason_code:code,...(Number.isInteger(httpStatus)?{http_status:httpStatus}:{}),message:'Não foi possível recuperar o histórico de imagens agora.'}});
   }
 });
 
